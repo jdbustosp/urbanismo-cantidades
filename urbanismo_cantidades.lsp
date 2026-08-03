@@ -6639,11 +6639,106 @@
     (setq state "SIN_SUPERFICIE"))
   (mp:alist-set values "ESTADO_COTA_TN" state))
 
-(defun mp:default-trench-width (base vals / diameter ducts columns width minimum)
+;; Tabla literal de la hoja "Anchos Exc. PVC (Ent)" del presupuesto de redes
+;; (tuberia NOVAFORT/NOVALOC, alcantarillado). Se copian los anchos ya
+;; calculados en Excel -no se reconstruye la formula de holguras variables
+;; por rango de diametro- para no arriesgar un error de traduccion; si el
+;; Excel cambia, esta tabla se debe resincronizar a mano.
+;; Cada entrada: diametro-nominal-en-pulgadas . anchos-por-rango-de-profundidad
+;; Rangos de profundidad, columnas H..Q del Excel, en metros: hasta 1.5,
+;; hasta 2.5, hasta 3.5, hasta 4.5, hasta 5.5, hasta 6.5, hasta 7.5,
+;; hasta 8.5, hasta 9.5, hasta 10.5 (y mas alla de 10.5 usa la ultima).
+(setq *mp-pvc-trench-width-table*
+  '((4 . (0.90 1.00 1.10 1.20 1.20 1.20 1.20 1.20 1.20 1.20))
+    (6 . (0.90 1.00 1.10 1.20 1.20 1.20 1.20 1.20 1.20 1.20))
+    (8 . (0.90 1.00 1.10 1.20 1.20 1.20 1.20 1.20 1.20 1.20))
+    (10 . (0.90 1.00 1.10 1.20 1.20 1.20 1.20 1.20 1.20 1.20))
+    (12 . (0.90 1.00 1.10 1.20 1.20 1.20 1.20 1.20 1.20 1.20))
+    (14 . (0.95 1.00 1.10 1.20 1.20 1.20 1.20 1.20 1.20 1.20))
+    (16 . (1.15 1.15 1.25 1.25 1.25 1.25 1.25 1.25 1.25 1.25))
+    (18 . (1.20 1.20 1.30 1.30 1.30 1.30 1.30 1.30 1.30 1.30))
+    (20 . (1.25 1.25 1.35 1.35 1.35 1.35 1.35 1.35 1.35 1.35))
+    (24 . (1.40 1.40 1.50 1.50 1.50 1.50 1.50 1.50 1.50 1.50))
+    (27 . (1.45 1.45 1.55 1.55 1.55 1.55 1.55 1.55 1.55 1.55))
+    (30 . (1.70 1.70 1.80 1.80 1.80 1.80 1.80 1.80 1.80 1.80))
+    (33 . (1.75 1.75 1.85 1.85 1.85 1.85 1.85 1.85 1.85 1.85))
+    (36 . (1.85 1.85 1.95 1.95 1.95 1.95 1.95 1.95 1.95 1.95))
+    (39 . (1.95 1.95 2.05 2.05 2.05 2.05 2.05 2.05 2.05 2.05))
+    (42 . (2.00 2.00 2.10 2.10 2.10 2.10 2.10 2.10 2.10 2.10))
+    (45 . (2.10 2.10 2.20 2.20 2.20 2.20 2.20 2.20 2.20 2.20))
+    (48 . (2.15 2.15 2.25 2.25 2.25 2.25 2.25 2.25 2.25 2.25))
+    (51 . (2.40 2.40 2.50 2.50 2.50 2.50 2.50 2.50 2.50 2.50))
+    (54 . (2.45 2.45 2.55 2.55 2.55 2.55 2.55 2.55 2.55 2.55))
+    (57 . (2.55 2.55 2.65 2.65 2.65 2.65 2.65 2.65 2.65 2.65))
+    (60 . (2.60 2.60 2.70 2.70 2.70 2.70 2.70 2.70 2.70 2.70))))
+
+(defun mp:trench-width-bracket-index (depth)
+  (cond
+    ((<= depth 1.5) 0) ((<= depth 2.5) 1) ((<= depth 3.5) 2)
+    ((<= depth 4.5) 3) ((<= depth 5.5) 4) ((<= depth 6.5) 5)
+    ((<= depth 7.5) 6) ((<= depth 8.5) 7) ((<= depth 9.5) 8)
+    (T 9)))
+
+(defun mp:pvc-trench-width (diameter-in depth / entry)
+  (setq entry (assoc (fix (+ diameter-in 0.5)) *mp-pvc-trench-width-table*))
+  (if entry
+    (nth
+      (mp:trench-width-bracket-index (max 0.0 (mp:number-or depth 0.0)))
+      (cdr entry))
+    nil))
+
+(defun mp:max-nonnil (values / result v)
+  (foreach v values
+    (if (and v (or (null result) (> v result))) (setq result v)))
+  result)
+
+(defun mp:tramo-depth-profile
+  (surface p1 p2 key-ini key-fin diameter-m bedding n
+   / i frac x y terrain key depth depths max-depth)
+  ;; Muestrea la superficie a lo largo del tramo (no solo los 2 pozos) porque
+  ;; el terreno entre pozos puede no ser perfectamente lineal; con esto el
+  ;; ancho de zanja y el volumen de excavacion usan la profundidad real, no
+  ;; un promedio que podria subestimar una loma intermedia.
+  (setq depths nil max-depth nil i 0)
+  (if (and surface p1 p2 key-ini key-fin (> n 1))
+    (repeat (1+ n)
+      (setq frac (/ (float i) (float n))
+            x (+ (car p1) (* frac (- (car p2) (car p1))))
+            y (+ (cadr p1) (* frac (- (cadr p2) (cadr p1))))
+            terrain (mp:terrain-elevation-at-point surface (list x y))
+            key (+ key-ini (* frac (- key-fin key-ini))))
+      (if terrain
+        (setq depth (+ (- terrain key) diameter-m bedding)
+              depths (cons depth depths)
+              max-depth (if max-depth (max max-depth depth) depth)))
+      (setq i (1+ i))))
+  (list (reverse depths) max-depth))
+
+(defun mp:integrate-trench-volume (depths length width / n seg-length i vol)
+  (setq n (length depths))
+  (if (or (< n 2) (<= length 1e-9))
+    0.0
+    (progn
+      (setq seg-length (/ length (float (1- n))) vol 0.0 i 0)
+      (repeat (1- n)
+        (setq vol
+          (+ vol
+            (* width seg-length
+              (/ (+ (nth i depths) (nth (1+ i) depths)) 2.0))))
+        (setq i (1+ i)))
+      vol)))
+
+(defun mp:default-trench-width
+  (base vals depth / diameter ducts columns width minimum diameter-in table-width)
   (if (mp:hydro-tramo-p base)
     (progn
-      (setq diameter (* 0.0254 (mp:number-or (mp:getval "DIAMETRO" vals "0") 0.0)))
-      (max 0.60 (+ diameter 0.40)))
+      (setq diameter-in (mp:number-or (mp:getval "DIAMETRO" vals "0") 0.0)
+            diameter (* 0.0254 diameter-in)
+            table-width
+              (if (and (mp:gravity-tramo-p base) depth)
+                (mp:pvc-trench-width diameter-in depth)
+                nil))
+      (if table-width table-width (max 0.60 (+ diameter 0.40))))
     (progn
       (setq diameter (* 0.0254 (mp:number-or (mp:getval "DIAM_DUCTO" vals "0") 0.0))
             ducts (max 1.0 (mp:number-or (mp:getval "DUCTOS" vals "1") 1.0))
@@ -6661,7 +6756,7 @@
    free-ducts depth depth-ini depth-fin conductor width bedding endpoint
    endpoint-base actual-type id-ini id-fin diameter-number duct-diameter
    duct-material type-red link-data minimum-width tn-ini tn-fin key-ini key-fin
-   terrain-state)
+   terrain-state check-depth)
   (setq stage (mp:getval "ETAPA" vals "")
         substage (mp:getval "SUBETAPA" vals "")
         length-value (mp:number-or (mp:getval "LONGITUD" vals "0") 0.0)
@@ -6736,7 +6831,11 @@
     (setq messages (cons "Los dos extremos apuntan al mismo elemento" messages)))
   (if (<= width 1e-9)
     (setq messages (cons "Falta el ancho de zanja" messages)))
-  (setq minimum-width (mp:default-trench-width base vals))
+  ;; PROFUNDIDAD_MEDIA ya viene calculada en vals (mp:derive-tramo-values la
+  ;; llena antes de validar); se usa para elegir el rango correcto de la
+  ;; tabla de anchos en vez de asumir el rango mas superficial.
+  (setq check-depth (mp:numeric-real (mp:getval "PROFUNDIDAD_MEDIA" vals "")))
+  (setq minimum-width (mp:default-trench-width base vals check-depth))
   (if (< width (- minimum-width 1e-6))
     (setq messages
       (cons
@@ -6823,10 +6922,12 @@
 
 (defun mp:derive-tramo-values
   (base p1 p2 vals
-   / length-2d length-3d length-value mode diameter-m ducts width bedding
-   replacement-raw replacement-width tn-ini tn-fin key-ini key-fin cover-ini cover-fin
-   depth-ini depth-fin depth-mean slope-calculated entered-slope excavation
-   bedding-volume element-volume fill surplus replacement duct-diameter)
+   / length-2d length-3d length-value mode diameter-m diameter-in ducts width
+   bedding replacement-raw replacement-width tn-ini tn-fin key-ini key-fin
+   cover-ini cover-fin depth-ini depth-fin depth-mean slope-calculated
+   entered-slope excavation bedding-volume element-volume fill surplus
+   replacement duct-diameter surface depth-profile depths max-depth-sampled
+   critical-depth)
   (setq length-2d (if (and p1 p2) (mp:distance-2d p1 p2)
                     (mp:number-or (mp:getval "LONGITUD_2D" vals
                       (mp:getval "LONGITUD" vals "0")) 0.0))
@@ -6837,25 +6938,10 @@
         length-value length-2d
         bedding (max 0.0 (mp:number-or (mp:getval "ESPESOR_CAMA" vals "0.10") 0.10))
         width (mp:number-or (mp:getval "ANCHO_ZANJA" vals "") 0.0))
-  (if (<= width 1e-9) (setq width (mp:default-trench-width base vals)))
-  ;; Vacio hereda el ancho de zanja; cero explicito significa que no hay
-  ;; reposicion superficial (por ejemplo, excavacion en zona verde).
-  (setq replacement-raw (mp:getval "ANCHO_REPOSICION" vals "")
-        replacement-width
-          (if (= (vl-string-trim " " replacement-raw) "")
-            width
-            (max 0.0 (mp:number-or replacement-raw 0.0))))
-  (setq vals (mp:alist-set vals "LONGITUD" (rtos length-value 2 2))
-        vals (mp:alist-set vals "LONGITUD_2D" (rtos length-2d 2 2))
-        vals (mp:alist-set vals "LONGITUD_3D" (rtos length-3d 2 2))
-        vals (mp:alist-set vals "MODO_LONGITUD" mode)
-        vals (mp:alist-set vals "ANCHO_ZANJA" (rtos width 2 2))
-        vals (mp:alist-set vals "ESPESOR_CAMA" (rtos bedding 2 2))
-        vals (mp:alist-set vals "ANCHO_REPOSICION" (rtos replacement-width 2 2)))
   (if (mp:hydro-tramo-p base)
     (progn
-      (setq diameter-m
-        (* 0.0254 (mp:number-or (mp:getval "DIAMETRO" vals "0") 0.0))
+      (setq diameter-in (mp:number-or (mp:getval "DIAMETRO" vals "0") 0.0)
+            diameter-m (* 0.0254 diameter-in)
             tn-ini (mp:numeric-real (mp:getval "COTA_TN_INI" vals ""))
             tn-fin (mp:numeric-real (mp:getval "COTA_TN_FIN" vals ""))
             key-ini (mp:numeric-real (mp:getval "COTA_CLAVE_INI" vals ""))
@@ -6872,6 +6958,21 @@
           (depth-ini depth-ini)
           (depth-fin depth-fin)
           (T 0.0)))
+      ;; Muestreo de superficie a lo largo del tramo (no solo los 2 pozos):
+      ;; la superficie de terreno ya existe en el dibujo, asi que se usa un
+      ;; perfil real de profundidad en vez de solo el promedio de extremos,
+      ;; que podria subestimar una loma o vaguada intermedia.
+      (if (mp:gravity-tramo-p base)
+        (progn
+          (setq surface (mp:current-terrain-surface))
+          (setq depth-profile
+            (if (and surface p1 p2 key-ini key-fin)
+              (mp:tramo-depth-profile surface p1 p2 key-ini key-fin
+                diameter-m bedding 10)
+              (list nil nil)))
+          (setq depths (car depth-profile)
+                max-depth-sampled (cadr depth-profile))))
+      (setq critical-depth (mp:max-nonnil (list depth-ini depth-fin max-depth-sampled)))
       (if (and key-ini key-fin (> length-2d 1e-9))
         (setq slope-calculated (* 100.0 (/ (- key-ini key-fin) length-2d))))
       (setq entered-slope (mp:numeric-real (mp:getval "PENDIENTE" vals "")))
@@ -6885,7 +6986,9 @@
                    (if (> depth-mean 0.0) (rtos depth-mean 2 3) ""))
             vals (mp:alist-set vals "PENDIENTE_CALCULADA"
                    (if slope-calculated (rtos slope-calculated 2 3) ""))
-            element-volume (* pi 0.25 diameter-m diameter-m length-value)))
+            element-volume (* pi 0.25 diameter-m diameter-m length-value))
+      (if (<= width 1e-9)
+        (setq width (mp:default-trench-width base vals critical-depth))))
     (progn
       (setq depth-mean
         (max 0.0 (mp:number-or (mp:getval "PROFUNDIDAD" vals "0") 0.0))
@@ -6902,10 +7005,29 @@
                    (if (> depth-mean 0.0) (rtos depth-mean 2 3) ""))
             vals (mp:alist-set vals "PROFUNDIDAD_MEDIA"
                    (if (> depth-mean 0.0) (rtos depth-mean 2 3) ""))
-            vals (mp:alist-set vals "PENDIENTE_CALCULADA" ""))))
+            vals (mp:alist-set vals "PENDIENTE_CALCULADA" ""))
+      (if (<= width 1e-9) (setq width (mp:default-trench-width base vals nil)))))
+  ;; Vacio hereda el ancho de zanja; cero explicito significa que no hay
+  ;; reposicion superficial (por ejemplo, excavacion en zona verde).
+  (setq replacement-raw (mp:getval "ANCHO_REPOSICION" vals "")
+        replacement-width
+          (if (= (vl-string-trim " " replacement-raw) "")
+            width
+            (max 0.0 (mp:number-or replacement-raw 0.0))))
+  (setq vals (mp:alist-set vals "LONGITUD" (rtos length-value 2 2))
+        vals (mp:alist-set vals "LONGITUD_2D" (rtos length-2d 2 2))
+        vals (mp:alist-set vals "LONGITUD_3D" (rtos length-3d 2 2))
+        vals (mp:alist-set vals "MODO_LONGITUD" mode)
+        vals (mp:alist-set vals "ANCHO_ZANJA" (rtos width 2 2))
+        vals (mp:alist-set vals "ESPESOR_CAMA" (rtos bedding 2 2))
+        vals (mp:alist-set vals "ANCHO_REPOSICION" (rtos replacement-width 2 2)))
   (if *mp-network-construction-enabled*
-    (setq excavation (if (> depth-mean 0.0)
-                       (* length-value width depth-mean) 0.0)
+    (setq excavation
+            (cond
+              ((and depths (> (length depths) 1))
+                (mp:integrate-trench-volume depths length-value width))
+              ((> depth-mean 0.0) (* length-value width depth-mean))
+              (T 0.0))
           bedding-volume (* length-value width bedding)
           fill (max 0.0 (- excavation bedding-volume element-volume))
           surplus (max 0.0 (- excavation fill))
@@ -6916,7 +7038,8 @@
           vals (mp:alist-set vals "RELLENO_M3" (rtos fill 2 3))
           vals (mp:alist-set vals "SOBRANTE_M3" (rtos surplus 2 3))
           vals (mp:alist-set vals "REPOSICION_M2" (rtos replacement 2 3))
-          vals (mp:alist-set vals "METODO_CANTIDADES" "PRELIMINAR_GEOMETRICO"))
+          vals (mp:alist-set vals "METODO_CANTIDADES"
+                 (if depths "PERFIL_MUESTREADO" "PRELIMINAR_GEOMETRICO")))
     (setq vals (mp:alist-set vals "EXCAVACION_M3" "")
           vals (mp:alist-set vals "CAMA_M3" "")
           vals (mp:alist-set vals "VOLUMEN_ELEMENTO_M3" "")
