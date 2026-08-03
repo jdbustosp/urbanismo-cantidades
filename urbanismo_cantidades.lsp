@@ -267,58 +267,42 @@
     0)
 )
 
-(defun urb:write-anden-dcl (/ filename stream)
-  (setq filename
-    (urb:temp-file "urbanismo_anden" ".dcl"))
+(defun urb:write-dialog-dcl (prefix cache-flag lines / filename stream)
+  ;; Helper generico compartido por write-anden-dcl/write-prefab-dcl/write-green-dcl:
+  ;; cache-flag es un simbolo citado ('*urb-x-dcl-ok*) para leer/escribir el flag
+  ;; de cache de cada dialogo sin duplicar la logica de escritura del .dcl.
+  (setq filename (urb:temp-file prefix ".dcl"))
   (cond
-    ((and *urb-anden-dcl-ok* (findfile filename)) filename)
+    ((and (eval cache-flag) (findfile filename)) filename)
     ((setq stream (open filename "w"))
-      (write-line
-        "urbanismo_anden : dialog { label = \"Datos del anden\";"
-        stream)
-      (write-line
-        ": boxed_column { label = \"Clasificacion\";"
-        stream)
-      (write-line
-        ": popup_list { label = \"Material\"; key = \"material\"; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Formato de loseta\"; key = \"formato\"; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
-        stream)
-      (write-line "}" stream)
-      (write-line
-        ": boxed_column { label = \"Accesibilidad\";"
-        stream)
-      (write-line
-        ": popup_list { label = \"Loseta guia\"; key = \"guia\"; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Loseta toperol\"; key = \"toperol\"; }"
-        stream)
-      (write-line "}" stream)
-      (write-line
-        ": boxed_column { label = \"Movimiento de tierras\";"
-        stream)
-      (write-line
-        ": popup_list { label = \"Calcular\"; key = \"calcular\"; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Superficie TN\"; key = \"superficie\"; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Rasante desde\"; key = \"rasante\"; }"
-        stream)
-      (write-line "} ok_cancel; }" stream)
+      (foreach line lines (write-line line stream))
       (close stream)
-      (setq *urb-anden-dcl-ok* T)
+      (set cache-flag T)
       filename)
     (T nil))
+)
+
+(defun urb:write-anden-dcl ()
+  (urb:write-dialog-dcl
+    "urbanismo_anden"
+    '*urb-anden-dcl-ok*
+    (list
+      "urbanismo_anden : dialog { label = \"Datos del anden\";"
+      ": boxed_column { label = \"Clasificacion\";"
+      ": popup_list { label = \"Material\"; key = \"material\"; }"
+      ": popup_list { label = \"Formato de loseta\"; key = \"formato\"; }"
+      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
+      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+      "}"
+      ": boxed_column { label = \"Accesibilidad\";"
+      ": popup_list { label = \"Loseta guia\"; key = \"guia\"; }"
+      ": popup_list { label = \"Loseta toperol\"; key = \"toperol\"; }"
+      "}"
+      ": boxed_column { label = \"Movimiento de tierras\";"
+      ": popup_list { label = \"Calcular\"; key = \"calcular\"; }"
+      ": popup_list { label = \"Superficie TN\"; key = \"superficie\"; }"
+      ": popup_list { label = \"Rasante desde\"; key = \"rasante\"; }"
+      "} ok_cancel; }"))
 )
 
 (defun urb:dialog-anden
@@ -424,35 +408,18 @@
   result
 )
 
-(defun urb:write-prefab-dcl (/ filename stream)
-  (setq filename
-    (urb:temp-file "urbanismo_prefabricado" ".dcl"))
-  (cond
-    ((and *urb-prefab-dcl-ok* (findfile filename)) filename)
-    ((setq stream (open filename "w"))
-      (write-line
-        "urbanismo_prefabricado : dialog { label = \"Datos del prefabricado\";"
-        stream)
-      (write-line
-        ": popup_list { label = \"Tipo\"; key = \"tipo\"; }"
-        stream)
-      (write-line
-        ": edit_box { label = \"Espesor en metros\"; key = \"espesor\"; edit_width = 12; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Modelado\"; key = \"modo\"; }"
-        stream)
-      (write-line "ok_cancel; }" stream)
-      (close stream)
-      (setq *urb-prefab-dcl-ok* T)
-      filename)
-    (T nil))
+(defun urb:write-prefab-dcl ()
+  (urb:write-dialog-dcl
+    "urbanismo_prefabricado"
+    '*urb-prefab-dcl-ok*
+    (list
+      "urbanismo_prefabricado : dialog { label = \"Datos del prefabricado\";"
+      ": popup_list { label = \"Tipo\"; key = \"tipo\"; }"
+      ": edit_box { label = \"Espesor en metros\"; key = \"espesor\"; edit_width = 12; }"
+      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
+      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+      ": popup_list { label = \"Modelado\"; key = \"modo\"; }"
+      "ok_cancel; }"))
 )
 
 (defun urb:dialog-prefab
@@ -523,37 +490,20 @@
   result
 )
 
-(defun urb:write-green-dcl (/ filename stream)
-  (setq filename
-    (urb:temp-file "urbanismo_zona_verde" ".dcl"))
-  (cond
-    ((and *urb-green-dcl-ok* (findfile filename)) filename)
-    ((setq stream (open filename "w"))
-      (write-line
-        "urbanismo_zona_verde : dialog { label = \"Datos de la zona verde\";"
-        stream)
-      (write-line
-        ": boxed_column { label = \"Clasificacion\";"
-        stream)
-      (write-line
-        ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
-        stream)
-      (write-line
-        ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
-        stream)
-      (write-line "}" stream)
-      (write-line
-        ": boxed_column { label = \"Tierra negra\";"
-        stream)
-      (write-line
-        ": edit_box { label = \"Espesor (m)\"; key = \"espesor\"; edit_width = 12; }"
-        stream)
-      (write-line "}" stream)
-      (write-line "ok_cancel; }" stream)
-      (close stream)
-      (setq *urb-green-dcl-ok* T)
-      filename)
-    (T nil))
+(defun urb:write-green-dcl ()
+  (urb:write-dialog-dcl
+    "urbanismo_zona_verde"
+    '*urb-green-dcl-ok*
+    (list
+      "urbanismo_zona_verde : dialog { label = \"Datos de la zona verde\";"
+      ": boxed_column { label = \"Clasificacion\";"
+      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
+      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+      "}"
+      ": boxed_column { label = \"Tierra negra\";"
+      ": edit_box { label = \"Espesor (m)\"; key = \"espesor\"; edit_width = 12; }"
+      "}"
+      "ok_cancel; }"))
 )
 
 (defun urb:dialog-green
@@ -2203,6 +2153,15 @@
 )
 )
 
+(defun urb:draw-polyline-interactive (old-plinewid)
+  ;; Idioma repetido en varios comandos de dibujo: lanza PLINE interactivo,
+  ;; espera a que el usuario termine (Enter/Esc) y restaura PLINEWID.
+  (vl-cmdf "_.PLINE")
+  (while (> (getvar "CMDACTIVE") 0)
+    (command pause))
+  (setvar "PLINEWID" old-plinewid)
+)
+
 (defun urb:draw-closed-polyline
   (/ before after obj old-plinewid *error*)
   (setq old-plinewid (getvar "PLINEWID"))
@@ -2218,10 +2177,7 @@
     (strcat
       "\nDibuje el contorno del anden. Enter termina y cierra el area."
       " Puede usar OSNAP sobre la arista verde interior del PREFABRICADO."))
-  (vl-cmdf "_.PLINE")
-  (while (> (getvar "CMDACTIVE") 0)
-    (command pause))
-  (setvar "PLINEWID" old-plinewid)
+  (urb:draw-polyline-interactive old-plinewid)
   (setq after (entlast))
   (if (and after (/= after before)
            (= (cdr (assoc 0 (entget after))) "LWPOLYLINE"))
@@ -4067,10 +4023,7 @@
       (setvar "PLINEWID" 0.0)
       (prompt
         "\nDibuje el contorno de la zona verde. Enter termina y cierra el area.")
-      (vl-cmdf "_.PLINE")
-      (while (> (getvar "CMDACTIVE") 0)
-        (command pause))
-      (setvar "PLINEWID" old-plinewid)
+      (urb:draw-polyline-interactive old-plinewid)
       (setq after (entlast))
       (if (and after (/= after before)
                (= (cdr (assoc 0 (entget after))) "LWPOLYLINE"))
@@ -4790,10 +4743,7 @@
     (strcat
       "\nDibuje el recorrido de " label
       ". Enter termina el trazado."))
-  (vl-cmdf "_.PLINE")
-  (while (> (getvar "CMDACTIVE") 0)
-    (command pause))
-  (setvar "PLINEWID" old-plinewid)
+  (urb:draw-polyline-interactive old-plinewid)
   (setq after (entlast))
   (if (and after (/= after before)
            (= (cdr (assoc 0 (entget after))) "LWPOLYLINE"))
@@ -8874,10 +8824,7 @@
   (setvar "PLINEWID" 0.0)
   (prompt message)
   (setq before (entlast))
-  (vl-cmdf "_.PLINE")
-  (while (> (getvar "CMDACTIVE") 0)
-    (command pause))
-  (setvar "PLINEWID" old-plinewid)
+  (urb:draw-polyline-interactive old-plinewid)
   (setq ename (entlast))
   (if (and ename (/= ename before))
     (progn
@@ -13676,151 +13623,6 @@
       (setq state (urb:excel-variant-value result))
       (= state 0)))
 )
-
-(defun urb:export-quantities-excel-legacy
-  (filename / anden via prefab network records controls aggregated
-   anden-rows via-rows prefab-rows hydro-rows electric-rows lighting-rows
-   app-result application workbooks workbook sheets sheet result saved
-   *error*)
-  (defun *error* (message)
-    (if workbook
-      (vl-catch-all-apply 'vlax-invoke-method
-        (list workbook 'Close :vlax-false)))
-    (if application
-      (vl-catch-all-apply 'vlax-invoke-method (list application 'Quit)))
-    (urb:excel-release sheet)
-    (urb:excel-release sheets)
-    (urb:excel-release workbook)
-    (urb:excel-release workbooks)
-    (urb:excel-release application)
-    (if (and message
-             (not (member message '("Function cancelled" "quit / exit abort"))))
-      (prompt (strcat "\nERROR AL EXPORTAR EXCEL: " message)))
-    nil)
-  (setq anden (urb:q-collect-andenes)
-        via (urb:q-collect-vias)
-        prefab (urb:q-collect-prefabricados)
-        network (urb:q-collect-networks)
-        records
-          (append (nth 0 anden) (nth 0 via) (nth 0 prefab) (nth 0 network))
-        controls
-          (append (nth 2 anden) (nth 2 via) (nth 2 prefab) (nth 4 network))
-        anden-rows (nth 1 anden)
-        via-rows (nth 1 via)
-        prefab-rows (nth 1 prefab)
-        hydro-rows (nth 1 network)
-        electric-rows (nth 2 network)
-        lighting-rows (nth 3 network)
-        aggregated (urb:q-aggregate records))
-  (if (null records)
-    (progn
-      (prompt "\nNo se encontraron cantidades cuantificables en el dibujo.")
-      nil)
-    (progn
-      (setq app-result
-        (vl-catch-all-apply 'vlax-create-object (list "Excel.Application")))
-      (if (vl-catch-all-error-p app-result)
-        (progn
-          (prompt
-            (strcat "\nNo fue posible iniciar Microsoft Excel: "
-              (vl-catch-all-error-message app-result)))
-          nil)
-        (progn
-          (setq application app-result)
-          (vlax-put-property application 'Visible :vlax-false)
-          (vlax-put-property application 'DisplayAlerts :vlax-false)
-          (vlax-put-property application 'ScreenUpdating :vlax-false)
-          ;; Excel conserva valores numericos, pero los muestra como 1.234,56.
-          (vlax-put-property application 'DecimalSeparator ",")
-          (vlax-put-property application 'ThousandsSeparator ".")
-          (vlax-put-property application 'UseSystemSeparators :vlax-false)
-          (setq workbooks (vlax-get-property application 'Workbooks))
-          (setq workbook (vlax-invoke-method workbooks 'Add))
-          (setq sheets (vlax-get-property workbook 'Worksheets))
-          (setq sheet (vlax-get-property sheets 'Item 1))
-          (vlax-put-property sheet 'Name "RESUMEN")
-          (urb:excel-write-table application sheet
-            (urb:q-summary-matrix aggregated) '(8 9))
-          (urb:excel-release sheet)
-          (setq sheet (urb:excel-add-sheet sheets "ANDENES"))
-          (urb:excel-write-table application sheet
-            (urb:q-detail-matrix
-              '("HANDLE" "MATERIAL" "ETAPA" "SUBETAPA" "AREA_M2"
-               "PERIMETRO_M" "FORMATO" "GUIA" "TOPEROL" "SUPERFICIE"
-               "RASANTE" "LOSETA_LISA_M2" "LOSETA_LISA_UND" "GUIA_ML"
-               "TOPEROL_ML" "ADOQUIN_M2" "ADOQUIN_UND" "CORTE_M3"
-               "RELLENO_M3" "COBERTURA" "VIA_ID" "VIA_NOMBRE" "ESTADO")
-              anden-rows)
-            '(5 6 12 13 14 15 16 17 18 19))
-          (urb:excel-format-column sheet 20 (1+ (length anden-rows)) "0,0%")
-          (urb:excel-release sheet)
-          (setq sheet (urb:excel-add-sheet sheets "VIAS"))
-          (urb:excel-write-table application sheet
-            (urb:q-detail-matrix
-              '("HANDLE" "VIA_ID" "NOMBRE" "ETAPA" "SUBETAPA" "PERFIL"
-                "SUPERFICIE" "AREA_M2" "LONGITUD_M" "ANCHO_MEDIO_M"
-                "ABSCISA_INICIAL" "ESTADO" "CORTE_M3" "RELLENO_M3"
-                "METODO" "SECCIONES" "OMITIDAS" "ANCHO_CALCULO_M"
-                "PROF_ESTRUCTURA_M")
-              via-rows)
-            '(8 9 10 13 14 16 17 18 19))
-          (urb:excel-release sheet)
-          (setq sheet (urb:excel-add-sheet sheets "PREFABRICADOS"))
-          (urb:excel-write-table application sheet
-            (urb:q-detail-matrix
-              '("HANDLE" "TIPO" "ETAPA" "SUBETAPA" "ANCHO_M"
-                "LONGITUD_M" "MODO" "ESTADO")
-              prefab-rows)
-            '(5 6))
-          (urb:excel-release sheet)
-          (setq sheet (urb:excel-add-sheet sheets "HIDROSANITARIAS"))
-          (urb:excel-write-table application sheet
-            (urb:q-detail-matrix *urb-excel-network-headers* hydro-rows)
-            '(5 6 23 24 25 27 28 29 30 31 32 33 34 35 37 38 46 47 48 49
-              50 51 52 53 54 55))
-          (urb:excel-release sheet)
-          (setq sheet (urb:excel-add-sheet sheets "ELECTRICAS"))
-          (urb:excel-write-table application sheet
-            (urb:q-detail-matrix *urb-excel-network-headers* electric-rows)
-            '(5 6 23 24 25 27 28 29 30 31 32 33 34 35 37 38 46 47 48 49
-              50 51 52 53 54 55))
-          (urb:excel-release sheet)
-          (setq sheet (urb:excel-add-sheet sheets "LUMINARIAS"))
-          (urb:excel-write-table application sheet
-            (urb:q-detail-matrix *urb-excel-network-headers* lighting-rows)
-            '(5 6 23 24 25 27 28 29 30 31 32 33 34 35 37 38 46 47 48 49
-              50 51 52 53 54 55))
-          (urb:excel-release sheet)
-          (setq sheet (urb:excel-add-sheet sheets "TRAZABILIDAD"))
-          (urb:excel-write-table application sheet
-            (urb:q-trace-matrix records) '(8))
-          (urb:excel-release sheet)
-          (setq sheet (urb:excel-add-sheet sheets "CONTROL_CALIDAD"))
-          (urb:excel-write-table application sheet
-            (urb:q-control-matrix controls) nil)
-          (urb:excel-release sheet)
-          (setq result (urb:excel-save-as-xlsx workbook filename))
-          (if (vl-catch-all-error-p result)
-            (progn
-              (*error* (vl-catch-all-error-message result))
-              nil)
-            (progn
-              (setq saved T)
-              ;; Entregar el libro abierto en la misma instancia configurada.
-              ;; El usuario puede seguir trabajando sin ajustar separadores manualmente.
-              (vlax-invoke-method workbook 'Activate)
-              (vlax-put-property application 'ScreenUpdating :vlax-true)
-              (vlax-put-property application 'DisplayAlerts :vlax-true)
-              (vlax-put-property application 'Visible :vlax-true)
-              (urb:excel-release sheets)
-              (urb:excel-release workbook)
-              (urb:excel-release workbooks)
-              (urb:excel-release application)
-              (prompt
-                (strcat "\nLibro Excel creado y abierto con formato colombiano: " filename
-                  " | Registros de cantidades: " (itoa (length records))
-                  " | Hallazgos de control: " (itoa (length controls)) "."))
-              T)))))))
 
 (defun urb:write-general-excel
   (filename linked
