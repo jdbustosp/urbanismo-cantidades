@@ -40,36 +40,48 @@ Get-Process acad -ErrorAction SilentlyContinue | Select-Object Id, MainWindowTit
 
 Con dos instancias de Civil 3D corriendo a la vez (la del usuario + la de prueba) se observó que el script `/b` a veces no arranca (la ventana abre normal pero el `.scr` nunca se ejecuta, sin ningún mensaje de error). Si eso pasa, no insistir mucho — matar la instancia de prueba (nunca la del usuario) y aceptar que la verificación automática tiene un límite en ese escenario.
 
+**Lección cara (2026-08-03, casi 30 min perdidos) — CORREGIDA:** la primera vez que pasó esto se sospechó de un perfil sucio por `Stop-Process -Force` (mismo patrón que Excel COM, ver [[excel-com-resiliency-dialog]]). Esa sospecha **era incorrecta** — la causa real, confirmada después con una captura de pantalla, fue otra (ver sección 3): la línea única del `.scr` superaba ~2000 caracteres y el procesador de scripts de AutoCAD la corta a mitad de camino, dejando la línea de comandos esperando paréntesis que nunca llegan (se ve como `((((_>` en el prompt). No tiene nada que ver con matar procesos. Reglas que sí siguen valiendo la pena:
+- El polling debe ir en segundo plano (`run_in_background`), no en llamadas de `Bash` en primer plano con tope de ~3 min cada una — si el script no arrancó, cada intento fallido cuesta el máximo de espera posible antes de poder reaccionar.
+- No reintentar el mismo `.scr` 3 veces a ciegas si no corrió — revisar primero si la ventana realmente abrió (`Get-Process acad | Select MainWindowTitle`) y si hay algo que diagnosticar (línea muy larga, diálogo de seguridad pendiente — ver sección 3) en vez de asumir mala suerte.
+
 ## 3. El truco del script `.scr`
 
-Un `.scr` es una lista de "comandos" que AutoCAD ejecuta como si se tipearan en la línea de comandos. Acepta expresiones AutoLISP completas con tal de que quepan balanceadas — lo más simple es escribir **una sola línea `(progn ...)` gigante** que:
+Un `.scr` es una lista de "comandos" que AutoCAD ejecuta como si se tipearan en la línea de comandos.
 
-1. Abre un archivo de resultados con `open ... "w"`.
-2. Envuelve cada paso riesgoso en `(vl-catch-all-apply 'funcion (list args))` para que un error no aborte todo el script silenciosamente (si no se envuelve, un error deja el resto del `.scr` sin ejecutar y sin ningún rastro).
-3. Escribe cada resultado con `write-line` al archivo.
-4. Cierra el archivo con `close`.
-5. En una segunda línea del `.scr`, `(command "_.QUIT" "_Y")` para cerrar sin guardar.
+**NO escribir la lógica de verificación como una sola línea `(progn ...)` gigante dentro del `.scr`.** Se intentó así al principio y falló de forma silenciosa y repetible: el procesador de scripts de AutoCAD **trunca/corta líneas de más de ~2000 caracteres** a mitad de camino. El síntoma es que la ventana abre normal, pero la línea de comandos queda esperando paréntesis que nunca van a llegar (se ve literalmente `((((_>` en el prompt de comandos) — no hay ningún mensaje de error, y el script nunca termina. Cuanto más larga la línea, peor: una de 1633 caracteres alcanzó a escribir una sola línea de resultado antes de cortarse; una de 2298 no escribió nada.
 
-Ejemplo real usado en este repo (cargar el archivo y probar 3 funciones puras):
+**Método correcto — `.scr` corto que carga un `.lsp` normal:**
+
+1. Escribir toda la lógica de verificación en un archivo `.lsp` aparte, con saltos de línea normales (sin límite de longitud, porque lo lee el lector de LISP completo, no el procesador de scripts línea por línea).
+2. El `.scr` en sí queda de solo 2 líneas:
+   ```
+   (load "C:/ruta/al/verify_helper.lsp")
+   (command "_.QUIT" "_Y")
+   ```
+3. **El `.lsp` de ayuda debe vivir dentro de `BLOQUES PPTOS`** (o cualquier carpeta que Civil 3D ya tenga marcada como confiable), no en una carpeta temporal/scratchpad nueva. Un `.lsp` sin firmar en una carpeta que AutoCAD no reconoce dispara el diálogo "Security - Unsigned Executable File" (Load Once / Always Load / Do Not Load) — un diálogo de Windows que bloquea todo hasta que alguien le hace clic, y Claude no tiene control de escritorio para hacerlo. Si el usuario ve ese cartel, la respuesta correcta es **"Load Once"** (no "Always Load", innecesario para un script descartable). Borrar el `.lsp` de ayuda de `BLOQUES PPTOS` al terminar (es un archivo temporal, no parte del proyecto).
+4. Dentro del `.lsp` de ayuda: abrir el archivo de resultados con `open ... "w"`, envolver cada paso riesgoso en `(vl-catch-all-apply 'funcion (list args))` (si no se envuelve, un error sin capturar corta el resto del script Y hace que el `.scr` pase directo a `QUIT` — la ventana "se cierra sola" sin dejar rastro del motivo), escribir cada resultado con `write-line`, cerrar con `close`.
+
+Ejemplo real usado en este repo (`.lsp` de ayuda, no el `.scr`):
 
 ```lisp
-(progn
-  (setq *st-f* (open "C:/ruta/resultado.txt" "w"))
-  (setq *st-load* (vl-catch-all-apply 'load (list "D:/ruta/urbanismo_cantidades.lsp")))
-  (write-line (if (vl-catch-all-error-p *st-load*) (strcat "LOAD-ERROR: " (vl-catch-all-error-message *st-load*)) "LOAD-OK") *st-f*)
-  (setq *st-r* (vl-catch-all-apply 'mp:pvc-trench-width (list 8.0 2.0)))
-  (write-line (strcat "resultado: " (vl-princ-to-string *st-r*)) *st-f*)
-  (close *st-f*)
-  (princ)
-)
-(command "_.QUIT" "_Y")
+(setq *st-f* (open "C:/ruta/resultado.txt" "w"))
+(defun st-log (msg) (write-line msg *st-f*) (princ))
+(setq *st-load* (vl-catch-all-apply 'load (list "D:/ruta/urbanismo_cantidades.lsp")))
+(st-log (if (vl-catch-all-error-p *st-load*) (strcat "LOAD-ERROR: " (vl-catch-all-error-message *st-load*)) "LOAD-OK"))
+(setq *st-r* (vl-catch-all-apply 'mp:pvc-trench-width (list 8.0 2.0)))
+(st-log (strcat "resultado: " (vl-princ-to-string *st-r*)))
+(st-log "DONE")
+(close *st-f*)
+(princ)
 ```
 
 Notas:
-- Usa **rutas con `/` en vez de `\`** dentro de los strings de Lisp — Windows las acepta igual y evita pelear con el escape de backslash dentro de un string ya escapado en el `.scr`.
+- Usa **rutas con `/` en vez de `\`** dentro de los strings de Lisp — Windows las acepta igual y evita pelear con el escape de backslash.
 - `LOAD-OK` por sí solo ya es una prueba fuerte: si cualquier `defun` del archivo tiene un paréntesis mal cerrado, el `(load ...)` falla y se captura como `LOAD-ERROR`.
+- **AutoLISP NO tiene `fboundp`** (es de Common Lisp, no está en el dialecto de AutoCAD) — usarlo revienta con `no function definition: FBOUNDP`. Para chequear si una función quedó definida tras el `load`, lo más simple es directamente intentar llamarla envuelta en `vl-catch-all-apply` y revisar si el error es "no function definition" vs otra cosa, o simplemente confiar en que si `LOAD-OK` salió, todo `defun` del archivo se registró (un `defun` nunca falla silenciosamente si el archivo cargó completo).
 - Esto **solo sirve para funciones que no abren un diálogo ni esperan un clic** (`load_dialog`/`start_dialog`, o un `(command "_.PLINE")` esperando picks). Para esas, la única prueba real es que el usuario las use a mano en su sesión.
 - Para verificar una función que sí escribe un archivo de verdad (como las que generan un `.dcl`), se puede leer ese archivo después con la herramienta `Read` normal y compararlo contra lo que el código viejo hubiera escrito.
+- Como respaldo rápido que no depende de lanzar Civil 3D en absoluto: un chequeo de balance de paréntesis de todo el archivo (recorrer el texto carácter por carácter, respetando strings entre comillas y comentarios `;`, sumando `(` y restando `)`) detecta la mayoría de errores de sintaxis en segundos. Útil como primera pasada antes de gastar tiempo en el arranque de Civil 3D. Ojo: esta máquina no tiene Python instalado de verdad (solo el stub de Microsoft Store) — escribirlo en PowerShell si hace falta.
 
 ## 4. Lanzar y esperar el resultado
 
@@ -81,7 +93,7 @@ $proc = Start-Process -FilePath "<acad.exe encontrado en paso 1>" `
 $proc.Id   # guardar este PID
 ```
 
-Desde Bash, hacer polling del archivo de resultado (no hay forma de que te "avisen" cuando termina):
+Desde Bash, hacer polling del archivo de resultado (no hay forma de que te "avisen" cuando termina). **Lanzar este polling con `run_in_background: true`** en vez de una llamada de `Bash` en primer plano — así no se bloquea el turno esperando, y si el `.scr` no arrancó (ver lección arriba) uno se entera sin haber gastado el tope de espera de una llamada en primer plano:
 
 ```bash
 for i in $(seq 1 24); do
@@ -91,7 +103,7 @@ done
 cat "$RESULT"
 ```
 
-El arranque de Civil 3D es lento y variable (40 segundos a más de 2 minutos según la carga de la máquina). No asumir que si el archivo está vacío a los 10 segundos algo falló — recién a los 3-4 minutos sin ningún avance vale la pena sospechar que se colgó.
+El arranque de Civil 3D es lento y variable (40 segundos a más de 2 minutos según la carga de la máquina). No asumir que si el archivo está vacío a los 10 segundos algo falló — recién a los 3-4 minutos sin ningún avance vale la pena sospechar que se colgó (y ahí aplica la lección de arriba: sospechar del perfil, no relanzar igual).
 
 ## 5. Limpiar al final
 

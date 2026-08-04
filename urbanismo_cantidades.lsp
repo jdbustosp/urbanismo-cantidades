@@ -43,10 +43,15 @@
 (setq *urb-green-schema-version* "1")
 (setq *urb-excel-table-schema* "2")
 (setq *mp-terrain-surface-name* "SUP_TN")
-(setq *mp-network-construction-enabled* nil)
+(setq *mp-network-construction-enabled* T)
+;; Si no es nil, mp:tramo-depth-profile usa min(terreno,subrasante) en vez
+;; de solo terreno -- ver mp:select-road-subrasante-reference. Se pone y se
+;; quita alrededor de cada llamada a mp:insert-tramo-forced, nunca queda
+;; encendido entre comandos.
+(setq *mp-tramo-road-ref* nil)
 (setq *urb-pattern-scale* 1.0)
 (setq *urb-etapa-list* '("1" "2" "3" "4" "5" "6" "7" "8" "9"))
-(setq *urb-material-list* '("Loseta" "Adoquin"))
+(setq *urb-material-list* '("Loseta"))
 (setq *urb-yes-no-list* '("No" "Si"))
 (setq *urb-loseta-format-list* '("40 x 40 cm" "20 x 20 cm"))
 (setq *urb-anden-grade-source-list* '("Via creada" "Alineamiento + cotas"))
@@ -867,6 +872,14 @@
 )
 
 (defun urb:tag-generated (obj parent-handle / ename)
+  (urb:tag-generated-role obj parent-handle "")
+)
+
+;; role identifica el papel de la pieza generada, independiente de en que
+;; capa quedo. urb:set-block-draw-order y urb:extract-prefab-reference lo
+;; usan para decidir orden de dibujo / identificar interior-exterior sin
+;; tener que abrir una capa por cada rol (asi se puede consolidar capas).
+(defun urb:tag-generated-role (obj parent-handle role / ename)
   (if (and obj (not (vl-catch-all-error-p obj)))
     (progn
       (setq ename
@@ -878,8 +891,17 @@
           'urb:set-xdata-strings
           (list ename
                 "URB_ANDEN_GEN"
-                (list parent-handle))))))
+                (list parent-handle (urb:safe-string role ""))))))
+  )
   obj
+)
+
+(defun urb:generated-role (item / ename data)
+  (setq ename
+    (vl-catch-all-apply 'vlax-vla-object->ename (list item)))
+  (if (and ename (not (vl-catch-all-error-p ename)))
+    (setq data (urb:get-xdata-strings ename "URB_ANDEN_GEN")))
+  (if (> (length data) 1) (nth 1 data) "")
 )
 
 (defun urb:delete-generated
@@ -1786,15 +1808,18 @@
 
 (defun urb:decorate-gray-stripe
   (region angle-value origin parent-handle / result joints)
-  (vla-put-Layer region "URB-ANDEN-AUX")
-  (urb:tag-generated region parent-handle)
+  ;; Antes vivia en la capa auxiliar URB-ANDEN-AUX (no imprimible, separada
+  ;; del material). Se fusiono en la capa de material real; el rol FILL
+  ;; (xdata) es lo que mantiene el orden de dibujo correcto ahora.
+  (vla-put-Layer region "URB-ANDEN-LOSETA-GRIS-20X20")
+  (urb:tag-generated-role region parent-handle "FILL")
   (setq result
     (vl-catch-all-apply
       'urb:add-solid-hatch
       (list region "URB-ANDEN-LOSETA-GRIS-20X20" 8)))
   (if (not (vl-catch-all-error-p result))
     (progn
-      (urb:tag-generated result parent-handle)
+      (urb:tag-generated-role result parent-handle "FILL")
       (setq joints
         (urb:add-user-hatch
           region
@@ -1804,20 +1829,20 @@
           T
           9
           origin))
-      (urb:tag-generated joints parent-handle)))
+      (urb:tag-generated-role joints parent-handle "JOINT")))
 )
 
 (defun urb:decorate-white-stripe
   (region angle-value origin parent-handle / result joints-u joints-v)
-  (vla-put-Layer region "URB-ANDEN-AUX")
-  (urb:tag-generated region parent-handle)
+  (vla-put-Layer region "URB-ANDEN-BLOQUE-BLANCO-20X10")
+  (urb:tag-generated-role region parent-handle "FILL")
   (setq result
     (vl-catch-all-apply
       'urb:add-solid-hatch
       (list region "URB-ANDEN-BLOQUE-BLANCO-20X10" 7)))
   (if (not (vl-catch-all-error-p result))
     (progn
-      (urb:tag-generated result parent-handle)
+      (urb:tag-generated-role result parent-handle "FILL")
       ;; Bloque blanco de 0.20 x 0.10 m, alineado con el origen comun.
       (setq joints-u
         (urb:add-user-hatch
@@ -1828,7 +1853,7 @@
           nil
           8
           origin))
-      (urb:tag-generated joints-u parent-handle)
+      (urb:tag-generated-role joints-u parent-handle "JOINT")
       (setq joints-v
         (urb:add-user-hatch
           region
@@ -1838,7 +1863,7 @@
           nil
           8
           origin))
-      (urb:tag-generated joints-v parent-handle)
+      (urb:tag-generated-role joints-v parent-handle "JOINT")
       ))
 )
 
@@ -1903,14 +1928,14 @@
         (progn
           ;; Cada zona conserva su propia reticula, pero sigue perteneciendo
           ;; al mismo bloque y al mismo registro de cantidades.
-          (vla-put-Layer base-region "URB-ANDEN-AUX")
-          (urb:tag-generated base-region parent-handle)
-          (setq layer "URB-ANDEN-LOSETA-LISA-40X40"
-                grid
-                  (urb:add-user-hatch
-                    base-region layer module angle-value T 9 origin))
+          (setq layer "URB-ANDEN-LOSETA-LISA-40X40")
+          (vla-put-Layer base-region layer)
+          (urb:tag-generated-role base-region parent-handle "FILL")
+          (setq grid
+            (urb:add-user-hatch
+              base-region layer module angle-value T 9 origin))
           (if (not (vl-catch-all-error-p grid))
-            (urb:tag-generated grid parent-handle))
+            (urb:tag-generated-role grid parent-handle "JOINT"))
           (and grid (not (vl-catch-all-error-p grid))))
         (progn
           ;; Detalle 20x20: 0.80 m de loseta gris y 1.00 m de adoquin
@@ -2018,18 +2043,20 @@
 (defun urb:decorate-accessibility-strip
   (region layer feature module angle-value origin parent-handle
    / fill grid pattern pattern-name fallback)
-  (vla-put-Layer region "URB-ANDEN-AUX")
-  (urb:tag-generated region parent-handle)
+  ;; layer ya es la capa de guia/toperol real (antes esta pieza base vivia
+  ;; aparte en URB-ANDEN-AUX); el rol FILL mantiene el orden de dibujo.
+  (vla-put-Layer region layer)
+  (urb:tag-generated-role region parent-handle "FILL")
   (setq fill
     (vl-catch-all-apply
       'urb:add-solid-hatch
       (list region layer 8)))
   (if (not (vl-catch-all-error-p fill))
-    (urb:tag-generated fill parent-handle))
+    (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))
   (setq grid
     (urb:add-user-hatch
       region layer module angle-value T 9 origin))
-  (urb:tag-generated grid parent-handle)
+  (urb:tag-generated-role grid parent-handle "FEATURE")
   (setq pattern-name
     (if (= feature "GUIA") "URB_GUIA" "URB_TOPEROL"))
   (setq fallback
@@ -2046,7 +2073,7 @@
             (urb:wcs-angle-to-current-ucs angle-value))))
       (vl-catch-all-apply 'vla-Evaluate (list pattern))
       (if origin (urb:set-hatch-origin-dxf pattern origin))))
-  (urb:tag-generated pattern parent-handle)
+  (urb:tag-generated-role pattern parent-handle "FEATURE")
   T
 )
 
@@ -2191,20 +2218,14 @@
 )
 
 (defun urb:prepare-anden-layers ()
-  (urb:ensure-layer "URB-Q-ANDEN-LOSETA" 8 nil)
-  (urb:ensure-layer "URB-Q-ANDEN-ADOQUIN" 8 nil)
-  (urb:ensure-layer "URB-ANDEN-AUX" 8 nil)
   (urb:ensure-layer "URB-ANDEN-LOSETA-LISA-40X40" 8 T)
-  (urb:ensure-layer "URB-ANDEN-LOSETA-LISA-20X20" 8 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-GRIS-20X20" 8 T)
   (urb:ensure-layer "URB-ANDEN-BLOQUE-BLANCO-20X10" 7 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-GUIA-20X20" 2 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-GUIA-40X40" 2 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-40X40" 2 T)
-  (urb:ensure-layer "URB-H-ANDEN-ADOQUIN" 7 T)
-  (urb:ensure-layer "URB-SEL-ANDEN" 7 nil)
-  (urb:ensure-layer "URB-ANDEN-BLOQUE" 7 T)
+  (urb:ensure-layer "URB-ANDEN" 7 T)
 )
 
 (defun urb:build-anden-finish
@@ -2228,25 +2249,12 @@
       (vla-put-Elevation obj 0.0)
       (setq flattened T)))
   (urb:prepare-anden-layers)
-  (if (= (strcase material) "LOSETA")
-    (progn
-      (vla-put-Layer obj "URB-Q-ANDEN-LOSETA")
-      (vla-put-Color obj 256)
-      (setq result (urb:create-composite-loseta ename format)))
-    (progn
-      (vla-put-Layer obj "URB-Q-ANDEN-ADOQUIN")
-      (vla-put-Color obj 256)
-      (setq result
-        (urb:add-hatch
-          obj
-          "URB-H-ANDEN-ADOQUIN"
-          "URB_ADOQUIN"
-          2
-          "AR-B816"
-          1.0
-          7))
-      (if (not (vl-catch-all-error-p result))
-        (urb:tag-generated result (vla-get-Handle obj)))))
+  ;; 4.18.0: se retiro el material "Adoquin" (capa dedicada + patron propio,
+  ;; sin equivalente entre las capas que se conservaron). Todo anden nuevo
+  ;; es Loseta; un xdata viejo con material distinto cae aqui igual.
+  (vla-put-Layer obj "URB-ANDEN")
+  (vla-put-Color obj 256)
+  (setq result (urb:create-composite-loseta ename format))
   (if result
     (setq accessibility-result
       (urb:create-accessibility-features ename guia toperol format)))
@@ -2343,69 +2351,32 @@
   table
 )
 
+;; Clasifica el rol xdata (ver urb:tag-generated-role) en uno de los 5
+;; grupos de orden de dibujo. No depende de en que capa quedo la pieza,
+;; asi que las capas se pueden consolidar sin romper el apilamiento.
+(defun urb:draw-role-bucket (role)
+  (cond
+    ((member role '("FILL" "RELLENO")) "FILL")
+    ((= role "JOINT") "JOINT")
+    ((= role "FEATURE_FILL") "FEATURE_FILL")
+    ((member role '("FEATURE" "INTERIOR" "EXTERIOR" "REMATE")) "FEATURE")
+    (T "BOUNDARY"))
+)
+
 (defun urb:set-block-draw-order
-  (block objects / fills joints feature-fills features boundaries item layer table result
-   pattern-name pattern-result)
+  (block objects / fills joints feature-fills features boundaries item table result
+   bucket)
   (foreach item objects
     (if (vlax-property-available-p item 'Layer)
       (progn
-        (setq layer
-          (strcase
-            (urb:safe-string (vla-get-Layer item) "")))
-        (setq pattern-name
-          (if (vlax-property-available-p item 'PatternName)
-            (progn
-              (setq pattern-result
-                (vl-catch-all-apply
-                  'vla-get-PatternName
-                  (list item)))
-              (if (vl-catch-all-error-p pattern-result)
-                ""
-                (strcase
-                  (urb:safe-string pattern-result ""))))
-            ""))
+        (setq bucket (urb:draw-role-bucket (urb:generated-role item)))
         (cond
-          ((or (= layer "URB-AUX-ANDEN")
-               (= layer "URB-ANDEN-AUX")
-               (= layer "URB-H-ANDEN-LOSETA-GRIS")
-               (= layer "URB-H-ANDEN-LOSETA-BLANCA")
-               (and (urb:starts-with layer "URB-PREFAB-")
-                    (urb:ends-with layer "-RELLENO")
-                    (= pattern-name "SOLID"))
-               (and
-                 (member layer
-                   '("URB-ANDEN-LOSETA-40X40"
-                     "URB-ANDEN-LOSETA-20X20"
-                     "URB-ANDEN-LOSETA-GRIS-20X20"
-                     "URB-ANDEN-BLOQUE-BLANCO-20X10"))
-                 (= pattern-name "SOLID")))
-            (setq fills (cons item fills)))
-          ((or (= layer "URB-H-ANDEN-JUNTAS")
-               (member layer
-                 '("URB-ANDEN-LOSETA-40X40"
-                   "URB-ANDEN-LOSETA-20X20"
-                   "URB-ANDEN-LOSETA-GRIS-20X20"
-                   "URB-ANDEN-BLOQUE-BLANCO-20X10")))
-            (setq joints (cons item joints)))
-          ((member layer
-             '("URB-ANDEN-LOSETA-GUIA"
-               "URB-ANDEN-LOSETA-TOPEROL"
-               "URB-ANDEN-LOSETA-GUIA-20X20"
-               "URB-ANDEN-LOSETA-TOPEROL-20X20"
-               "URB-PREFAB-SARDINEL"
-               "URB-PREFAB-BORDILLO"
-               "URB-PREFAB-BORDILLO-INTERIOR"
-               "URB-PREFAB-BORDILLO-EXTERIOR"
-               "URB-PREFAB-BORDILLO-REMATE"))
-            (if (= pattern-name "SOLID")
-              (setq feature-fills (cons item feature-fills))
-              (setq features (cons item features))))
-          ((and (urb:starts-with layer "URB-PREFAB-")
-                (or (urb:ends-with layer "-INTERIOR")
-                    (urb:ends-with layer "-EXTERIOR")
-                    (urb:ends-with layer "-REMATE")))
-            (setq features (cons item features)))
-          ((urb:starts-with layer "URB-Q-ANDEN-")
+          ((= bucket "FILL") (setq fills (cons item fills)))
+          ((= bucket "JOINT") (setq joints (cons item joints)))
+          ((= bucket "FEATURE_FILL")
+            (setq feature-fills (cons item feature-fills)))
+          ((= bucket "FEATURE") (setq features (cons item features)))
+          ((= bucket "BOUNDARY")
             (setq boundaries (cons item boundaries))))))
   )
   (setq table (urb:sortents-table block))
@@ -2508,7 +2479,7 @@
       (progn
         (setq layer (strcase (urb:safe-string (vla-get-Layer obj) "")))
         (setq name (strcase (urb:safe-string (vla-get-Name obj) "")))
-        (or (= layer "URB-ANDEN-BLOQUE")
+        (or (= layer "URB-ANDEN-BLOQUE") (= layer "URB-ANDEN")
             (urb:starts-with name "URB_ANDEN_")))))
 )
 
@@ -2534,7 +2505,7 @@
    handle objects filtered obj block-name blocks block-definition
    copy-result point block-ref insert-result block-ename xdata-result)
   (setq boundary (vlax-ename->vla-object ename))
-  (urb:ensure-layer "URB-ANDEN-BLOQUE" 7 T)
+  (urb:ensure-layer "URB-ANDEN" 7 T)
   (setq metadata (urb:get-xdata-strings ename "URB_ANDEN"))
   (setq material
     (urb:safe-string
@@ -2720,7 +2691,7 @@
                 "\nERROR: AutoCAD no devolvio una referencia de bloque valida para el anden.")
               nil)
             (progn
-              (vla-put-Layer block-ref "URB-ANDEN-BLOQUE")
+              (vla-put-Layer block-ref "URB-ANDEN")
               (setq xdata-result
                 (urb:set-xdata-strings
                   block-ename
@@ -3570,7 +3541,9 @@
            (list ename)))
        (not (vl-catch-all-error-p obj))
        (setq layer (strcase (vla-get-Layer obj)))
-       (urb:starts-with layer "URB-Q-ANDEN-")
+       ;; "URB-Q-ANDEN-*" es el nombre viejo del contorno (antes de
+       ;; consolidar capas); "URB-ANDEN" es el nombre actual.
+       (or (urb:starts-with layer "URB-Q-ANDEN-") (= layer "URB-ANDEN"))
        (urb:closed-poly-p ename))
       ename)
     (T nil))
@@ -3626,7 +3599,7 @@
 
 (defun urb:extract-prefab-reference
   (ename prefab mode / obj exploded objects item layer reference side-edge
-   reference-layer side-layer side-point)
+   reference-layer side-layer reference-role side-role side-point role)
   (setq obj (vlax-ename->vla-object ename))
   (setq exploded (vl-catch-all-apply 'vla-Explode (list obj)))
   (if (vl-catch-all-error-p exploded)
@@ -3634,19 +3607,34 @@
     (progn
       (setq objects (urb:variant-object-list exploded))
       (if (urb:string-equal-p mode "Interior")
-        (setq reference-layer (urb:prefab-layer prefab "EXTERIOR")
-              side-layer (urb:prefab-layer prefab "INTERIOR"))
-        (setq reference-layer (urb:prefab-layer prefab "INTERIOR")
-              side-layer (urb:prefab-layer prefab "EXTERIOR")))
+        (setq reference-role "EXTERIOR" side-role "INTERIOR")
+        (setq reference-role "INTERIOR" side-role "EXTERIOR"))
+      ;; 4.18.0: identifica interior/exterior por rol xdata (independiente
+      ;; de la capa, ya consolidada). Bloques prefabricados de antes de
+      ;; este cambio no tienen ese rol -- se cae al nombre de capa viejo
+      ;; (URB-PREFAB-<TIPO>-INTERIOR/EXTERIOR) como respaldo.
       (foreach item objects
         (if (member (vla-get-ObjectName item)
               '("AcDbPolyline" "AcDb2dPolyline"))
           (progn
-            (setq layer (vla-get-Layer item))
-            (if (urb:string-equal-p layer reference-layer)
-              (setq reference item))
-            (if (urb:string-equal-p layer side-layer)
-              (setq side-edge item)))))
+            (setq role (urb:generated-role item))
+            (if (= role reference-role) (setq reference item))
+            (if (= role side-role) (setq side-edge item)))))
+      (if (not (and reference side-edge))
+        (progn
+          (setq reference-layer
+            (strcat "URB-PREFAB-" (urb:prefab-token prefab) "-" reference-role))
+          (setq side-layer
+            (strcat "URB-PREFAB-" (urb:prefab-token prefab) "-" side-role))
+          (foreach item objects
+            (if (member (vla-get-ObjectName item)
+                  '("AcDbPolyline" "AcDb2dPolyline"))
+              (progn
+                (setq layer (vla-get-Layer item))
+                (if (urb:string-equal-p layer reference-layer)
+                  (setq reference item))
+                (if (urb:string-equal-p layer side-layer)
+                  (setq side-edge item)))))))
       (if side-edge
         (setq side-point
           (vlax-curve-getStartPoint
@@ -3894,7 +3882,7 @@
               (member
                 (vla-get-ObjectName item)
                 '("AcDbPolyline" "AcDb2dPolyline"))
-              (urb:starts-with layer "URB-Q-ANDEN-"))
+              (or (urb:starts-with layer "URB-Q-ANDEN-") (= layer "URB-ANDEN")))
           (setq boundary item)))
       (foreach item objects
         (if (not (eq item boundary))
@@ -3987,9 +3975,7 @@
 )
 
 (defun urb:prepare-green-layers ()
-  (urb:ensure-layer "URB-Q-ZONA-VERDE" 3 T)
-  (urb:ensure-layer "URB-H-ZONA-VERDE" 3 T)
-  (urb:ensure-layer "URB-ZONA-VERDE-BLOQUE" 3 T)
+  (urb:ensure-layer "URB-ZONA-VERDE" 3 T)
 )
 
 (defun urb:draw-green-boundary
@@ -4070,7 +4056,7 @@
              (strcase (urb:safe-string (vla-get-Layer object) ""))
                  name
              (strcase (urb:safe-string (vla-get-Name object) "")))
-           (or (= layer "URB-ZONA-VERDE-BLOQUE")
+           (or (= layer "URB-ZONA-VERDE-BLOQUE") (= layer "URB-ZONA-VERDE")
                (urb:starts-with name "URB_ZONA_VERDE_")))))
 )
 
@@ -4158,7 +4144,7 @@
         (progn
           (setq block-ref insert-result
                 block-ename (urb:as-ename block-ref))
-          (vla-put-Layer block-ref "URB-ZONA-VERDE-BLOQUE")
+          (vla-put-Layer block-ref "URB-ZONA-VERDE")
           (setq xdata-result
             (urb:set-xdata-strings block-ename "URB_GREEN_BLOCK"
               (list "ZONA_VERDE" etapa subetapa
@@ -4214,10 +4200,10 @@
       (setq object (vlax-ename->vla-object ename))
       (setq area (vla-get-Area object)
             volume (* area thickness))
-      (vla-put-Layer object "URB-Q-ZONA-VERDE")
+      (vla-put-Layer object "URB-ZONA-VERDE")
       (vla-put-Color object 256)
       (setq hatch
-        (urb:add-hatch object "URB-H-ZONA-VERDE"
+        (urb:add-hatch object "URB-ZONA-VERDE"
           "GRASS" 1 "ANSI31" 0.50 3))
       (if (vl-catch-all-error-p hatch) (setq hatch nil))
       (setq block-ref
@@ -4693,6 +4679,12 @@
 (defun urb:layer-description (layer / parts)
   (setq parts
     (cond
+      ((= layer "URB-ANDEN") '("ANDEN" "LOSETA"))
+      ((= layer "URB-BORDILLO") '("BORDILLO" "PREFABRICADO"))
+      ((= layer "URB-SARDINEL") '("SARDINEL" "PREFABRICADO"))
+      ((= layer "URB-CANUELA") '("CANUELA" "PREFABRICADO"))
+      ;; Nombres de capa anteriores a la consolidacion 4.18.0 -- se
+      ;; conservan para etiquetar filas de dibujos viejos correctamente.
       ((= layer "URB-Q-ANDEN-LOSETA") '("ANDEN" "LOSETA"))
       ((= layer "URB-Q-ANDEN-ADOQUIN") '("ANDEN" "ADOQUIN"))
       ((= layer "URB-Q-VIA-ASFALTO") '("VIA" "ASFALTO"))
@@ -4818,10 +4810,12 @@
   (strcase (urb:safe-string prefab "Bordillo"))
 )
 
-(defun urb:prefab-layer (prefab suffix)
-  (strcat
-    "URB-PREFAB-" (urb:prefab-token prefab) "-"
-    (strcase (urb:safe-string suffix "BLOQUE")))
+;; 4.18.0: una sola capa por tipo de prefabricado (antes 5: BLOQUE/
+;; INTERIOR/EXTERIOR/REMATE/RELLENO). El rol de cada pieza (interior,
+;; exterior, remate, relleno) ahora se guarda como xdata (urb:tag-generated-role)
+;; en vez de codificarse en el nombre de la capa.
+(defun urb:prefab-layer (prefab)
+  (strcat "URB-" (urb:prefab-token prefab))
 )
 
 (defun urb:prefab-color (prefab)
@@ -4901,7 +4895,7 @@
                 "\nERROR: AutoCAD no devolvio una referencia de bloque prefabricado valida.")
               nil)
             (progn
-              (setq block-layer (urb:prefab-layer prefab "BLOQUE"))
+              (setq block-layer (urb:prefab-layer prefab))
               (vla-put-Layer block-ref block-layer)
               (setq xdata-result
                 (urb:set-xdata-strings
@@ -4925,18 +4919,14 @@
 
 (defun urb:prepare-prefab-layers (prefab / color)
   (setq color (urb:prefab-color prefab))
-  (urb:ensure-layer (urb:prefab-layer prefab "BLOQUE") color T)
-  (urb:ensure-layer (urb:prefab-layer prefab "INTERIOR") 3 T)
-  (urb:ensure-layer (urb:prefab-layer prefab "EXTERIOR") color T)
-  (urb:ensure-layer (urb:prefab-layer prefab "REMATE") color T)
-  (urb:ensure-layer (urb:prefab-layer prefab "RELLENO") color T)
+  (urb:ensure-layer (urb:prefab-layer prefab) color T)
 )
 
 (defun urb:build-prefab-from-reference
   (ename side-point prefab width etapa subetapa mode
-   / source offset source-layer offset-layer remate-layer fill-layer
+   / source offset piece-layer source-role offset-role
    source-start source-end offset-start offset-end temp connector-start
-   connector-end hatch objects length-value block-ref color)
+   connector-end hatch objects length-value block-ref color parent-handle)
   (setq prefab (urb:safe-string prefab "Bordillo"))
   (setq mode (urb:safe-string mode "Interior"))
   (urb:prepare-prefab-layers prefab)
@@ -4945,15 +4935,20 @@
   (setq offset (urb:offset-toward-point source width side-point))
   (if offset
     (progn
+      ;; 4.18.0: una sola capa por tipo (piece-layer). Interior/exterior/
+      ;; remate/relleno se distinguen por rol xdata, no por capa; el color
+      ;; de interior (3, verde) se conserva como color de entidad.
+      (setq piece-layer (urb:prefab-layer prefab))
       (if (urb:string-equal-p mode "Interior")
-        (setq source-layer (urb:prefab-layer prefab "EXTERIOR")
-              offset-layer (urb:prefab-layer prefab "INTERIOR"))
-        (setq source-layer (urb:prefab-layer prefab "INTERIOR")
-              offset-layer (urb:prefab-layer prefab "EXTERIOR")))
-      (setq remate-layer (urb:prefab-layer prefab "REMATE"))
-      (setq fill-layer (urb:prefab-layer prefab "RELLENO"))
-      (vla-put-Layer source source-layer)
-      (vla-put-Layer offset offset-layer)
+        (setq source-role "EXTERIOR" offset-role "INTERIOR")
+        (setq source-role "INTERIOR" offset-role "EXTERIOR"))
+      (setq parent-handle (vla-get-Handle source))
+      (vla-put-Layer source piece-layer)
+      (vla-put-Layer offset piece-layer)
+      (vla-put-Color source (if (= source-role "INTERIOR") 3 color))
+      (vla-put-Color offset (if (= offset-role "INTERIOR") 3 color))
+      (urb:tag-generated-role source parent-handle source-role)
+      (urb:tag-generated-role offset parent-handle offset-role)
       (setq source-start (vlax-curve-getStartPoint ename))
       (setq source-end (vlax-curve-getEndPoint ename))
       (setq offset-start
@@ -4976,12 +4971,17 @@
           (urb:space)
           (vlax-3d-point source-end)
           (vlax-3d-point offset-end)))
-      (vla-put-Layer connector-start remate-layer)
-      (vla-put-Layer connector-end remate-layer)
+      (vla-put-Layer connector-start piece-layer)
+      (vla-put-Layer connector-end piece-layer)
+      (urb:tag-generated-role connector-start parent-handle "REMATE")
+      (urb:tag-generated-role connector-end parent-handle "REMATE")
       (setq objects (list source connector-end offset connector-start))
       (setq hatch
-        (urb:add-solid-hatch-loop objects fill-layer color))
-      (if hatch (setq objects (append objects (list hatch))))
+        (urb:add-solid-hatch-loop objects piece-layer color))
+      (if hatch
+        (progn
+          (urb:tag-generated-role hatch parent-handle "RELLENO")
+          (setq objects (append objects (list hatch)))))
       (setq length-value (urb:poly-perimeter source))
       (setq block-ref
         (urb:package-prefab-block
@@ -5122,7 +5122,7 @@
               (setq perimeter
                 (atof (urb:safe-string (nth 4 metadata) "0")))
               (setq layer
-                (urb:prefab-layer prefab "BLOQUE"))
+                (urb:prefab-layer prefab))
               (setq key
                 (strcat layer "|" etapa "|" subetapa))
               (setq rows
@@ -5486,7 +5486,7 @@
   (setq keys
     '("red" "blk" "tipo" "acc" "etapa" "subetapa" "tipo_ini" "tipo_fin"
       "pini" "pfin" "diam" "diamsal" "mat" "long" "pend"
-      "ctni" "ctnf" "ccini" "ccfin" "ctn" "cclave"
+      "ctni" "ctnf" "ccini" "ccfin" "ctn" "cclave" "cc_dig" "cc_sel"
       "serie" "circuito" "desde" "hasta" "cond" "ductos"
       "diamducto" "matducto" "libres" "prof" "id" "lote"
       "anchoz" "cama" "repos"
@@ -5793,8 +5793,11 @@
   (write-line ": edit_box { label = \"Nodo/pozo final\"; key = \"pfin\"; edit_width = 20; }" f)
   (write-line ": popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
-  (write-line ": popup_list { label = \"Material\"; key = \"mat\"; } : edit_box { label = \"Pendiente %\"; key = \"pend\"; edit_width = 12; } }" f)
+  (write-line ": popup_list { label = \"Material\"; key = \"mat\"; } }" f)
   (write-line ": boxed_column { label = \"Cotas de diseno\";" f)
+  (write-line ": radio_row { label = \"Cota clave\";" f)
+  (write-line ": radio_button { label = \"Digitar\"; key = \"cc_dig\"; value = \"1\"; }" f)
+  (write-line ": radio_button { label = \"Seleccionar en dibujo\"; key = \"cc_sel\"; } }" f)
   (write-line ": edit_box { label = \"Cota clave inicial\"; key = \"ccini\"; edit_width = 12; }" f)
   (write-line ": edit_box { label = \"Cota clave final\"; key = \"ccfin\"; edit_width = 12; } }" f)
   (write-line ": text { label = \"Las cotas TN se toman de SUP_TN al marcar los extremos.\"; } ok_cancel; }" f)
@@ -5817,7 +5820,7 @@
   (setq *mp-dcl-listas-ok* T)
   fn)))
 
-(defun mp:dialog-tramo-red (forced-red / dcl ok res etapa red-index)
+(defun mp:dialog-tramo-red (forced-red / dcl ok res etapa red-index modo-clave)
   (setq dcl (load_dialog (mp:write-dcl)))
   (if (not (new_dialog "maipore_tramo_red" dcl)) (exit))
   (setq red-index
@@ -5831,6 +5834,14 @@
     (if (= forced-red "Acueducto") 3 1))
   (mp:fill-popup "tipo_fin" *mp-extremo-hidro-list*
     (if (= forced-red "Acueducto") 3 1))
+  ;; Cota clave: "Digitar" (por defecto, radio_button value="1" en el DCL)
+  ;; deja los 2 edit_box habilitados; "Seleccionar en dibujo" los apaga en
+  ;; vivo -- se leen despues de cerrar el dialogo, con un clic sobre la
+  ;; etiqueta real (mp:prompt-clave-from-label), asi que digitar algo ahi
+  ;; no serviria de nada.
+  (set_tile "cc_dig" "1")
+  (action_tile "cc_dig" "(mode_tile \"ccini\" 0)(mode_tile \"ccfin\" 0)")
+  (action_tile "cc_sel" "(mode_tile \"ccini\" 1)(mode_tile \"ccfin\" 1)")
   (action_tile "red" "(mp:update-red-diam)")
   (action_tile "etapa" "(mp:update-subetapa)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
@@ -5839,6 +5850,8 @@
   (if ok
     (progn
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
+      (setq modo-clave
+        (if (= (mp:safe-str (mp:gettile "cc_sel")) "1") "Seleccionar" "Digitar"))
       (setq res
         (list
           (cons "REDOPT" (mp:item *mp-red-list* "red"))
@@ -5850,11 +5863,15 @@
           (cons "TIPO_EXTREMO_FIN" (mp:item *mp-extremo-hidro-list* "tipo_fin"))
           (cons "DIAMETRO" (if (= (mp:gettile "red") "2") (mp:item *mp-diam-acu-list* "diam") (mp:item *mp-diam-alc-list* "diam")))
           (cons "MATERIAL" (if (= (mp:gettile "red") "2") (mp:item *mp-material-acu-list* "mat") (mp:item *mp-material-red-list* "mat")))
-          (cons "PENDIENTE" (mp:gettile "pend"))
+          ;; Sin campo en el dialogo (se saco a pedido del usuario): siempre
+          ;; en blanco, asi mp:derive-tramo-values la calcula sola de las
+          ;; cotas clave (mismo camino que si el usuario la dejaba vacia).
+          (cons "PENDIENTE" "")
           (cons "COTA_TN_INI" "")
           (cons "COTA_TN_FIN" "")
           (cons "COTA_CLAVE_INI" (mp:gettile "ccini"))
-          (cons "COTA_CLAVE_FIN" (mp:gettile "ccfin"))))))
+          (cons "COTA_CLAVE_FIN" (mp:gettile "ccfin"))
+          (cons "MODO_CLAVE" modo-clave)))))
   (unload_dialog dcl)
   res)
 
@@ -6082,7 +6099,12 @@
   (unload_dialog dcl)
   res)
 
-(defun mp:insert-tramo-forced (redopt / vals base)
+(defun mp:insert-tramo-forced (redopt / vals base modo-clave modo-relleno v *error*)
+  (defun *error* (message)
+    (setq *mp-tramo-road-ref* nil)
+    (if (and message (not (member message '("Function cancelled" "quit / exit abort"))))
+      (prompt (strcat "\nERROR EN TRAMO: " message)))
+    (princ))
   (mp:ensure-layers)
   (setq vals (mp:dialog-tramo-red redopt))
   (if vals
@@ -6094,10 +6116,35 @@
                 ((= redopt "Acueducto") "TRAMO_ACUEDUCTO")
                 ((= redopt "Alluvias") "TRAMO_ALLUVIAS")
                 (T "TRAMO_ARESIDUAL")))
+      ;; Cota clave: la eleccion Digitar/Seleccionar ya se hizo DENTRO del
+      ;; dialogo (radio_row "cc_dig"/"cc_sel"); si eligio Seleccionar los
+      ;; edit_box de cota clave quedaron deshabilitados alla, asi que aqui
+      ;; solo falta el clic sobre la etiqueta real.
+      (setq modo-clave (mp:getval "MODO_CLAVE" vals "Digitar"))
+      (if (urb:string-equal-p modo-clave "Seleccionar")
+        (progn
+          (setq v (mp:prompt-clave-from-label "\nSeleccione la etiqueta de cota clave INICIAL: "))
+          (if v (setq vals (mp:alist-set vals "COTA_CLAVE_INI" (rtos v 2 4))))
+          (setq v (mp:prompt-clave-from-label "\nSeleccione la etiqueta de cota clave FINAL: "))
+          (if v (setq vals (mp:alist-set vals "COTA_CLAVE_FIN" (rtos v 2 4))))))
+      ;; Referencia de relleno: modo configurado UNA VEZ desde URBANISMO ->
+      ;; Configuracion -> Referencia de relleno de tramos de red (no se
+      ;; pregunta aqui). Solo tiene efecto en tramos a gravedad
+      ;; (mp:tramo-depth-profile, unico lugar que la usa, solo corre para
+      ;; sanitario/pluvial) -- no aplica a acueducto.
+      (if (mp:gravity-tramo-p base)
+        (progn
+          (setq modo-relleno
+            (urb:safe-string (urb:config-read "MP_TRAMO_RELLENO_MODO") "Terreno"))
+          (setq *mp-tramo-road-ref*
+            (if (urb:string-equal-p modo-relleno "Subrasante")
+              (mp:select-road-subrasante-reference)
+              nil))))
       (mp:create-linked-tramo
         base vals
         (strcat "\nExtremo inicial tramo " redopt ": ")
-        (strcat "\nExtremo final tramo " redopt ": ")))))
+        (strcat "\nExtremo final tramo " redopt ": "))
+      (setq *mp-tramo-road-ref* nil))))
 
 
 (defun mp:idx (val lst / i found)
@@ -6692,13 +6739,246 @@
     (if (and v (or (null result) (> v result))) (setq result v)))
   result)
 
+;; 2026-08-03: modo de referencia del relleno de tramos, configurado UNA
+;; VEZ desde URBANISMO -> Configuracion (no se pregunta en cada tramo).
+;; Persistido en el dibujo igual que URB_DRAWING_ID (urb:config-read/write).
+(defun mp:network-fill-reference-command (/ current choice)
+  (setq current (urb:safe-string (urb:config-read "MP_TRAMO_RELLENO_MODO") "Terreno"))
+  (prompt
+    (strcat "\nReferencia de relleno actual para tramos de red (sanitario/pluvial): "
+      current "."))
+  (initget "Terreno Subrasante")
+  (setq choice
+    (getkword
+      (strcat "\nNueva referencia [Terreno/Subrasante_via] <" current ">: ")))
+  (if (null choice) (setq choice current))
+  (urb:config-write "MP_TRAMO_RELLENO_MODO" choice)
+  (prompt
+    (strcat "\nQuedo configurado: " choice
+      (if (= choice "Subrasante")
+        ". Al crear un tramo a gravedad se pedira seleccionar la via de referencia."
+        ". El relleno vuelve a calcularse hasta el terreno natural (como siempre).")))
+  (princ)
+)
+
+;; 2026-08-04: recalculo en lote de tramos ya existentes contra la
+;; referencia de relleno ACTUAL (MP_TRAMO_RELLENO_MODO). Cambiar la
+;; configuracion no actualiza solos los tramos ya creados (el modo se lee
+;; una sola vez al crearlos, ver mp:insert-tramo-forced); este comando
+;; recorre todos los tramos a gravedad del dibujo y vuelve a llamar
+;; mp:sync-tramo-values (via mp:update-block-after-edit) para cada uno.
+;; En modo Subrasante pide la via por cada tramo (nentsel/entsel no se
+;; puede automatizar de forma confiable: podria haber mas de una via
+;; candidata sobre un mismo tramo), igual que al crearlo. Si el usuario
+;; cancela la seleccion de un tramo puntual, ese tramo se deja como estaba
+;; (no se pisa con un calculo a terreno natural sin que lo pida).
+(defun mp:recalc-tramos-earthworks-command
+  (/ ss i en obj bname atts base doc undo-open modo-relleno
+   found updated skipped ref *error*)
+  (vl-load-com)
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+  (defun *error* (message)
+    (setq *mp-tramo-road-ref* nil)
+    (if undo-open
+      (progn (vl-catch-all-apply 'vla-EndUndoMark (list doc)) (setq undo-open nil)))
+    (if (and message (not (member message '("Function cancelled" "quit / exit abort"))))
+      (prompt (strcat "\nError al recalcular tramos: " message)))
+    (princ))
+  (setq modo-relleno (urb:safe-string (urb:config-read "MP_TRAMO_RELLENO_MODO") "Terreno"))
+  (prompt (strcat "\nReferencia de relleno actual: " modo-relleno "."))
+  (setq ss (ssget "X" '((0 . "INSERT"))))
+  (setq found 0 updated 0 skipped 0)
+  (if ss
+    (progn
+      (vla-StartUndoMark doc)
+      (setq undo-open T)
+      (setq i 0)
+      (while (< i (sslength ss))
+        (setq en (ssname ss i))
+        (setq obj (vlax-ename->vla-object en))
+        (setq bname (vla-get-EffectiveName obj))
+        (if (mp:is-cant-blockname bname)
+          (progn
+            (setq atts (mp:att-alist en))
+            (setq base (mp:infer-base bname atts))
+            (if (and (/= base "") (mp:gravity-tramo-p base))
+              (progn
+                (setq found (1+ found))
+                (setq *mp-tramo-road-ref* nil)
+                (setq ref T)
+                (if (urb:string-equal-p modo-relleno "Subrasante")
+                  (progn
+                    (prompt
+                      (strcat "\nTramo " (mp:getval "ETIQUETA" atts "(sin etiqueta)") ":"))
+                    (setq ref (mp:select-road-subrasante-reference))
+                    (setq *mp-tramo-road-ref* ref)))
+                (if ref
+                  (progn
+                    (mp:update-block-after-edit en nil)
+                    (setq updated (1+ updated)))
+                  (setq skipped (1+ skipped)))
+                (setq *mp-tramo-road-ref* nil)))))
+        (setq i (1+ i)))
+      (vla-Regen doc 1)
+      (vl-catch-all-apply 'vla-EndUndoMark (list doc))
+      (setq undo-open nil)))
+  (prompt
+    (strcat "\nRecalculo terminado. Tramos a gravedad encontrados: " (itoa found)
+      " | Actualizados: " (itoa updated)
+      (if (> skipped 0) (strcat " | Omitidos (sin via seleccionada): " (itoa skipped)) "")))
+  (princ))
+
+;; referencia opcional de subrasante (ver mp:tramo-depth-profile
+;; y *mp-tramo-road-ref*). Reusa el mismo mecanismo de seleccion/lectura de
+;; rasante que ya usa el anden (urb:select-anden-road-grade), pero agrega la
+;; PROFUNDIDAD DEL PERFIL de la via para poder restarla y llegar a la
+;; subrasante (bajo la estructura de pavimento), no solo a la rasante.
+(defun mp:select-road-subrasante-reference
+  (/ selected road data mov axis axis-handle via-id records c0 c1 span profile depth)
+  (setq selected (entsel "\nSeleccione la via que define la subrasante: "))
+  (if selected (setq road (urb:road-parent-from-entity (car selected))))
+  (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
+    (progn
+      (setq profile (urb:safe-string (if (> (length data) 4) (nth 4 data) nil) ""))
+      (setq depth (urb:road-profile-depth profile))
+      (setq via-id (if (> (length data) 22) (nth 22 data) ""))
+      (setq axis-handle
+        (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
+      (setq axis
+        (or
+          (if (/= axis-handle "") (handent axis-handle) nil)
+          (if (/= via-id "") (urb:cached-road-axis via-id) nil)))
+      (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+      (if (not axis) (setq axis (urb:select-or-draw-road-axis "Existente")))
+      (setq mov (urb:road-movement-data road))
+      (if (and mov (> (length mov) 9))
+        (setq records (urb:read-lisp-safe (nth 9 mov))))
+      (if (not (urb:grade-records-valid-p records)) (setq records nil))
+      (setq span
+        (atof
+          (urb:safe-string
+            (if (> (length data) 18) (nth 18 data) nil) "0")))
+      (if (and (null records) mov (> (length mov) 8))
+        (progn
+          (setq c0 (urb:parse-real (nth 7 mov)))
+          (setq c1 (urb:parse-real (nth 8 mov)))
+          (if (and c0 c1 (> span 1e-6))
+            (setq records (list (list 0.0 c0) (list span c1))))))
+      (setq axis-start
+        (atof
+          (urb:safe-string
+            (if (> (length data) 21) (nth 21 data) nil) "0")))
+      (cond
+        ((not (and depth (> depth 0.0)))
+          (prompt
+            (strcat "\nEl perfil " profile " de esa via no tiene profundidad definida; no se puede calcular subrasante."))
+          nil)
+        ((and axis records)
+          (list axis records axis-start span
+            (urb:safe-string (if (> (length data) 12) (nth 12 data) nil) "Inicio")
+            "LOCAL" depth))
+        (T
+          (prompt "\nLa via seleccionada no tiene rasante calculada.")
+          nil)))
+    (progn (prompt "\nEl objeto seleccionado no es una via cuantificable.") nil))
+)
+
+(defun mp:subrasante-at-point
+  (point reference / axis records axis-start span direction depth
+   closest raw-distance station zaxis)
+  (setq axis (nth 0 reference) records (nth 1 reference)
+        axis-start (nth 2 reference) span (nth 3 reference)
+        direction (nth 4 reference) depth (nth 6 reference))
+  (setq closest
+    (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list axis point)))
+  (if (vl-catch-all-error-p closest)
+    nil
+    (progn
+      (setq raw-distance
+        (vl-catch-all-apply 'vlax-curve-getDistAtPoint (list axis closest)))
+      (if (vl-catch-all-error-p raw-distance)
+        nil
+        (progn
+          (setq station
+            (if (urb:string-equal-p direction "Final")
+              (- (+ axis-start span) raw-distance)
+              (- raw-distance axis-start)))
+          (setq zaxis (urb:cota-at-axis-distance station records))
+          (if zaxis (- zaxis depth) nil)))))
+)
+
+;; BUG (2026-08-03, encontrado por el usuario en vivo): las etiquetas
+;; reales de cota (MLeader/MText) traen la cota pozo Y la cota clave
+;; apiladas en el MISMO objeto, y vla-get-TextString devuelve el texto
+;; CRUDO con codigos de formato MTEXT (ej. "\pxt6;{\Fsimplex|c0;2559.63
+;; \P2557.83}" -- \P separa las 2 lineas). Intentar parsear ese string
+;; completo como un numero mezclaba digitos sueltos de los codigos (el
+;; "6" de "pxt6", el "0" de "c0") con la cota real, dando basura como
+;; "62556.310" en vez de "2556.31".
+;; mp:last-decimal-number busca especificamente numeros CON PUNTO
+;; DECIMAL (los codigos de formato solo tienen digitos sueltos, sin
+;; punto) y devuelve el ULTIMO -- que es la cota clave, la linea de
+;; abajo en la etiqueta apilada, tanto en texto crudo con codigos como
+;; en texto plano simple (un TEXT sin formato tambien funciona igual).
+(defun mp:last-decimal-number (text / i n c buf best)
+  (setq text (mp:safe-str text) n (strlen text) i 1 buf "" best nil)
+  (while (<= i n)
+    (setq c (substr text i 1))
+    (cond
+      ((wcmatch c "#") (setq buf (strcat buf c)))
+      ((and (= c ".") (> (strlen buf) 0) (not (vl-string-search "." buf)))
+        (setq buf (strcat buf c)))
+      (T
+        (if (and (> (strlen buf) 0) (vl-string-search "." buf)
+                 (/= (substr buf (strlen buf) 1) "."))
+          (setq best buf))
+        (setq buf "")))
+    (setq i (1+ i)))
+  (if (and (> (strlen buf) 0) (vl-string-search "." buf)
+           (/= (substr buf (strlen buf) 1) "."))
+    (setq best buf))
+  best
+)
+
+;; Lee una cota clave directamente de una etiqueta ya dibujada (evita
+;; transcribir el numero a mano). nentsel (no entsel) porque estas
+;; etiquetas suelen vivir dentro de un xref (ej. el plano de residual).
+(defun mp:prompt-clave-from-label (prompt-text / selected ename obj txt clean val)
+  (setq selected (nentsel prompt-text))
+  (if (not selected)
+    nil
+    (progn
+      (setq ename (car selected))
+      (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
+      (if (vl-catch-all-error-p obj)
+        (progn (prompt "\nNo se pudo leer el objeto seleccionado.") nil)
+        (progn
+          (setq txt (vl-catch-all-apply 'vla-get-TextString (list obj)))
+          (if (vl-catch-all-error-p txt)
+            (progn (prompt "\nEl objeto seleccionado no tiene texto legible.") nil)
+            (progn
+              (setq clean (mp:last-decimal-number txt))
+              (setq val (if clean (mp:numeric-real clean) nil))
+              (if val
+                (progn (prompt (strcat "\nCota leida: " (rtos val 2 3))) val)
+                (progn
+                  (prompt
+                    (strcat "\nNo se encontro un numero valido en el texto seleccionado (\""
+                      (mp:safe-str txt) "\")."))
+                  nil))))))))
+)
+
 (defun mp:tramo-depth-profile
-  (surface p1 p2 key-ini key-fin diameter-m bedding n
-   / i frac x y terrain key depth depths max-depth)
+  (surface p1 p2 key-ini key-fin diameter-m bedding n road-ref
+   / i frac x y terrain reference subrasante key depth depths max-depth)
   ;; Muestrea la superficie a lo largo del tramo (no solo los 2 pozos) porque
   ;; el terreno entre pozos puede no ser perfectamente lineal; con esto el
   ;; ancho de zanja y el volumen de excavacion usan la profundidad real, no
   ;; un promedio que podria subestimar una loma intermedia.
+  ;; road-ref (opcional, ver mp:select-road-subrasante-reference): si viene,
+  ;; en cada punto se usa min(terreno,subrasante) en vez de solo terreno --
+  ;; asi el relleno del tramo no cuenta material que la via va a volver a
+  ;; cortar por separado hasta su subrasante.
   (setq depths nil max-depth nil i 0)
   (if (and surface p1 p2 key-ini key-fin (> n 1))
     (repeat (1+ n)
@@ -6708,18 +6988,32 @@
             terrain (mp:terrain-elevation-at-point surface (list x y))
             key (+ key-ini (* frac (- key-fin key-ini))))
       (if terrain
-        (setq depth (+ (- terrain key) diameter-m bedding)
-              depths (cons depth depths)
-              max-depth (if max-depth (max max-depth depth) depth)))
+        (progn
+          (setq reference terrain)
+          (if road-ref
+            (progn
+              (setq subrasante
+                (vl-catch-all-apply 'mp:subrasante-at-point (list (list x y) road-ref)))
+              (if (and (not (vl-catch-all-error-p subrasante)) subrasante)
+                (setq reference (min terrain subrasante)))))
+          (setq depth (+ (- reference key) diameter-m bedding)
+                depths (cons depth depths)
+                max-depth (if max-depth (max max-depth depth) depth))))
       (setq i (1+ i))))
   (list (reverse depths) max-depth))
 
-(defun mp:integrate-trench-volume (depths length width / n seg-length i vol)
+;; BUG (2026-08-03, mismo patron que distance/length/type/last ya
+;; documentados en este archivo): el parametro se llamaba "length" y tapaba
+;; la funcion nativa mientras (setq n (length depths)) intentaba usarla --
+;; "bad function: 10.0" (el valor de longitud pasado). Nunca se habia
+;; ejercitado porque *mp-network-construction-enabled* estaba en nil.
+;; Renombrado a total-length.
+(defun mp:integrate-trench-volume (depths total-length width / n seg-length i vol)
   (setq n (length depths))
-  (if (or (< n 2) (<= length 1e-9))
+  (if (or (< n 2) (<= total-length 1e-9))
     0.0
     (progn
-      (setq seg-length (/ length (float (1- n))) vol 0.0 i 0)
+      (setq seg-length (/ total-length (float (1- n))) vol 0.0 i 0)
       (repeat (1- n)
         (setq vol
           (+ vol
@@ -6835,7 +7129,15 @@
   ;; llena antes de validar); se usa para elegir el rango correcto de la
   ;; tabla de anchos en vez de asumir el rango mas superficial.
   (setq check-depth (mp:numeric-real (mp:getval "PROFUNDIDAD_MEDIA" vals "")))
-  (setq minimum-width (mp:default-trench-width base vals check-depth))
+  ;; BUG (2026-08-03): mp:default-trench-width con la formula generica
+  ;; (max 0.60 (+ diametro 0.40)) casi nunca da un numero limpio a 2
+  ;; decimales (ej. 8" -> 0.6032). ANCHO_ZANJA se guarda redondeado a 2
+  ;; decimales (rtos ... 2 2), pero minimum-width se recalculaba aqui SIN
+  ;; redondear -- la comparacion fallaba (0.60 < 0.6032) aunque el ancho
+  ;; guardado fuera exactamente el minimo real. Se redondea minimum-width
+  ;; igual que se redondeo width al guardarlo, para comparar a la misma
+  ;; precision.
+  (setq minimum-width (atof (rtos (mp:default-trench-width base vals check-depth) 2 2)))
   (if (< width (- minimum-width 1e-6))
     (setq messages
       (cons
@@ -6920,10 +7222,18 @@
     (mp:alist-set vals "CONTROL_ESTADO" (if messages "REVISAR" "OK")))
   (mp:alist-set vals "CONTROL_MENSAJES" (mp:join-messages messages)))
 
+;; Figura 4 del estudio de suelos (tuberias flexibles, K=0.083): la cama
+;; bajo el tubo es Bc/4 (Bc = diametro exterior), con minimo 0.10 m y
+;; maximo 0.15 m. Antes del 2026-08-03 el codigo usaba 0.10 m fijo para
+;; cualquier diametro -- correcto solo para el extremo inferior del rango.
+(defun mp:pipe-bedding-thickness (diameter-m)
+  (min 0.15 (max 0.10 (/ diameter-m 4.0)))
+)
+
 (defun mp:derive-tramo-values
   (base p1 p2 vals
    / length-2d length-3d length-value mode diameter-m diameter-in ducts width
-   bedding replacement-raw replacement-width tn-ini tn-fin key-ini key-fin
+   bedding bedding-raw replacement-raw replacement-width tn-ini tn-fin key-ini key-fin
    cover-ini cover-fin depth-ini depth-fin depth-mean slope-calculated
    entered-slope excavation bedding-volume element-volume fill surplus
    replacement duct-diameter surface depth-profile depths max-depth-sampled
@@ -6936,8 +7246,19 @@
                       (mp:getval "LONGITUD" vals "0")) 0.0))
         mode "PLANTA"
         length-value length-2d
-        bedding (max 0.0 (mp:number-or (mp:getval "ESPESOR_CAMA" vals "0.10") 0.10))
         width (mp:number-or (mp:getval "ANCHO_ZANJA" vals "") 0.0))
+  ;; diametro adelantado (se vuelve a leer mas abajo dentro de la rama
+  ;; hidraulica, sin costo, para no reordenar el resto de la funcion) --
+  ;; solo para poder resolver la cama por Bc/4 antes de que se necesite.
+  (if (mp:hydro-tramo-p base)
+    (setq diameter-in (mp:number-or (mp:getval "DIAMETRO" vals "0") 0.0)
+          diameter-m (* 0.0254 diameter-in)))
+  (setq bedding-raw (mp:getval "ESPESOR_CAMA" vals ""))
+  (setq bedding
+    (max 0.0
+      (if (/= (vl-string-trim " " (mp:safe-str bedding-raw)) "")
+        (mp:number-or bedding-raw 0.10)
+        (if diameter-m (mp:pipe-bedding-thickness diameter-m) 0.10))))
   (if (mp:hydro-tramo-p base)
     (progn
       (setq diameter-in (mp:number-or (mp:getval "DIAMETRO" vals "0") 0.0)
@@ -6968,7 +7289,8 @@
           (setq depth-profile
             (if (and surface p1 p2 key-ini key-fin)
               (mp:tramo-depth-profile surface p1 p2 key-ini key-fin
-                diameter-m bedding 10)
+                diameter-m bedding 10
+                (if (boundp '*mp-tramo-road-ref*) *mp-tramo-road-ref* nil))
               (list nil nil)))
           (setq depths (car depth-profile)
                 max-depth-sampled (cadr depth-profile))))
@@ -7039,7 +7361,10 @@
           vals (mp:alist-set vals "SOBRANTE_M3" (rtos surplus 2 3))
           vals (mp:alist-set vals "REPOSICION_M2" (rtos replacement 2 3))
           vals (mp:alist-set vals "METODO_CANTIDADES"
-                 (if depths "PERFIL_MUESTREADO" "PRELIMINAR_GEOMETRICO")))
+                 (strcat
+                   (if depths "PERFIL_MUESTREADO" "PRELIMINAR_GEOMETRICO")
+                   (if (and (boundp '*mp-tramo-road-ref*) *mp-tramo-road-ref*)
+                     " (ref. subrasante via)" ""))))
     (setq vals (mp:alist-set vals "EXCAVACION_M3" "")
           vals (mp:alist-set vals "CAMA_M3" "")
           vals (mp:alist-set vals "VOLUMEN_ELEMENTO_M3" "")
@@ -8997,11 +9322,11 @@
     nil))
 
 (defun urb:select-or-draw-road-axis (mode / selected ename)
-  (urb:ensure-layer "URB-VIA-EJE" 3 T)
+  (urb:ensure-layer "URB-VIA" 3 T)
   (if (urb:string-equal-p mode "Nuevo")
     (setq ename
       (urb:draw-polyline
-        "\nDibuje el eje de la via. Enter termina: " "URB-VIA-EJE"))
+        "\nDibuje el eje de la via. Enter termina: " "URB-VIA"))
     (progn
       ;; nentsel (no entsel) perfora bloques y xrefs: permite tomar como
       ;; eje una polilinea que vive dentro de una referencia externa.
@@ -9200,7 +9525,7 @@
    block-definition copy-result block-ref memoria obj insert-result block-ename
    xdata-result)
   (setq boundary (vlax-ename->vla-object ename))
-  (urb:ensure-layer "URB-VIA-BLOQUE" 2 T)
+  (urb:ensure-layer "URB-VIA" 2 T)
   (setq data (urb:get-xdata-strings ename "URB_VIA"))
   (setq mov (urb:road-movement-data ename))
   (setq handle (vla-get-Handle boundary))
@@ -9291,7 +9616,7 @@
                 "\nERROR: AutoCAD no devolvio una referencia de bloque valida para la via.")
               nil)
             (progn
-              (vla-put-Layer block-ref "URB-VIA-BLOQUE")
+              (vla-put-Layer block-ref "URB-VIA")
               (setq xdata-result
                 (urb:set-xdata-strings block-ename "URB_VIA" data))
               (if xdata-result
@@ -9322,10 +9647,14 @@
     nil
     (progn
       (setq objects (urb:variant-object-list exploded))
+      ;; 4.18.0: todas las capas de via se consolidaron en URB-VIA, asi que
+      ;; la capa ya no distingue el contorno de las abscisas/datos/tabla
+      ;; dentro del bloque explotado. El tipo de objeto si alcanza: el
+      ;; contorno es la unica LWPOLYLINE (abscisas son LINE+TEXT, datos es
+      ;; MTEXT, verificacion es TABLE) -- vale tanto para vias nuevas como
+      ;; para vias viejas (capa URB-VIA-CONTORNO).
       (foreach item objects
-        (if (and
-              (= (vla-get-ObjectName item) "AcDbPolyline")
-              (urb:string-equal-p (vla-get-Layer item) "URB-VIA-CONTORNO"))
+        (if (= (vla-get-ObjectName item) "AcDbPolyline")
           (setq boundary item)))
       (foreach item objects
         (if (not (eq item boundary)) (urb:safe-delete item)))
@@ -9364,7 +9693,7 @@
       (setq p1 (mapcar '+ point (mapcar '(lambda (item) (* item 0.50)) normal)))
       (setq p2 (mapcar '- point (mapcar '(lambda (item) (* item 0.50)) normal)))
       (setq line (vla-AddLine (urb:space) (vlax-3d-point p1) (vlax-3d-point p2)))
-      (vla-put-Layer line "URB-VIA-ABSCISAS")
+      (vla-put-Layer line "URB-VIA")
       (urb:tag-road-generated line parent-handle)
       (setq text-angle (atan (cadr tangent) (car tangent)))
       (setq text
@@ -9372,7 +9701,7 @@
           (vlax-3d-point
             (mapcar '+ point (mapcar '(lambda (item) (* item 0.75)) normal)))
           0.45))
-      (vla-put-Layer text "URB-VIA-ABSCISAS")
+      (vla-put-Layer text "URB-VIA")
       (vla-put-Rotation text text-angle)
       (urb:tag-road-generated text parent-handle))))
 
@@ -9392,7 +9721,7 @@
 (defun urb:generate-road-stations
   (axis parent-handle start interval direction axis-start span
    / end-label labels next-round label traveled distance-value)
-  (urb:ensure-layer "URB-VIA-ABSCISAS" 7 T)
+  (urb:ensure-layer "URB-VIA" 7 T)
   (if (or (not (numberp interval)) (<= interval 1e-6))
     (setq interval 10.0))
   (setq end-label (+ start span))
@@ -9500,11 +9829,11 @@
     (cons "nominal_width" (nth 16 data))))
 
 (defun urb:draw-road-boundary (/ ename obj area)
-  (urb:ensure-layer "URB-VIA-CONTORNO" 2 T)
+  (urb:ensure-layer "URB-VIA" 2 T)
   (setq ename
     (urb:draw-polyline
       "\nDibuje el contorno de la via. Enter termina y el programa lo cerrara: "
-      "URB-VIA-CONTORNO"))
+      "URB-VIA"))
   (if ename
     (progn
       (setq obj (vlax-ename->vla-object ename))
@@ -9672,7 +10001,7 @@
   (setq data (urb:get-xdata-strings boundary "URB_VIA"))
   (if data
     (progn
-      (urb:ensure-layer "URB-VIA-DATOS" 2 T)
+      (urb:ensure-layer "URB-VIA" 2 T)
       (setq content
         (strcat
           "VIA: " (urb:safe-string (nth 1 data) "")
@@ -9697,7 +10026,7 @@
       (setq rotation (urb:road-summary-angle axis point))
       (if rotation
         (vl-catch-all-apply 'vla-put-Rotation (list mtext rotation)))
-      (vla-put-Layer mtext "URB-VIA-DATOS")
+      (vla-put-Layer mtext "URB-VIA")
       (vla-put-Color mtext 256)
       (vl-catch-all-apply 'vla-put-TextHeight (list mtext textheight))
       (vl-catch-all-apply 'vla-put-BackgroundFill (list mtext :vlax-true))
@@ -11055,7 +11384,7 @@
   (setq audit (urb:road-earthwork-audit-rows samples width-total depth))
   (if audit
     (progn
-      (urb:ensure-layer "URB-VIA-VERIFICACION" 4 T)
+      (urb:ensure-layer "URB-VIA" 4 T)
       (setq point (urb:road-audit-table-point boundary))
       (setq textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE"))))
       (setq rowheight (* textheight 2.20))
@@ -11066,7 +11395,7 @@
         (vla-AddTable
           (urb:space) (vlax-3d-point point)
           rows-count 9 rowheight colwidth))
-      (vla-put-Layer table "URB-VIA-VERIFICACION")
+      (vla-put-Layer table "URB-VIA")
       (vla-put-Color table 256)
       (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
         (list table :vlax-true))
@@ -11340,6 +11669,9 @@
         ": button { label = \"Cargar perfiles base faltantes\"; key = \"base_profiles\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Integridad de datos\";"
         ": button { label = \"Diagnosticar y migrar redes\"; key = \"repair_networks\"; height = 2; width = 40; } }"
+        ": boxed_column { label = \"Movimiento de tierras\";"
+        ": button { label = \"Referencia de relleno de tramos de red\"; key = \"network_fill_ref\"; height = 2; width = 40; }"
+        ": button { label = \"Recalcular tramos existentes con la referencia actual\"; key = \"recalc_tramos\"; height = 2; width = 40; } }"
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
         "urb_quantities : dialog { label = \"Cantidades\";"
         ": boxed_column { label = \"Seleccione una opcion\";"
@@ -14080,13 +14412,19 @@
     (urb:simple-menu-dialog "urb_config"
       '(("road_profiles" "road_profiles")
         ("base_profiles" "base_profiles")
-        ("repair_networks" "repair_networks"))))
+        ("repair_networks" "repair_networks")
+        ("network_fill_ref" "network_fill_ref")
+        ("recalc_tramos" "recalc_tramos"))))
   (cond
     ((or (null action) (= action "back")) "back")
     ((= action "road_profiles") (urb:manage-road-profiles))
     ((= action "base_profiles") (urb:load-base-profiles-command))
     ((= action "repair_networks")
-      (urb:update-network-blocks-command)))
+      (urb:update-network-blocks-command))
+    ((= action "network_fill_ref")
+      (mp:network-fill-reference-command))
+    ((= action "recalc_tramos")
+      (mp:recalc-tramos-earthworks-command)))
   (if (or (null action) (= action "back")) "back" nil))
 
 (defun c:URBANISMO (/ action done result)
