@@ -1977,9 +1977,135 @@
           (> count 0)))))
 )
 
+(defun urb:turning-angle (a1 a2 / delta two-pi)
+  ;; Diferencia angular real (con sentido) entre dos direcciones, normalizada
+  ;; al rango -pi a pi. A diferencia de urb:axis-angle-distance (que trata un eje y
+  ;; su opuesto como el mismo eje), aqui SI importa el sentido de avance:
+  ;; es el angulo que se "gira" al pasar de una arista a la siguiente.
+  (setq two-pi (* 2.0 pi))
+  (setq delta (- a2 a1))
+  (while (> delta pi) (setq delta (- delta two-pi)))
+  (while (<= delta (- pi)) (setq delta (+ delta two-pi)))
+  delta
+)
+
+(defun urb:polygon-corner-indices (points threshold / n edges i prev-a next-a delta result)
+  ;; Indices de vertices donde el contorno gira mas de "threshold": son las
+  ;; esquinas reales (donde un lado largo del anden termina y empieza otro,
+  ;; o donde esta la tapa corta de un extremo). Los vertices intermedios de
+  ;; un tramo curvo aproximado con muchos segmentos cortos giran poco cada
+  ;; uno y no cuentan como esquina.
+  (setq n (length points))
+  (if (< n 3)
+    nil
+    (progn
+      (setq edges (urb:polygon-edge-records points))
+      (setq result nil i 0)
+      (repeat n
+        (setq prev-a (nth 3 (nth (rem (+ i (1- n)) n) edges))
+              next-a (nth 3 (nth i edges)))
+        (setq delta (urb:turning-angle prev-a next-a))
+        (if (> (abs delta) threshold) (setq result (cons i result)))
+        (setq i (1+ i)))
+      (reverse result))))
+
+(defun urb:polygon-chains-at-corners (points corners / n sorted k chains j start end idx chain)
+  ;; Parte el contorno cerrado en tramos abiertos entre esquinas consecutivas.
+  ;; Cada tramo conserva sus vertices reales tal como quedaron dibujados.
+  (setq n (length points) sorted (vl-sort corners '<) k (length sorted))
+  (if (< k 2)
+    nil
+    (progn
+      (setq chains nil j 0)
+      (repeat k
+        (setq start (nth j sorted)
+              end (nth (rem (1+ j) k) sorted))
+        (setq idx start chain (list (nth idx points)))
+        (while (/= idx end)
+          (setq idx (rem (1+ idx) n))
+          (setq chain (cons (nth idx points) chain)))
+        (setq chains (cons (reverse chain) chains))
+        (setq j (1+ j)))
+      (reverse chains))))
+
+(defun urb:chain-total-length (chain / total rest)
+  (setq total 0.0 rest chain)
+  (while (cadr rest)
+    (setq total (+ total (distance (car rest) (cadr rest))))
+    (setq rest (cdr rest)))
+  total
+)
+
+(defun urb:longest-chain (chains / best best-length chain len)
+  (setq best nil best-length -1.0)
+  (foreach chain chains
+    (setq len (urb:chain-total-length chain))
+    (if (> len best-length) (setq best chain best-length len)))
+  best
+)
+
+(defun urb:anden-driving-chain (points / corners chains)
+  ;; Un solo lado largo del anden (tramo abierto de vertices reales) que se
+  ;; usa como guia para modular segmento por segmento. Para un anden simple
+  ;; de 4 vertices da un unico tramo de 1 arista (equivalente al eje unico
+  ;; de siempre); para un anden curvo con muchos vertices da el lado largo
+  ;; completo con todos sus quiebres reales.
+  (setq corners (urb:polygon-corner-indices points (* pi (/ 45.0 180.0))))
+  (setq chains (urb:polygon-chains-at-corners points corners))
+  (if chains (urb:longest-chain chains) nil)
+)
+
+(defun urb:open-chain-edges (chain-points / result rest p1 p2 edge-length)
+  ;; Igual que urb:polygon-edge-records pero para un tramo ABIERTO (no cierra
+  ;; el ultimo vertice contra el primero).
+  (setq rest chain-points result nil)
+  (while (cadr rest)
+    (setq p1 (car rest) p2 (cadr rest) edge-length (distance p1 p2))
+    (if (> edge-length 1e-8)
+      (setq result
+        (cons (list p1 p2 edge-length (urb:normalize-axis-angle (angle p1 p2))) result)))
+    (setq rest (cdr rest)))
+  (reverse result)
+)
+
+(defun urb:decorate-composite-region-segmented
+  (base-region driving-chain format parent-handle reverse-pattern
+   / edges edge angle-value cosine sine u1 u2 umin umax
+   bounds-all vmin-all vmax-all slice count points-all)
+  ;; Modula el anden segmento por segmento siguiendo el contorno real en vez
+  ;; de un unico eje: cada arista del lado guia recorta su propia franja del
+  ;; anden (el resto del ancho se recorta solo por el boolean contra el
+  ;; contorno real) y se decora con SU angulo local, para que la reticula
+  ;; siga la curva en lugar de desviarse a medida que uno se aleja del punto
+  ;; donde se calculo el eje unico.
+  (setq edges (urb:open-chain-edges driving-chain))
+  (setq points-all (urb:region-outline-points base-region))
+  (if (null points-all) (setq points-all (urb:object-box-points base-region)))
+  (setq count 0)
+  (foreach edge edges
+    (setq angle-value (nth 3 edge)
+          cosine (cos angle-value)
+          sine (sin angle-value))
+    (setq u1 (+ (* (car (nth 0 edge)) cosine) (* (cadr (nth 0 edge)) sine)))
+    (setq u2 (+ (* (car (nth 1 edge)) cosine) (* (cadr (nth 1 edge)) sine)))
+    (setq umin (min u1 u2) umax (max u1 u2))
+    (setq bounds-all (urb:project-bounds points-all angle-value)
+          vmin-all (nth 2 bounds-all)
+          vmax-all (nth 3 bounds-all))
+    (setq slice (urb:clip-stripe base-region umin umax vmin-all vmax-all angle-value))
+    (if slice
+      (progn
+        (urb:decorate-composite-region
+          slice angle-value format parent-handle reverse-pattern)
+        (setq count (1+ count)))))
+  (urb:safe-delete base-region)
+  (> count 0)
+)
+
 (defun urb:create-composite-loseta
   (ename format / obj copy base-region points parent-handle clusters
-   split-data zones zone success angle-value pattern-mode reverse-pattern)
+   split-data zones zone success angle-value pattern-mode reverse-pattern
+   driving-chain)
   (setq obj (vlax-ename->vla-object ename)
         parent-handle (vla-get-Handle obj)
         points (urb:lwpoly-points ename)
@@ -1992,31 +2118,50 @@
   (if (vl-catch-all-error-p base-region)
     nil
     (progn
-      (if (> (length clusters) 1)
-        (setq split-data
-          (urb:two-axis-split-data
-            points (car clusters) (cadr clusters))))
-      (if split-data
+      (setq driving-chain (urb:anden-driving-chain points))
+      (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
+        ;; Contorno con varios vertices reales en un mismo lado (tramo curvo
+        ;; aproximado con muchos segmentos cortos): modular cada segmento con
+        ;; su propio angulo local en vez de un unico eje para todo el anden.
+        (urb:decorate-composite-region-segmented
+          base-region driving-chain format parent-handle reverse-pattern)
         (progn
-          (setq zones
-            (urb:create-two-axis-regions base-region split-data))
-          (if zones
+          (if (> (length clusters) 1)
+            (setq split-data
+              (urb:two-axis-split-data
+                points (car clusters) (cadr clusters))))
+          (if split-data
             (progn
-              (urb:safe-delete base-region)
-              (setq success T)
-              (foreach zone zones
-                (if (not
-                      (urb:decorate-composite-region
-                        (car zone)
-                        (urb:anden-pattern-angle
-                          (cadr zone) pattern-mode)
-                        format parent-handle
-                        reverse-pattern))
-                  (setq success nil)))
-              success)
+              (setq zones
+                (urb:create-two-axis-regions base-region split-data))
+              (if zones
+                (progn
+                  (urb:safe-delete base-region)
+                  (setq success T)
+                  (foreach zone zones
+                    (if (not
+                          (urb:decorate-composite-region
+                            (car zone)
+                            (urb:anden-pattern-angle
+                              (cadr zone) pattern-mode)
+                            format parent-handle
+                            reverse-pattern))
+                      (setq success nil)))
+                  success)
+                (progn
+                  ;; Si la particion geometrica falla, se conserva un resultado
+                  ;; util usando el eje principal en lugar de dejar el anden vacio.
+                  (setq angle-value
+                    (if clusters
+                      (car (car clusters))
+                      (urb:anden-axis-angle points)))
+                  (setq angle-value
+                    (urb:anden-pattern-angle
+                      angle-value pattern-mode))
+                  (urb:decorate-composite-region
+                    base-region angle-value format parent-handle
+                    reverse-pattern))))
             (progn
-              ;; Si la particion geometrica falla, se conserva un resultado
-              ;; util usando el eje principal en lugar de dejar el anden vacio.
               (setq angle-value
                 (if clusters
                   (car (car clusters))
@@ -2026,23 +2171,87 @@
                   angle-value pattern-mode))
               (urb:decorate-composite-region
                 base-region angle-value format parent-handle
-                reverse-pattern))))
-        (progn
-          (setq angle-value
-            (if clusters
-              (car (car clusters))
-              (urb:anden-axis-angle points)))
-          (setq angle-value
-            (urb:anden-pattern-angle
-              angle-value pattern-mode))
-          (urb:decorate-composite-region
-            base-region angle-value format parent-handle
-            reverse-pattern)))))
+                reverse-pattern)))))))
+)
+
+(defun urb:add-circle-symbol (u v radius angle-value layer / world-pt)
+  ;; Punto tactil real (toperol): un circulo dibujado, no una marca de hatch
+  ;; de longitud cero. Coincide visualmente con la loseta toperol real
+  ;; (domos truncados dibujados como aros), no con un simple punteado.
+  (setq world-pt (urb:local-to-world u v angle-value))
+  (entmake
+    (list
+      (cons 0 "CIRCLE")
+      (cons 100 "AcDbEntity")
+      (cons 8 layer)
+      (cons 100 "AcDbCircle")
+      (cons 10 (list (car world-pt) (cadr world-pt) 0.0))
+      (cons 40 radius)))
+  (entlast)
+)
+
+(defun urb:add-capsule-symbol
+  (u v half-length half-width angle-value layer
+   / p1 p2 p3 p4)
+  ;; Barra tactil real (guia): una capsula (rectangulo con extremos
+  ;; semicirculares, via bulge=1 en 2 de los 4 vertices) con el eje largo
+  ;; a lo largo de U (direccion de avance) -antes era un simple guion recto,
+  ;; sin extremos redondeados, que no se parecia a la loseta guia real.
+  (setq p1 (urb:local-to-world (- u half-length) (+ v half-width) angle-value)
+        p2 (urb:local-to-world (+ u half-length) (+ v half-width) angle-value)
+        p3 (urb:local-to-world (+ u half-length) (- v half-width) angle-value)
+        p4 (urb:local-to-world (- u half-length) (- v half-width) angle-value))
+  (entmake
+    (list
+      (cons 0 "LWPOLYLINE")
+      (cons 100 "AcDbEntity")
+      (cons 8 layer)
+      (cons 100 "AcDbPolyline")
+      (cons 90 4)
+      (cons 70 1)
+      (cons 10 p1) (cons 42 0.0)
+      (cons 10 p2) (cons 42 1.0)
+      (cons 10 p3) (cons 42 0.0)
+      (cons 10 p4) (cons 42 1.0)))
+  (entlast)
+)
+
+(defun urb:fill-tactile-symbols
+  (region feature angle-value layer
+   / points bounds umin umax vmin vmax spacing margin u v count
+   radius half-length half-width)
+  ;; Reparte simbolos tactiles reales (circulos o capsulas) en una reticula
+  ;; de 5 cm sobre el area ya recortada de la franja, en vez de depender de
+  ;; un patron .pat (que solo puede construirse con familias de lineas
+  ;; rectas y nunca se va a parecer a un domo truncado circular u ovalado).
+  (setq points (urb:region-outline-points region))
+  (if (null points) (setq points (urb:object-box-points region)))
+  (if points
+    (progn
+      (setq bounds (urb:project-bounds points angle-value)
+            umin (nth 0 bounds) umax (nth 1 bounds)
+            vmin (nth 2 bounds) vmax (nth 3 bounds))
+      (setq spacing 0.05 margin 0.025 count 0)
+      (if (= feature "GUIA")
+        (setq half-length 0.075 half-width 0.012)
+        (setq radius 0.008))
+      (setq u (+ umin margin))
+      (while (<= u (+ (- umax margin) 1e-6))
+        (setq v (+ vmin margin))
+        (while (<= v (+ (- vmax margin) 1e-6))
+          (if (= feature "GUIA")
+            (urb:add-capsule-symbol u v half-length half-width angle-value layer)
+            (urb:add-circle-symbol u v radius angle-value layer))
+          (setq count (1+ count))
+          (setq v (+ v spacing)))
+        (setq u (+ u spacing)))
+      (> count 0))
+    nil)
 )
 
 (defun urb:decorate-accessibility-strip
   (region layer feature module angle-value origin parent-handle
-   / fill grid pattern pattern-name fallback)
+   / fill grid symbols-ok)
   ;; layer ya es la capa de guia/toperol real (antes esta pieza base vivia
   ;; aparte en URB-ANDEN-AUX); el rol FILL mantiene el orden de dibujo.
   (vla-put-Layer region layer)
@@ -2057,23 +2266,10 @@
     (urb:add-user-hatch
       region layer module angle-value T 9 origin))
   (urb:tag-generated-role grid parent-handle "FEATURE")
-  (setq pattern-name
-    (if (= feature "GUIA") "URB_GUIA" "URB_TOPEROL"))
-  (setq fallback
-    (if (= feature "GUIA") "DASH" "DOTS"))
-  (setq pattern
-    (urb:add-hatch
-      region layer pattern-name 2 fallback 1.0 9))
-  (if (and pattern (not (vl-catch-all-error-p pattern)))
-    (progn
-      (if (vlax-property-available-p pattern 'PatternAngle T)
-        (vl-catch-all-apply
-          'vla-put-PatternAngle
-          (list pattern
-            (urb:wcs-angle-to-current-ucs angle-value))))
-      (vl-catch-all-apply 'vla-Evaluate (list pattern))
-      (if origin (urb:set-hatch-origin-dxf pattern origin))))
-  (urb:tag-generated-role pattern parent-handle "FEATURE")
+  (setq symbols-ok
+    (vl-catch-all-apply
+      'urb:fill-tactile-symbols
+      (list region feature angle-value layer)))
   T
 )
 
@@ -2097,11 +2293,88 @@
     vmax)
 )
 
+(defun urb:create-accessibility-features-segmented
+  (base-region points driving-chain guia toperol format parent-handle
+   / edges edge angle-value module cosine sine u1 u2 umin umax
+   bounds-wide vmin-wide vmax-wide full-slice slice-points bounds-local
+   vmin-local vmax-local width reference-edge guide-min guide-max
+   top-min top-max region origin layer count)
+  ;; Igual que urb:create-accessibility-features pero por segmento real del
+  ;; contorno: cada arista del lado guia recorta y mide su propia franja en
+  ;; vez de usar el ancho proyectado de TODO el anden sobre un unico eje
+  ;; (que en un tramo curvo da un ancho falso, inflado por vertices de otras
+  ;; estaciones, y termina sembrando simbolos muy por fuera del area real).
+  (setq module (urb:loseta-module format))
+  (setq edges (urb:open-chain-edges driving-chain))
+  (setq count 0)
+  (foreach edge edges
+    (setq angle-value (nth 3 edge) cosine (cos angle-value) sine (sin angle-value))
+    (setq u1 (+ (* (car (nth 0 edge)) cosine) (* (cadr (nth 0 edge)) sine)))
+    (setq u2 (+ (* (car (nth 1 edge)) cosine) (* (cadr (nth 1 edge)) sine)))
+    (setq umin (min u1 u2) umax (max u1 u2))
+    (setq bounds-wide (urb:project-bounds points angle-value)
+          vmin-wide (nth 2 bounds-wide) vmax-wide (nth 3 bounds-wide))
+    (setq full-slice (urb:clip-stripe base-region umin umax vmin-wide vmax-wide angle-value))
+    (if full-slice
+      (progn
+        (setq slice-points (urb:region-outline-points full-slice))
+        (if (null slice-points) (setq slice-points (urb:object-box-points full-slice)))
+        (if slice-points
+          (progn
+            (setq bounds-local (urb:project-bounds slice-points angle-value)
+                  vmin-local (nth 2 bounds-local)
+                  vmax-local (nth 3 bounds-local)
+                  width (- vmax-local vmin-local)
+                  reference-edge
+                    (urb:reference-v-edge points angle-value vmin-local vmax-local))
+            (if (urb:yes-p guia)
+              (progn
+                (if (< width module)
+                  (setq guide-min vmin-local guide-max vmax-local)
+                  (if (= reference-edge vmin-local)
+                    (setq guide-min (+ vmin-local 1.20)
+                          guide-max (+ vmin-local 1.20 module))
+                    (setq guide-min (- vmax-local 1.20 module)
+                          guide-max (- vmax-local 1.20))))
+                (if (>= width module)
+                  (setq guide-min (max vmin-local (min (- vmax-local module) guide-min))
+                        guide-max (+ guide-min module)))
+                (setq region
+                  (urb:clip-stripe full-slice umin umax guide-min guide-max angle-value))
+                (if region
+                  (progn
+                    (setq origin (urb:local-to-world umin reference-edge angle-value))
+                    (setq layer
+                      (if (> module 0.30)
+                        "URB-ANDEN-LOSETA-GUIA-40X40" "URB-ANDEN-LOSETA-GUIA-20X20"))
+                    (urb:decorate-accessibility-strip
+                      region layer "GUIA" module angle-value origin parent-handle)
+                    (setq count (1+ count))))))
+            (if (urb:yes-p toperol)
+              (progn
+                (if (= reference-edge vmin-local)
+                  (setq top-min vmin-local top-max (min vmax-local (+ vmin-local module)))
+                  (setq top-min (max vmin-local (- vmax-local module)) top-max vmax-local))
+                (setq region
+                  (urb:clip-stripe full-slice umin umax top-min top-max angle-value))
+                (if region
+                  (progn
+                    (setq origin (urb:local-to-world umin reference-edge angle-value))
+                    (setq layer
+                      (if (> module 0.30)
+                        "URB-ANDEN-LOSETA-TOPEROL-40X40" "URB-ANDEN-LOSETA-TOPEROL-20X20"))
+                    (urb:decorate-accessibility-strip
+                      region layer "TOPEROL" module angle-value origin parent-handle)
+                    (setq count (1+ count))))))))
+        (urb:safe-delete full-slice))))
+  (> count 0)
+)
+
 (defun urb:create-accessibility-features
   (ename guia toperol format / obj copy base-region points angle-value bounds
    umin umax vmin vmax center region parent-handle origin count limits
    reference-edge width guide-min guide-max pattern-v-origin module layer
-   top-min top-max)
+   top-min top-max driving-chain)
   (if (and (not (urb:yes-p guia))
            (not (urb:yes-p toperol)))
     T
@@ -2109,75 +2382,79 @@
       (setq obj (vlax-ename->vla-object ename))
       (setq parent-handle (vla-get-Handle obj))
       (setq points (urb:lwpoly-points ename))
-      (setq angle-value (urb:anden-axis-angle points))
       (setq module (urb:loseta-module format))
-      (setq bounds (urb:project-bounds points angle-value))
-      (setq umin (nth 0 bounds))
-      (setq umax (nth 1 bounds))
-      (setq vmin (nth 2 bounds))
-      (setq vmax (nth 3 bounds))
-      (setq reference-edge
-        (urb:reference-v-edge points angle-value vmin vmax))
-      (setq pattern-v-origin reference-edge)
       (setq copy (vla-Copy obj))
       (setq base-region (urb:add-region-from-object copy))
       (urb:safe-delete copy)
       (if (vl-catch-all-error-p base-region)
         nil
         (progn
-          (if (urb:yes-p guia)
+          (setq driving-chain (urb:anden-driving-chain points))
+          (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
+            (urb:create-accessibility-features-segmented
+              base-region points driving-chain guia toperol format parent-handle)
             (progn
-              (setq width (- vmax vmin))
-              (if (< width module)
-                (setq guide-min vmin guide-max vmax)
-                (if (= reference-edge vmin)
-                  (setq guide-min (+ vmin 1.20)
-                        guide-max (+ vmin 1.20 module))
-                  (setq guide-min (- vmax 1.20 module)
-                        guide-max (- vmax 1.20))))
-              (if (>= width module)
+              (setq angle-value (urb:anden-axis-angle points))
+              (setq bounds (urb:project-bounds points angle-value))
+              (setq umin (nth 0 bounds))
+              (setq umax (nth 1 bounds))
+              (setq vmin (nth 2 bounds))
+              (setq vmax (nth 3 bounds))
+              (setq reference-edge
+                (urb:reference-v-edge points angle-value vmin vmax))
+              (setq pattern-v-origin reference-edge)
+              (if (urb:yes-p guia)
                 (progn
-                  (setq guide-min
-                    (max vmin (min (- vmax module) guide-min)))
-                  (setq guide-max (+ guide-min module))))
-              (setq center (/ (+ guide-min guide-max) 2.0))
-              (setq region
-                (urb:clip-stripe
-                  base-region umin umax guide-min guide-max angle-value))
-              (if region
+                  (setq width (- vmax vmin))
+                  (if (< width module)
+                    (setq guide-min vmin guide-max vmax)
+                    (if (= reference-edge vmin)
+                      (setq guide-min (+ vmin 1.20)
+                            guide-max (+ vmin 1.20 module))
+                      (setq guide-min (- vmax 1.20 module)
+                            guide-max (- vmax 1.20))))
+                  (if (>= width module)
+                    (progn
+                      (setq guide-min
+                        (max vmin (min (- vmax module) guide-min)))
+                      (setq guide-max (+ guide-min module))))
+                  (setq center (/ (+ guide-min guide-max) 2.0))
+                  (setq region
+                    (urb:clip-stripe
+                      base-region umin umax guide-min guide-max angle-value))
+                  (if region
+                    (progn
+                      (setq origin
+                        (urb:local-to-world
+                          umin pattern-v-origin angle-value))
+                      (setq layer
+                        (if (> module 0.30)
+                          "URB-ANDEN-LOSETA-GUIA-40X40"
+                          "URB-ANDEN-LOSETA-GUIA-20X20"))
+                      (urb:decorate-accessibility-strip
+                        region layer "GUIA" module angle-value origin parent-handle)
+                      (setq count (1+ (if count count 0)))))))
+              (if (urb:yes-p toperol)
                 (progn
-                  (setq origin
-                    (urb:local-to-world
-                      umin pattern-v-origin angle-value))
-                  (setq layer
-                    (if (> module 0.30)
-                      "URB-ANDEN-LOSETA-GUIA-40X40"
-                      "URB-ANDEN-LOSETA-GUIA-20X20"))
-                  (urb:decorate-accessibility-strip
-                    region layer "GUIA" module angle-value origin parent-handle)
-                  (setq count (1+ (if count count 0)))))))
-          (if (urb:yes-p toperol)
-            (progn
-              (if (= reference-edge vmin)
-                (setq top-min vmin top-max (min vmax (+ vmin module)))
-                (setq top-min (max vmin (- vmax module)) top-max vmax))
-              (setq region
-                (urb:clip-stripe
-                  base-region umin umax top-min top-max angle-value))
-              (if region
-                (progn
-                  (setq origin
-                    (urb:local-to-world umin reference-edge angle-value))
-                  (setq layer
-                    (if (> module 0.30)
-                      "URB-ANDEN-LOSETA-TOPEROL-40X40"
-                      "URB-ANDEN-LOSETA-TOPEROL-20X20"))
-                  (urb:decorate-accessibility-strip
-                    region layer "TOPEROL" module angle-value origin parent-handle)
-                  (setq count (1+ (if count count 0)))))))
-          (urb:safe-delete base-region)
-          (> (if count count 0) 0))))
-)
+                  (if (= reference-edge vmin)
+                    (setq top-min vmin top-max (min vmax (+ vmin module)))
+                    (setq top-min (max vmin (- vmax module)) top-max vmax))
+                  (setq region
+                    (urb:clip-stripe
+                      base-region umin umax top-min top-max angle-value))
+                  (if region
+                    (progn
+                      (setq origin
+                        (urb:local-to-world umin reference-edge angle-value))
+                      (setq layer
+                        (if (> module 0.30)
+                          "URB-ANDEN-LOSETA-TOPEROL-40X40"
+                          "URB-ANDEN-LOSETA-TOPEROL-20X20"))
+                      (urb:decorate-accessibility-strip
+                        region layer "TOPEROL" module angle-value origin parent-handle)
+                      (setq count (1+ (if count count 0)))))))
+              (urb:safe-delete base-region)
+              (> (if count count 0) 0)))))))
 )
 
 (defun urb:draw-polyline-interactive (old-plinewid)
