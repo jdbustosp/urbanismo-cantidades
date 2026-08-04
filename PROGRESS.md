@@ -17,6 +17,25 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-04 — Modulación de andenes en curvas: se descarta el enfoque procedural, la referencia usa una librería de bloques estándar
+
+Continuación del mismo día del commit `68e3476` (ver entrada de abajo). El usuario comparó el resultado del arreglo de curvas contra capturas reales de `U-201.dwg` a mayor detalle y confirmó que **seguía sin parecerse**. Se investigó a fondo antes de seguir tocando código:
+
+1. **Se probó una segunda hipótesis** (paneles discretos con costura visible, agrupando aristas hasta acumular un giro de 20°, con toperol automático en cada quiebre real) como función de comparación aparte (`demo:create-composite-loseta-panels`, solo de prueba, no se guardó en el archivo principal) — tampoco coincidió con la referencia. El usuario pidió verificar el plano directamente en vez de seguir adivinando visualmente.
+2. **Hallazgo real, con el archivo abierto e inspeccionado directamente** (`entget`/`tblnext` sobre `U-201.dwg`, no solo visual): la franja de modulación de la referencia **no es geometría calculada por fórmula en absoluto** — es una librería de bloques estándar dibujados a mano, insertados y rotados a lo largo del andén. Jerarquía de 3 niveles encontrada:
+   - **Nivel 0 (baldosa individual)**: `B-TABLETA 20X20 TONO 1/2`, `B-TABLETA 20X10 TONO 2`, `B-TABLETA 20X20 TÁCTIL ALERTA` (9 círculos reales = toperol, confirma que usar círculos era el camino correcto — solo que van organizados 3×3 por baldosa, no repartidos libremente como se había hecho).
+   - **Nivel 1 (módulo armado, 20 a 105 baldosas)**: `B-Módulo 1/7/8/9` (tramos rectos), `B-Módulo1/2/3 - Curva N - Tramo M` (paneles curvos por radio de curva "Curva 1/2/3" y ancho de andén "Tramo 5/6/7/8"), `B-Módulo P.C. CURVA` / `B-Módulo P.C. CURVA BLANCA` (pieza de transición en el Punto de Curvatura — donde probablemente ya viene el cierre con toperol que mencionó el usuario), `B-Módulo Rampa AxB` (rampas por combinación de anchos).
+   - **Nivel 2 (ensamble completo)**: `B RAMPA T1/T2` (rampa + bordillo + accesorios en un solo bloque, referencia otros bloques vía `INSERT`).
+   - Catálogo completo: 61 bloques con nombre `B-*`/`B *` en este único archivo (puede haber más variantes en `U-202` a `U-207`, no revisados aún).
+3. **Se buscó un índice acotado** de qué ancho/radio real corresponde a cada "Tramo N"/"Curva N": la carpeta `PLANOS\VERSION 2\PDF\Cartilla detalles de andenes` (14 PDFs) resultó ser sobre la composición general de la sección urbana (franjas de circulación/paisajismo/mobiliario, "Módulo 1A/2A/1C/2C" ahí es otra cosa), no el catálogo de curvas. **No se encontró un índice documentado** — el mapeo Tramo/Curva → dimensión real probablemente hay que sacarlo midiendo la geometría de cada bloque directamente.
+
+**Decisión con el usuario**: en vez de seguir con generación procedural (abanico continuo o paneles discretos, ninguno coincide), traer la librería de bloques real al programa. Plan en 3 pasos, actualmente en el paso 2:
+1. ~~Catalogar qué bloques existen y su jerarquía~~ (hecho arriba).
+2. **Medir cada variante real** (Curva 1/2/3, Tramo 5/6/7/8, anchos de rampa) para saber qué radio/ancho corresponde a cada nombre — en curso.
+3. Construir la lógica de selección + inserción/rotación en la herramienta, y extraer las definiciones de bloque a un archivo de soporte que la herramienta pueda insertar.
+
+**No se modificó el archivo principal en esta parte de la sesión** (el commit `68e3476` de curva-por-segmento + tactil-geométrico sigue siendo lo último subido; queda pendiente decidir si ese enfoque procedural se conserva como alternativa cuando no hay bloque de catálogo disponible, o se descarta del todo una vez lista la inserción de bloques reales).
+
 ### 2026-08-04 — Modulación de andenes: sigue el contorno real en curvas + tactil real (guía/toperol)
 
 El usuario pidió revisar visualmente cómo deben verse los andenes contra un plano de referencia real (`U-201.dwg`, carpeta `MEMORIAS\V3\PROYECTO_URBANISMO_GENERAL\01_DISENOS_BASE\ANDENES`). Se abrió ese DWG con Civil 3D headless (ver [TESTING_CIVIL3D.md](TESTING_CIVIL3D.md)) y se exportó a PNG para comparar. Dos hallazgos reales, ambos corregidos:
