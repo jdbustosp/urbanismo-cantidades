@@ -2329,13 +2329,18 @@
 )
 
 (defun urb:fill-tactile-symbols
-  (region feature angle-value layer
-   / points bounds umin umax vmin vmax spacing margin u v count
-   radius half-length half-width)
+  (region feature angle-value layer phase-offset
+   / points bounds umin umax vmin vmax spacing margin v count
+   radius half-length half-width k global-u local-u seg-len)
   ;; Reparte simbolos tactiles reales (circulos o capsulas) en una reticula
   ;; de 5 cm sobre el area ya recortada de la franja, en vez de depender de
   ;; un patron .pat (que solo puede construirse con familias de lineas
   ;; rectas y nunca se va a parecer a un domo truncado circular u ovalado).
+  ;; phase-offset es la distancia acumulada desde el INICIO de toda la
+  ;; cadena guia hasta el arranque de este segmento: sin esto, cada
+  ;; segmento reinicia su propia reticula en 0 y la costura entre
+  ;; segmentos vecinos queda desalineada (el patron "salta" en cada union
+  ;; en vez de continuar parejo a lo largo de toda la franja).
   (setq points (urb:region-outline-points region))
   (if (null points) (setq points (urb:object-box-points region)))
   (if points
@@ -2347,22 +2352,26 @@
       (if (= feature "GUIA")
         (setq half-length 0.075 half-width 0.012)
         (setq radius 0.008))
-      (setq u (+ umin margin))
-      (while (<= u (+ (- umax margin) 1e-6))
+      (setq seg-len (- umax umin))
+      (setq k (max 0 (fix (+ (/ (- phase-offset margin) spacing) 0.999999))))
+      (setq global-u (+ margin (* k spacing)))
+      (while (<= (- global-u phase-offset) (+ seg-len 1e-6))
+        (setq local-u (+ umin (- global-u phase-offset)))
         (setq v (+ vmin margin))
         (while (<= v (+ (- vmax margin) 1e-6))
           (if (= feature "GUIA")
-            (urb:add-capsule-symbol u v half-length half-width angle-value layer)
-            (urb:add-circle-symbol u v radius angle-value layer))
+            (urb:add-capsule-symbol local-u v half-length half-width angle-value layer)
+            (urb:add-circle-symbol local-u v radius angle-value layer))
           (setq count (1+ count))
           (setq v (+ v spacing)))
-        (setq u (+ u spacing)))
+        (setq k (1+ k))
+        (setq global-u (+ margin (* k spacing))))
       (> count 0))
     nil)
 )
 
 (defun urb:decorate-accessibility-strip
-  (region layer feature module angle-value origin parent-handle
+  (region layer feature module angle-value origin parent-handle phase-offset
    / fill grid symbols-ok)
   ;; layer ya es la capa de guia/toperol real (antes esta pieza base vivia
   ;; aparte en URB-ANDEN-AUX); el rol FILL mantiene el orden de dibujo.
@@ -2381,7 +2390,7 @@
   (setq symbols-ok
     (vl-catch-all-apply
       'urb:fill-tactile-symbols
-      (list region feature angle-value layer)))
+      (list region feature angle-value layer (if phase-offset phase-offset 0.0))))
   T
 )
 
@@ -2410,15 +2419,21 @@
    / edges edge angle-value module cosine sine u1 u2 umin umax
    bounds-wide vmin-wide vmax-wide full-slice slice-points bounds-local
    vmin-local vmax-local width reference-edge guide-min guide-max
-   top-min top-max region origin layer count)
+   top-min top-max region origin layer count cum-offset)
   ;; Igual que urb:create-accessibility-features pero por segmento real del
   ;; contorno: cada arista del lado guia recorta y mide su propia franja en
   ;; vez de usar el ancho proyectado de TODO el anden sobre un unico eje
   ;; (que en un tramo curvo da un ancho falso, inflado por vertices de otras
   ;; estaciones, y termina sembrando simbolos muy por fuera del area real).
+  ;; cum-offset acumula la distancia recorrida desde el arranque de toda la
+  ;; cadena hasta el inicio de este segmento: se pasa a
+  ;; urb:decorate-accessibility-strip para que la reticula de simbolos de
+  ;; 5cm sea UNA sola secuencia continua a lo largo de todo el corredor, en
+  ;; vez de reiniciar en 0 en cada segmento (lo que dejaba la costura entre
+  ;; segmentos vecinos desalineada / con huecos).
   (setq module (urb:loseta-module format))
   (setq edges (urb:open-chain-edges driving-chain))
-  (setq count 0)
+  (setq count 0 cum-offset 0.0)
   (foreach edge edges
     (setq angle-value (nth 3 edge) cosine (cos angle-value) sine (sin angle-value))
     (setq u1 (+ (* (car (nth 0 edge)) cosine) (* (cadr (nth 0 edge)) sine)))
@@ -2460,7 +2475,7 @@
                       (if (> module 0.30)
                         "URB-ANDEN-LOSETA-GUIA-40X40" "URB-ANDEN-LOSETA-GUIA-20X20"))
                     (urb:decorate-accessibility-strip
-                      region layer "GUIA" module angle-value origin parent-handle)
+                      region layer "GUIA" module angle-value origin parent-handle cum-offset)
                     (setq count (1+ count))))))
             (if (urb:yes-p toperol)
               (progn
@@ -2476,9 +2491,10 @@
                       (if (> module 0.30)
                         "URB-ANDEN-LOSETA-TOPEROL-40X40" "URB-ANDEN-LOSETA-TOPEROL-20X20"))
                     (urb:decorate-accessibility-strip
-                      region layer "TOPEROL" module angle-value origin parent-handle)
+                      region layer "TOPEROL" module angle-value origin parent-handle cum-offset)
                     (setq count (1+ count))))))))
-        (urb:safe-delete full-slice))))
+        (urb:safe-delete full-slice)))
+    (setq cum-offset (+ cum-offset (- umax umin))))
   (> count 0)
 )
 
@@ -2544,7 +2560,7 @@
                           "URB-ANDEN-LOSETA-GUIA-40X40"
                           "URB-ANDEN-LOSETA-GUIA-20X20"))
                       (urb:decorate-accessibility-strip
-                        region layer "GUIA" module angle-value origin parent-handle)
+                        region layer "GUIA" module angle-value origin parent-handle 0.0)
                       (setq count (1+ (if count count 0)))))))
               (if (urb:yes-p toperol)
                 (progn
@@ -2563,7 +2579,7 @@
                           "URB-ANDEN-LOSETA-TOPEROL-40X40"
                           "URB-ANDEN-LOSETA-TOPEROL-20X20"))
                       (urb:decorate-accessibility-strip
-                        region layer "TOPEROL" module angle-value origin parent-handle)
+                        region layer "TOPEROL" module angle-value origin parent-handle 0.0)
                       (setq count (1+ (if count count 0)))))))
               (urb:safe-delete base-region)
               (> (if count count 0) 0)))))))
