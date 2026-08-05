@@ -2419,7 +2419,8 @@
    / edges edge angle-value module cosine sine u1 u2 umin umax
    bounds-wide vmin-wide vmax-wide full-slice slice-points bounds-local
    vmin-local vmax-local width reference-edge guide-min guide-max
-   top-min top-max region origin layer count cum-offset)
+   top-min top-max region origin layer count cum-offset
+   p1-v boundary-side side-decided prefer-boundary)
   ;; Igual que urb:create-accessibility-features pero por segmento real del
   ;; contorno: cada arista del lado guia recorta y mide su propia franja en
   ;; vez de usar el ancho proyectado de TODO el anden sobre un unico eje
@@ -2431,9 +2432,24 @@
   ;; 5cm sea UNA sola secuencia continua a lo largo de todo el corredor, en
   ;; vez de reiniciar en 0 en cada segmento (lo que dejaba la costura entre
   ;; segmentos vecinos desalineada / con huecos).
+  ;; side-decided/prefer-boundary: en un anden curvo real con barrido de
+  ;; tangente grande (60-90+ grados de un extremo al otro de la cadena),
+  ;; *urb-current-tactile-side-point* comparado contra vmin-local/vmax-local
+  ;; de CADA arista por separado (el metodo viejo, urb:reference-v-edge)
+  ;; puede voltear de lado a mitad de camino aunque el punto de referencia
+  ;; siga siendo fisicamente el mismo -- un punto de referencia cercano al
+  ;; anden puede terminar "adelante" de la curva para las primeras aristas
+  ;; y "atras" para las ultimas. Eso hacia que la guia/el toperol saltaran
+  ;; al lado opuesto del corredor a mitad de curva: un corte visible en la
+  ;; franja seguido de que reaparece del otro lado. Arreglo: decidir UNA
+  ;; SOLA VEZ (con la primera arista) si el usuario quiere el lado donde
+  ;; esta la arista misma (boundary-side) o el lado opuesto, y de ahi en
+  ;; adelante usar boundary-side de cada arista (que es exacto: el vertice
+  ;; p1 de la arista SIEMPRE cae casi exacto en uno de los dos bordes del
+  ;; recorte local, sin la ambiguedad de comparar contra un punto lejano).
   (setq module (urb:loseta-module format))
   (setq edges (urb:open-chain-edges driving-chain))
-  (setq count 0 cum-offset 0.0)
+  (setq count 0 cum-offset 0.0 side-decided nil)
   (foreach edge edges
     (setq angle-value (nth 3 edge) cosine (cos angle-value) sine (sin angle-value))
     (setq u1 (+ (* (car (nth 0 edge)) cosine) (* (cadr (nth 0 edge)) sine)))
@@ -2451,9 +2467,24 @@
             (setq bounds-local (urb:project-bounds slice-points angle-value)
                   vmin-local (nth 2 bounds-local)
                   vmax-local (nth 3 bounds-local)
-                  width (- vmax-local vmin-local)
-                  reference-edge
-                    (urb:reference-v-edge points angle-value vmin-local vmax-local))
+                  width (- vmax-local vmin-local))
+            (setq p1-v (urb:point-v-coordinate (nth 0 edge) angle-value))
+            (setq boundary-side
+              (if (<= (abs (- p1-v vmin-local)) (abs (- p1-v vmax-local)))
+                vmin-local
+                vmax-local))
+            (if (null side-decided)
+              (progn
+                (setq side-decided T)
+                (setq prefer-boundary
+                  (equal
+                    boundary-side
+                    (urb:reference-v-edge points angle-value vmin-local vmax-local)
+                    1e-6))))
+            (setq reference-edge
+              (if prefer-boundary
+                boundary-side
+                (if (equal boundary-side vmin-local 1e-9) vmax-local vmin-local)))
             (if (urb:yes-p guia)
               (progn
                 (if (< width module)
