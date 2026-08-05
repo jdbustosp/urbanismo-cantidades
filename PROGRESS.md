@@ -29,12 +29,17 @@ Continuación del mismo día del commit `68e3476` (ver entrada de abajo). El usu
    - Catálogo completo: 61 bloques con nombre `B-*`/`B *` en este único archivo (puede haber más variantes en `U-202` a `U-207`, no revisados aún).
 3. **Se buscó un índice acotado** de qué ancho/radio real corresponde a cada "Tramo N"/"Curva N": la carpeta `PLANOS\VERSION 2\PDF\Cartilla detalles de andenes` (14 PDFs) resultó ser sobre la composición general de la sección urbana (franjas de circulación/paisajismo/mobiliario, "Módulo 1A/2A/1C/2C" ahí es otra cosa), no el catálogo de curvas. **No se encontró un índice documentado** — el mapeo Tramo/Curva → dimensión real probablemente hay que sacarlo midiendo la geometría de cada bloque directamente.
 
-**Decisión con el usuario**: en vez de seguir con generación procedural (abanico continuo o paneles discretos, ninguno coincide), traer la librería de bloques real al programa. Plan en 3 pasos, actualmente en el paso 2:
+**Decisión con el usuario**: en vez de seguir con generación procedural (abanico continuo o paneles discretos, ninguno coincide), traer la librería de bloques real al programa. Plan en 3 pasos:
 1. ~~Catalogar qué bloques existen y su jerarquía~~ (hecho arriba).
-2. **Medir cada variante real** (Curva 1/2/3, Tramo 5/6/7/8, anchos de rampa) para saber qué radio/ancho corresponde a cada nombre — en curso.
-3. Construir la lógica de selección + inserción/rotación en la herramienta, y extraer las definiciones de bloque a un archivo de soporte que la herramienta pueda insertar.
+2. **Medir cada variante real** (Curva 1/2/3, Tramo 5/6/7/8, anchos de rampa) — **intentado, resultado no confiable todavía**:
+   - `vla-GetBoundingBox` sobre una instancia insertada da un ancho "cuadrado" (~7.8×7.0m) para los tramos rectos — el panel no está dibujado alineado a los ejes X/Y internos del bloque, así que el bbox en ejes del mundo sobreestima ambas dimensiones. Hay que rotar al eje real antes de medir.
+   - Se extrajeron las posiciones y rotaciones de las 105 baldosas de cada módulo de curva directamente de la definición del bloque (`entnext`/`tblobjname`, sin insertar ni explotar nada — técnica confiable, sin diálogos ni cuelgues) a CSV, y se intentó ajustar un círculo (Python, mínimos cuadrados) para sacar el radio real. **Resultado no confiable**: el residuo del ajuste es demasiado grande (0.6-0.8m promedio, hasta 1.4m) porque las 105 baldosas cubren TODA el área 2D del panel (varias hileras a radios distintos), no una sola fila sobre un arco — ajustar un único círculo a todas mezcladas no tiene sentido. Además las rotaciones de las baldosas casi no varían (2.4°-3.1° en todo el módulo), lo que sugiere que la curva se logra con baldosas en forma de cuña (no cuadradas rotando), no con el mecanismo que se había asumido.
+   - **Pendiente**: separar las baldosas por "hilera" (radio aproximado) antes de ajustar circulo por hilera, o mejor, leer las cotas/textos ya dibujados en el plano (labels con las medidas) en vez de reconstruir la geometria por fuerza bruta.
+3. Construir la lógica de selección + inserción/rotación en la herramienta, y extraer las definiciones de bloque a un archivo de soporte que la herramienta pueda insertar. No iniciado.
 
 **No se modificó el archivo principal en esta parte de la sesión** (el commit `68e3476` de curva-por-segmento + tactil-geométrico sigue siendo lo último subido; queda pendiente decidir si ese enfoque procedural se conserva como alternativa cuando no hay bloque de catálogo disponible, o se descarta del todo una vez lista la inserción de bloques reales).
+
+**Nota para retomar**: esta sesión se volvió muy larga (decenas de aperturas de Civil 3D headless). El paso 2 (medir Curva/Tramo reales) conviene retomarlo con la cabeza fresca, probablemente separando baldosas por hilera antes de ajustar círculo, o pidiéndole al usuario que confirme las dimensiones reales si las tiene documentadas en otro lado (no se encontraron en la Cartilla de detalles de andenes revisada).
 
 ### 2026-08-04 — Modulación de andenes: sigue el contorno real en curvas + tactil real (guía/toperol)
 
