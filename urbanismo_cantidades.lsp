@@ -2286,10 +2286,28 @@
                 reverse-pattern)))))))
 )
 
-(defun urb:add-circle-symbol (u v radius angle-value layer / world-pt)
+(defun urb:generated-xdata-fragment (parent-handle role)
+  ;; Mismo formato que produce urb:set-xdata-strings (app URB_ANDEN_GEN,
+  ;; valores string en grupo 1000) pero como fragmento DXF listo para
+  ;; incrustar directo en un entmake -- evita el ciclo entget+entmod+entupd
+  ;; de urb:tag-generated-role/urb:set-xdata-strings, que a escala de
+  ;; miles de simbolos tactiles (decenas de miles en una franja larga
+  ;; real) resulto ser un cuello de botella severo (minutos extra de
+  ;; proceso). El caller debe asegurar que el APPID ya este registrado
+  ;; (regapp) antes de usar esto -- entmake no registra el APPID solo.
+  (list -3
+    (list "URB_ANDEN_GEN"
+          (cons 1000 (urb:safe-string parent-handle ""))
+          (cons 1000 (urb:safe-string role ""))))
+)
+
+(defun urb:add-circle-symbol (u v radius angle-value layer parent-handle / world-pt)
   ;; Punto tactil real (toperol): un circulo dibujado, no una marca de hatch
   ;; de longitud cero. Coincide visualmente con la loseta toperol real
   ;; (domos truncados dibujados como aros), no con un simple punteado.
+  ;; El xdata URB_ANDEN_GEN va incrustado aqui mismo (ver
+  ;; urb:generated-xdata-fragment) para que urb:package-anden encuentre y
+  ;; empaquete el simbolo sin una llamada extra de tag por objeto.
   (setq world-pt (urb:local-to-world u v angle-value))
   (entmake
     (list
@@ -2298,12 +2316,13 @@
       (cons 8 layer)
       (cons 100 "AcDbCircle")
       (cons 10 (list (car world-pt) (cadr world-pt) 0.0))
-      (cons 40 radius)))
+      (cons 40 radius)
+      (urb:generated-xdata-fragment parent-handle "FEATURE_SYMBOL")))
   (entlast)
 )
 
 (defun urb:add-capsule-symbol
-  (u v half-length half-width angle-value layer
+  (u v half-length half-width angle-value layer parent-handle
    / p1 p2 p3 p4)
   ;; Barra tactil real (guia): una capsula (rectangulo con extremos
   ;; semicirculares, via bulge=1 en 2 de los 4 vertices) con el eje largo
@@ -2324,14 +2343,15 @@
       (cons 10 p1) (cons 42 0.0)
       (cons 10 p2) (cons 42 1.0)
       (cons 10 p3) (cons 42 0.0)
-      (cons 10 p4) (cons 42 1.0)))
+      (cons 10 p4) (cons 42 1.0)
+      (urb:generated-xdata-fragment parent-handle "FEATURE_SYMBOL")))
   (entlast)
 )
 
 (defun urb:fill-tactile-symbols
-  (region feature angle-value layer phase-offset
+  (region feature angle-value layer phase-offset parent-handle
    / points bounds umin umax vmin vmax spacing margin v count
-   radius half-length half-width k global-u local-u seg-len)
+   radius half-length half-width k global-u local-u seg-len sym-ename)
   ;; Reparte simbolos tactiles reales (circulos o capsulas) en una reticula
   ;; de 5 cm sobre el area ya recortada de la franja, en vez de depender de
   ;; un patron .pat (que solo puede construirse con familias de lineas
@@ -2341,6 +2361,15 @@
   ;; segmento reinicia su propia reticula en 0 y la costura entre
   ;; segmentos vecinos queda desalineada (el patron "salta" en cada union
   ;; en vez de continuar parejo a lo largo de toda la franja).
+  ;; Cada simbolo lleva su xdata URB_ANDEN_GEN incrustado directo en el
+  ;; entmake (urb:generated-xdata-fragment, dentro de
+  ;; urb:add-capsule-symbol/urb:add-circle-symbol): sin esto,
+  ;; urb:package-anden (que arma el bloque final via urb:generated-objects)
+  ;; nunca los encuentra y quedan sueltos en el dibujo, fuera del bloque.
+  ;; No se usa urb:tag-generated-role aqui (entget+entmod+entupd por
+  ;; objeto) porque a escala de miles/decenas de miles de simbolos por
+  ;; franja resulto demasiado lento (minutos extra).
+  (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
   (setq points (urb:region-outline-points region))
   (if (null points) (setq points (urb:object-box-points region)))
   (if points
@@ -2359,9 +2388,10 @@
         (setq local-u (+ umin (- global-u phase-offset)))
         (setq v (+ vmin margin))
         (while (<= v (+ (- vmax margin) 1e-6))
-          (if (= feature "GUIA")
-            (urb:add-capsule-symbol local-u v half-length half-width angle-value layer)
-            (urb:add-circle-symbol local-u v radius angle-value layer))
+          (setq sym-ename
+            (if (= feature "GUIA")
+              (urb:add-capsule-symbol local-u v half-length half-width angle-value layer parent-handle)
+              (urb:add-circle-symbol local-u v radius angle-value layer parent-handle)))
           (setq count (1+ count))
           (setq v (+ v spacing)))
         (setq k (1+ k))
@@ -2390,7 +2420,7 @@
   (setq symbols-ok
     (vl-catch-all-apply
       'urb:fill-tactile-symbols
-      (list region feature angle-value layer (if phase-offset phase-offset 0.0))))
+      (list region feature angle-value layer (if phase-offset phase-offset 0.0) parent-handle)))
   T
 )
 
@@ -2499,6 +2529,17 @@
                         guide-max (+ guide-min module)))
                 (setq region
                   (urb:clip-stripe full-slice umin umax guide-min guide-max angle-value))
+                ;; Fallback: en una arista corta/irregular (comun en el
+                ;; extremo de un tramo curvo real) el recorte preciso al
+                ;; ancho del modulo puede dar vacio (boolean sin area) por
+                ;; imprecision geometrica, aunque la arista es valida. Sin
+                ;; esto la guia desaparece por completo en esa arista --
+                ;; un hueco real, no solo una costura de fase. Se reintenta
+                ;; con el ancho local completo (siempre valido, es el mismo
+                ;; rango de full-slice) antes de rendirse.
+                (if (null region)
+                  (setq region
+                    (urb:clip-stripe full-slice umin umax vmin-local vmax-local angle-value)))
                 (if region
                   (progn
                     (setq origin (urb:local-to-world umin reference-edge angle-value))
@@ -2515,6 +2556,11 @@
                   (setq top-min (max vmin-local (- vmax-local module)) top-max vmax-local))
                 (setq region
                   (urb:clip-stripe full-slice umin umax top-min top-max angle-value))
+                ;; mismo fallback que en guia: no dejar la arista sin
+                ;; toperol por un boolean vacio en un recorte muy angosto.
+                (if (null region)
+                  (setq region
+                    (urb:clip-stripe full-slice umin umax vmin-local vmax-local angle-value)))
                 (if region
                   (progn
                     (setq origin (urb:local-to-world umin reference-edge angle-value))
