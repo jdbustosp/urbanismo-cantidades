@@ -685,7 +685,7 @@
 (defun urb:anden-finish-quantities
   (points area format guia toperol pattern-mode
    / module corridor-angle pattern-angle bounds length-value
-   corridor-bounds corridor-length width-value
+   corridor-bounds corridor-length width-value driving-chain
    guide-ml toperol-ml guide-area toperol-area finish-area
    smooth-area smooth-count adoquin-area adoquin-count cursor next gray
    gray-length white-length ratio)
@@ -695,10 +695,18 @@
           (urb:anden-pattern-angle corridor-angle pattern-mode)
         corridor-bounds
           (urb:project-bounds points corridor-angle)
-        corridor-length
-          (max 0.0
-            (- (nth 1 corridor-bounds) (nth 0 corridor-bounds)))
         bounds (urb:project-bounds points pattern-angle))
+  ;; La proyeccion sobre un solo eje (corridor-bounds) subestima la
+  ;; longitud real en un tramo curvo -incluso con los puntos del arco ya
+  ;; expandidos, proyectar sobre UN eje nunca converge al arco real. Si hay
+  ;; una cadena guia con varios segmentos reales (anden curvo), se usa su
+  ;; longitud real sumada; si no (anden recto/simple), se conserva la
+  ;; proyeccion de siempre -da el mismo resultado ahi de todas formas.
+  (setq driving-chain (urb:anden-driving-chain points))
+  (setq corridor-length
+    (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
+      (urb:chain-total-length driving-chain)
+      (max 0.0 (- (nth 1 corridor-bounds) (nth 0 corridor-bounds)))))
   (setq length-value (max 0.0 (- (nth 1 bounds) (nth 0 bounds))))
   (setq width-value (max 0.0 (- (nth 3 bounds) (nth 2 bounds))))
   ;; Guia y toperol son franjas longitudinales independientes.
@@ -2924,7 +2932,10 @@
   (setq pattern-mode (urb:anden-pattern-mode ename))
   (setq area (vla-get-Area boundary))
   (setq perimeter (urb:poly-perimeter boundary))
-  (setq points (urb:lwpoly-points ename))
+  ;; Con arcos reales (PLINE opcion Arc) hay que usar la version que sigue
+  ;; el arco, no la cuerda recta: corridor-length (y por lo tanto los
+  ;; metros lineales de guia/toperol) salen cortos en un anden curvo si no.
+  (setq points (urb:lwpoly-points-with-arcs ename))
   (setq finish-qty
     (cond
       ((urb:string-equal-p material "Loseta")
