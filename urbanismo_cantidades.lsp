@@ -1279,6 +1279,98 @@
   (reverse points)
 )
 
+(defun urb:arc-bulge-midpoints (ename p1-wcs p2-wcs n / param1 param2 pts j frac tparam pt)
+  ;; Puntos intermedios (sin incluir p1 ni p2) a lo largo del arco real
+  ;; entre dos vertices con bulge, consultando la curva de verdad
+  ;; (vlax-curve) en vez de recalcular la geometria del arco a mano: evita
+  ;; arriesgar un error de signo propio en la formula bulge->circulo.
+  (setq param1 (vl-catch-all-apply 'vlax-curve-getParamAtPoint (list ename p1-wcs)))
+  (setq param2 (vl-catch-all-apply 'vlax-curve-getParamAtPoint (list ename p2-wcs)))
+  (if (or (vl-catch-all-error-p param1) (vl-catch-all-error-p param2))
+    nil
+    (progn
+      (setq pts nil j 1)
+      (repeat (1- n)
+        (setq frac (/ (float j) (float n)))
+        (setq tparam (+ param1 (* frac (- param2 param1))))
+        (setq pt (vl-catch-all-apply 'vlax-curve-getPointAtParam (list ename tparam)))
+        (if (not (vl-catch-all-error-p pt))
+          (setq pts (cons (list (car pt) (cadr pt)) pts)))
+        (setq j (1+ j)))
+      (reverse pts))))
+
+(defun urb:lwpoly-points-with-arcs
+  (ename / data points item raw-verts current-pt current-bulge n-samples
+   i p1 p2 b mids closed-flag wcs-verts end-param j frac tparam pt param1)
+  ;; Igual que urb:lwpoly-points, pero si un segmento tiene bulge (arco
+  ;; real dibujado con la opcion Arc de PLINE) lo subdivide en varios
+  ;; puntos intermedios siguiendo el arco real en vez de tratarlo como una
+  ;; sola cuerda recta. Sin esto, un anden con un tramo curvo dibujado como
+  ;; un unico arco (no como muchos segmentos rectos cortos) se modula como
+  ;; si fuera un solo panel recto de esquina a esquina.
+  (setq data (entget ename))
+  (setq raw-verts nil current-pt nil current-bulge 0.0 closed-flag nil)
+  (foreach item data
+    (cond
+      ((= (car item) 10)
+        (if current-pt
+          (setq raw-verts (cons (list current-pt current-bulge) raw-verts)))
+        (setq current-pt (list (cadr item) (caddr item)))
+        (setq current-bulge 0.0))
+      ((= (car item) 42) (setq current-bulge (cdr item)))
+      ((= (car item) 70) (setq closed-flag (= 1 (logand (cdr item) 1))))))
+  (if current-pt
+    (setq raw-verts (cons (list current-pt current-bulge) raw-verts)))
+  (setq raw-verts (reverse raw-verts))
+  ;; A WCS una sola vez; urb:arc-bulge-midpoints necesita puntos en el
+  ;; mismo espacio que entiende vlax-curve.
+  (setq wcs-verts
+    (mapcar
+      '(lambda (v)
+        (list (trans (list (car (car v)) (cadr (car v)) 0.0) ename 0) (cadr v)))
+      raw-verts))
+  (setq n-samples 8)
+  (setq points nil i 0)
+  (repeat (length wcs-verts)
+    (setq p1 (car (nth i wcs-verts)) b (cadr (nth i wcs-verts)))
+    (setq points (cons (list (car p1) (cadr p1)) points))
+    (if (and (/= b 0.0) (< (1+ i) (length wcs-verts)))
+      (progn
+        (setq p2 (car (nth (1+ i) wcs-verts)))
+        (setq mids (urb:arc-bulge-midpoints ename p1 p2 n-samples))
+        (foreach m mids (setq points (cons m points)))))
+    (setq i (1+ i)))
+  (setq points (reverse points))
+  ;; Cierre: si es cerrada y el ultimo vertice tiene bulge, ese arco cierra
+  ;; contra el primer vertice y no queda representado en el bucle anterior.
+  ;; El primer vertice esta en el parametro 0 de la curva, pero para
+  ;; continuar despues del ultimo vertice hay que usar el parametro final
+  ;; real (EndParam), no volver a buscar el punto de partida.
+  (if (and closed-flag wcs-verts (> (length wcs-verts) 1))
+    (progn
+      (setq p1 (car (nth (1- (length wcs-verts)) wcs-verts))
+            b (cadr (nth (1- (length wcs-verts)) wcs-verts)))
+      (if (/= b 0.0)
+        (progn
+          (setq end-param (vl-catch-all-apply 'vlax-curve-getEndParam (list ename)))
+          (if (not (vl-catch-all-error-p end-param))
+            (progn
+              (setq param1
+                (vl-catch-all-apply 'vlax-curve-getParamAtPoint (list ename p1)))
+              (if (not (vl-catch-all-error-p param1))
+                (progn
+                  (setq j 1)
+                  (repeat (1- n-samples)
+                    (setq frac (/ (float j) (float n-samples)))
+                    (setq tparam (+ param1 (* frac (- end-param param1))))
+                    (setq pt
+                      (vl-catch-all-apply 'vlax-curve-getPointAtParam (list ename tparam)))
+                    (if (not (vl-catch-all-error-p pt))
+                      (setq points (append points (list (list (car pt) (cadr pt))))))
+                    (setq j (1+ j)))))))))))
+  points
+)
+
 (defun urb:longest-edge-angle
   (points / closed p1 p2 edge-length best angle-value)
   (setq closed (append points (list (car points))))
@@ -2120,7 +2212,7 @@
    driving-chain)
   (setq obj (vlax-ename->vla-object ename)
         parent-handle (vla-get-Handle obj)
-        points (urb:lwpoly-points ename)
+        points (urb:lwpoly-points-with-arcs ename)
         pattern-mode (urb:anden-pattern-mode ename)
         reverse-pattern (urb:anden-pattern-reversed-p pattern-mode)
         clusters (urb:dominant-anden-axis-clusters points)
@@ -2393,7 +2485,7 @@
     (progn
       (setq obj (vlax-ename->vla-object ename))
       (setq parent-handle (vla-get-Handle obj))
-      (setq points (urb:lwpoly-points ename))
+      (setq points (urb:lwpoly-points-with-arcs ename))
       (setq module (urb:loseta-module format))
       (setq copy (vla-Copy obj))
       (setq base-region (urb:add-region-from-object copy))

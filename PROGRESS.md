@@ -17,6 +17,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-04 — Segundo bug real: los arcos dibujados con PLINE opción Arc (bulge) no se seguían en absoluto
+
+Continuación del mismo día. El usuario probó el arreglo anterior en su sesión real creando un andén sobre un tramo curvo + uno recto, y mostró capturas: el resultado quedaba partido en pocos paneles rectos con costuras marcadas, nada suave.
+
+- **Causa real**: `urb:lwpoly-points` (usada en toda la base de código, incluida la nueva `urb:anden-driving-chain`) solo lee los vértices de la polilínea (grupo DXF 10) e **ignora por completo el bulge** (grupo 42, el arco real que guarda `PLINE` cuando se usa la opción `Arc`). El usuario dibuja la curva como un arco real de verdad, no como muchos segmentos rectos cortos — así que todo el arco se leía como una sola cuerda recta de esquina a esquina, con la única esquina real detectada en sus dos extremos. Esto es una limitación preexistente de todo el módulo de andenes, no algo introducido hoy.
+- **Arreglo**: nueva `urb:lwpoly-points-with-arcs` (usada solo en `urb:create-composite-loseta` y `urb:create-accessibility-features`, sin tocar `urb:lwpoly-points` original ni sus demás usos en el archivo) que detecta segmentos con bulge≠0 y los subdivide en 8 puntos intermedios siguiendo el arco real.
+  - **Primer intento con trigonometría propia (bulge→círculo) — bug de signo**: al probarlo con un andén de 4 vértices con arco real (igual a como lo dibuja el usuario), 14 de 18 puntos calculados caían fuera del radio esperado. En vez de seguir depurando la fórmula a mano, se reemplazó por `vlax-curve-getParamAtPoint`/`getPointAtParam` sobre la polilínea real — la curva ya la interpreta AutoCAD correctamente, no hay que re-derivarla. Con esto: 0 de 18 puntos fuera de rango, ajuste exacto.
+- **Verificado**: recreando el escenario exacto del usuario (andén de 4 vértices, radio real ~250m confirmado el día anterior, arco de verdad vía bulge) el resultado visual queda igual de suave que la referencia — sin huecos, sin costuras, la reticula sigue el arco real completo.
+- **Pendiente**: que el usuario confirme en su sesión real (recargar el `.lsp`) que el andén curvo+recto que mostró en las capturas ahora se ve bien.
+
 ### 2026-08-04 — Se resuelve la curva: bug real encontrado (colapso de ángulo por eje) + confirmado que la librería de bloques no es reutilizable
 
 Continuación del mismo día (después de la entrada de abajo, "se descarta el enfoque procedural"). El usuario pidió: (1) que se sacaran las medidas reales de todos modos, (2) explicación clara de qué se estaba haciendo, (3) confirmar si las cantidades ya salen bien sin esto, (4) confirmar si estos bloques pesados explican la lentitud que ha sentido al coordinar/abrir el proyecto completo.
