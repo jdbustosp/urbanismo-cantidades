@@ -1989,7 +1989,8 @@
   delta
 )
 
-(defun urb:polygon-corner-indices (points threshold / n edges i prev-a next-a delta result)
+(defun urb:polygon-corner-indices
+  (points threshold / n edges i prev-a next-a delta result prev-edge next-edge)
   ;; Indices de vertices donde el contorno gira mas de "threshold": son las
   ;; esquinas reales (donde un lado largo del anden termina y empieza otro,
   ;; o donde esta la tapa corta de un extremo). Los vertices intermedios de
@@ -2002,8 +2003,19 @@
       (setq edges (urb:polygon-edge-records points))
       (setq result nil i 0)
       (repeat n
-        (setq prev-a (nth 3 (nth (rem (+ i (1- n)) n) edges))
-              next-a (nth 3 (nth i edges)))
+        ;; OJO: (nth 3 edge) viene de urb:polygon-edge-records, que lo
+        ;; normaliza con urb:normalize-axis-angle (colapsa un angulo y su
+        ;; opuesto a 180 grados al mismo valor - correcto para agrupar por
+        ;; eje, pero aqui necesitamos el sentido real de avance). Se
+        ;; recalcula el angulo direccional completo desde los propios
+        ;; extremos de cada arista para no heredar ese colapso: si la
+        ;; tangente de un tramo curvo pasa cerca de 0/180 grados, usar el
+        ;; valor ya colapsado genera un salto falso de ~180 grados justo
+        ;; ahi y parte el lado guia en dos a la mitad.
+        (setq prev-edge (nth (rem (+ i (1- n)) n) edges)
+              next-edge (nth i edges))
+        (setq prev-a (urb:normalize-full-angle (angle (nth 0 prev-edge) (nth 1 prev-edge)))
+              next-a (urb:normalize-full-angle (angle (nth 0 next-edge) (nth 1 next-edge))))
         (setq delta (urb:turning-angle prev-a next-a))
         (if (> (abs delta) threshold) (setq result (cons i result)))
         (setq i (1+ i)))
