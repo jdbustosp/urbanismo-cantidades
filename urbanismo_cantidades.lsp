@@ -2167,6 +2167,52 @@
   (if chains (urb:longest-chain chains) nil)
 )
 
+(defun urb:point-in-list-p (pt lst / found)
+  (setq found nil)
+  (foreach p lst (if (equal p pt 1e-6) (setq found T)))
+  found)
+
+(defun urb:chain-width-samples (points driving-chain / other-points p q d best result)
+  ;; Estima el ancho local en cada punto del lado largo (driving-chain)
+  ;; como la distancia al punto mas cercano del RESTO del contorno (el
+  ;; lado opuesto + remates). No requiere booleans/regiones -- solo sirve
+  ;; para detectar una franja que se "infla" en el medio, no para medir
+  ;; con precision (eso ya lo hace urb:clip-stripe en el resto del codigo).
+  (setq other-points nil)
+  (foreach p points
+    (if (not (urb:point-in-list-p p driving-chain))
+      (setq other-points (cons p other-points))))
+  (if (< (length other-points) 1)
+    nil
+    (progn
+      (setq result nil)
+      (foreach p driving-chain
+        (setq best nil)
+        (foreach q other-points
+          (setq d (distance p q))
+          (if (or (null best) (< d best)) (setq best d)))
+        (if best (setq result (cons best result))))
+      result)))
+
+(defun urb:anden-width-anomaly-p (points / driving-chain widths minw maxw)
+  ;; Detecta un contorno de anden donde el ancho local varia demasiado
+  ;; (ej. 4m en los remates pero 38m en la mitad) -- sintoma de clics
+  ;; imprecisos al dibujar, no de un cruce (eso lo cubre
+  ;; urb:polygon-self-intersects-p aparte). Un anden real puede angostarse
+  ;; gradualmente (una rampa, un remate) sin que eso sea un error; el
+  ;; umbral (relacion Y diferencia absoluta) busca solo el caso de bulto
+  ;; ancho e inesperado, no variaciones normales de diseno.
+  (setq driving-chain (urb:anden-driving-chain points))
+  (if (and driving-chain (>= (length driving-chain) 2))
+    (progn
+      (setq widths (urb:chain-width-samples points driving-chain))
+      (if (and widths (>= (length widths) 2))
+        (progn
+          (setq minw (apply 'min widths) maxw (apply 'max widths))
+          (and (> maxw (* 2.5 (max minw 0.01))) (> (- maxw minw) 1.5)))
+        nil))
+    nil))
+
 (defun urb:open-chain-edges (chain-points / result rest p1 p2 edge-length)
   ;; Igual que urb:polygon-edge-records pero para un tramo ABIERTO (no cierra
   ;; el ultimo vertice contra el primero).
@@ -2671,8 +2717,43 @@
   (setvar "PLINEWID" old-plinewid)
 )
 
+(defun urb:cross2d (ox oy ax ay bx by)
+  (- (* (- ax ox) (- by oy)) (* (- ay oy) (- bx ox))))
+
+(defun urb:segments-cross-p (p1 p2 p3 p4 / d1 d2 d3 d4)
+  ;; Cruce ESTRICTO de dos segmentos (no cuenta solo tocarse en un
+  ;; extremo compartido, que es normal entre aristas consecutivas).
+  (setq d1 (urb:cross2d (car p3) (cadr p3) (car p4) (cadr p4) (car p1) (cadr p1)))
+  (setq d2 (urb:cross2d (car p3) (cadr p3) (car p4) (cadr p4) (car p2) (cadr p2)))
+  (setq d3 (urb:cross2d (car p1) (cadr p1) (car p2) (cadr p2) (car p3) (cadr p3)))
+  (setq d4 (urb:cross2d (car p1) (cadr p1) (car p2) (cadr p2) (car p4) (cadr p4)))
+  (and
+    (or (and (> d1 0) (< d2 0)) (and (< d1 0) (> d2 0)))
+    (or (and (> d3 0) (< d4 0)) (and (< d3 0) (> d4 0))))
+)
+
+(defun urb:polygon-self-intersects-p (points / n i j p1 p2 p3 p4 found)
+  ;; Revisa todo par de aristas NO adyacentes del contorno cerrado en
+  ;; busca de un cruce real (poligono "moño"/autointersectado). Un
+  ;; contorno asi produce rellenos con forma anomala (la mancha ancha que
+  ;; aparece cuando el usuario dibuja con clics imprecisos) aunque cada
+  ;; arista individual se vea razonable.
+  (setq n (length points) found nil i 0)
+  (while (and (< i n) (not found))
+    (setq p1 (nth i points) p2 (nth (rem (1+ i) n) points))
+    (setq j (+ i 2))
+    (while (and (<= j (1- n)) (not found))
+      (if (not (and (= i 0) (= j (1- n))))
+        (progn
+          (setq p3 (nth j points) p4 (nth (rem (1+ j) n) points))
+          (if (urb:segments-cross-p p1 p2 p3 p4)
+            (setq found T))))
+      (setq j (1+ j)))
+    (setq i (1+ i)))
+  found)
+
 (defun urb:draw-closed-polyline
-  (/ before after obj old-plinewid *error*)
+  (/ before after obj old-plinewid *error* pts)
   (setq old-plinewid (getvar "PLINEWID"))
   (defun *error* (message)
     (if old-plinewid (setvar "PLINEWID" old-plinewid))
@@ -2695,7 +2776,35 @@
       (if (vlax-property-available-p obj 'ConstantWidth T)
         (vla-put-ConstantWidth obj 0.0))
       (vla-put-Closed obj :vlax-true)
-      (if (urb:closed-poly-p after) after nil))
+      (if (urb:closed-poly-p after)
+        (progn
+          (setq pts (urb:lwpoly-points-with-arcs after))
+          (cond
+            ((urb:polygon-self-intersects-p pts)
+              (prompt
+                (strcat
+                  "\n*** El contorno dibujado se cruza a si mismo (forma tipo"
+                  " \"moño\") ***"
+                  "\nEsto genera un relleno con una mancha ancha/anomala en"
+                  " vez de una franja pareja."
+                  "\nEl contorno queda dibujado para que lo revise/corrija;"
+                  " no se genera el acabado del anden sobre esta forma."))
+              nil)
+            ((urb:anden-width-anomaly-p pts)
+              (prompt
+                (strcat
+                  "\n*** El ancho del contorno varia demasiado a lo largo del"
+                  " anden (ej. angosto en los remates pero muy ancho en la"
+                  " mitad) ***"
+                  "\nEsto suele venir de clics imprecisos al dibujar; el"
+                  " relleno sale con una mancha ancha en la zona inflada en"
+                  " vez de una franja pareja."
+                  "\nEl contorno queda dibujado para que lo revise/corrija"
+                  " (verifique que las dos aristas largas queden paralelas);"
+                  " no se genera el acabado del anden sobre esta forma."))
+              nil)
+            (T after)))
+        nil))
     nil)
 )
 
@@ -3908,7 +4017,8 @@
   (setq doc (urb:doc) old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
     (setq *urb-current-tactile-side-point* nil)
-    (if old-fillmode (setvar "FILLMODE" old-fillmode))
+    (if old-fillmode
+      (progn (setvar "FILLMODE" old-fillmode) (vla-Regen doc 1)))
     (if undo-open
       (progn
         (vl-catch-all-apply 'vla-EndUndoMark (list doc))
@@ -3989,7 +4099,16 @@
       (prompt "\nNo se creo una polilinea valida.")
         (prompt "\nComando cancelado.")))
   (setq *urb-current-tactile-side-point* nil)
-  (if old-fillmode (setvar "FILLMODE" old-fillmode))
+  ;; Restaurar FILLMODE al valor original del usuario no alcanza si no se
+  ;; regenera despues: el REGEN de mas arriba (FILLMODE=1, para que se vea
+  ;; el relleno del anden) deja en pantalla TODO objeto rellenable del
+  ;; dibujo mostrado solido -- incluidas regiones/hatches de otras partes
+  ;; del proyecto que no tienen nada que ver con este anden (ej. lotes de
+  ;; LOTEO FINAL). La variable vuelve a su valor, pero la vista se queda
+  ;; regenerada con FILLMODE=1 hasta el proximo REGEN. Con este regen
+  ;; final la vista vuelve a coincidir con el FILLMODE real del usuario.
+  (if old-fillmode
+    (progn (setvar "FILLMODE" old-fillmode) (vla-Regen doc 1)))
   (if undo-open
     (progn
       (vl-catch-all-apply 'vla-EndUndoMark (list doc))
@@ -4656,7 +4775,8 @@
   (setq doc (urb:doc)
         old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
-    (if old-fillmode (setvar "FILLMODE" old-fillmode))
+    (if old-fillmode
+      (progn (setvar "FILLMODE" old-fillmode) (vla-Regen doc 1)))
     (if undo-open
       (progn
         (vl-catch-all-apply 'vla-EndUndoMark (list doc))
@@ -4708,7 +4828,12 @@
     (if data
       (prompt "\nNo se definio un contorno valido.")
       (prompt "\nCreacion de zona verde cancelada.")))
-  (if old-fillmode (setvar "FILLMODE" old-fillmode))
+  ;; ver comentario equivalente en urb:create-sidewalk-command: sin este
+  ;; regen la vista se queda mostrando todo objeto rellenable del dibujo
+  ;; solido (heredado del REGEN con FILLMODE=1 de mas arriba) aunque la
+  ;; variable ya haya vuelto a su valor original.
+  (if old-fillmode
+    (progn (setvar "FILLMODE" old-fillmode) (vla-Regen doc 1)))
   (if undo-open
     (progn
       (vl-catch-all-apply 'vla-EndUndoMark (list doc))
