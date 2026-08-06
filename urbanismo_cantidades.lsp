@@ -2194,24 +2194,45 @@
         (if best (setq result (cons best result))))
       result)))
 
-(defun urb:anden-width-anomaly-p (points / driving-chain widths minw maxw)
+(defun urb:anden-width-anomaly-p (points / driving-chain widths minw maxw minmax)
   ;; Detecta un contorno de anden donde el ancho local varia demasiado
-  ;; (ej. 4m en los remates pero 38m en la mitad) -- sintoma de clics
-  ;; imprecisos al dibujar, no de un cruce (eso lo cubre
+  ;; (ej. una franja que se infla bastante en un tramo) -- sintoma de
+  ;; clics imprecisos al dibujar, no de un cruce (eso lo cubre
   ;; urb:polygon-self-intersects-p aparte). Un anden real puede angostarse
   ;; gradualmente (una rampa, un remate) sin que eso sea un error; el
   ;; umbral (relacion Y diferencia absoluta) busca solo el caso de bulto
   ;; ancho e inesperado, no variaciones normales de diseno.
+  ;;
+  ;; IMPORTANTE: se usa min/max RECORTADO (urb:trimmed-min-max), no el
+  ;; min/max crudo. urb:chain-width-samples mide distancia al punto mas
+  ;; cercano del resto del contorno, y ese heuristico falla puntualmente
+  ;; justo antes de una esquina (verificado con un caso real: de 27
+  ;; muestras, 26 dieron 3.96-4.93m consistente y solo 1 punto aislado
+  ;; junto a una esquina salto a 11.2m). Con min/max crudo ese unico punto
+  ;; disparaba un falso positivo sobre un anden bien dibujado.
   (setq driving-chain (urb:anden-driving-chain points))
   (if (and driving-chain (>= (length driving-chain) 2))
     (progn
       (setq widths (urb:chain-width-samples points driving-chain))
       (if (and widths (>= (length widths) 2))
         (progn
-          (setq minw (apply 'min widths) maxw (apply 'max widths))
+          (setq minmax (urb:trimmed-min-max widths))
+          (setq minw (nth 0 minmax) maxw (nth 1 minmax))
           (and (> maxw (* 2.5 (max minw 0.01))) (> (- maxw minw) 1.5)))
         nil))
     nil))
+
+(defun urb:trimmed-min-max (widths / sorted n trim)
+  ;; min/max descartando el ~10% superior e inferior (minimo 1 muestra de
+  ;; cada lado si hay suficientes datos) para no dejar que UN punto atipico
+  ;; (comun cerca de una esquina, ver comentario de
+  ;; urb:anden-width-anomaly-p) dispare la deteccion.
+  (setq sorted (vl-sort widths '<))
+  (setq n (length sorted))
+  (setq trim (max 1 (fix (* n 0.10))))
+  (if (< n (* 2 (1+ trim)))
+    (list (car sorted) (last sorted))
+    (list (nth trim sorted) (nth (- n 1 trim) sorted))))
 
 (defun urb:open-chain-edges (chain-points / result rest p1 p2 edge-length)
   ;; Igual que urb:polygon-edge-records pero para un tramo ABIERTO (no cierra

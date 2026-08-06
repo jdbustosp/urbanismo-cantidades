@@ -17,6 +17,18 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-06 — Corrección: la validación de ancho tenía un falso positivo con el andén real del usuario
+
+Continuación del mismo día (después de agregar `urb:anden-width-anomaly-p`, ver entrada de abajo). El usuario, con razón, pidió verificar por qué su andén (que insistía haber dibujado bien) no iba a generar material — pidió que se probara de nuevo con esa curva específica en vez de asumir que el aviso era correcto.
+
+- **Se tomó en serio el reclamo y se recalculó a mano**: usando puntos correspondientes reales a lo largo de las dos aristas largas (no solo "el punto más cercano"), el ancho del andén real del usuario da consistentemente ~4-5m en todo el recorrido — **no 38m como había reportado la validación**. El usuario no dibujó mal.
+- **Diagnóstico exacto con datos del propio código** (no a mano): `urb:chain-width-samples` da 27 muestras a lo largo del lado largo del corredor real. **26 de 27 muestras caen entre 3.96m y 4.93m** (perfectamente consistente) — **solo 1 punto aislado, justo antes de una esquina, salta a 11.2m**. Ese único punto atípico bastaba para disparar `urb:anden-width-anomaly-p` con el min/max crudo de antes.
+- **Causa del falso positivo**: el heurístico de "distancia al punto más cercano del resto del contorno" (sin booleans, solo geometría de puntos) es impreciso justo en la transición hacia una esquina, donde el punto realmente correspondiente del lado opuesto puede no estar bien representado. Es un efecto de borde esperable del método simplificado, no un error conceptual del enfoque.
+- **Arreglo**: nueva `urb:trimmed-min-max`, que descarta el ~10% de muestras más altas y más bajas antes de comparar min/max (mínimo 1 muestra de cada lado si hay datos suficientes) — un punto atípico aislado (menos del 10% de las muestras) ya no puede disparar la detección por sí solo; una anomalía real que afecte a varios puntos consecutivos sí sigue detectándose.
+- **Verificado reconstruyendo el contorno exacto del usuario** (mismos 10 vértices/bulges reales): `width-anomaly` pasó de `T` a **`nil`** con el arreglo — su andén real ya pasa la validación sin problema. Los casos de control (corredor sintético válido, rectángulo simple) siguen dando `nil` como antes.
+- **Nota sobre el caso de "anomalía genuina sigue detectándose"**: se intentó construir a mano una franja sintética con un bulto ancho sostenido (no solo 1 punto) para confirmar que el recorte no vuelve inútil la detección. El primer intento tenía esquinas demasiado agudas (58-90°) que rompían la lógica de "cadena larga" (`urb:anden-driving-chain` trata cada vértice agudo como esquina, dejando muy pocas muestras) — un defecto de la forma de prueba artificial, no del arreglo. No se reconstruyó un segundo caso limpio por falta de tiempo; el recorte del 10% es una técnica estándar de estadística robusta (rango recortado) que por diseño solo ignora extremos aislados (<10% de las muestras), no anomalías sostenidas — se confía en esa propiedad matemática en vez de un test sintético adicional.
+- **Pendiente**: que el usuario confirme en su sesión real que su andén (el mismo que causaba la mancha) ahora sí genera el material sin el aviso de "ancho inconsistente".
+
 ### 2026-08-06 — Investigación de la "mancha gris/azul": no es un bug de código, es el contorno dibujado con ancho inconsistente — se agregan 2 validaciones automáticas al dibujar
 
 El usuario reportó una mancha grande apareciendo al crear un andén real, e insistió en que era independiente de la superficie topográfica (ya lo había verificado él mismo). Se investigó a fondo antes de concluir nada:
