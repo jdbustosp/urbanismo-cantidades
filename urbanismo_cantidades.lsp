@@ -4570,16 +4570,40 @@
 
 (defun urb:rebuild-working-boundary
   (boundary material etapa subetapa guia toperol format calculate surface grade-source
-   / saved result block-ref pattern-mode)
+   / saved result block-ref pattern-mode pts)
   (setq pattern-mode (urb:anden-pattern-mode boundary))
   ;; Las versiones 4.17.3 preliminares guardaban el sentido en otra APPID.
   ;; Se retira antes de escribir URB_ANDEN para evitar dos XDATA separadas.
   (urb:clear-xdata-app boundary "URB_ANDEN_PATTERN")
-  (setq saved
-    (urb:call-edit-stage
-      "guardar datos"
-      'urb:set-anden-data
-      (list boundary material etapa subetapa guia toperol format calculate surface grade-source)))
+  ;; Misma validacion que urb:draw-closed-polyline (moño/ancho anomalo):
+  ;; este es el OTRO camino (edicion, no dibujo nuevo) que regenera el
+  ;; acabado sobre un contorno -- sin este chequeo aqui, una polilinea que
+  ;; llegue deformada (edicion de grips, seleccion manual, etc.) generaba
+  ;; el acabado sin ningun aviso, igual que pasaba antes en el flujo de
+  ;; dibujo nuevo.
+  (setq pts (urb:lwpoly-points-with-arcs boundary))
+  (cond
+    ((urb:polygon-self-intersects-p pts)
+      (prompt
+        (strcat
+          "\n*** El contorno se cruza a si mismo (forma tipo \"moño\") ***"
+          "\nNo se regenera el acabado sobre esta forma; revise/corrija el"
+          " contorno primero."))
+      (setq saved nil))
+    ((urb:anden-width-anomaly-p pts)
+      (prompt
+        (strcat
+          "\n*** El ancho del contorno varia demasiado a lo largo del anden"
+          " ***"
+          "\nNo se regenera el acabado sobre esta forma; revise/corrija el"
+          " contorno primero."))
+      (setq saved nil))
+    (T
+      (setq saved
+        (urb:call-edit-stage
+          "guardar datos"
+          'urb:set-anden-data
+          (list boundary material etapa subetapa guia toperol format calculate surface grade-source)))))
   (if saved
     (urb:set-anden-pattern-mode boundary pattern-mode))
   (if saved
