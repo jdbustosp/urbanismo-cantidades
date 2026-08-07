@@ -94,9 +94,58 @@
     (vl-catch-all-apply
       'getpoint
       (list
-        "\nMarque cerca del borde exterior de referencia (Enter conserva el borde automatico): ")))
+        "\nMarque cerca del borde de la VIA/sardinel (ese sera el lado del toperol; Enter conserva el borde automatico): ")))
   (if (vl-catch-all-error-p result) nil result)
 )
+
+(defun urb:points-bbox-diagonal (points / minx miny maxx maxy pt)
+  (setq minx (car (car points)) maxx (car (car points))
+        miny (cadr (car points)) maxy (cadr (car points)))
+  (foreach pt (cdr points)
+    (if (< (car pt) minx) (setq minx (car pt)))
+    (if (> (car pt) maxx) (setq maxx (car pt)))
+    (if (< (cadr pt) miny) (setq miny (cadr pt)))
+    (if (> (cadr pt) maxy) (setq maxy (cadr pt))))
+  (distance (list minx miny) (list maxx maxy))
+)
+
+(defun urb:confirm-tactile-reference-point
+  (anden-points ref-point / effective-point radius mark-ok mark-ent answer)
+  ;; Marca temporalmente (circulo rojo) el punto que se va a usar como
+  ;; borde de referencia para el toperol/guia, y pide confirmacion ANTES
+  ;; de correr la generacion completa (que en andenes grandes tarda varios
+  ;; minutos por el empaquetado final) -- evita descubrir que el lado
+  ;; quedo mal solo hasta el final. Si no hay punto de referencia (Enter =
+  ;; borde automatico) y tampoco un anden-points valido para mostrar un
+  ;; representativo (caso EDITAR con varios andenes a la vez), no hay nada
+  ;; que marcar de forma inequivoca y se omite la confirmacion.
+  (setq effective-point
+    (if ref-point ref-point (if anden-points (car anden-points) nil)))
+  (if (null effective-point)
+    T
+    (progn
+      (setq radius
+        (if anden-points
+          (max 0.30 (* 0.04 (urb:points-bbox-diagonal anden-points)))
+          1.0))
+      (urb:ensure-layer "URB-TEMP-REF" 1 nil)
+      (setq mark-ok
+        (entmake
+          (list
+            (cons 0 "CIRCLE")
+            (cons 8 "URB-TEMP-REF")
+            (cons 10 (list (car effective-point) (cadr effective-point) 0.0))
+            (cons 40 radius))))
+      (setq mark-ent (if mark-ok (entlast) nil))
+      (vla-Regen (urb:doc) 1)
+      (initget "Si Cancelar")
+      (setq answer
+        (getkword
+          "\nCirculo rojo temporal = borde de referencia del TOPEROL/GUIA. Verifique que quede pegado a la VIA/sardinel. Continuar [Si/Cancelar] <Si>: "))
+      (if (null answer) (setq answer "Si"))
+      (if mark-ent (entdel mark-ent))
+      (vla-Regen (urb:doc) 1)
+      (= answer "Si"))))
 
 ;; Marcas de sesion: fuerzan a reescribir los DCL temporales tras recargar el LSP.
 (setq *urb-anden-dcl-ok* nil)
@@ -4174,8 +4223,12 @@
       (setq anden-points (urb:lwpoly-points ename))
       (setq anden-area (vla-get-Area (vlax-ename->vla-object ename)))
       (if (or (urb:yes-p guia) (urb:yes-p toperol))
-        (setq *urb-current-tactile-side-point*
-          (urb:prompt-tactile-side-point)))
+        (progn
+          (setq *urb-current-tactile-side-point*
+            (urb:prompt-tactile-side-point))
+          (while (not (urb:confirm-tactile-reference-point anden-points *urb-current-tactile-side-point*))
+            (setq *urb-current-tactile-side-point*
+              (urb:prompt-tactile-side-point)))))
       (urb:set-anden-data
         ename material etapa subetapa guia toperol format calculate surface grade-source)
       (urb:set-anden-pattern-mode ename pattern-mode)
@@ -5158,8 +5211,12 @@
               (if (null start-choice)
                 (setq start-choice "Conservar"))
               (if (or (urb:yes-p guia) (urb:yes-p toperol))
-                (setq *urb-current-tactile-side-point*
-                  (urb:prompt-tactile-side-point)))
+                (progn
+                  (setq *urb-current-tactile-side-point*
+                    (urb:prompt-tactile-side-point))
+                  (while (not (urb:confirm-tactile-reference-point nil *urb-current-tactile-side-point*))
+                    (setq *urb-current-tactile-side-point*
+                      (urb:prompt-tactile-side-point)))))
               (setq deleted 0 updated 0 failed 0)
               (foreach ename parents
                 (setq old-pattern-mode (urb:anden-pattern-mode ename)
