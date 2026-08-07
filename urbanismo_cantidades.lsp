@@ -2004,10 +2004,28 @@
       nil))
 )
 
+(defun urb:composite-phase-state (phase-offset / gray-w white-w period phase-mod)
+  ;; Dado un phase-offset (distancia global acumulada desde el arranque de
+  ;; TODO el patron gris/blanco, no solo este segmento), devuelve
+  ;; (gris-actual . ancho-restante-de-esa-banda): el color y cuanto falta
+  ;; de la banda que ya estaba a medio camino cuando arranca este
+  ;; segmento, para continuar el patron 0.80/1.00m sin reiniciar. Sin
+  ;; esto, cada segmento de una curva reinicia su propia franja gris en
+  ;; u=0 y el patron se ve partido/reducido a una sola hilera en las
+  ;; transiciones (aristas cortas del muestreo de arco).
+  (setq gray-w 0.80 white-w 1.00)
+  (setq period (+ gray-w white-w))
+  (setq phase-mod (- phase-offset (* period (fix (/ phase-offset period)))))
+  (if (< phase-mod 0.0) (setq phase-mod (+ phase-mod period)))
+  (if (< phase-mod gray-w)
+    (cons T (- gray-w phase-mod))
+    (cons nil (- period (- phase-mod gray-w)))))
+
 (defun urb:decorate-composite-region
-  (base-region angle-value format parent-handle reverse-pattern
+  (base-region angle-value format parent-handle reverse-pattern phase-offset
    / points bounds umin umax actual-vmin actual-vmax vmin vmax
-   cursor next region gray count origin pattern-v-origin module layer grid)
+   cursor next region gray count origin pattern-v-origin module layer grid
+   phase-state first-band band-width iter-guard)
   (setq points (urb:region-outline-points base-region))
   (if (null points)
     (setq points (urb:object-box-points base-region)))
@@ -2043,16 +2061,32 @@
           (setq vmin (- actual-vmin 1.0)
                 vmax (+ actual-vmax 1.0)
                 cursor (if reverse-pattern umax umin)
-                gray T
                 count 0)
+          (setq phase-state (urb:composite-phase-state (if phase-offset phase-offset 0.0)))
+          (setq gray (car phase-state) first-band T iter-guard 0)
           (while
-            (if reverse-pattern
-              (> cursor (+ umin 0.000001))
-              (< cursor (- umax 0.000001)))
+            (and
+              (if reverse-pattern
+                (> cursor (+ umin 0.000001))
+                (< cursor (- umax 0.000001)))
+              ;; respaldo defensivo: con un phase-offset acumulado de
+              ;; punto flotante, el ancho de la primera banda de cada
+              ;; segmento podria salir negativo o casi cero por un caso
+              ;; extremo no cubierto en urb:composite-phase-state -- sin
+              ;; este limite duro de iteraciones, eso puede colgar el
+              ;; comando en vez de simplemente fallar (se vio un
+              ;; colgado real al agregar la fase continua sin este
+              ;; respaldo). 20000 iteraciones alcanza sobrado para
+              ;; cualquier anden real (un modulo de 1.8m en un tramo de
+              ;; varios kilometros).
+              (< iter-guard 20000))
+            (setq iter-guard (1+ iter-guard))
+            (setq band-width (if first-band (cdr phase-state) (if gray 0.80 1.00)))
+            (if (< band-width 0.001) (setq band-width 0.001))
             (setq next
               (if reverse-pattern
-                (max umin (- cursor (if gray 0.80 1.00)))
-                (min umax (+ cursor (if gray 0.80 1.00)))))
+                (max umin (- cursor band-width))
+                (min umax (+ cursor band-width))))
             (setq region
               (if reverse-pattern
                 (urb:clip-stripe
@@ -2072,7 +2106,8 @@
                     region angle-value origin parent-handle))
                 (setq count (1+ count))))
             (setq cursor next
-                  gray (not gray)))
+                  gray (not gray)
+                  first-band nil))
           (urb:safe-delete base-region)
           (> count 0)))))
 )
@@ -2250,17 +2285,24 @@
 (defun urb:decorate-composite-region-segmented
   (base-region driving-chain format parent-handle reverse-pattern
    / edges edge angle-value cosine sine u1 u2 umin umax
-   bounds-all vmin-all vmax-all slice count points-all)
+   bounds-all vmin-all vmax-all slice count points-all
+   cum-offset total-length phase-offset)
   ;; Modula el anden segmento por segmento siguiendo el contorno real en vez
   ;; de un unico eje: cada arista del lado guia recorta su propia franja del
   ;; anden (el resto del ancho se recorta solo por el boolean contra el
   ;; contorno real) y se decora con SU angulo local, para que la reticula
   ;; siga la curva en lugar de desviarse a medida que uno se aleja del punto
   ;; donde se calculo el eje unico.
+  ;; cum-offset/phase-offset: igual que en urb:create-accessibility-
+  ;; features-segmented, para que el patron gris/blanco de 0.80/1.00m sea
+  ;; una sola progresion continua a lo largo de todo el corredor en vez de
+  ;; reiniciar en cada arista corta del muestreo de un arco (lo que dejaba
+  ;; solo una hilera de adoquin en las transiciones de curva).
   (setq edges (urb:open-chain-edges driving-chain))
   (setq points-all (urb:region-outline-points base-region))
   (if (null points-all) (setq points-all (urb:object-box-points base-region)))
-  (setq count 0)
+  (setq count 0 cum-offset 0.0)
+  (setq total-length (urb:chain-total-length driving-chain))
   (foreach edge edges
     (setq angle-value (nth 3 edge)
           cosine (cos angle-value)
@@ -2272,11 +2314,16 @@
           vmin-all (nth 2 bounds-all)
           vmax-all (nth 3 bounds-all))
     (setq slice (urb:clip-stripe base-region umin umax vmin-all vmax-all angle-value))
+    (setq phase-offset
+      (if reverse-pattern
+        (- total-length (+ cum-offset (- umax umin)))
+        cum-offset))
     (if slice
       (progn
         (urb:decorate-composite-region
-          slice angle-value format parent-handle reverse-pattern)
-        (setq count (1+ count)))))
+          slice angle-value format parent-handle reverse-pattern phase-offset)
+        (setq count (1+ count))))
+    (setq cum-offset (+ cum-offset (- umax umin))))
   (urb:safe-delete base-region)
   (> count 0)
 )
@@ -2324,7 +2371,7 @@
                             (urb:anden-pattern-angle
                               (cadr zone) pattern-mode)
                             format parent-handle
-                            reverse-pattern))
+                            reverse-pattern 0.0))
                       (setq success nil)))
                   success)
                 (progn
@@ -2339,7 +2386,7 @@
                       angle-value pattern-mode))
                   (urb:decorate-composite-region
                     base-region angle-value format parent-handle
-                    reverse-pattern))))
+                    reverse-pattern 0.0))))
             (progn
               (setq angle-value
                 (if clusters
@@ -2350,7 +2397,7 @@
                   angle-value pattern-mode))
               (urb:decorate-composite-region
                 base-region angle-value format parent-handle
-                reverse-pattern)))))))
+                reverse-pattern 0.0)))))))
 )
 
 (defun urb:generated-xdata-fragment (parent-handle role)
@@ -3001,7 +3048,13 @@
     ((member role '("FILL" "RELLENO")) "FILL")
     ((= role "JOINT") "JOINT")
     ((= role "FEATURE_FILL") "FEATURE_FILL")
-    ((member role '("FEATURE" "INTERIOR" "EXTERIOR" "REMATE")) "FEATURE")
+    ;; FEATURE_SYMBOL: cada capsula/circulo individual de guia/toperol
+    ;; (urb:fill-tactile-symbols). Sin este caso explicito caian en el
+    ;; default "BOUNDARY" (casi al fondo de la pila, justo encima del
+    ;; relleno base) -- el usuario los veia "atras" del resto del
+    ;; material. Van en el mismo bucket que el resto de FEATURE (el mas
+    ;; arriba de todos), que es donde deben verse los simbolos tactiles.
+    ((member role '("FEATURE" "FEATURE_SYMBOL" "INTERIOR" "EXTERIOR" "REMATE")) "FEATURE")
     (T "BOUNDARY"))
 )
 
