@@ -2773,6 +2773,60 @@
     (setq i (1+ i)))
   found)
 
+(defun urb:anden-shape-ok-p (pts / selfx widthx)
+  ;; Envuelve las 2 validaciones de forma (moño / ancho anomalo) con
+  ;; vl-catch-all-apply: si CUALQUIERA de las dos revienta con un error
+  ;; interno (geometria degenerada, division por cero, etc. -- ya se vio
+  ;; un caso real con una polilinea casi plana), la validacion se trata
+  ;; como RECHAZO por seguridad, no como un crash sin capturar que aborte
+  ;; el comando a medio camino. Un error de validacion nunca debe dejar
+  ;; pasar una forma sin filtrar.
+  (setq selfx (vl-catch-all-apply 'urb:polygon-self-intersects-p (list pts)))
+  (cond
+    ((vl-catch-all-error-p selfx)
+      (prompt
+        (strcat "\n*** No se pudo validar el contorno (error interno: "
+                (vl-catch-all-error-message selfx) ") ***"
+                "\nPor seguridad no se genera el acabado sobre esta forma;"
+                " revise el contorno (puede tener un segmento degenerado o"
+                " un arco extremo) y vuelva a intentar."))
+      nil)
+    (selfx
+      (prompt
+        (strcat
+          "\n*** El contorno dibujado se cruza a si mismo (forma tipo"
+          " \"moño\") ***"
+          "\nEsto genera un relleno con una mancha ancha/anomala en"
+          " vez de una franja pareja."
+          "\nEl contorno queda dibujado para que lo revise/corrija;"
+          " no se genera el acabado del anden sobre esta forma."))
+      nil)
+    (T
+      (setq widthx (vl-catch-all-apply 'urb:anden-width-anomaly-p (list pts)))
+      (cond
+        ((vl-catch-all-error-p widthx)
+          (prompt
+            (strcat "\n*** No se pudo validar el contorno (error interno: "
+                    (vl-catch-all-error-message widthx) ") ***"
+                    "\nPor seguridad no se genera el acabado sobre esta forma;"
+                    " revise el contorno (puede tener un segmento degenerado o"
+                    " un arco extremo) y vuelva a intentar."))
+          nil)
+        (widthx
+          (prompt
+            (strcat
+              "\n*** El ancho del contorno varia demasiado a lo largo del"
+              " anden (ej. angosto en los remates pero muy ancho en la"
+              " mitad) ***"
+              "\nEsto suele venir de clics imprecisos al dibujar; el"
+              " relleno sale con una mancha ancha en la zona inflada en"
+              " vez de una franja pareja."
+              "\nEl contorno queda dibujado para que lo revise/corrija"
+              " (verifique que las dos aristas largas queden paralelas);"
+              " no se genera el acabado del anden sobre esta forma."))
+          nil)
+        (T T)))))
+
 (defun urb:draw-closed-polyline
   (/ before after obj old-plinewid *error* pts)
   (setq old-plinewid (getvar "PLINEWID"))
@@ -2800,31 +2854,7 @@
       (if (urb:closed-poly-p after)
         (progn
           (setq pts (urb:lwpoly-points-with-arcs after))
-          (cond
-            ((urb:polygon-self-intersects-p pts)
-              (prompt
-                (strcat
-                  "\n*** El contorno dibujado se cruza a si mismo (forma tipo"
-                  " \"moño\") ***"
-                  "\nEsto genera un relleno con una mancha ancha/anomala en"
-                  " vez de una franja pareja."
-                  "\nEl contorno queda dibujado para que lo revise/corrija;"
-                  " no se genera el acabado del anden sobre esta forma."))
-              nil)
-            ((urb:anden-width-anomaly-p pts)
-              (prompt
-                (strcat
-                  "\n*** El ancho del contorno varia demasiado a lo largo del"
-                  " anden (ej. angosto en los remates pero muy ancho en la"
-                  " mitad) ***"
-                  "\nEsto suele venir de clics imprecisos al dibujar; el"
-                  " relleno sale con una mancha ancha en la zona inflada en"
-                  " vez de una franja pareja."
-                  "\nEl contorno queda dibujado para que lo revise/corrija"
-                  " (verifique que las dos aristas largas queden paralelas);"
-                  " no se genera el acabado del anden sobre esta forma."))
-              nil)
-            (T after)))
+          (if (urb:anden-shape-ok-p pts) after nil))
         nil))
     nil)
 )
@@ -4582,28 +4612,13 @@
   ;; el acabado sin ningun aviso, igual que pasaba antes en el flujo de
   ;; dibujo nuevo.
   (setq pts (urb:lwpoly-points-with-arcs boundary))
-  (cond
-    ((urb:polygon-self-intersects-p pts)
-      (prompt
-        (strcat
-          "\n*** El contorno se cruza a si mismo (forma tipo \"moño\") ***"
-          "\nNo se regenera el acabado sobre esta forma; revise/corrija el"
-          " contorno primero."))
-      (setq saved nil))
-    ((urb:anden-width-anomaly-p pts)
-      (prompt
-        (strcat
-          "\n*** El ancho del contorno varia demasiado a lo largo del anden"
-          " ***"
-          "\nNo se regenera el acabado sobre esta forma; revise/corrija el"
-          " contorno primero."))
-      (setq saved nil))
-    (T
-      (setq saved
-        (urb:call-edit-stage
-          "guardar datos"
-          'urb:set-anden-data
-          (list boundary material etapa subetapa guia toperol format calculate surface grade-source)))))
+  (if (urb:anden-shape-ok-p pts)
+    (setq saved
+      (urb:call-edit-stage
+        "guardar datos"
+        'urb:set-anden-data
+        (list boundary material etapa subetapa guia toperol format calculate surface grade-source)))
+    (setq saved nil))
   (if saved
     (urb:set-anden-pattern-mode boundary pattern-mode))
   (if saved
