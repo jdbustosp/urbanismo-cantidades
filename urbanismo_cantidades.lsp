@@ -2436,6 +2436,34 @@
     result)
 )
 
+(defun urb:anden-tactile-chain (points / clean corners chains ref best best-d chain mid d)
+  ;; Cadena del contorno MAS CERCANA al lado de la via marcado por el
+  ;; usuario: la franja tactil debe seguir el borde de la via (p.ej. el
+  ;; arco INTERIOR de un anden en abanico), no el lado mas largo del
+  ;; contorno -- guiando por el lado largo, en un abanico la guia quedaba
+  ;; proyectada desde el otro lado del anillo y salia fragmentada.
+  (setq clean (urb:dedupe-ring-points points))
+  (setq corners (urb:polygon-corner-indices clean (* pi (/ 45.0 180.0))))
+  (setq chains (urb:polygon-chains-at-corners clean corners))
+  (setq ref nil)
+  (if *urb-current-tactile-side-choice*
+    (setq ref (urb:tactile-side-point-from-choice *urb-current-tactile-side-choice* clean)))
+  (if (and (null ref) *urb-current-tactile-side-point*)
+    (setq ref *urb-current-tactile-side-point*))
+  (if (or (null ref) (null chains))
+    (if chains (urb:longest-chain chains) nil)
+    (progn
+      (setq best nil best-d nil)
+      (foreach chain chains
+        (setq mid (nth (/ (length chain) 2) chain))
+        (setq d (distance mid ref))
+        ;; ignorar remates cortos (tapas de extremo)
+        (if (and (> (urb:chain-total-length chain) 0.5)
+                 (or (null best-d) (< d best-d)))
+          (setq best chain best-d d)))
+      (if best best (urb:longest-chain chains))))
+)
+
 (defun urb:anden-driving-chain (points / corners chains)
   ;; Un solo lado largo del anden (tramo abierto de vertices reales) que se
   ;; usa como guia para modular segmento por segmento. Para un anden simple
@@ -3026,7 +3054,9 @@
       (if (vl-catch-all-error-p base-region)
         nil
         (progn
-          (setq driving-chain (urb:anden-driving-chain points))
+          ;; la franja tactil sigue la cadena del lado de la VIA (click
+          ;; del usuario), no el lado mas largo del contorno
+          (setq driving-chain (urb:anden-tactile-chain points))
           (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
             (urb:create-accessibility-features-segmented
               base-region points driving-chain guia toperol format parent-handle)
