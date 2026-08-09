@@ -17,6 +17,14 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 4) — Décimo bug real: la validación rechazaba contornos CURVOS válidos ("consp nil") + rampa con flujo mínimo
+
+El usuario intentó crear un andén curvo y la validación lo rechazó con "No se pudo validar el contorno (error interno: bad argument type: consp nil)".
+
+- **Causa raíz encontrada**: `urb:polygon-edge-records` SALTA las aristas de longitud cero (vértice consecutivo duplicado — un doble click al dibujar, o el muestreo de un arco que cae exacto sobre el vértice siguiente), pero `urb:polygon-corner-indices` indexa las aristas POR VÉRTICE asumiendo que hay una por vértice: el descuadre termina en `(angle nil nil)` = "consp nil", el catch de `urb:anden-shape-ok-p` lo trata como rechazo por seguridad, y un contorno curvo perfectamente válido no se puede construir.
+- **Fix**: nueva `urb:dedupe-ring-points` (quita vértices consecutivos duplicados y el cierre último==primero), aplicada en la entrada de `urb:anden-shape-ok-p` y en `urb:anden-driving-chain`. Verificado: el contorno curvo muestreado (18 pts) valida T limpio, T con un duplicado inyectado (antes: error), y el moño real sigue rechazado.
+- **Rampa con flujo mínimo** (a pedido explícito): ahora son solo 3 entradas — punto INICIAL sobre el borde de la vía, dirección del eje, y ancho [2.00/3.00]. El fondo (3.50 default) y el lado del andén (izquierda del eje por default) son OPCIONES dentro del mismo prompt del ancho (palabras clave Fondo/Lado), no pasos obligatorios; etapa/subetapa arrancan en 1/1 y se cambian después con el botón de lote. No depende de que exista ningún sardinel dibujado. `urb:build-ramp` (núcleo sin prompts) no cambió — re-verificado con base desplazada al centro: 3.00×4.00, área 17.20 exacta.
+
 ### 2026-08-09 (parte 3) — Rediseño de retícula: guía/toperol sobre la modulación, juntas a inglete en curvas, y rampa peatonal paramétrica
 
 Implementación de los 3 pendientes grandes de la parte 2, todos verificados headless (unit tests numéricos + corredor curvo completo + rampa de punta a punta):

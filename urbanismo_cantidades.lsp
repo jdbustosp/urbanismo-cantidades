@@ -2376,12 +2376,31 @@
   best
 )
 
+(defun urb:dedupe-ring-points (points / result pt)
+  ;; Quita vertices consecutivos duplicados (y el cierre duplicado
+  ;; ultimo==primero). Un doble click al dibujar -- o el muestreo de un
+  ;; arco que cae exacto sobre el vertice siguiente -- deja una arista de
+  ;; longitud CERO: urb:polygon-edge-records la salta, pero
+  ;; urb:polygon-corner-indices indexa por vertice, y ese descuadre
+  ;; terminaba en (angle nil nil) = "bad argument type: consp nil",
+  ;; rechazando por seguridad contornos curvos perfectamente validos.
+  (foreach pt points
+    (if (or (null result) (> (distance pt (car result)) 1e-8))
+      (setq result (cons pt result))))
+  (setq result (reverse result))
+  (if (and (> (length result) 1)
+           (<= (distance (car result) (last result)) 1e-8))
+    (reverse (cdr (reverse result)))
+    result)
+)
+
 (defun urb:anden-driving-chain (points / corners chains)
   ;; Un solo lado largo del anden (tramo abierto de vertices reales) que se
   ;; usa como guia para modular segmento por segmento. Para un anden simple
   ;; de 4 vertices da un unico tramo de 1 arista (equivalente al eje unico
   ;; de siempre); para un anden curvo con muchos vertices da el lado largo
   ;; completo con todos sus quiebres reales.
+  (setq points (urb:dedupe-ring-points points))
   (setq corners (urb:polygon-corner-indices points (* pi (/ 45.0 180.0))))
   (setq chains (urb:polygon-chains-at-corners points corners))
   (if chains (urb:longest-chain chains) nil)
@@ -3085,6 +3104,7 @@
   ;; como RECHAZO por seguridad, no como un crash sin capturar que aborte
   ;; el comando a medio camino. Un error de validacion nunca debe dejar
   ;; pasar una forma sin filtrar.
+  (setq pts (urb:dedupe-ring-points pts))
   (setq selfx (vl-catch-all-apply 'urb:polygon-self-intersects-p (list pts)))
   (cond
     ((vl-catch-all-error-p selfx)
@@ -12652,8 +12672,8 @@
 )
 
 (defun urb:create-ramp-command
-  (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width-kw width
-   depth-kw depth stage-data etapa subetapa axis-angle side-sign block-ref)
+  (/ *error* doc undo-open undo-result base-pt dir-pt width kw
+   depth etapa subetapa axis-angle side-sign block-ref center-pt total-half done)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
   ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
   ;; laterales de 0.65 m con adoquin 20x10, fondo = ancho del anden
@@ -12670,41 +12690,48 @@
     (princ))
   (setq undo-result (vl-catch-all-apply 'vla-StartUndoMark (list doc)))
   (setq undo-open (not (vl-catch-all-error-p undo-result)))
-  (setq base-pt (getpoint "\nPunto CENTRAL de la rampa sobre el borde de la via/sardinel: "))
+  ;; Flujo minimo a pedido del usuario: punto inicial + eje + ancho, y ya.
+  ;; El fondo (3.50 default) y el lado del anden (izquierda del eje por
+  ;; default) se pueden cambiar como opciones DENTRO del mismo prompt del
+  ;; ancho, sin pasos obligatorios extra. Etapa/subetapa arrancan en 1/1 y
+  ;; se cambian despues con "Cambiar etapa/subetapa (lote)" en segundos.
+  (setq depth 3.50 side-sign 1.0 width 2.00 etapa "1" subetapa "1")
+  (setq base-pt (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: "))
   (if base-pt
-    (setq dir-pt (getpoint base-pt "\nOtro punto sobre el MISMO borde (direccion del sardinel): ")))
+    (setq dir-pt (getpoint base-pt "\nDireccion del borde (eje de la rampa): ")))
   (if dir-pt
     (progn
-      (initget "2.00 3.00")
-      (setq width-kw (getkword "\nAncho de la rampa central [2.00/3.00] <2.00>: "))
-      (setq width (if (= width-kw "3.00") 3.00 2.00))
-      (initget "3.50 4.00 Otro")
-      (setq depth-kw (getkword "\nFondo (ancho del anden) [3.50/4.00/Otro] <3.50>: "))
-      (cond
-        ((= depth-kw "4.00") (setq depth 4.00))
-        ((= depth-kw "Otro")
-          (setq depth (getreal "\nFondo en metros: "))
-          (if (or (null depth) (< depth 0.5)) (setq depth 3.50)))
-        (T (setq depth 3.50)))
-      (setq side-pt (getpoint base-pt "\nMarque un punto del lado del ANDEN: "))))
-  (if side-pt
-    (progn
-      (setq stage-data (urb:dialog-stage "1" "1"))
-      (if (null stage-data) (setq stage-data (list "1" "1")))
-      (setq etapa (nth 0 stage-data) subetapa (nth 1 stage-data))
+      (setq done nil)
+      (while (not done)
+        (initget "2.00 3.00 Fondo Lado")
+        (setq kw
+          (getkword
+            (strcat "\nAncho de la rampa [2.00/3.00/Fondo/Lado]"
+                    " (fondo " (rtos depth 2 2)
+                    ", lado " (if (> side-sign 0) "izquierda" "derecha")
+                    " del eje) <2.00>: ")))
+        (cond
+          ((= kw "Fondo")
+            (setq depth (getreal "\nFondo (ancho del anden) en metros <3.50>: "))
+            (if (or (null depth) (< depth 0.5)) (setq depth 3.50)))
+          ((= kw "Lado")
+            (setq side-sign (- side-sign)))
+          ((= kw "3.00") (setq width 3.00) (setq done T))
+          (T (setq width 2.00) (setq done T))))
       (setq axis-angle (angle base-pt dir-pt))
-      ;; lado: signo de la proyeccion del punto marcado sobre la normal
-      (setq side-sign
-        (if (>= (+ (* (- (car side-pt) (car base-pt)) (- (sin axis-angle)))
-                   (* (- (cadr side-pt) (cadr base-pt)) (cos axis-angle)))
-                0.0)
-          1.0 -1.0))
+      ;; base-pt es el INICIO del ancho total: el centro queda medio ancho
+      ;; total mas adelante sobre el eje
+      (setq total-half (+ (/ width 2.0) 0.65))
+      (setq center-pt
+        (list (+ (car base-pt) (* total-half (cos axis-angle)))
+              (+ (cadr base-pt) (* total-half (sin axis-angle)))))
       (setq block-ref
-        (urb:build-ramp base-pt axis-angle side-sign width depth etapa subetapa))
+        (urb:build-ramp center-pt axis-angle side-sign width depth etapa subetapa))
       (if block-ref
         (prompt
           (strcat "\nRampa creada: " (rtos width 2 2) "m x " (rtos depth 2 2)
-                  "m (aletas 0.65m) | Etapa " etapa " | Subetapa " subetapa "."))))
+                  "m (aletas 0.65m) | Etapa " etapa
+                  ". Cambie etapa/subetapa en lote desde el menu URBANISMO."))))
     (prompt "\nComando cancelado."))
   (if undo-open
     (progn (vl-catch-all-apply 'vla-EndUndoMark (list doc)) (setq undo-open nil)))
