@@ -17,6 +17,10 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 5) — Undécimo bug real: falso "moño" en andenes curvos cerrados con arco (PLINE Arc + CLose)
+
+El usuario dibujó un abanico anular válido (arco exterior + arco interior + remates) y la validación lo rechazó como "se cruza a sí mismo". Causa: en `urb:arc-bulge-midpoints`, para el segmento de CIERRE con arco, el parámetro de curva del segundo extremo (el PRIMER vértice) es 0 — interpolar de param1 hacia 0 recorre TODA la polilínea hacia atrás en vez del arco de cierre, sembrando puntos de muestreo por todo el contorno: el polígono muestreado sí se cruzaba aunque la curva real no. Fix: si `param2 <= param1`, usar `vlax-curve-getEndParam` como extremo (el parámetro final de la curva es el mismo punto visto desde el lado del cierre). Verificado: abanico anular con arco de cierre → 18 puntos muestreados, 0 fuera del anillo, validación T; el moño real sigue rechazado. Este fix también corrige las CANTIDADES de cualquier andén cerrado con arco (el perímetro/longitud de guía usan el mismo muestreo).
+
 ### 2026-08-09 (parte 4) — Décimo bug real: la validación rechazaba contornos CURVOS válidos ("consp nil") + rampa con flujo mínimo
 
 El usuario intentó crear un andén curvo y la validación lo rechazó con "No se pudo validar el contorno (error interno: bad argument type: consp nil)".

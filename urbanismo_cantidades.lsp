@@ -1359,6 +1359,17 @@
   (if (or (vl-catch-all-error-p param1) (vl-catch-all-error-p param2))
     nil
     (progn
+      ;; Segmento de CIERRE con arco (PLINE opcion Arc + CLose): p2 es el
+      ;; PRIMER vertice, cuyo parametro es 0 -- interpolar de param1 hacia
+      ;; 0 recorre TODA la polilinea hacia atras en vez del arco de
+      ;; cierre, sembrando puntos por todo el contorno (el validador veia
+      ;; un falso "monio" y rechazaba andenes curvos validos). El extremo
+      ;; correcto por el lado del cierre es el parametro FINAL de la
+      ;; curva.
+      (if (<= param2 param1)
+        (progn
+          (setq param2 (vl-catch-all-apply 'vlax-curve-getEndParam (list ename)))
+          (if (vl-catch-all-error-p param2) (setq param2 param1))))
       (setq pts nil j 1)
       (repeat (1- n)
         (setq frac (/ (float j) (float n)))
