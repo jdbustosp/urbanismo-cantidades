@@ -1375,7 +1375,9 @@
         (setq frac (/ (float j) (float n)))
         (setq tparam (+ param1 (* frac (- param2 param1))))
         (setq pt (vl-catch-all-apply 'vlax-curve-getPointAtParam (list ename tparam)))
-        (if (not (vl-catch-all-error-p pt))
+        ;; pt puede ser NIL sin error (parametro fuera de rango): no
+        ;; apendear (nil nil)
+        (if (and (not (vl-catch-all-error-p pt)) pt)
           (setq pts (cons (list (car pt) (cadr pt)) pts)))
         (setq j (1+ j)))
       (reverse pts))))
@@ -1446,7 +1448,11 @@
                     (setq tparam (+ param1 (* frac (- end-param param1))))
                     (setq pt
                       (vl-catch-all-apply 'vlax-curve-getPointAtParam (list ename tparam)))
-                    (if (not (vl-catch-all-error-p pt))
+                    ;; getPointAtParam devuelve NIL (sin error) con un
+                    ;; parametro fuera de rango: sin este chequeo se
+                    ;; apendaba (nil nil) y todo lo aguas abajo reventaba
+                    ;; con "bad argument type: 2D/3D point: (nil nil)".
+                    (if (and (not (vl-catch-all-error-p pt)) pt)
                       (setq points (append points (list (list (car pt) (cadr pt))))))
                     (setq j (1+ j)))))))))))
   points
@@ -2396,7 +2402,10 @@
   ;; terminaba en (angle nil nil) = "bad argument type: consp nil",
   ;; rechazando por seguridad contornos curvos perfectamente validos.
   (foreach pt points
-    (if (or (null result) (> (distance pt (car result)) 1e-8))
+    ;; descartar de una vez cualquier punto malformado (nil o coordenadas
+    ;; no numericas) que se haya colado del muestreo
+    (if (and pt (numberp (car pt)) (numberp (cadr pt))
+             (or (null result) (> (distance pt (car result)) 1e-8)))
       (setq result (cons pt result))))
   (setq result (reverse result))
   (if (and (> (length result) 1)
