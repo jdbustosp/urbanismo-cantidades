@@ -2021,7 +2021,8 @@
 
 (defun urb:clip-edge-wedge
   (base-region p1 p2 bis1 bis2 span
-   / d1 d2 q1 q2 q3 q4 clipped wedge result box elevation)
+   / d1 d2 q1 q2 q3 q4 clipped wedge result box elevation
+   den t1 t2 ix iy s1p s1n s2p s2n)
   ;; Recorta base-region con un cuadrilatero cuyos lados extremos son las
   ;; BISECTRICES en los dos extremos de la arista (junta a inglete): las
   ;; franjas de aristas vecinas empatan exactamente en la bisectriz, sin
@@ -2034,10 +2035,31 @@
         elevation (if (and box (caddr (car box))) (caddr (car box)) 0.0))
   (setq d1 (list (cos bis1) (sin bis1))
         d2 (list (cos bis2) (sin bis2)))
-  (setq q1 (list (+ (car p1) (* span (car d1))) (+ (cadr p1) (* span (cadr d1))))
-        q2 (list (+ (car p2) (* span (car d2))) (+ (cadr p2) (* span (cadr d2))))
-        q3 (list (- (car p2) (* span (car d2))) (- (cadr p2) (* span (cadr d2))))
-        q4 (list (- (car p1) (* span (car d1))) (- (cadr p1) (* span (cadr d1)))))
+  ;; En una curva cerrada las dos bisectrices se CRUZAN en el centro de
+  ;; curvatura: extender la cuna el span completo hacia ese lado la hace
+  ;; atravesar el centro y pintar tambien el lado OPUESTO del anillo (se
+  ;; vio como una malla cruzada/zigzag en el medio de un anden en abanico).
+  ;; Se recorta la extension de ese lado justo antes del cruce.
+  (setq den (- (* (car d1) (cadr d2)) (* (cadr d1) (car d2))))
+  (setq t1 nil t2 nil)
+  (if (> (abs den) 1e-9)
+    (progn
+      (setq t1 (/ (- (* (- (car p2) (car p1)) (cadr d2))
+                     (* (- (cadr p2) (cadr p1)) (car d2)))
+                  den))
+      (setq ix (+ (car p1) (* t1 (car d1)))
+            iy (+ (cadr p1) (* t1 (cadr d1))))
+      (setq t2 (+ (* (- ix (car p2)) (car d2))
+                  (* (- iy (cadr p2)) (cadr d2))))))
+  (setq s1p span s1n span s2p span s2n span)
+  (if (and t1 (> t1 0.0)) (setq s1p (min span (* 0.999 t1))))
+  (if (and t1 (< t1 0.0)) (setq s1n (min span (* 0.999 (- t1)))))
+  (if (and t2 (> t2 0.0)) (setq s2p (min span (* 0.999 t2))))
+  (if (and t2 (< t2 0.0)) (setq s2n (min span (* 0.999 (- t2)))))
+  (setq q1 (list (+ (car p1) (* s1p (car d1))) (+ (cadr p1) (* s1p (cadr d1))))
+        q2 (list (+ (car p2) (* s2p (car d2))) (+ (cadr p2) (* s2p (cadr d2))))
+        q3 (list (- (car p2) (* s2n (car d2))) (- (cadr p2) (* s2n (cadr d2))))
+        q4 (list (- (car p1) (* s1n (car d1))) (- (cadr p1) (* s1n (cadr d1)))))
   (setq wedge (vl-catch-all-apply 'urb:quad-region (list q1 q2 q3 q4 elevation)))
   (if (vl-catch-all-error-p wedge)
     nil
