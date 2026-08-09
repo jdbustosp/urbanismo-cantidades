@@ -93,14 +93,28 @@
   folder
 )
 
+(defun urb:prompt-tactile-side-point (/ result)
+  ;; Un solo click del lado de la via/sardinel: el toperol queda pegado al
+  ;; borde del anden mas cercano a ese punto, la guia 1.20m hacia adentro.
+  ;; (El desplegable Arriba/Abajo/Izquierda/Derecha que existio brevemente
+  ;; se quito a pedido del usuario: con andenes diagonales "arriba/abajo"
+  ;; es ambiguo; el click sobre el lado real no.)
+  (setq result
+    (vl-catch-all-apply
+      'getpoint
+      (list
+        "\nMarque un punto del lado de la VIA/sardinel (lado del toperol): ")))
+  (if (vl-catch-all-error-p result) nil result)
+)
+
 (defun urb:tactile-side-point-from-choice
   (choice points / minx miny maxx maxy pt cx cy diag)
-  ;; Traduce la eleccion de lado (Arriba/Abajo/Izquierda/Derecha, en
+  ;; Traduce una eleccion de lado (Arriba/Abajo/Izquierda/Derecha, en
   ;; coordenadas de mundo/pantalla) a un punto sintetico muy afuera del
-  ;; bbox del contorno, del lado pedido. Reutiliza el mecanismo existente
-  ;; de punto de referencia (urb:reference-v-edge) sin tocar su geometria,
-  ;; y como se calcula con los puntos de CADA contorno, en EDITAR con
-  ;; varios andenes seleccionados cada uno resuelve su propio lado.
+  ;; bbox del contorno, del lado pedido. Ya NO esta expuesta en la
+  ;; interfaz (el usuario marca un punto con click); se conserva como
+  ;; mecanismo interno para las verificaciones headless, que necesitan
+  ;; fijar un lado sin emular clicks (global *urb-current-tactile-side-choice*).
   (if (null points)
     nil
     (progn
@@ -125,6 +139,7 @@
 (setq *urb-anden-dcl-ok* nil)
 (setq *urb-prefab-dcl-ok* nil)
 (setq *urb-green-dcl-ok* nil)
+(setq *urb-stage-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -325,7 +340,6 @@
       ": boxed_column { label = \"Accesibilidad\";"
       ": popup_list { label = \"Loseta guia\"; key = \"guia\"; }"
       ": popup_list { label = \"Loseta toperol\"; key = \"toperol\"; }"
-      ": popup_list { label = \"Lado de la via (toperol)\"; key = \"lado\"; }"
       "}"
       ": boxed_column { label = \"Modulacion\";"
       ": popup_list { label = \"Orientacion\"; key = \"orientacion\"; }"
@@ -341,12 +355,12 @@
 (defun urb:dialog-anden
   (current-material current-format current-etapa current-subetapa
    current-guia current-toperol current-calculate current-surface current-grade-source
-   current-orientation current-start current-side orientation-list start-list
-   / filename dcl-id accepted subetapas result surfaces sides)
+   current-orientation current-start orientation-list start-list
+   / filename dcl-id accepted subetapas result surfaces)
   ;; orientation-list/start-list vienen del llamador porque EDITAR necesita
   ;; la opcion extra "Conservar" (mantener el sentido de cada anden) que en
-  ;; la creacion no tiene sentido. El lado de la via es la misma lista en
-  ;; ambos flujos: EDITAR siempre re-pregunta el lado (no se persiste).
+  ;; la creacion no tiene sentido. El lado de la via/toperol NO va en el
+  ;; dialogo: se marca con un click despues de dibujar (urb:prompt-tactile-side-point).
   (setq filename (urb:write-anden-dcl))
   (setq current-material (urb:safe-string current-material "Loseta"))
   (setq current-format (urb:safe-string current-format "40 x 40 cm"))
@@ -359,8 +373,6 @@
   (setq current-orientation
     (urb:safe-string current-orientation (car orientation-list)))
   (setq current-start (urb:safe-string current-start (car start-list)))
-  (setq sides '("Abajo" "Arriba" "Izquierda" "Derecha"))
-  (setq current-side (urb:safe-string current-side "Abajo"))
   (setq surfaces (urb:civil-surface-names))
   (setq current-surface
     (urb:safe-string current-surface
@@ -407,8 +419,6 @@
         "rasante" *urb-anden-grade-source-list*
         (urb:index-of current-grade-source *urb-anden-grade-source-list*))
       (urb:fill-popup
-        "lado" sides (urb:index-of current-side sides))
-      (urb:fill-popup
         "orientacion" orientation-list
         (urb:index-of current-orientation orientation-list))
       (urb:fill-popup
@@ -427,7 +437,6 @@
           " *urb-dialog-calculate-index* (atoi (get_tile \"calcular\"))"
           " *urb-dialog-surface-index* (atoi (get_tile \"superficie\"))"
           " *urb-dialog-grade-index* (atoi (get_tile \"rasante\"))"
-          " *urb-dialog-side-index* (atoi (get_tile \"lado\"))"
           " *urb-dialog-orientation-index* (atoi (get_tile \"orientacion\"))"
           " *urb-dialog-start-index* (atoi (get_tile \"extremo\")))"
           "(done_dialog 1)"))
@@ -454,7 +463,6 @@
             (nth *urb-dialog-surface-index* surfaces))
           (setq current-grade-source
             (nth *urb-dialog-grade-index* *urb-anden-grade-source-list*))
-          (setq current-side (nth *urb-dialog-side-index* sides))
           (setq current-orientation
             (nth *urb-dialog-orientation-index* orientation-list))
           (setq current-start (nth *urb-dialog-start-index* start-list))
@@ -462,7 +470,7 @@
             (list current-material current-format current-etapa current-subetapa
                   current-guia current-toperol current-calculate
                   current-surface current-grade-source
-                  current-orientation current-start current-side)))))
+                  current-orientation current-start)))))
   )
   result
 )
@@ -4189,7 +4197,7 @@
 (defun urb:create-sidewalk-command
   (/ data material format etapa subetapa guia toperol calculate surface
    grade-source ename result block-ref anden-points anden-area
-   earthworks-ok orientation-choice start-choice side-choice pattern-mode
+   earthworks-ok orientation-choice start-choice pattern-mode
    old-fillmode doc undo-open undo-result *error*)
   (setq doc (urb:doc) old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
@@ -4210,15 +4218,15 @@
   (setq undo-open (not (vl-catch-all-error-p undo-result)))
   (setq *urb-current-tactile-side-point* nil
         *urb-current-tactile-side-choice* nil)
-  ;; Orientacion, extremo y lado de la via viven ahora DENTRO del dialogo:
-  ;; despues de dibujar el contorno ya no se pregunta nada mas (antes eran
-  ;; 2 getkword + un click de punto + una confirmacion, que el usuario
-  ;; pidio quitar por redundantes).
+  ;; Orientacion y extremo viven DENTRO del dialogo. El lado de la via
+  ;; (toperol) se marca con UN click despues de dibujar: con andenes
+  ;; diagonales una palabra tipo "arriba/abajo" es ambigua, el click sobre
+  ;; el lado real no.
   (setq data
     (if (urb:confirm-meter-units)
       (urb:dialog-anden "Loseta" "40 x 40 cm" "1" "1" "No" "No"
         "Si" "SUP_TN" "Via creada"
-        "Automatico" "Normal" "Abajo"
+        "Automatico" "Normal"
         '("Automatico" "Girar90") '("Normal" "Opuesto"))
       nil))
   (if data
@@ -4234,7 +4242,6 @@
       (setq grade-source (nth 8 data))
       (setq orientation-choice (nth 9 data))
       (setq start-choice (nth 10 data))
-      (setq side-choice (nth 11 data))
       (setq ename (urb:draw-closed-polyline)))
   )
   (if ename
@@ -4246,7 +4253,8 @@
       (setq anden-points (urb:lwpoly-points ename))
       (setq anden-area (vla-get-Area (vlax-ename->vla-object ename)))
       (if (or (urb:yes-p guia) (urb:yes-p toperol))
-        (setq *urb-current-tactile-side-choice* side-choice))
+        (setq *urb-current-tactile-side-point*
+          (urb:prompt-tactile-side-point)))
       (urb:set-anden-data
         ename material etapa subetapa guia toperol format calculate surface grade-source)
       (urb:set-anden-pattern-mode ename pattern-mode)
@@ -5082,7 +5090,7 @@
    ename obj result deleted updated failed old-material boundary block-ref
    cleaned old-guia old-toperol old-format old-calculate old-surface
    old-grade-source old-schema mp-entities roads omitted
-   mixed-count orientation-choice start-choice side-choice pattern-mode old-pattern-mode
+   mixed-count orientation-choice start-choice pattern-mode old-pattern-mode
    old-rotated old-reversed new-rotated new-reversed
    anden-points anden-area earthworks-ok new-ename old-handle
    old-movement old-earthworks-p
@@ -5195,14 +5203,15 @@
           (setq calculate (urb:safe-string calculate "Si"))
           (setq surface (urb:safe-string surface "SUP_TN"))
           (setq grade-source (urb:safe-string grade-source "Via creada"))
-          ;; Orientacion/extremo/lado van dentro del mismo dialogo (igual
-          ;; que en la creacion); aqui las listas incluyen "Conservar" para
-          ;; mantener el sentido propio de cada anden seleccionado.
+          ;; Orientacion/extremo van dentro del mismo dialogo (igual que en
+          ;; la creacion); aqui las listas incluyen "Conservar" para
+          ;; mantener el sentido propio de cada anden seleccionado. El lado
+          ;; del toperol se marca con un click despues de aceptar.
           (setq data
             (urb:dialog-anden
               material format etapa subetapa guia toperol
               calculate surface grade-source
-              "Conservar" "Conservar" "Abajo"
+              "Conservar" "Conservar"
               '("Conservar" "Automatico" "Girar90")
               '("Conservar" "Normal" "Opuesto")))
           (if data
@@ -5218,7 +5227,6 @@
               (setq grade-source (nth 8 data))
               (setq orientation-choice (nth 9 data))
               (setq start-choice (nth 10 data))
-              (setq side-choice (nth 11 data))
               (setq material (urb:safe-string material "Loseta"))
               (setq etapa (urb:safe-string etapa "1"))
               (setq subetapa (urb:safe-string subetapa etapa))
@@ -5229,7 +5237,8 @@
               (setq surface (urb:safe-string surface "SUP_TN"))
               (setq grade-source (urb:safe-string grade-source "Via creada"))
               (if (or (urb:yes-p guia) (urb:yes-p toperol))
-                (setq *urb-current-tactile-side-choice* side-choice))
+                (setq *urb-current-tactile-side-point*
+                  (urb:prompt-tactile-side-point)))
               (setq deleted 0 updated 0 failed 0)
               (foreach ename parents
                 (setq old-pattern-mode (urb:anden-pattern-mode ename)
@@ -12422,9 +12431,53 @@
     nil)
 )
 
-(defun urb:string-join (items separator / result item)
-  (foreach item items
-    (setq result (if result (strcat result separator item) item)))
+(defun urb:write-stage-dcl ()
+  (urb:write-dialog-dcl
+    "urbanismo_etapas"
+    '*urb-stage-dcl-ok*
+    (list
+      "urbanismo_etapas : dialog { label = \"Cambiar etapa/subetapa\";"
+      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
+      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+      "ok_cancel; }"))
+)
+
+(defun urb:dialog-stage
+  (current-etapa current-subetapa / filename dcl-id accepted subetapas result)
+  (setq filename (urb:write-stage-dcl))
+  (setq current-etapa (urb:safe-string current-etapa "1"))
+  (setq current-subetapa (urb:safe-string current-subetapa current-etapa))
+  (if (and filename
+           (> (setq dcl-id (load_dialog filename)) 0)
+           (new_dialog "urbanismo_etapas" dcl-id))
+    (progn
+      (urb:fill-popup
+        "etapa" *urb-etapa-list*
+        (urb:index-of current-etapa *urb-etapa-list*))
+      (setq *urb-dialog-etapa*
+        (nth (atoi (get_tile "etapa")) *urb-etapa-list*))
+      (setq subetapas (urb:subetapas-for *urb-dialog-etapa*))
+      (urb:fill-popup
+        "subetapa" subetapas
+        (urb:index-of current-subetapa subetapas))
+      (action_tile "etapa" "(urb:dialog-update-subetapa)")
+      (action_tile
+        "accept"
+        (strcat
+          "(setq *urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
+          " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\")))"
+          "(done_dialog 1)"))
+      (setq accepted (= 1 (start_dialog)))
+      (unload_dialog dcl-id)
+      (if accepted
+        (progn
+          (setq current-etapa
+            (nth *urb-dialog-etapa-index* *urb-etapa-list*))
+          (setq subetapas (urb:subetapas-for current-etapa))
+          (setq current-subetapa
+            (nth *urb-dialog-subetapa-index* subetapas))
+          (setq result (list current-etapa current-subetapa)))))
+  )
   result
 )
 
@@ -12463,59 +12516,50 @@
 )
 
 (defun urb:batch-stage-command
-  (/ etapa subetapa subetapas ss index ename category counts entry total skipped)
-  ;; Cambio rapido de etapa/subetapa en LOTE: acepta una seleccion mixta
-  ;; (andenes, vias, redes, prefabricados, zonas verdes a la vez) y les
-  ;; aplica la misma etapa/subetapa sin redibujar nada -- editar via el
-  ;; comando EDITAR reconstruye la geometria completa (minutos por anden);
-  ;; esto tarda segundos porque solo toca metadatos.
-  (initget (urb:string-join *urb-etapa-list* " "))
-  (setq etapa
-    (getkword
-      (strcat "\nNueva etapa [" (urb:string-join *urb-etapa-list* "/") "] <1>: ")))
-  (if (null etapa) (setq etapa "1"))
-  (setq subetapas (urb:subetapas-for etapa))
-  (if (cdr subetapas)
-    (progn
-      (initget (urb:string-join subetapas " "))
-      (setq subetapa
-        (getkword
-          (strcat "\nNueva subetapa [" (urb:string-join subetapas "/")
-                  "] <" (car subetapas) ">: ")))
-      (if (null subetapa) (setq subetapa (car subetapas))))
-    (setq subetapa (car subetapas)))
+  (/ data etapa subetapa ss index ename category counts entry total skipped)
+  ;; Cambio rapido de etapa/subetapa en LOTE: primero se seleccionan los
+  ;; elementos (mezcla de andenes, vias, redes, prefabricados, zonas
+  ;; verdes) y DESPUES sale el dialogo con los desplegables de etapa y
+  ;; subetapa (orden pedido por el usuario). Aplica sin redibujar nada --
+  ;; editar via el comando EDITAR reconstruye la geometria completa
+  ;; (minutos por anden); esto tarda segundos porque solo toca metadatos.
   (prompt
-    "\nSeleccione los elementos (andenes, vias, redes, prefabricados, zonas verdes): ")
+    "\nSeleccione los elementos a cambiar (andenes, vias, redes, prefabricados, zonas verdes): ")
   (setq ss (ssget))
-  (if ss
+  (if (null ss)
+    (prompt "\nNo se selecciono ningun objeto.")
     (progn
-      (setq counts nil total 0 index 0)
-      (repeat (sslength ss)
-        (setq ename (ssname ss index))
-        (setq category
-          (vl-catch-all-apply
-            'urb:apply-etapa-subetapa (list ename etapa subetapa)))
-        (if (vl-catch-all-error-p category) (setq category nil))
-        (if category
-          (progn
-            (setq total (1+ total))
-            (setq entry (assoc category counts))
-            (setq counts
-              (if entry
-                (subst (cons category (1+ (cdr entry))) entry counts)
-                (cons (cons category 1) counts)))))
-        (setq index (1+ index)))
-      (setq skipped (- (sslength ss) total))
-      (prompt
-        (strcat "\nEtapa " etapa " / Subetapa " subetapa
-                " aplicada a " (itoa total) " elemento(s)."))
-      (foreach entry (reverse counts)
-        (prompt (strcat "\n  " (car entry) ": " (itoa (cdr entry)))))
-      (if (> skipped 0)
-        (prompt
-          (strcat "\n  Ignorados (no son elementos del programa): "
-                  (itoa skipped)))))
-    (prompt "\nNo se selecciono ningun objeto."))
+      (setq data (urb:dialog-stage "1" "1"))
+      (if (null data)
+        (prompt "\nComando cancelado.")
+        (progn
+          (setq etapa (nth 0 data) subetapa (nth 1 data))
+          (setq counts nil total 0 index 0)
+          (repeat (sslength ss)
+            (setq ename (ssname ss index))
+            (setq category
+              (vl-catch-all-apply
+                'urb:apply-etapa-subetapa (list ename etapa subetapa)))
+            (if (vl-catch-all-error-p category) (setq category nil))
+            (if category
+              (progn
+                (setq total (1+ total))
+                (setq entry (assoc category counts))
+                (setq counts
+                  (if entry
+                    (subst (cons category (1+ (cdr entry))) entry counts)
+                    (cons (cons category 1) counts)))))
+            (setq index (1+ index)))
+          (setq skipped (- (sslength ss) total))
+          (prompt
+            (strcat "\nEtapa " etapa " / Subetapa " subetapa
+                    " aplicada a " (itoa total) " elemento(s)."))
+          (foreach entry (reverse counts)
+            (prompt (strcat "\n  " (car entry) ": " (itoa (cdr entry)))))
+          (if (> skipped 0)
+            (prompt
+              (strcat "\n  Ignorados (no son elementos del programa): "
+                      (itoa skipped))))))))
   (princ)
 )
 

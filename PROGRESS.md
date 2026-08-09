@@ -17,6 +17,18 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 2) — Ajustes tras prueba real del usuario: lado del toperol vuelve a ser un click, etapas primero-selección-luego-diálogo
+
+El usuario probó la versión de la mañana y pidió 3 correcciones + reportó 2 problemas de fondo:
+
+- **Lado del toperol: se quita el desplegable Abajo/Arriba/... del diálogo y vuelve el click** (`urb:prompt-tactile-side-point`, restaurada): un solo click del lado de la vía/sardinel después de dibujar, sin confirmación. Razón del usuario: con andenes diagonales "arriba/abajo" es ambiguo — quiere marcar el lado real. `urb:tactile-side-point-from-choice` + `*urb-current-tactile-side-choice*` se conservan como mecanismo INTERNO para las verificaciones headless (fijar un lado sin emular clicks); ya no están expuestos en la interfaz.
+- **El usuario reportó que con "Arriba" el toperol no se dibujaba en absoluto** (ni siquiera en EDITAR). NO se pudo reproducir headless: corredor horizontal y corredor diagonal a -40°, ambos lados, e incluso el caso exacto del usuario (guía=No, toperol=Si) — siempre se generan ~4,800 símbolos del lado pedido (verificado por coordenada v-local perpendicular al eje del corredor). Como el desplegable desapareció de la interfaz, el camino donde el usuario lo vio ya no existe; si con el click el toperol vuelve a no aparecer en SU andén real, será algo específico de esa geometría y toca pedirle el archivo o el texto de F2.
+- **Cambiar etapa/subetapa (lote): orden invertido a pedido del usuario** — ahora PRIMERO se seleccionan los elementos y DESPUÉS sale un diálogo DCL con los desplegables de Etapa y Subetapa encadenados (nuevos `urb:write-stage-dcl`/`urb:dialog-stage`, reutilizando `urb:subetapas-for` y el action_tile de subetapa dependiente). Los prompts de teclado de la versión de la mañana se eliminaron (`urb:string-join` retirada por quedar sin uso).
+- **Pendientes grandes reconocidos, aún sin implementar** (el usuario los describió con capturas del plano de referencia):
+  1. **La guía/toperol deben respetar la modulación de la loseta**: en el plano real la franja táctil son FILAS DE TABLETAS dentro de la retícula del material (cada tableta 0.40/0.20 con sus símbolos adentro, alineada con las juntas del patrón), no una cinta continua independiente como la dibuja el programa hoy ("la manda de recorrido y no respeta el area de la loseta"). En una captura del usuario se ve además la guía cruzando DIAGONAL sobre la retícula — posible bug de eje aparte del tema de fondo. Rediseño necesario: anclar las franjas táctiles a la misma retícula (origen y eje) que el patrón del material, ocupando filas completas de celdas.
+  2. **Andén curvo**: el patrón debe SEGUIR la geometría del andén (bandas gris/blanco perpendiculares al eje local, tabletas rotando con la curva), como en las fotos del proyecto real — no un modo radial especial: es la continuación natural del patrón por la curva.
+  3. **Rampas peatonales con varios anchos**: U-201 tiene variantes (T1/T2, rampa 2.00/3.00m × andén 3.50/4.00m, y otras) — el módulo paramétrico debe cubrir esos anchos, guiado por el plano.
+
 ### 2026-08-09 — Simplificación de diálogos (todo al DCL), lado del toperol por palabra clave, cambio de etapa/subetapa en lote, y diagnóstico del "no queda en bloque"
 
 El usuario reportó 3 cosas y pidió pensar 2 más: (1) el andén "no queda en bloque"; (2) los cuadros de diálogo al crear andén son redundantes (2 getkword + click de punto + confirmación con círculo); (3) quiere cambiar etapa/subetapa rápido sin redibujar, en lote y mezclando tipos; (4)-(5) ir pensando cómo dibujar la rampa peatonal y el andén curvo radial del plano U-201.
