@@ -1968,6 +1968,120 @@
   )
 )
 
+(defun urb:grid-phase-shift (global-offset module / m)
+  ;; Resto de global-offset sobre "module" en [0, module): cuanto hay que
+  ;; correr el origen local de una reticula para que sus juntas caigan
+  ;; sobre la reticula GLOBAL de la cadena (juntas cada "module" desde el
+  ;; arranque de la cadena completa, no desde cada segmento o banda).
+  (setq m (- global-offset (* module (fix (/ global-offset module)))))
+  (if (< m 0.0) (+ m module) m)
+)
+
+(defun urb:snap-to-row (value vbase module)
+  ;; Ajusta un v local a la fila de tabletas mas cercana de la reticula
+  ;; anclada en vbase (el mismo anclaje que usa el material), para que la
+  ;; franja de guia ocupe filas COMPLETAS de la modulacion en vez de una
+  ;; cinta corrida que no respeta las juntas de la loseta.
+  (+ vbase (* module (fix (+ (/ (- value vbase) module) (if (< value vbase) -0.5 0.5)))))
+)
+
+(defun urb:quad-region (q1 q2 q3 q4 elevation / coords poly region)
+  (setq coords
+    (apply 'append
+      (mapcar '(lambda (p) (list (car p) (cadr p))) (list q1 q2 q3 q4))))
+  (setq poly
+    (vla-AddLightWeightPolyline
+      (urb:space)
+      (urb:double-array-variant coords)))
+  (if (and (numberp elevation)
+           (vlax-property-available-p poly 'Elevation T))
+    (vla-put-Elevation poly elevation))
+  (vla-put-Closed poly :vlax-true)
+  (setq region (urb:add-region-from-object poly))
+  (vla-Delete poly)
+  region
+)
+
+(defun urb:clip-edge-wedge
+  (base-region p1 p2 bis1 bis2 span
+   / d1 d2 q1 q2 q3 q4 clipped wedge result box elevation)
+  ;; Recorta base-region con un cuadrilatero cuyos lados extremos son las
+  ;; BISECTRICES en los dos extremos de la arista (junta a inglete): las
+  ;; franjas de aristas vecinas empatan exactamente en la bisectriz, sin
+  ;; traslaparse ni dejar cunas vacias. Los rectangulos por-arista que se
+  ;; usaban antes se pisaban entre si en cada quiebre de la cadena y el
+  ;; material o la guia quedaban dibujados DOS veces con angulos distintos
+  ;; (la "guia cruzada en diagonal sobre la reticula" que reporto el
+  ;; usuario en las transiciones de curva).
+  (setq box (urb:object-box-points base-region)
+        elevation (if (and box (caddr (car box))) (caddr (car box)) 0.0))
+  (setq d1 (list (cos bis1) (sin bis1))
+        d2 (list (cos bis2) (sin bis2)))
+  (setq q1 (list (+ (car p1) (* span (car d1))) (+ (cadr p1) (* span (cadr d1))))
+        q2 (list (+ (car p2) (* span (car d2))) (+ (cadr p2) (* span (cadr d2))))
+        q3 (list (- (car p2) (* span (car d2))) (- (cadr p2) (* span (cadr d2))))
+        q4 (list (- (car p1) (* span (car d1))) (- (cadr p1) (* span (cadr d1)))))
+  (setq wedge (vl-catch-all-apply 'urb:quad-region (list q1 q2 q3 q4 elevation)))
+  (if (vl-catch-all-error-p wedge)
+    nil
+    (progn
+      (setq clipped (vla-Copy base-region))
+      (setq result (vl-catch-all-apply 'vla-Boolean (list clipped 1 wedge)))
+      (if (vl-catch-all-error-p result)
+        (progn
+          (urb:safe-delete clipped)
+          (urb:safe-delete wedge)
+          nil)
+        clipped)))
+)
+
+(defun urb:chain-edge-bisectors (edges / n i result prev-dir cur-dir next-dir b1 b2)
+  ;; Para cada arista de una cadena ABIERTA: los angulos de las lineas de
+  ;; corte en sus dos extremos. En un vertice interior es la bisectriz
+  ;; entre las direcciones reales de las dos aristas que se encuentran
+  ;; (rotada 90 para ser linea de corte); en los extremos de la cadena es
+  ;; la perpendicular a la propia arista. Se recalcula la direccion real
+  ;; con (angle p1 p2) porque el (nth 3 edge) viene colapsado a medio giro
+  ;; por urb:normalize-axis-angle y perderia el sentido de avance.
+  (setq n (length edges) result nil i 0)
+  (repeat n
+    (setq cur-dir
+      (urb:normalize-full-angle
+        (angle (nth 0 (nth i edges)) (nth 1 (nth i edges)))))
+    (setq prev-dir
+      (if (> i 0)
+        (urb:normalize-full-angle
+          (angle (nth 0 (nth (1- i) edges)) (nth 1 (nth (1- i) edges))))
+        nil))
+    (setq next-dir
+      (if (< i (1- n))
+        (urb:normalize-full-angle
+          (angle (nth 0 (nth (1+ i) edges)) (nth 1 (nth (1+ i) edges))))
+        nil))
+    (setq b1
+      (+ (if prev-dir
+           (+ prev-dir (* 0.5 (urb:turning-angle prev-dir cur-dir)))
+           cur-dir)
+         (* 0.5 pi)))
+    (setq b2
+      (+ (if next-dir
+           (+ cur-dir (* 0.5 (urb:turning-angle cur-dir next-dir)))
+           cur-dir)
+         (* 0.5 pi)))
+    (setq result (cons (list b1 b2) result))
+    (setq i (1+ i)))
+  (reverse result)
+)
+
+(defun urb:points-span (points / bounds)
+  ;; Longitud generosa para extender las cunas de recorte mas alla de todo
+  ;; el contorno (diagonal del bbox + margen).
+  (setq bounds (urb:project-bounds points 0.0))
+  (+ (- (nth 1 bounds) (nth 0 bounds))
+     (- (nth 3 bounds) (nth 2 bounds))
+     10.0)
+)
+
 (defun urb:decorate-gray-stripe
   (region angle-value origin parent-handle / result joints)
   ;; Antes vivia en la capa auxiliar URB-ANDEN-AUX (no imprimible, separada
@@ -2100,10 +2214,20 @@
             umax (nth 1 bounds)
             actual-vmin (nth 2 bounds)
             actual-vmax (nth 3 bounds)
-            pattern-v-origin actual-vmin
-            origin
-              (urb:local-to-world
-                umin pattern-v-origin angle-value))
+            pattern-v-origin actual-vmin)
+      ;; Origen UNICO de reticula para toda la zona, corrido para caer
+      ;; sobre la reticula GLOBAL de la cadena (phase-offset = distancia
+      ;; acumulada desde el arranque). Antes cada banda anclaba su propia
+      ;; reticula en su umin local: la primera banda parcial de cada
+      ;; segmento quedaba con las juntas corridas respecto al resto del
+      ;; corredor, y la franja de guia/toperol (que ancla a esta misma
+      ;; reticula global) no coincidia con las juntas del material.
+      (setq origin
+        (urb:local-to-world
+          (if reverse-pattern
+            (+ umax (urb:grid-phase-shift (if phase-offset phase-offset 0.0) module))
+            (- umin (urb:grid-phase-shift (if phase-offset phase-offset 0.0) module)))
+          pattern-v-origin angle-value))
       (if (> module 0.30)
         (progn
           ;; Cada zona conserva su propia reticula, pero sigue perteneciendo
@@ -2157,10 +2281,9 @@
                   base-region cursor next vmin vmax angle-value)))
             (if region
               (progn
-                (setq origin
-                  (urb:local-to-world
-                    (if reverse-pattern next cursor)
-                    pattern-v-origin angle-value))
+                ;; todas las bandas comparten el origen global ya alineado
+                ;; (la reticula del hatch es infinita: el origen solo fija
+                ;; la FASE de las juntas, no donde empieza a dibujarse)
                 (if gray
                   (urb:decorate-gray-stripe
                     region angle-value origin parent-handle)
@@ -2348,7 +2471,7 @@
   (base-region driving-chain format parent-handle reverse-pattern
    / edges edge angle-value cosine sine u1 u2 umin umax
    bounds-all vmin-all vmax-all slice count points-all
-   cum-offset total-length phase-offset)
+   cum-offset total-length phase-offset bisectors edge-index bis span)
   ;; Modula el anden segmento por segmento siguiendo el contorno real en vez
   ;; de un unico eje: cada arista del lado guia recorta su propia franja del
   ;; anden (el resto del ancho se recorta solo por el boolean contra el
@@ -2363,8 +2486,15 @@
   (setq edges (urb:open-chain-edges driving-chain))
   (setq points-all (urb:region-outline-points base-region))
   (if (null points-all) (setq points-all (urb:object-box-points base-region)))
-  (setq count 0 cum-offset 0.0)
+  (setq count 0 cum-offset 0.0 edge-index 0)
   (setq total-length (urb:chain-total-length driving-chain))
+  ;; Cunas a inglete (bisectrices) en vez de rectangulos por-arista: los
+  ;; rectangulos de aristas vecinas se traslapaban en los quiebres y el
+  ;; patron quedaba pintado dos veces con angulos distintos en cada
+  ;; transicion de curva. Si la cuna falla (boolean degenerado), se cae al
+  ;; rectangulo de siempre para no dejar la arista sin material.
+  (setq bisectors (urb:chain-edge-bisectors edges))
+  (setq span (urb:points-span points-all))
   (foreach edge edges
     (setq angle-value (nth 3 edge)
           cosine (cos angle-value)
@@ -2372,10 +2502,17 @@
     (setq u1 (+ (* (car (nth 0 edge)) cosine) (* (cadr (nth 0 edge)) sine)))
     (setq u2 (+ (* (car (nth 1 edge)) cosine) (* (cadr (nth 1 edge)) sine)))
     (setq umin (min u1 u2) umax (max u1 u2))
-    (setq bounds-all (urb:project-bounds points-all angle-value)
-          vmin-all (nth 2 bounds-all)
-          vmax-all (nth 3 bounds-all))
-    (setq slice (urb:clip-stripe base-region umin umax vmin-all vmax-all angle-value))
+    (setq bis (nth edge-index bisectors))
+    (setq slice
+      (urb:clip-edge-wedge
+        base-region (nth 0 edge) (nth 1 edge)
+        (nth 0 bis) (nth 1 bis) span))
+    (if (null slice)
+      (progn
+        (setq bounds-all (urb:project-bounds points-all angle-value)
+              vmin-all (nth 2 bounds-all)
+              vmax-all (nth 3 bounds-all))
+        (setq slice (urb:clip-stripe base-region umin umax vmin-all vmax-all angle-value))))
     (setq phase-offset
       (if reverse-pattern
         (- total-length (+ cum-offset (- umax umin)))
@@ -2385,7 +2522,8 @@
         (urb:decorate-composite-region
           slice angle-value format parent-handle reverse-pattern phase-offset)
         (setq count (1+ count))))
-    (setq cum-offset (+ cum-offset (- umax umin))))
+    (setq cum-offset (+ cum-offset (- umax umin)))
+    (setq edge-index (1+ edge-index)))
   (urb:safe-delete base-region)
   (> count 0)
 )
@@ -2525,9 +2663,10 @@
 )
 
 (defun urb:fill-tactile-symbols
-  (region feature angle-value layer phase-offset parent-handle
+  (region feature angle-value layer phase-offset parent-handle module
    / points bounds umin umax vmin vmax spacing margin v count
-   radius half-length half-width k global-u local-u seg-len sym-ename)
+   radius half-length half-width global-u local-u seg-len sym-ename
+   tile-k tile-g su)
   ;; Reparte simbolos tactiles reales (circulos o capsulas) en una reticula
   ;; de 5 cm sobre el area ya recortada de la franja, en vez de depender de
   ;; un patron .pat (que solo puede construirse con familias de lineas
@@ -2558,20 +2697,37 @@
         (setq half-length 0.075 half-width 0.012)
         (setq radius 0.008))
       (setq seg-len (- umax umin))
-      (setq k (max 0 (fix (+ (/ (- phase-offset margin) spacing) 0.999999))))
-      (setq global-u (+ margin (* k spacing)))
-      (while (<= (- global-u phase-offset) (+ seg-len 1e-6))
-        (setq local-u (+ umin (- global-u phase-offset)))
-        (setq v (+ vmin margin))
-        (while (<= v (+ (- vmax margin) 1e-6))
-          (setq sym-ename
-            (if (= feature "GUIA")
-              (urb:add-capsule-symbol local-u v half-length half-width angle-value layer parent-handle)
-              (urb:add-circle-symbol local-u v radius angle-value layer parent-handle)))
-          (setq count (1+ count))
-          (setq v (+ v spacing)))
-        (setq k (1+ k))
-        (setq global-u (+ margin (* k spacing))))
+      ;; Colocacion POR TABLETA sobre la reticula global de la cadena
+      ;; (tabletas de "module" de largo, juntas alineadas con el material):
+      ;; cada tableta lleva sus propios simbolos con margen a cada lado
+  ;; (4 columnas en la de 20cm, 8 en la de 40cm), en vez de una sola
+      ;; secuencia corrida de 5cm que ignoraba donde caen las juntas --
+      ;; asi el simbolo nunca queda montado sobre una junta y la franja se
+      ;; ve como tabletas individuales, igual que en el plano de
+      ;; referencia U-201.
+      (if (or (null module) (< module 0.05)) (setq module 0.20))
+      (setq tile-k (fix (/ (+ phase-offset 1e-9) module)))
+      (setq tile-g (* tile-k module))
+      (while (< tile-g (+ phase-offset seg-len (- 1e-6)))
+        (setq su margin)
+        (while (<= su (+ (- module margin) 1e-6))
+          (setq global-u (+ tile-g su))
+          ;; solo las columnas que caen dentro de ESTE segmento
+          (if (and (>= (- global-u phase-offset) -1e-6)
+                   (<= (- global-u phase-offset) (+ seg-len 1e-6)))
+            (progn
+              (setq local-u (+ umin (- global-u phase-offset)))
+              (setq v (+ vmin margin))
+              (while (<= v (+ (- vmax margin) 1e-6))
+                (setq sym-ename
+                  (if (= feature "GUIA")
+                    (urb:add-capsule-symbol local-u v half-length half-width angle-value layer parent-handle)
+                    (urb:add-circle-symbol local-u v radius angle-value layer parent-handle)))
+                (setq count (1+ count))
+                (setq v (+ v spacing)))))
+          (setq su (+ su spacing)))
+        (setq tile-k (1+ tile-k))
+        (setq tile-g (* tile-k module)))
       (> count 0))
     nil)
 )
@@ -2596,7 +2752,7 @@
   (setq symbols-ok
     (vl-catch-all-apply
       'urb:fill-tactile-symbols
-      (list region feature angle-value layer (if phase-offset phase-offset 0.0) parent-handle)))
+      (list region feature angle-value layer (if phase-offset phase-offset 0.0) parent-handle module)))
   T
 )
 
@@ -2635,7 +2791,8 @@
    bounds-wide vmin-wide vmax-wide full-slice slice-points bounds-local
    vmin-local vmax-local width reference-edge guide-min guide-max
    top-min top-max region origin layer count cum-offset
-   p1-v boundary-side side-decided prefer-boundary)
+   p1-v boundary-side side-decided prefer-boundary
+   bisectors edge-index bis span grid-u)
   ;; Igual que urb:create-accessibility-features pero por segmento real del
   ;; contorno: cada arista del lado guia recorta y mide su propia franja en
   ;; vez de usar el ancho proyectado de TODO el anden sobre un unico eje
@@ -2664,15 +2821,28 @@
   ;; recorte local, sin la ambiguedad de comparar contra un punto lejano).
   (setq module (urb:loseta-module format))
   (setq edges (urb:open-chain-edges driving-chain))
-  (setq count 0 cum-offset 0.0 side-decided nil)
+  (setq count 0 cum-offset 0.0 side-decided nil edge-index 0)
+  ;; Cunas a inglete: mismas bisectrices que usa el material, para que la
+  ;; franja de guia/toperol de cada arista termine exactamente donde
+  ;; empieza la de la siguiente (sin el traslape que pintaba la guia
+  ;; cruzada en diagonal sobre la reticula en las transiciones).
+  (setq bisectors (urb:chain-edge-bisectors edges))
+  (setq span (urb:points-span points))
   (foreach edge edges
     (setq angle-value (nth 3 edge) cosine (cos angle-value) sine (sin angle-value))
     (setq u1 (+ (* (car (nth 0 edge)) cosine) (* (cadr (nth 0 edge)) sine)))
     (setq u2 (+ (* (car (nth 1 edge)) cosine) (* (cadr (nth 1 edge)) sine)))
     (setq umin (min u1 u2) umax (max u1 u2))
-    (setq bounds-wide (urb:project-bounds points angle-value)
-          vmin-wide (nth 2 bounds-wide) vmax-wide (nth 3 bounds-wide))
-    (setq full-slice (urb:clip-stripe base-region umin umax vmin-wide vmax-wide angle-value))
+    (setq bis (nth edge-index bisectors))
+    (setq full-slice
+      (urb:clip-edge-wedge
+        base-region (nth 0 edge) (nth 1 edge)
+        (nth 0 bis) (nth 1 bis) span))
+    (if (null full-slice)
+      (progn
+        (setq bounds-wide (urb:project-bounds points angle-value)
+              vmin-wide (nth 2 bounds-wide) vmax-wide (nth 3 bounds-wide))
+        (setq full-slice (urb:clip-stripe base-region umin umax vmin-wide vmax-wide angle-value))))
     (if full-slice
       (progn
         (setq slice-points (urb:region-outline-points full-slice))
@@ -2700,6 +2870,10 @@
               (if prefer-boundary
                 boundary-side
                 (if (equal boundary-side vmin-local 1e-9) vmax-local vmin-local)))
+            ;; origen de reticula en u alineado a la cadena GLOBAL (la
+            ;; misma fase que usa el material), para que las juntas de la
+            ;; franja tactil coincidan con las juntas de la loseta.
+            (setq grid-u (- umin (urb:grid-phase-shift cum-offset module)))
             (if (urb:yes-p guia)
               (progn
                 (if (< width module)
@@ -2710,8 +2884,14 @@
                     (setq guide-min (- vmax-local 1.20 module)
                           guide-max (- vmax-local 1.20))))
                 (if (>= width module)
-                  (setq guide-min (max vmin-local (min (- vmax-local module) guide-min))
-                        guide-max (+ guide-min module)))
+                  (progn
+                    ;; encajar la guia en una FILA COMPLETA de la
+                    ;; modulacion (reticula anclada en vmin-local, igual
+                    ;; que el material) en vez de una cinta a 1.20 exactos
+                    ;; que puede caer partiendo dos filas de tabletas.
+                    (setq guide-min (urb:snap-to-row guide-min vmin-local module))
+                    (setq guide-min (max vmin-local (min (- vmax-local module) guide-min))
+                          guide-max (+ guide-min module))))
                 (setq region
                   (urb:clip-stripe full-slice umin umax guide-min guide-max angle-value))
                 ;; Fallback: en una arista corta/irregular (comun en el
@@ -2727,7 +2907,10 @@
                     (urb:clip-stripe full-slice umin umax vmin-local vmax-local angle-value)))
                 (if region
                   (progn
-                    (setq origin (urb:local-to-world umin reference-edge angle-value))
+                    ;; origen del grid: u alineado a la cadena global,
+                    ;; v en el borde inferior de la propia fila (que tras
+                    ;; el snap cae sobre la reticula del material)
+                    (setq origin (urb:local-to-world grid-u guide-min angle-value))
                     (setq layer
                       (if (> module 0.30)
                         "URB-ANDEN-LOSETA-GUIA-40X40" "URB-ANDEN-LOSETA-GUIA-20X20"))
@@ -2748,7 +2931,9 @@
                     (urb:clip-stripe full-slice umin umax vmin-local vmax-local angle-value)))
                 (if region
                   (progn
-                    (setq origin (urb:local-to-world umin reference-edge angle-value))
+                    ;; u alineado a la cadena global; v en el borde
+                    ;; inferior de la fila del toperol (pegada a la via)
+                    (setq origin (urb:local-to-world grid-u top-min angle-value))
                     (setq layer
                       (if (> module 0.30)
                         "URB-ANDEN-LOSETA-TOPEROL-40X40" "URB-ANDEN-LOSETA-TOPEROL-20X20"))
@@ -2756,7 +2941,8 @@
                       region layer "TOPEROL" module angle-value origin parent-handle cum-offset)
                     (setq count (1+ count))))))))
         (urb:safe-delete full-slice)))
-    (setq cum-offset (+ cum-offset (- umax umin))))
+    (setq cum-offset (+ cum-offset (- umax umin)))
+    (setq edge-index (1+ edge-index)))
   (> count 0)
 )
 
@@ -12431,6 +12617,192 @@
     nil)
 )
 
+(defun urb:ramp-local-point (base axis-angle side-sign u v)
+  ;; u corre a lo largo del sardinel desde el punto base; v entra
+  ;; perpendicular hacia el anden (side-sign decide hacia cual lado).
+  (list
+    (+ (car base)
+       (* u (cos axis-angle))
+       (* v side-sign (- (sin axis-angle))))
+    (+ (cadr base)
+       (* u (sin axis-angle))
+       (* v side-sign (cos axis-angle))))
+)
+
+(defun urb:ramp-quad-poly (base axis-angle side-sign u1 v1 u2 v2 layer / p1 p2 p3 p4)
+  (setq p1 (urb:ramp-local-point base axis-angle side-sign u1 v1)
+        p2 (urb:ramp-local-point base axis-angle side-sign u2 v1)
+        p3 (urb:ramp-local-point base axis-angle side-sign u2 v2)
+        p4 (urb:ramp-local-point base axis-angle side-sign u1 v2))
+  (entmake
+    (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity") (cons 100 "AcDbPolyline")
+          (cons 8 layer) (cons 90 4) (cons 70 1)
+          (cons 10 p1) (cons 10 p2) (cons 10 p3) (cons 10 p4)))
+  (entlast)
+)
+
+(defun urb:ramp-line (base axis-angle side-sign u1 v1 u2 v2 layer color / p1 p2)
+  (setq p1 (urb:ramp-local-point base axis-angle side-sign u1 v1)
+        p2 (urb:ramp-local-point base axis-angle side-sign u2 v2))
+  (entmake
+    (list (cons 0 "LINE") (cons 8 layer) (cons 62 color)
+          (cons 10 (list (car p1) (cadr p1) 0.0))
+          (cons 11 (list (car p2) (cadr p2) 0.0))))
+  (entlast)
+)
+
+(defun urb:create-ramp-command
+  (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width-kw width
+   depth-kw depth stage-data etapa subetapa axis-angle side-sign block-ref)
+  ;; Rampa peatonal parametrica sobre el borde de la via, segun los
+  ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
+  ;; laterales de 0.65 m con adoquin 20x10, fondo = ancho del anden
+  ;; (3.50 / 4.00 / otro). Queda empaquetada en su propio bloque
+  ;; URB_RAMPA_* con atributos y xdata para cantidades y para el cambio de
+  ;; etapa/subetapa en lote.
+  (setq doc (urb:doc))
+  (defun *error* (message)
+    (if undo-open
+      (progn (vl-catch-all-apply 'vla-EndUndoMark (list doc)) (setq undo-open nil)))
+    (if (and message
+             (not (member message '("Function cancelled" "quit / exit abort"))))
+      (prompt (strcat "\nERROR EN RAMPA: " message)))
+    (princ))
+  (setq undo-result (vl-catch-all-apply 'vla-StartUndoMark (list doc)))
+  (setq undo-open (not (vl-catch-all-error-p undo-result)))
+  (setq base-pt (getpoint "\nPunto CENTRAL de la rampa sobre el borde de la via/sardinel: "))
+  (if base-pt
+    (setq dir-pt (getpoint base-pt "\nOtro punto sobre el MISMO borde (direccion del sardinel): ")))
+  (if dir-pt
+    (progn
+      (initget "2.00 3.00")
+      (setq width-kw (getkword "\nAncho de la rampa central [2.00/3.00] <2.00>: "))
+      (setq width (if (= width-kw "3.00") 3.00 2.00))
+      (initget "3.50 4.00 Otro")
+      (setq depth-kw (getkword "\nFondo (ancho del anden) [3.50/4.00/Otro] <3.50>: "))
+      (cond
+        ((= depth-kw "4.00") (setq depth 4.00))
+        ((= depth-kw "Otro")
+          (setq depth (getreal "\nFondo en metros: "))
+          (if (or (null depth) (< depth 0.5)) (setq depth 3.50)))
+        (T (setq depth 3.50)))
+      (setq side-pt (getpoint base-pt "\nMarque un punto del lado del ANDEN: "))))
+  (if side-pt
+    (progn
+      (setq stage-data (urb:dialog-stage "1" "1"))
+      (if (null stage-data) (setq stage-data (list "1" "1")))
+      (setq etapa (nth 0 stage-data) subetapa (nth 1 stage-data))
+      (setq axis-angle (angle base-pt dir-pt))
+      ;; lado: signo de la proyeccion del punto marcado sobre la normal
+      (setq side-sign
+        (if (>= (+ (* (- (car side-pt) (car base-pt)) (- (sin axis-angle)))
+                   (* (- (cadr side-pt) (cadr base-pt)) (cos axis-angle)))
+                0.0)
+          1.0 -1.0))
+      (setq block-ref
+        (urb:build-ramp base-pt axis-angle side-sign width depth etapa subetapa))
+      (if block-ref
+        (prompt
+          (strcat "\nRampa creada: " (rtos width 2 2) "m x " (rtos depth 2 2)
+                  "m (aletas 0.65m) | Etapa " etapa " | Subetapa " subetapa "."))))
+    (prompt "\nComando cancelado."))
+  (if undo-open
+    (progn (vl-catch-all-apply 'vla-EndUndoMark (list doc)) (setq undo-open nil)))
+  (princ)
+)
+
+(defun urb:build-ramp
+  (base-pt axis-angle side-sign width depth etapa subetapa
+   / doc wing objects ent obj hatch central wing-a wing-b boundary area
+   block-name blocks block-definition copy-result insert-result block-ref
+   block-ename half total-half)
+  ;; Nucleo geometrico de la rampa (sin prompts): banda central lisa +
+  ;; 2 aletas de 0.65m con adoquin 20x10 + bordes inclinados, empaquetada
+  ;; en su propio bloque URB_RAMPA_* con atributos y xdata.
+  (setq doc (urb:doc) wing 0.65)
+  (urb:ensure-layer "URB-RAMPA" 7 T)
+  (setq half (/ width 2.0) total-half (+ half wing))
+  (setq objects nil)
+  (setq boundary
+    (urb:ramp-quad-poly base-pt axis-angle side-sign
+      (- total-half) 0.0 total-half depth "URB-RAMPA"))
+  (setq objects (cons (vlax-ename->vla-object boundary) objects))
+  (setq central
+    (urb:ramp-quad-poly base-pt axis-angle side-sign
+      (- half) 0.0 half depth "URB-RAMPA"))
+  (setq obj (vlax-ename->vla-object central))
+  (setq objects (cons obj objects))
+  (setq hatch
+    (urb:add-user-hatch obj "URB-RAMPA" 0.20 axis-angle T 9
+      (urb:ramp-local-point base-pt axis-angle side-sign (- half) 0.0)))
+  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+  (foreach wing-a (list (list half total-half 1.0) (list (- total-half) (- half) -1.0))
+    (setq wing-b
+      (urb:ramp-quad-poly base-pt axis-angle side-sign
+        (nth 0 wing-a) 0.0 (nth 1 wing-a) depth "URB-RAMPA"))
+    (setq obj (vlax-ename->vla-object wing-b))
+    (setq objects (cons obj objects))
+    (setq hatch
+      (urb:add-user-hatch obj "URB-RAMPA" 0.10 axis-angle nil 8
+        (urb:ramp-local-point base-pt axis-angle side-sign (nth 0 wing-a) 0.0)))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+    (setq hatch
+      (urb:add-user-hatch obj "URB-RAMPA" 0.20 (+ axis-angle (/ pi 2.0)) nil 8
+        (urb:ramp-local-point base-pt axis-angle side-sign (nth 0 wing-a) 0.0)))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+    ;; borde inclinado del ala (linea amarilla del plano): del extremo
+    ;; exterior en el sardinel al vertice interior al fondo
+    (setq ent
+      (urb:ramp-line base-pt axis-angle side-sign
+        (if (> (nth 2 wing-a) 0) (nth 1 wing-a) (nth 0 wing-a)) 0.0
+        (if (> (nth 2 wing-a) 0) (nth 0 wing-a) (nth 1 wing-a)) depth
+        "URB-RAMPA" 2))
+    (setq objects (cons (vlax-ename->vla-object ent) objects)))
+  (setq objects (reverse objects))
+  (setq area (* (+ width (* 2.0 wing)) depth))
+  (setq block-name (strcat "URB_RAMPA_" (itoa (getvar "MILLISECS"))))
+  (setq blocks (vla-get-Blocks doc))
+  (setq block-definition
+    (vla-Add blocks (vlax-3d-point '(0.0 0.0 0.0)) block-name))
+  (setq copy-result
+    (vl-catch-all-apply
+      'vla-CopyObjects
+      (list doc (urb:object-array-variant objects) block-definition)))
+  (if (vl-catch-all-error-p copy-result)
+    (progn
+      (urb:safe-delete block-definition)
+      (prompt (strcat "\nERROR al crear el bloque de la rampa: "
+                      (vl-catch-all-error-message copy-result)))
+      nil)
+    (progn
+      (urb:add-invisible-attribute block-definition base-pt "TIPO" "Tipo" "RAMPA")
+      (urb:add-invisible-attribute block-definition base-pt "ANCHO_RAMPA" "Ancho rampa m" (rtos width 2 2))
+      (urb:add-invisible-attribute block-definition base-pt "FONDO_M" "Fondo m" (rtos depth 2 2))
+      (urb:add-invisible-attribute block-definition base-pt "AREA_M2" "Area m2" (rtos area 2 2))
+      (urb:add-invisible-attribute block-definition base-pt "ETAPA" "Etapa" etapa)
+      (urb:add-invisible-attribute block-definition base-pt "SUBETAPA" "Subetapa" subetapa)
+      (setq insert-result
+        (vl-catch-all-apply
+          'vla-InsertBlock
+          (list (urb:space) (vlax-3d-point '(0.0 0.0 0.0)) block-name 1.0 1.0 1.0 0.0)))
+      (if (vl-catch-all-error-p insert-result)
+        (progn
+          (urb:safe-delete block-definition)
+          (prompt (strcat "\nERROR al insertar el bloque de la rampa: "
+                          (vl-catch-all-error-message insert-result)))
+          nil)
+        (progn
+          (setq block-ref insert-result)
+          (vla-put-Layer block-ref "URB-RAMPA")
+          (setq block-ename (urb:as-ename block-ref))
+          (if block-ename
+            (urb:set-xdata-strings block-ename "URB_RAMPA_BLOCK"
+              (list "RAMPA" etapa subetapa
+                    (rtos width 2 8) (rtos depth 2 8) (rtos area 2 8))))
+          (foreach obj objects (urb:safe-delete obj))
+          block-ref))))
+)
+
 (defun urb:write-stage-dcl ()
   (urb:write-dialog-dcl
     "urbanismo_etapas"
@@ -12506,6 +12878,10 @@
       (urb:set-xdata-strings ename "URB_GREEN_BLOCK"
         (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data)))
       (setq category "Zonas verdes"))
+    ((setq data (urb:get-xdata-strings ename "URB_RAMPA_BLOCK"))
+      (urb:set-xdata-strings ename "URB_RAMPA_BLOCK"
+        (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data)))
+      (setq category "Rampas"))
     ((and obj (assoc "ETAPA" (urb:block-attribute-values obj)))
       (setq category "Redes / otros bloques")))
   (if (and category obj)
@@ -12579,6 +12955,7 @@
         ": boxed_column { label = \"Tipo de elemento\";"
         ": button { label = \"Via\"; key = \"road\"; height = 2; width = 32; }"
         ": button { label = \"Anden\"; key = \"sidewalk\"; height = 2; width = 32; }"
+        ": button { label = \"Rampa peatonal\"; key = \"ramp\"; height = 2; width = 32; }"
         ": button { label = \"Zona verde\"; key = \"green\"; height = 2; width = 32; }"
         ": button { label = \"Prefabricado\"; key = \"precast\"; height = 2; width = 32; }"
         ": button { label = \"Red\"; key = \"network\"; height = 2; width = 32; } }"
@@ -12728,7 +13105,7 @@
   (while (not done)
     (setq action
       (urb:simple-menu-dialog "urb_create"
-        '(("road" "road") ("sidewalk" "sidewalk")
+        '(("road" "road") ("sidewalk" "sidewalk") ("ramp" "ramp")
           ("green" "green")
           ("precast" "precast") ("network" "network"))))
     (cond
@@ -12736,6 +13113,7 @@
         (setq done T result "back"))
       ((= action "road") (urb:create-road) (setq done T))
       ((= action "sidewalk") (urb:create-sidewalk-command) (setq done T))
+      ((= action "ramp") (urb:create-ramp-command) (setq done T))
       ((= action "green") (urb:create-green-zone-command) (setq done T))
       ((= action "precast") (urb:create-precast-command) (setq done T))
       ((= action "network")
