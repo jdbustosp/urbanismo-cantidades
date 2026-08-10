@@ -2964,6 +2964,330 @@
     vmax)
 )
 
+;; ============================================================
+;; FRANJA TACTIL POR OFFSET DE LA CURVA REAL (rediseno 2026-08-09)
+;; La franja se construye como la region entre dos curvas paralelas
+;; (vla-Offset) del borde de la via, en vez de rectangulos por arista:
+;; con radios pequenos los rectangulos salian quebrados/doblados sin
+;; remedio (verificado visualmente por PDF). Los simbolos y juntas
+;; caminan la curva real con vlax-curve (posicion y tangente exactas).
+;; ============================================================
+
+(defun urb:point-in-poly-p (pt pts / n i j inside xi yi xj yj x y)
+  ;; ray casting estandar sobre el contorno (lista de puntos 2D)
+  (setq x (car pt) y (cadr pt) n (length pts) inside nil j (1- n) i 0)
+  (while (< i n)
+    (setq xi (car (nth i pts)) yi (cadr (nth i pts))
+          xj (car (nth j pts)) yj (cadr (nth j pts)))
+    (if (and (not (eq (> yi y) (> yj y)))
+             (< x (+ xj (/ (* (- xi xj) (- y yj)) (- yi yj)))))
+      (setq inside (not inside)))
+    (setq j i i (1+ i)))
+  inside
+)
+
+(defun urb:open-poly-from-points (pts elevation / coords poly)
+  (setq coords
+    (apply 'append
+      (mapcar '(lambda (p) (list (car p) (cadr p))) pts)))
+  (setq poly
+    (vla-AddLightWeightPolyline
+      (urb:space)
+      (urb:double-array-variant coords)))
+  (if (and (numberp elevation)
+           (vlax-property-available-p poly 'Elevation T))
+    (vla-put-Elevation poly elevation))
+  (vlax-vla-object->ename poly)
+)
+
+(defun urb:offset-poly (ename dist / obj res lst keep)
+  ;; offset de una polilinea; devuelve el ENAME del resultado o nil.
+  ;; Si el offset se parte en varias piezas se descartan todas (el caller
+  ;; cae al metodo por segmentos).
+  (setq obj (vlax-ename->vla-object ename))
+  (setq res (vl-catch-all-apply 'vla-Offset (list obj dist)))
+  (if (vl-catch-all-error-p res)
+    nil
+    (progn
+      (setq lst
+        (vl-catch-all-apply
+          '(lambda () (vlax-safearray->list (vlax-variant-value res)))))
+      (if (vl-catch-all-error-p lst) (setq lst nil))
+      (cond
+        ((null lst) nil)
+        ((= (length lst) 1)
+          (vlax-vla-object->ename (car lst)))
+        (T
+          (foreach keep lst (urb:safe-delete keep))
+          nil))))
+)
+
+(defun urb:curve-length (ename / r)
+  (setq r
+    (vl-catch-all-apply
+      '(lambda ()
+         (vlax-curve-getDistAtParam ename (vlax-curve-getEndParam ename)))))
+  (if (vl-catch-all-error-p r) 0.0 r)
+)
+
+(defun urb:curve-pt (ename dist / r)
+  (setq r (vl-catch-all-apply 'vlax-curve-getPointAtDist (list ename dist)))
+  (if (or (vl-catch-all-error-p r) (null r)) nil (list (car r) (cadr r)))
+)
+
+(defun urb:curve-tangent (ename dist / p r)
+  ;; angulo de la tangente en la distancia dada (0 si falla)
+  (setq p (vl-catch-all-apply 'vlax-curve-getParamAtDist (list ename dist)))
+  (if (vl-catch-all-error-p p)
+    0.0
+    (progn
+      (setq r (vl-catch-all-apply 'vlax-curve-getFirstDeriv (list ename p)))
+      (if (or (vl-catch-all-error-p r) (null r))
+        0.0
+        (atan (cadr r) (car r)))))
+)
+
+(defun urb:strip-band-region (c1 c2 elevation / pts poly region)
+  ;; region cerrada entre dos curvas offset abiertas (misma direccion)
+  (setq pts
+    (append (urb:lwpoly-points c1) (reverse (urb:lwpoly-points c2))))
+  (if (< (length pts) 3)
+    nil
+    (progn
+      (setq poly
+        (vl-catch-all-apply
+          '(lambda ()
+             (vla-put-Closed
+               (vlax-ename->vla-object
+                 (urb:open-poly-from-points pts elevation))
+               :vlax-true)
+             (entlast))))
+      (if (vl-catch-all-error-p poly)
+        nil
+        (progn
+          (setq region (urb:add-region-from-object (vlax-ename->vla-object poly)))
+          (entdel poly)
+          (if (vl-catch-all-error-p region) nil region)))))
+)
+
+(defun urb:offset-strip-tones
+  (strip chain-poly len layer parent-handle elevation span
+   / s nxt bw gray first-band phase-state piece wedge p1 p2 a1 a2 n1 n2 count iter)
+  ;; parte la franja lisa en tramos de tono gris/blanco con la MISMA fase
+  ;; 0.80/1.00 del patron, cortando con cunas normales a la curva real
+  (setq s 0.0 count 0 iter 0)
+  (setq phase-state (urb:composite-phase-state 0.0))
+  (setq gray (car phase-state) first-band T)
+  (while (and (< s (- len 1e-6)) (< iter 20000))
+    (setq iter (1+ iter))
+    (setq bw (if first-band (cdr phase-state) (if gray 0.80 1.00)))
+    (if (< bw 0.001) (setq bw 0.001))
+    (setq nxt (min len (+ s bw)))
+    (setq p1 (urb:curve-pt chain-poly s)
+          p2 (urb:curve-pt chain-poly nxt)
+          a1 (urb:curve-tangent chain-poly s)
+          a2 (urb:curve-tangent chain-poly nxt))
+    (if (and p1 p2)
+      (progn
+        (setq n1 (+ a1 (* 0.5 pi)) n2 (+ a2 (* 0.5 pi)))
+        (setq wedge
+          (vl-catch-all-apply
+            'urb:quad-region
+            (list
+              (list (+ (car p1) (* span (cos n1))) (+ (cadr p1) (* span (sin n1))))
+              (list (+ (car p2) (* span (cos n2))) (+ (cadr p2) (* span (sin n2))))
+              (list (- (car p2) (* span (cos n2))) (- (cadr p2) (* span (sin n2))))
+              (list (- (car p1) (* span (cos n1))) (- (cadr p1) (* span (sin n1))))
+              elevation)))
+        (if (not (vl-catch-all-error-p wedge))
+          (progn
+            (setq piece (vla-Copy strip))
+            (if (vl-catch-all-error-p
+                  (vl-catch-all-apply 'vla-Boolean (list piece 1 wedge)))
+              (progn (urb:safe-delete piece) (urb:safe-delete wedge))
+              (progn
+                (vla-put-Layer piece layer)
+                (vla-put-Color piece (if gray 8 7))
+                (urb:tag-generated-role piece parent-handle "FILL")
+                (urb:tag-generated-role
+                  (vl-catch-all-apply
+                    'urb:add-solid-hatch (list piece layer (if gray 8 7)))
+                  parent-handle "FEATURE_FILL")
+                (setq count (1+ count))))))))
+    (setq s nxt gray (not gray) first-band nil))
+  count
+)
+
+(defun urb:offset-strip-symbols
+  (chain-poly len d1 d2 perp-sign feature module layer parent-handle
+   / spacing margin half-length half-width radius tile-k tile-g sym-color
+     su dist pt ang normal ro wpt u v cs sn joint-p1 joint-p2)
+  ;; simbolos y juntas por tableta caminando la curva real
+  (setq spacing 0.05 margin 0.025)
+  (if (= feature "GUIA")
+    (setq half-length 0.075 half-width 0.012)
+    (setq radius 0.008))
+  (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
+  (setq tile-k 0)
+  (while (< (setq tile-g (* tile-k module)) (- len 1e-6))
+    ;; junta radial en el arranque de cada tableta (excepto la primera)
+    (if (> tile-k 0)
+      (progn
+        (setq pt (urb:curve-pt chain-poly tile-g)
+              ang (urb:curve-tangent chain-poly tile-g))
+        (if pt
+          (progn
+            (setq normal (+ ang (* 0.5 pi)))
+            (setq joint-p1
+              (list (+ (car pt) (* perp-sign d1 (cos normal)))
+                    (+ (cadr pt) (* perp-sign d1 (sin normal))))
+                  joint-p2
+              (list (+ (car pt) (* perp-sign d2 (cos normal)))
+                    (+ (cadr pt) (* perp-sign d2 (sin normal)))))
+            (entmake
+              (list (cons 0 "LINE") (cons 8 layer) (cons 62 8)
+                    (cons 10 (list (car joint-p1) (cadr joint-p1) 0.0))
+                    (cons 11 (list (car joint-p2) (cadr joint-p2) 0.0))
+                    (urb:generated-xdata-fragment parent-handle "FEATURE")))))))
+    ;; tono opuesto a la banda de esta tableta
+    (setq sym-color
+      (if (car (urb:composite-phase-state
+                 (min (- len 1e-6) (+ tile-g (* 0.5 module)))))
+        7 8))
+    (setq su margin)
+    (while (<= su (+ (- module margin) 1e-6))
+      (setq dist (+ tile-g su))
+      (if (<= dist len)
+        (progn
+          (setq pt (urb:curve-pt chain-poly dist)
+                ang (urb:curve-tangent chain-poly dist))
+          (if pt
+            (progn
+              (setq normal (+ ang (* 0.5 pi)))
+              (setq cs (cos ang) sn (sin ang))
+              (setq ro (+ d1 margin))
+              (while (<= ro (+ (- d2 margin) 1e-6))
+                (setq wpt
+                  (list (+ (car pt) (* perp-sign ro (cos normal)))
+                        (+ (cadr pt) (* perp-sign ro (sin normal)))))
+                ;; a coordenadas locales del marco (ang) que esperan los
+                ;; helpers de simbolo
+                (setq u (+ (* (car wpt) cs) (* (cadr wpt) sn))
+                      v (+ (* (- (car wpt)) sn) (* (cadr wpt) cs)))
+                (if (= feature "GUIA")
+                  (urb:add-capsule-symbol u v half-length half-width ang layer parent-handle sym-color)
+                  (urb:add-circle-symbol u v radius ang layer parent-handle sym-color))
+                (setq ro (+ ro spacing)))))))
+      (setq su (+ su spacing)))
+    (setq tile-k (1+ tile-k)))
+  T
+)
+
+(defun urb:build-offset-strip
+  (base-region chain-poly d1 d2 off-sign perp-sign layer feature module
+   parent-handle elevation span
+   / c1 c2 band strip len booleaned)
+  (setq c1
+    (if (< (abs d1) 1e-9)
+      (urb:as-ename (vla-Copy (vlax-ename->vla-object chain-poly)))
+      (urb:offset-poly chain-poly (* off-sign d1))))
+  (setq c2 (urb:offset-poly chain-poly (* off-sign d2)))
+  (if (or (null c1) (null c2))
+    (progn
+      (if c1 (entdel c1))
+      (if c2 (entdel c2))
+      nil)
+    (progn
+      (setq band (urb:strip-band-region c1 c2 elevation))
+      (if (null band)
+        (progn (entdel c1) (entdel c2) nil)
+        (progn
+          (setq strip (vla-Copy base-region))
+          (setq booleaned
+            (vl-catch-all-apply 'vla-Boolean (list strip 1 band)))
+          (if (vl-catch-all-error-p booleaned)
+            (progn
+              (urb:safe-delete strip)
+              (urb:safe-delete band)
+              (entdel c1) (entdel c2)
+              nil)
+            (progn
+              (setq len (urb:curve-length chain-poly))
+              (urb:offset-strip-tones
+                strip chain-poly len layer parent-handle elevation span)
+              (urb:safe-delete strip)
+              ;; bordes de la franja: las dos curvas offset quedan como
+              ;; lineas de junta visibles
+              (foreach c (list c1 c2)
+                (vla-put-Layer (vlax-ename->vla-object c) layer)
+                (vla-put-Color (vlax-ename->vla-object c) 8)
+                (urb:tag-generated-role
+                  (vlax-ename->vla-object c) parent-handle "FEATURE"))
+              (urb:offset-strip-symbols
+                chain-poly len d1 d2 perp-sign feature module layer parent-handle)
+              T))))))
+)
+
+(defun urb:create-accessibility-features-offset
+  (base-region points driving-chain guia toperol format parent-handle
+   / module goff chain-poly len box elevation off-sign perp-sign
+     mid-d mid-pt mid-ang cand test-off count layer span)
+  (setq module (urb:loseta-module format))
+  (setq goff *urb-guide-offset*)
+  (setq box (urb:object-box-points base-region)
+        elevation (if (and box (caddr (car box))) (caddr (car box)) 0.0))
+  (setq span (urb:points-span points))
+  (setq chain-poly (urb:open-poly-from-points driving-chain elevation))
+  (setq len (urb:curve-length chain-poly))
+  (if (< len (* 2.0 module))
+    (progn (entdel chain-poly) nil)
+    (progn
+      ;; lado hacia ADENTRO del anden: (1) signo del offset probando de
+      ;; que lado cae la curva desplazada; (2) signo de la normal para
+      ;; los simbolos, probando un punto desplazado a mano
+      (setq mid-d (* 0.5 len))
+      (setq mid-pt (urb:curve-pt chain-poly mid-d))
+      (setq mid-ang (urb:curve-tangent chain-poly mid-d))
+      (setq perp-sign 1.0)
+      (if mid-pt
+        (progn
+          (setq cand
+            (list (+ (car mid-pt) (* 0.3 (cos (+ mid-ang (* 0.5 pi)))))
+                  (+ (cadr mid-pt) (* 0.3 (sin (+ mid-ang (* 0.5 pi)))))))
+          (if (not (urb:point-in-poly-p cand points))
+            (setq perp-sign -1.0))))
+      (setq off-sign 1.0)
+      (setq test-off (urb:offset-poly chain-poly 0.3))
+      (if test-off
+        (progn
+          (setq cand (urb:curve-pt test-off (* 0.5 (urb:curve-length test-off))))
+          (if (or (null cand) (not (urb:point-in-poly-p cand points)))
+            (setq off-sign -1.0))
+          (entdel test-off))
+        (setq off-sign -1.0))
+      (setq count 0)
+      (if (urb:yes-p toperol)
+        (progn
+          (setq layer
+            (if (> module 0.30)
+              "URB-ANDEN-LOSETA-TOPEROL-40X40" "URB-ANDEN-LOSETA-TOPEROL-20X20"))
+          (if (urb:build-offset-strip
+                base-region chain-poly 0.0 module off-sign perp-sign
+                layer "TOPEROL" module parent-handle elevation span)
+            (setq count (1+ count)))))
+      (if (urb:yes-p guia)
+        (progn
+          (setq layer
+            (if (> module 0.30)
+              "URB-ANDEN-LOSETA-GUIA-40X40" "URB-ANDEN-LOSETA-GUIA-20X20"))
+          (if (urb:build-offset-strip
+                base-region chain-poly goff (+ goff module) off-sign perp-sign
+                layer "GUIA" module parent-handle elevation span)
+            (setq count (1+ count)))))
+      (entdel chain-poly)
+      (> count 0)))
+)
+
 (defun urb:create-accessibility-features-segmented
   (base-region points driving-chain guia toperol format parent-handle
    / edges edge angle-value module cosine sine u1 u2 umin umax
@@ -3142,7 +3466,7 @@
   (ename guia toperol format / obj copy base-region points angle-value bounds
    umin umax vmin vmax center region parent-handle origin count limits
    reference-edge width guide-min guide-max pattern-v-origin module layer
-   top-min top-max driving-chain)
+   top-min top-max driving-chain offset-result)
   (if (and (not (urb:yes-p guia))
            (not (urb:yes-p toperol)))
     T
@@ -3162,8 +3486,19 @@
           ;; del usuario), no el lado mas largo del contorno
           (setq driving-chain (urb:anden-tactile-chain points))
           (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
-            (urb:create-accessibility-features-segmented
-              base-region points driving-chain guia toperol format parent-handle)
+            (progn
+              ;; metodo principal: franja como OFFSET de la curva real
+              ;; (continua a cualquier radio); si el offset falla
+              ;; (contorno con quiebres imposibles de desplazar), cae al
+              ;; metodo anterior por segmentos
+              (setq offset-result
+                (vl-catch-all-apply
+                  'urb:create-accessibility-features-offset
+                  (list base-region points driving-chain guia toperol format parent-handle)))
+              (if (and (not (vl-catch-all-error-p offset-result)) offset-result)
+                offset-result
+                (urb:create-accessibility-features-segmented
+                  base-region points driving-chain guia toperol format parent-handle)))
             (progn
               (setq angle-value (urb:anden-axis-angle points))
               (setq bounds (urb:project-bounds points angle-value))

@@ -17,6 +17,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 9) — REDISEÑO IMPLEMENTADO: franja táctil por OFFSET de la curva real — verificado en PDF con los 3 casos
+
+Implementación del plan de la parte 8. La franja de guía/toperol ya NO se arma con rectángulos por arista: se construye como la región entre dos curvas paralelas del borde de la vía y todo lo demás camina la curva real.
+
+- **Nuevas funciones**: `urb:point-in-poly-p` (ray casting), `urb:open-poly-from-points`, `urb:offset-poly` (vla-Offset con manejo de fallo/multi-pieza), `urb:curve-length/pt/tangent` (wrappers vlax-curve), `urb:strip-band-region` (región cerrada entre 2 curvas offset), `urb:offset-strip-tones` (partición de la franja lisa en tramos gris/blanco con cuñas normales a la curva, misma fase 0.80/1.00), `urb:offset-strip-symbols` (símbolos por tableta + juntas radiales caminando la curva con getPointAtDist/getFirstDeriv — posición y tangente EXACTAS; tono opuesto a la banda), `urb:build-offset-strip` (orquesta: curvas de borde → región banda → boolean con el andén → tonos → bordes visibles → símbolos), `urb:create-accessibility-features-offset` (decide el lado hacia adentro con un offset de prueba + point-in-poly y construye toperol [0,module] y guía [offset, offset+module]).
+- **Integración**: `urb:create-accessibility-features` intenta el método offset PRIMERO (envuelto en catch); si falla o devuelve nil (offset imposible: quiebres, multi-pieza, cadena corta) cae al método por segmentos, que queda como fallback intacto.
+- **Bug de paréntesis cazado en revisión manual**: faltaba un cierre en `urb:build-offset-strip` que habría tragado las funciones siguientes (la línea `T)))))` necesitaba 6 cierres, no 5).
+- **Verificado por PDF** (mismo método de la parte 7, `_tmp_fan.pdf` conservado): (a) esquina abanico r-int 2.5 (el caso real del usuario que salía quebrado) → guía como anillo continuo concéntrico, sin escalera ni fragmentos; (b) abanico r 8/12 → anillo continuo; (c) corredor recto 30×4 → franja continua, regresión OK. Los 3 builds devolvieron T.
+- Pendiente de validación por el usuario en su archivo real (esquina + rampa + curva del proyecto).
+
 ### 2026-08-09 (parte 8) — Veredicto del usuario sobre el abanico real: los rectángulos por segmento NO sirven en esquinas de radio pequeño — REDISEÑO PENDIENTE con offsets de curva real
 
 El usuario probó en su esquina real (abanico con arco interior de radio pequeño ~2-3m) y la franja táctil sigue saliendo quebrada/doblada aunque el abanico de prueba (radio 8) ya se veía aceptable. Conclusión: el enfoque de franja = rectángulos por arista (aunque sea con muestreo fino, cuñas a inglete y anclaje a la arista) es estructuralmente incapaz de dar una franja limpia cuando el radio es chico — los errores de cuerda/proyección crecen con la curvatura.
