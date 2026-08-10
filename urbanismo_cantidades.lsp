@@ -59,6 +59,10 @@
 (setq *urb-prefab-mode-list* '("Interior" "Exterior"))
 (setq *urb-unit-warning-dwg* nil)
 (setq *urb-current-tactile-side-point* nil)
+;; Distancia de la fila de GUIA al borde de la via (m). U-201 usa 2.50 en
+;; los modulos de curva (fila tactil intermedia); antes estaba fijo en
+;; 1.20. Configurable en un solo lugar por si otro proyecto usa otra.
+(setq *urb-guide-offset* 2.50)
 ;; Lado elegido para el toperol/guia ("Arriba"/"Abajo"/"Izquierda"/"Derecha").
 ;; Tiene prioridad sobre *urb-current-tactile-side-point* en
 ;; urb:reference-v-edge; se resuelve por-anden con el bbox de cada contorno.
@@ -2717,6 +2721,9 @@
       (cons 0 "CIRCLE")
       (cons 100 "AcDbEntity")
       (cons 8 layer)
+      ;; color gris explicito (no el amarillo de la capa): en U-201 los
+      ;; domos/barras son linea del mismo tono de la tableta
+      (cons 62 8)
       (cons 100 "AcDbCircle")
       (cons 10 (list (car world-pt) (cadr world-pt) 0.0))
       (cons 40 radius)
@@ -2740,6 +2747,8 @@
       (cons 0 "LWPOLYLINE")
       (cons 100 "AcDbEntity")
       (cons 8 layer)
+      ;; mismo criterio que el circulo: linea gris, no amarilla
+      (cons 62 8)
       (cons 100 "AcDbPolyline")
       (cons 90 4)
       (cons 70 1)
@@ -2823,17 +2832,57 @@
 
 (defun urb:decorate-accessibility-strip
   (region layer feature module angle-value origin parent-handle phase-offset
-   / fill grid symbols-ok)
+   / fill grid symbols-ok points bounds umin umax vmin vmax phase-state
+   gray first-band cursor nxt bw band iter band-ok)
   ;; layer ya es la capa de guia/toperol real (antes esta pieza base vivia
   ;; aparte en URB-ANDEN-AUX); el rol FILL mantiene el orden de dibujo.
   (vla-put-Layer region layer)
+  (vla-put-Color region 8)
   (urb:tag-generated-role region parent-handle "FILL")
-  (setq fill
-    (vl-catch-all-apply
-      'urb:add-solid-hatch
-      (list region layer 8)))
-  (if (not (vl-catch-all-error-p fill))
-    (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))
+  ;; TONO POR BANDA (U-201): las tabletas tactiles toman el color de la
+  ;; banda gris/blanca del patron donde caen (alternando con la MISMA fase
+  ;; 0.80/1.00 global), no un color propio -- la franja queda integrada al
+  ;; patron y se distingue solo por la textura (domos/barras). La capa
+  ;; sigue siendo la de guia/toperol (las cantidades no cambian).
+  (setq band-ok nil)
+  (setq points (urb:region-outline-points region))
+  (if (null points) (setq points (urb:object-box-points region)))
+  (if points
+    (progn
+      (setq bounds (urb:project-bounds points angle-value)
+            umin (nth 0 bounds) umax (nth 1 bounds)
+            vmin (- (nth 2 bounds) 1.0) vmax (+ (nth 3 bounds) 1.0))
+      (setq phase-state (urb:composite-phase-state (if phase-offset phase-offset 0.0)))
+      (setq gray (car phase-state) first-band T cursor umin iter 0)
+      (while (and (< cursor (- umax 1e-6)) (< iter 20000))
+        (setq iter (1+ iter))
+        (setq bw (if first-band (cdr phase-state) (if gray 0.80 1.00)))
+        (if (< bw 0.001) (setq bw 0.001))
+        (setq nxt (min umax (+ cursor bw)))
+        (setq band (urb:clip-stripe region cursor nxt vmin vmax angle-value))
+        (if band
+          (progn
+            (vla-put-Layer band layer)
+            (vla-put-Color band (if gray 8 7))
+            (urb:tag-generated-role band parent-handle "FILL")
+            (setq fill
+              (vl-catch-all-apply
+                'urb:add-solid-hatch
+                (list band layer (if gray 8 7))))
+            (if (not (vl-catch-all-error-p fill))
+              (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))
+            (setq band-ok T)))
+        (setq cursor nxt gray (not gray) first-band nil))))
+  ;; respaldo: si el particionado por bandas no produjo nada (region
+  ;; degenerada), relleno uniforme como antes
+  (if (not band-ok)
+    (progn
+      (setq fill
+        (vl-catch-all-apply
+          'urb:add-solid-hatch
+          (list region layer 8)))
+      (if (not (vl-catch-all-error-p fill))
+        (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))))
   (setq grid
     (urb:add-user-hatch
       region layer module angle-value T 9 origin))
@@ -2968,10 +3017,10 @@
                 (if (< width module)
                   (setq guide-min vmin-local guide-max vmax-local)
                   (if (= reference-edge vmin-local)
-                    (setq guide-min (+ vmin-local 1.20)
-                          guide-max (+ vmin-local 1.20 module))
-                    (setq guide-min (- vmax-local 1.20 module)
-                          guide-max (- vmax-local 1.20))))
+                    (setq guide-min (+ vmin-local *urb-guide-offset*)
+                          guide-max (+ vmin-local *urb-guide-offset* module))
+                    (setq guide-min (- vmax-local *urb-guide-offset* module)
+                          guide-max (- vmax-local *urb-guide-offset*))))
                 (if (>= width module)
                   (progn
                     ;; encajar la guia en una FILA COMPLETA de la
@@ -3076,10 +3125,10 @@
                   (if (< width module)
                     (setq guide-min vmin guide-max vmax)
                     (if (= reference-edge vmin)
-                      (setq guide-min (+ vmin 1.20)
-                            guide-max (+ vmin 1.20 module))
-                      (setq guide-min (- vmax 1.20 module)
-                            guide-max (- vmax 1.20))))
+                      (setq guide-min (+ vmin *urb-guide-offset*)
+                            guide-max (+ vmin *urb-guide-offset* module))
+                      (setq guide-min (- vmax *urb-guide-offset* module)
+                            guide-max (- vmax *urb-guide-offset*))))
                   (if (>= width module)
                     (progn
                       (setq guide-min

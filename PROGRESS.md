@@ -17,6 +17,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 6) — Franja táctil integrada al patrón como en U-201: tono por banda y guía a 2.50m
+
+Tras la disección completa de los módulos de curva de U-201 (`Módulo1/2- Curva 1 - Tramo 5`: 23 gajos alternados, cada uno con 3 filas concéntricas de tabletas rotadas radialmente), quedaron confirmadas las 2 diferencias clave con lo que generaba el programa, y el usuario aprobó corregir ambas:
+
+- **Tono por banda**: en U-201 las tabletas táctiles NO tienen color propio — cada una es TONO 1 (gris) o TONO 2 (blanco) siguiendo la banda del patrón donde cae, alternando en grupos con la misma modulación 0.80/1.00. `urb:decorate-accessibility-strip` ahora parte la franja por bandas con la MISMA fase global (`urb:composite-phase-state` + `phase-offset`) y rellena cada tramo con gris (8) o blanco (7); los símbolos (domos/barras) llevan color gris explícito (62=8) en vez del amarillo de la capa. La CAPA sigue siendo la de guia/toperol → las cantidades no cambian. Respaldo: si el particionado por bandas no produce nada, relleno uniforme como antes.
+- **Guía a 2.50m del borde de la vía**: nuevo global `*urb-guide-offset*` (default 2.50, medido en los módulos de curva de U-201; reemplaza el 1.20 fijo en los 4 sitios). OJO: el módulo recto "tipo c" de U-201 usa 3.00m entre sus dos filas táctiles — el espaciamiento varía por diseño/ancho de andén, por eso quedó como global configurable en una sola línea y no como constante.
+- **Verificado headless** (corredor curvo 60×4, guia+toperol): 34 hatches blancos + 36 grises alternando dentro de la franja de guía, 0 símbolos sin el gris explícito, offset guía-toperol = 2.50 exacto, build+package OK.
+
+
 ### 2026-08-09 (parte 5) — Undécimo bug real: falso "moño" en andenes curvos cerrados con arco (PLINE Arc + CLose)
 
 El usuario dibujó un abanico anular válido (arco exterior + arco interior + remates) y la validación lo rechazó como "se cruza a sí mismo". Causa: en `urb:arc-bulge-midpoints`, para el segmento de CIERRE con arco, el parámetro de curva del segundo extremo (el PRIMER vértice) es 0 — interpolar de param1 hacia 0 recorre TODA la polilínea hacia atrás en vez del arco de cierre, sembrando puntos de muestreo por todo el contorno: el polígono muestreado sí se cruzaba aunque la curva real no. Fix: si `param2 <= param1`, usar `vlax-curve-getEndParam` como extremo (el parámetro final de la curva es el mismo punto visto desde el lado del cierre). Verificado: abanico anular con arco de cierre → 18 puntos muestreados, 0 fuera del anillo, validación T; el moño real sigue rechazado. Este fix también corrige las CANTIDADES de cualquier andén cerrado con arco (el perímetro/longitud de guía usan el mismo muestreo).
