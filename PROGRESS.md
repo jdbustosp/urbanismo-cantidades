@@ -17,6 +17,14 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 10) — DECISIÓN DE DISEÑO CLAVE del usuario: el material en curvas NO va en abanico — orientación recta que la curva solo recorta
+
+Con la foto del plano en mano, el usuario aclaró el requisito que invalidaba todo el trabajo de "seguir la curva" del material: **las losetas/adoquines en las curvas conservan la MISMA orientación del tramo recto** ("como si el anden fuera recto") — en un andén en L cada pierna lleva su eje propio y se encuentran en una junta diagonal en la esquina; el contorno curvo solo RECORTA el patrón. Nada de bandas radiales.
+
+- **Cambio**: `urb:create-composite-loseta` ya NO invoca `urb:decorate-composite-region-segmented` (esa función queda como código de respaldo sin llamador para el material) — siempre usa la lógica original de clusters/two-axis-split (una o dos direcciones dominantes). La FRANJA TÁCTIL sí sigue el borde curvo (método offset de la parte 9), igual que en el plano.
+- **Verificado por PDF**: andén en L (piernas 20m ancho 4, esquina interior arco r=2.5, guía+toperol): pierna horizontal con bandas verticales, pierna vertical con bandas horizontales, junta diagonal limpia en la esquina, franja táctil continua siguiendo el arco interior. Coincide con la foto de referencia del usuario.
+- Lección de proceso: el "modo abanico" venía de copiar los módulos radiales de la glorieta de U-201 — pero el estándar del proyecto para esquinas normales es la continuación recta. Las dos referencias coexisten en el plano; la que rige es la foto que marcó el usuario.
+
 ### 2026-08-09 (parte 9) — REDISEÑO IMPLEMENTADO: franja táctil por OFFSET de la curva real — verificado en PDF con los 3 casos
 
 Implementación del plan de la parte 8. La franja de guía/toperol ya NO se arma con rectángulos por arista: se construye como la región entre dos curvas paralelas del borde de la vía y todo lo demás camina la curva real.

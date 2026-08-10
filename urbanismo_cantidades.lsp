@@ -2673,13 +2673,17 @@
   (if (vl-catch-all-error-p base-region)
     nil
     (progn
-      (setq driving-chain (urb:anden-driving-chain points))
-      (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
-        ;; Contorno con varios vertices reales en un mismo lado (tramo curvo
-        ;; aproximado con muchos segmentos cortos): modular cada segmento con
-        ;; su propio angulo local en vez de un unico eje para todo el anden.
-        (urb:decorate-composite-region-segmented
-          base-region driving-chain format parent-handle reverse-pattern)
+      ;; IMPORTANTE (2026-08-09, decision del usuario con foto del plano):
+      ;; el material NO se modula en abanico siguiendo la curva. Las
+      ;; losetas/adoquines conservan la MISMA orientacion del tramo recto
+      ;; ("como si el anden fuera recto") y el contorno curvo solo RECORTA
+      ;; el patron; en un anden en L cada pierna lleva su propio eje y se
+      ;; encuentran en la esquina (two-axis-split, el comportamiento
+      ;; original). El modo segmentado por aristas
+      ;; (urb:decorate-composite-region-segmented) queda solo como codigo
+      ;; de respaldo, ya no se invoca para el material. La franja tactil
+      ;; SI sigue el borde curvo (metodo offset), como en el plano.
+      (progn
         (progn
           (if (> (length clusters) 1)
             (setq split-data
