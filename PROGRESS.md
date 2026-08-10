@@ -17,6 +17,20 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 8) — Veredicto del usuario sobre el abanico real: los rectángulos por segmento NO sirven en esquinas de radio pequeño — REDISEÑO PENDIENTE con offsets de curva real
+
+El usuario probó en su esquina real (abanico con arco interior de radio pequeño ~2-3m) y la franja táctil sigue saliendo quebrada/doblada aunque el abanico de prueba (radio 8) ya se veía aceptable. Conclusión: el enfoque de franja = rectángulos por arista (aunque sea con muestreo fino, cuñas a inglete y anclaje a la arista) es estructuralmente incapaz de dar una franja limpia cuando el radio es chico — los errores de cuerda/proyección crecen con la curvatura.
+
+**PLAN DE REDISEÑO (siguiente sesión, arquitectura correcta):**
+1. **Franja táctil como OFFSET de la curva real**: con `vla-Offset` sobre el contorno original (que tiene los arcos exactos), generar las curvas paralelas a distancia 0 y module (toperol) y a `*urb-guide-offset*` y `+module` (guía) DEL LADO de la vía. El offset de AutoCAD maneja arcos exactamente → anillos perfectamente continuos, cero fragmentos.
+2. Construir la región de cada franja como la banda entre las dos curvas offset (cerrar extremos + region + boolean con la región del andén).
+3. **Tono por banda**: partir esa región lisa con las mismas cuñas de fase que ya existen (clip por banda con `urb:composite-phase-state`).
+4. **Símbolos sobre la curva real**: caminar la curva offset con `vlax-curve-getPointAtDist`/`getFirstDeriv` a pasos de 5cm por tableta — posición y tangente EXACTAS, sin marcos por arista.
+5. El material (bandas) se queda como está (aprobado visualmente); solo cambia la construcción de guía/toperol.
+6. Verificar con el MISMO método de PDF (plot headless + inspección visual) sobre: abanico r=8, esquina r=2.5 (el caso real del usuario), y corredor recto (regresión).
+
+Nota: el offset puede fallar en contornos con quiebres cerrados (offset inválido) — fallback al método actual por segmentos.
+
 ### 2026-08-09 (parte 7) — Verificación VISUAL por PDF: 5 iteraciones sobre el andén en abanico
 
 Cambio de metodología clave: el proceso headless ahora PLOTEA el resultado a PDF (`vla-PlotToFile` con el device "AutoCAD PDF (General Documentation).pc3", PlotType extents, escala fit) y el PDF se inspecciona visualmente — los checks numéricos de las partes anteriores pasaban mientras el dibujo se veía mal. Con eso se iteró el abanico anular (r-int 8, r-ext 12, semicírculo, guía+toperol 20×20) 5 veces:
