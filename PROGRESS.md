@@ -17,6 +17,18 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 7) — Verificación VISUAL por PDF: 5 iteraciones sobre el andén en abanico
+
+Cambio de metodología clave: el proceso headless ahora PLOTEA el resultado a PDF (`vla-PlotToFile` con el device "AutoCAD PDF (General Documentation).pc3", PlotType extents, escala fit) y el PDF se inspecciona visualmente — los checks numéricos de las partes anteriores pasaban mientras el dibujo se veía mal. Con eso se iteró el abanico anular (r-int 8, r-ext 12, semicírculo, guía+toperol 20×20) 5 veces:
+
+1. **Símbolos tono opuesto a la banda** (pedido del usuario: "sobre gris no se ven"): `urb:add-capsule/circle-symbol` reciben `color`; cada tableta pone sus domos/barras blancos sobre banda gris y grises sobre banda blanca (misma fase global del relleno por bandas).
+2. **Guía en "escalera"** (PDF 1): la posición 2.50 se medía desde los bounds proyectados de cada cuña (varían con la inclinación del inglete). Fix: anclada a la ARISTA de la cadena misma (`p1-v` + dirección `into` hacia el interior), que es el borde físico de la vía. Aplica cuando `prefer-boundary` (caso normal); si la vía está al lado opuesto de la cadena, lógica anterior.
+3. **Huecos entre franjas** (PDF 2): el recorte en u usaba el rango de la CUERDA, pero a 2.5m del borde la cuña es más ancha que la cuerda. Fix: rango u muy holgado (±span) — la cuña ya limita angularmente.
+4. **Franja poligonal/zigzag** (PDF 3): 8 cuerdas fijas por arco eran muy gruesas. Fix: `urb:arc-samples-for` (muestreo adaptativo ~1/m de arco, tope 96) — pero aplicado a TODO rompió las bandas del material (PDF 4: booleanos degradados con 37 cuñas delgadas). Fix final: densidad DESACOPLADA — `urb:lwpoly-points-with-arcs` (estándar 8, material/cantidades) vs `urb:lwpoly-points-with-arcs-fine` (adaptativo, SOLO la cadena táctil en `urb:create-accessibility-features`).
+5. **Manchones diagonales**: el fallback de ancho completo pintaba la franja cruzando todas las bandas cuando el recorte fino fallaba — eliminado (micro-hueco puntual es mejor que el manchón).
+
+**Estado final verificado en PDF** (`_tmp_fan.pdf`, conservado): bandas radiales limpias siguiendo la curva, toperol como anillo continuo pegado al arco interior, guía como anillo a 2.50 mayormente continuo. **Pendiente**: 2-3 segmentos de guía torcidos en una zona del abanico (posible flip local de `into`/`prefer-boundary` o cuñas extremas de la cadena) y la costura del arranque — iterar con el mismo método de PDF.
+
 ### 2026-08-09 (parte 6) — Franja táctil integrada al patrón como en U-201: tono por banda y guía a 2.50m
 
 Tras la disección completa de los módulos de curva de U-201 (`Módulo1/2- Curva 1 - Tramo 5`: 23 gajos alternados, cada uno con 3 filas concéntricas de tabletas rotadas radialmente), quedaron confirmadas las 2 diferencias clave con lo que generaba el programa, y el usuario aprobó corregir ambas:

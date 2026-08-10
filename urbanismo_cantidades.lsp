@@ -1353,6 +1353,22 @@
   (reverse points)
 )
 
+(defun urb:arc-samples-for (p1 p2 b / theta chord r len)
+  ;; Numero de subdivisiones para un segmento con bulge, ~1 muestra por
+  ;; metro de arco REAL (antes eran 8 fijas por arco sin importar el
+  ;; tamano: un arco de 30m quedaba en cuerdas de casi 4m y la franja de
+  ;; guia/toperol salia visiblemente poligonal/zigzag en vez de seguir la
+  ;; curva -- visto en el PDF de verificacion del abanico).
+  (setq theta (* 4.0 (atan (abs b))))
+  (setq chord (distance p1 p2))
+  (if (or (< theta 1e-6) (< chord 1e-6))
+    8
+    (progn
+      (setq r (/ chord (* 2.0 (sin (* 0.5 theta)))))
+      (setq len (* r theta))
+      (max 8 (min 96 (fix (+ 1.0 len))))))
+)
+
 (defun urb:arc-bulge-midpoints (ename p1-wcs p2-wcs n / param1 param2 pts j frac tparam pt)
   ;; Puntos intermedios (sin incluir p1 ni p2) a lo largo del arco real
   ;; entre dos vertices con bulge, consultando la curva de verdad
@@ -1386,8 +1402,22 @@
         (setq j (1+ j)))
       (reverse pts))))
 
-(defun urb:lwpoly-points-with-arcs
-  (ename / data points item raw-verts current-pt current-bulge n-samples
+(defun urb:lwpoly-points-with-arcs (ename)
+  ;; muestreo ESTANDAR (8 por arco): el que usa el material -- con muchas
+  ;; cunas delgadas los booleanos de bandas se degradan (verificado
+  ;; visualmente en PDF), asi que el material se queda con cuerdas gruesas
+  (urb:lwpoly-points-with-arcs-impl ename nil)
+)
+
+(defun urb:lwpoly-points-with-arcs-fine (ename)
+  ;; muestreo ADAPTATIVO (~1 por metro de arco): solo para la cadena de la
+  ;; franja tactil, que necesita seguir el arco real (con 8 cuerdas por
+  ;; arco la guia salia poligonal/zigzag)
+  (urb:lwpoly-points-with-arcs-impl ename T)
+)
+
+(defun urb:lwpoly-points-with-arcs-impl
+  (ename adaptive / data points item raw-verts current-pt current-bulge n-samples
    i p1 p2 b mids closed-flag wcs-verts end-param j frac tparam pt param1)
   ;; Igual que urb:lwpoly-points, pero si un segmento tiene bulge (arco
   ;; real dibujado con la opcion Arc de PLINE) lo subdivide en varios
@@ -1424,6 +1454,7 @@
     (if (and (/= b 0.0) (< (1+ i) (length wcs-verts)))
       (progn
         (setq p2 (car (nth (1+ i) wcs-verts)))
+        (setq n-samples (if adaptive (urb:arc-samples-for p1 p2 b) 8))
         (setq mids (urb:arc-bulge-midpoints ename p1 p2 n-samples))
         (foreach m mids (setq points (cons m points)))))
     (setq i (1+ i)))
@@ -1446,6 +1477,11 @@
                 (vl-catch-all-apply 'vlax-curve-getParamAtPoint (list ename p1)))
               (if (not (vl-catch-all-error-p param1))
                 (progn
+                  ;; mismo criterio de muestreo que los arcos interiores
+                  (setq n-samples
+                    (if adaptive
+                      (urb:arc-samples-for p1 (car (nth 0 wcs-verts)) b)
+                      8))
                   (setq j 1)
                   (repeat (1- n-samples)
                     (setq frac (/ (float j) (float n-samples)))
@@ -2708,7 +2744,7 @@
           (cons 1000 (urb:safe-string role ""))))
 )
 
-(defun urb:add-circle-symbol (u v radius angle-value layer parent-handle / world-pt)
+(defun urb:add-circle-symbol (u v radius angle-value layer parent-handle color / world-pt)
   ;; Punto tactil real (toperol): un circulo dibujado, no una marca de hatch
   ;; de longitud cero. Coincide visualmente con la loseta toperol real
   ;; (domos truncados dibujados como aros), no con un simple punteado.
@@ -2721,9 +2757,9 @@
       (cons 0 "CIRCLE")
       (cons 100 "AcDbEntity")
       (cons 8 layer)
-      ;; color gris explicito (no el amarillo de la capa): en U-201 los
-      ;; domos/barras son linea del mismo tono de la tableta
-      (cons 62 8)
+      ;; tono OPUESTO a la banda (blanco sobre gris, gris sobre blanco):
+      ;; con el mismo tono de la tableta el simbolo no se veia
+      (cons 62 color)
       (cons 100 "AcDbCircle")
       (cons 10 (list (car world-pt) (cadr world-pt) 0.0))
       (cons 40 radius)
@@ -2732,7 +2768,7 @@
 )
 
 (defun urb:add-capsule-symbol
-  (u v half-length half-width angle-value layer parent-handle
+  (u v half-length half-width angle-value layer parent-handle color
    / p1 p2 p3 p4)
   ;; Barra tactil real (guia): una capsula (rectangulo con extremos
   ;; semicirculares, via bulge=1 en 2 de los 4 vertices) con el eje largo
@@ -2747,8 +2783,8 @@
       (cons 0 "LWPOLYLINE")
       (cons 100 "AcDbEntity")
       (cons 8 layer)
-      ;; mismo criterio que el circulo: linea gris, no amarilla
-      (cons 62 8)
+      ;; mismo criterio que el circulo: tono opuesto a la banda
+      (cons 62 color)
       (cons 100 "AcDbPolyline")
       (cons 90 4)
       (cons 70 1)
@@ -2764,7 +2800,7 @@
   (region feature angle-value layer phase-offset parent-handle module
    / points bounds umin umax vmin vmax spacing margin v count
    radius half-length half-width global-u local-u seg-len sym-ename
-   tile-k tile-g su)
+   tile-k tile-g su sym-color)
   ;; Reparte simbolos tactiles reales (circulos o capsulas) en una reticula
   ;; de 5 cm sobre el area ya recortada de la franja, en vez de depender de
   ;; un patron .pat (que solo puede construirse con familias de lineas
@@ -2790,7 +2826,7 @@
       (setq bounds (urb:project-bounds points angle-value)
             umin (nth 0 bounds) umax (nth 1 bounds)
             vmin (nth 2 bounds) vmax (nth 3 bounds))
-      (setq spacing 0.05 margin 0.025 count 0)
+      (setq spacing 0.05 margin 0.025 count 0 sym-color 8)
       (if (= feature "GUIA")
         (setq half-length 0.075 half-width 0.012)
         (setq radius 0.008))
@@ -2807,6 +2843,11 @@
       (setq tile-k (fix (/ (+ phase-offset 1e-9) module)))
       (setq tile-g (* tile-k module))
       (while (< tile-g (+ phase-offset seg-len (- 1e-6)))
+        ;; tono OPUESTO a la banda donde cae la tableta (blanco sobre
+        ;; banda gris, gris sobre banda blanca) -- misma fase global que
+        ;; el relleno por bandas de la franja
+        (setq sym-color
+          (if (car (urb:composite-phase-state (+ tile-g (* 0.5 module)))) 7 8))
         (setq su margin)
         (while (<= su (+ (- module margin) 1e-6))
           (setq global-u (+ tile-g su))
@@ -2819,8 +2860,8 @@
               (while (<= v (+ (- vmax margin) 1e-6))
                 (setq sym-ename
                   (if (= feature "GUIA")
-                    (urb:add-capsule-symbol local-u v half-length half-width angle-value layer parent-handle)
-                    (urb:add-circle-symbol local-u v radius angle-value layer parent-handle)))
+                    (urb:add-capsule-symbol local-u v half-length half-width angle-value layer parent-handle sym-color)
+                    (urb:add-circle-symbol local-u v radius angle-value layer parent-handle sym-color)))
                 (setq count (1+ count))
                 (setq v (+ v spacing)))))
           (setq su (+ su spacing)))
@@ -2930,7 +2971,7 @@
    vmin-local vmax-local width reference-edge guide-min guide-max
    top-min top-max region origin layer count cum-offset
    p1-v boundary-side side-decided prefer-boundary
-   bisectors edge-index bis span grid-u)
+   bisectors edge-index bis span grid-u into)
   ;; Igual que urb:create-accessibility-features pero por segmento real del
   ;; contorno: cada arista del lado guia recorta y mide su propia franja en
   ;; vez de usar el ancho proyectado de TODO el anden sobre un unico eje
@@ -3012,37 +3053,48 @@
             ;; misma fase que usa el material), para que las juntas de la
             ;; franja tactil coincidan con las juntas de la loseta.
             (setq grid-u (- umin (urb:grid-phase-shift cum-offset module)))
+            ;; Posicion medida RESPECTO A LA ARISTA de la cadena (que ES
+            ;; el borde de la via, porque la cadena tactil se elige del
+            ;; lado del click), no respecto a los bounds proyectados del
+            ;; recorte: con las cunas a inglete esos bounds varian por
+            ;; arista segun la inclinacion de las bisectrices y la guia
+            ;; salia en "escalera" de barras sueltas a radios distintos
+            ;; (visto en el PDF de verificacion del abanico).
+            (setq into
+              (if (<= (abs (- p1-v vmin-local)) (abs (- p1-v vmax-local)))
+                1.0 -1.0))
             (if (urb:yes-p guia)
               (progn
                 (if (< width module)
                   (setq guide-min vmin-local guide-max vmax-local)
-                  (if (= reference-edge vmin-local)
-                    (setq guide-min (+ vmin-local *urb-guide-offset*)
-                          guide-max (+ vmin-local *urb-guide-offset* module))
-                    (setq guide-min (- vmax-local *urb-guide-offset* module)
-                          guide-max (- vmax-local *urb-guide-offset*))))
+                  (if prefer-boundary
+                    ;; caso normal: via = lado de la propia cadena
+                    (if (> into 0)
+                      (setq guide-min (+ p1-v *urb-guide-offset*)
+                            guide-max (+ p1-v *urb-guide-offset* module))
+                      (setq guide-min (- p1-v *urb-guide-offset* module)
+                            guide-max (- p1-v *urb-guide-offset*)))
+                    ;; via al lado opuesto de la cadena: como antes
+                    (if (= reference-edge vmin-local)
+                      (setq guide-min (+ vmin-local *urb-guide-offset*)
+                            guide-max (+ vmin-local *urb-guide-offset* module))
+                      (setq guide-min (- vmax-local *urb-guide-offset* module)
+                            guide-max (- vmax-local *urb-guide-offset*)))))
                 (if (>= width module)
-                  (progn
-                    ;; encajar la guia en una FILA COMPLETA de la
-                    ;; modulacion (reticula anclada en vmin-local, igual
-                    ;; que el material) en vez de una cinta a 1.20 exactos
-                    ;; que puede caer partiendo dos filas de tabletas.
-                    (setq guide-min (urb:snap-to-row guide-min vmin-local module))
-                    (setq guide-min (max vmin-local (min (- vmax-local module) guide-min))
-                          guide-max (+ guide-min module))))
+                  (setq guide-min (max vmin-local (min (- vmax-local module) guide-min))
+                        guide-max (+ guide-min module)))
+                ;; el rango en u va MUY holgado a lado y lado: la cuna a
+                ;; inglete ya limita angularmente, y a 2.5m del borde la
+                ;; cuna es mas ancha que la cuerda de la arista -- recortar
+                ;; al rango de la cuerda dejaba HUECOS entre las franjas de
+                ;; aristas vecinas (guia punteada en el PDF del abanico).
                 (setq region
-                  (urb:clip-stripe full-slice umin umax guide-min guide-max angle-value))
-                ;; Fallback: en una arista corta/irregular (comun en el
-                ;; extremo de un tramo curvo real) el recorte preciso al
-                ;; ancho del modulo puede dar vacio (boolean sin area) por
-                ;; imprecision geometrica, aunque la arista es valida. Sin
-                ;; esto la guia desaparece por completo en esa arista --
-                ;; un hueco real, no solo una costura de fase. Se reintenta
-                ;; con el ancho local completo (siempre valido, es el mismo
-                ;; rango de full-slice) antes de rendirse.
-                (if (null region)
-                  (setq region
-                    (urb:clip-stripe full-slice umin umax vmin-local vmax-local angle-value)))
+                  (urb:clip-stripe full-slice (- umin span) (+ umax span)
+                    guide-min guide-max angle-value))
+                ;; SIN fallback de ancho completo: cuando el recorte fino
+                ;; fallaba, pintar la franja a todo el ancho del anden
+                ;; dejaba un manchon diagonal cruzando las bandas (visto
+                ;; en PDF); un micro-hueco puntual es mucho menos grave.
                 (if region
                   (progn
                     ;; origen del grid: u alineado a la cadena global,
@@ -3057,16 +3109,18 @@
                     (setq count (1+ count))))))
             (if (urb:yes-p toperol)
               (progn
-                (if (= reference-edge vmin-local)
-                  (setq top-min vmin-local top-max (min vmax-local (+ vmin-local module)))
-                  (setq top-min (max vmin-local (- vmax-local module)) top-max vmax-local))
+                (if prefer-boundary
+                  ;; toperol pegado a la ARISTA (borde real de la via)
+                  (if (> into 0)
+                    (setq top-min p1-v top-max (+ p1-v module))
+                    (setq top-min (- p1-v module) top-max p1-v))
+                  (if (= reference-edge vmin-local)
+                    (setq top-min vmin-local top-max (min vmax-local (+ vmin-local module)))
+                    (setq top-min (max vmin-local (- vmax-local module)) top-max vmax-local)))
                 (setq region
-                  (urb:clip-stripe full-slice umin umax top-min top-max angle-value))
-                ;; mismo fallback que en guia: no dejar la arista sin
-                ;; toperol por un boolean vacio en un recorte muy angosto.
-                (if (null region)
-                  (setq region
-                    (urb:clip-stripe full-slice umin umax vmin-local vmax-local angle-value)))
+                  (urb:clip-stripe full-slice (- umin span) (+ umax span)
+                    top-min top-max angle-value))
+                ;; sin fallback de ancho completo (mismo criterio que guia)
                 (if region
                   (progn
                     ;; u alineado a la cadena global; v en el borde
@@ -3095,7 +3149,8 @@
     (progn
       (setq obj (vlax-ename->vla-object ename))
       (setq parent-handle (vla-get-Handle obj))
-      (setq points (urb:lwpoly-points-with-arcs ename))
+      ;; muestreo FINO solo aqui: la franja tactil sigue el arco real
+      (setq points (urb:lwpoly-points-with-arcs-fine ename))
       (setq module (urb:loseta-module format))
       (setq copy (vla-Copy obj))
       (setq base-region (urb:add-region-from-object copy))
