@@ -13187,7 +13187,7 @@
 )
 
 (defun urb:create-ramp-command
-  (/ *error* doc undo-open undo-result base-pt dir-pt width kw
+  (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
    depth etapa subetapa axis-angle side-sign block-ref center-pt total-half done)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
   ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
@@ -13205,47 +13205,50 @@
     (princ))
   (setq undo-result (vl-catch-all-apply 'vla-StartUndoMark (list doc)))
   (setq undo-open (not (vl-catch-all-error-p undo-result)))
-  ;; Flujo minimo a pedido del usuario: punto inicial + eje + ancho, y ya.
-  ;; El fondo (3.50 default) y el lado del anden (izquierda del eje por
-  ;; default) se pueden cambiar como opciones DENTRO del mismo prompt del
-  ;; ancho, sin pasos obligatorios extra. Etapa/subetapa arrancan en 1/1 y
-  ;; se cambian despues con "Cambiar etapa/subetapa (lote)" en segundos.
+  ;; Flujo a pedido del usuario: punto inicial + eje + ancho + un CLICK
+  ;; del lado hacia donde va la rampa (igual que el lado del toperol).
+  ;; El fondo (3.50 default) es opcion del mismo prompt del ancho.
+  ;; Etapa/subetapa arrancan en 1/1 (cambiables en lote).
   (setq depth 3.50 side-sign 1.0 width 2.00 etapa "1" subetapa "1")
   (setq base-pt (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: "))
   (if base-pt
     (setq dir-pt (getpoint base-pt "\nDireccion del borde (eje de la rampa): ")))
   (if dir-pt
     (progn
+      (setq axis-angle (angle base-pt dir-pt))
       (setq done nil)
       (while (not done)
-        (initget "2.00 3.00 Fondo Lado")
+        (initget "2.00 3.00 Fondo")
         (setq kw
           (getkword
-            (strcat "\nAncho de la rampa [2.00/3.00/Fondo/Lado]"
-                    " (fondo " (rtos depth 2 2)
-                    ", lado " (if (> side-sign 0) "izquierda" "derecha")
-                    " del eje) <2.00>: ")))
+            (strcat "\nAncho de la rampa [2.00/3.00/Fondo]"
+                    " (fondo " (rtos depth 2 2) ") <2.00>: ")))
         (cond
           ((= kw "Fondo")
             (setq depth (getreal "\nFondo (ancho del anden) en metros <3.50>: "))
             (if (or (null depth) (< depth 0.5)) (setq depth 3.50)))
-          ((= kw "Lado")
-            (setq side-sign (- side-sign)))
           ((= kw "3.00") (setq width 3.00) (setq done T))
           (T (setq width 2.00) (setq done T))))
-      (setq axis-angle (angle base-pt dir-pt))
-      ;; base-pt es el INICIO del ancho total: el centro queda medio ancho
-      ;; total mas adelante sobre el eje
-      (setq total-half (+ (/ width 2.0) 0.65))
-      (setq center-pt
-        (list (+ (car base-pt) (* total-half (cos axis-angle)))
-              (+ (cadr base-pt) (* total-half (sin axis-angle)))))
+      ;; direccion de la rampa: un click del lado del ANDEN (hacia donde
+      ;; se extiende la rampa desde el borde de la via)
+      (setq side-pt
+        (getpoint base-pt "\nMarque hacia que lado va la rampa (lado del anden): "))
+      (if side-pt
+        (setq side-sign
+          (if (>= (+ (* (- (car side-pt) (car base-pt)) (- (sin axis-angle)))
+                     (* (- (cadr side-pt) (cadr base-pt)) (cos axis-angle)))
+                  0.0)
+            1.0 -1.0)))
+      ;; base-pt es el INICIO del modulo (u=0); el modulo mide W+1.20 a lo
+      ;; largo del eje
       (setq block-ref
-        (urb:build-ramp center-pt axis-angle side-sign width depth etapa subetapa))
+        (urb:build-ramp base-pt axis-angle side-sign width depth etapa subetapa))
       (if block-ref
         (prompt
-          (strcat "\nRampa creada: " (rtos width 2 2) "m x " (rtos depth 2 2)
-                  "m (aletas 0.65m) | Etapa " etapa
+          (strcat "\nRampa creada: superficie " (rtos (+ width 0.6) 2 2)
+                  "m en la via (central " (rtos width 2 2)
+                  "m), modulo total " (rtos (+ width 1.2) 2 2)
+                  "m x " (rtos depth 2 2) "m | Etapa " etapa
                   ". Cambie etapa/subetapa en lote desde el menu URBANISMO."))))
     (prompt "\nComando cancelado."))
   (if undo-open
@@ -13253,55 +13256,78 @@
   (princ)
 )
 
+(defun urb:ramp-poly-pts (base-pt axis-angle side-sign lpts layer / wpts)
+  ;; polilinea cerrada a partir de puntos LOCALES (u v) del marco de la rampa
+  (setq wpts
+    (mapcar
+      '(lambda (p)
+         (urb:ramp-local-point base-pt axis-angle side-sign (car p) (cadr p)))
+      lpts))
+  (entmake
+    (append
+      (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity") (cons 100 "AcDbPolyline")
+            (cons 8 layer) (cons 90 (length wpts)) (cons 70 1))
+      (mapcar '(lambda (p) (cons 10 p)) wpts)))
+  (entlast)
+)
+
 (defun urb:build-ramp
   (base-pt axis-angle side-sign width depth etapa subetapa
-   / doc wing objects ent obj hatch central wing-a wing-b boundary area
+   / doc objects obj hatch boundary area total u1 ent trap
    block-name blocks block-definition copy-result insert-result block-ref
-   block-ename half total-half)
-  ;; Nucleo geometrico de la rampa (sin prompts): banda central lisa +
-  ;; 2 aletas de 0.65m con adoquin 20x10 + bordes inclinados, empaquetada
-  ;; en su propio bloque URB_RAMPA_* con atributos y xdata.
-  (setq doc (urb:doc) wing 0.65)
+   block-ename)
+  ;; Geometria segun los bloques B RAMPA T1/T2 reales de U-201 (disecados
+  ;; 2026-08-09, espécimen sin rotar "T2 - 3.00MT - Anden 4.00MT"):
+  ;;  - franjas laterales de 0.20 m a TODO el fondo del anden, con
+  ;;    relleno solido (las columnas grises del plano)
+  ;;  - superficie de rampa TRAPEZOIDAL: ancho W+0.60 contra la via
+  ;;    (W=3.00 -> 3.60, la medida que el usuario senalo) cerrando a W al
+  ;;    fondo de la rampa, con 1.10 m de desarrollo (v=0.20 a 1.30)
+  ;;  - banda inferior v=1.30-1.50 y junta a v=1.70; el resto del fondo
+  ;;    es anden normal (la rampa NO ocupa todo el fondo)
+  ;; Ancho total del modulo = W + 1.20 (W=3.00 -> 4.20).
+  (setq doc (urb:doc))
   (urb:ensure-layer "URB-RAMPA" 7 T)
-  (setq half (/ width 2.0) total-half (+ half wing))
+  (setq total (+ width 1.20))
   (setq objects nil)
+  ;; contorno total del modulo
   (setq boundary
-    (urb:ramp-quad-poly base-pt axis-angle side-sign
-      (- total-half) 0.0 total-half depth "URB-RAMPA"))
+    (urb:ramp-quad-poly base-pt axis-angle side-sign 0.0 0.0 total depth "URB-RAMPA"))
   (setq objects (cons (vlax-ename->vla-object boundary) objects))
-  (setq central
-    (urb:ramp-quad-poly base-pt axis-angle side-sign
-      (- half) 0.0 half depth "URB-RAMPA"))
-  (setq obj (vlax-ename->vla-object central))
+  ;; franjas laterales 0.20 a todo el fondo, relleno solido gris
+  (foreach u1 (list 0.0 (+ width 1.0))
+    (setq obj
+      (vlax-ename->vla-object
+        (urb:ramp-quad-poly base-pt axis-angle side-sign
+          u1 0.0 (+ u1 0.2) depth "URB-RAMPA")))
+    (setq objects (cons obj objects))
+    (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA" 8)))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects))))
+  ;; superficie de la rampa: trapecio W+0.60 (via) -> W (fondo de rampa)
+  (setq trap
+    (urb:ramp-poly-pts base-pt axis-angle side-sign
+      (list (list 0.3 0.2) (list (+ width 0.9) 0.2)
+            (list (+ width 0.6) 1.3) (list 0.6 1.3))
+      "URB-RAMPA"))
+  (setq obj (vlax-ename->vla-object trap))
   (setq objects (cons obj objects))
   (setq hatch
     (urb:add-user-hatch obj "URB-RAMPA" 0.20 axis-angle T 9
-      (urb:ramp-local-point base-pt axis-angle side-sign (- half) 0.0)))
+      (urb:ramp-local-point base-pt axis-angle side-sign 0.3 0.2)))
   (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-  (foreach wing-a (list (list half total-half 1.0) (list (- total-half) (- half) -1.0))
-    (setq wing-b
-      (urb:ramp-quad-poly base-pt axis-angle side-sign
-        (nth 0 wing-a) 0.0 (nth 1 wing-a) depth "URB-RAMPA"))
-    (setq obj (vlax-ename->vla-object wing-b))
-    (setq objects (cons obj objects))
-    (setq hatch
-      (urb:add-user-hatch obj "URB-RAMPA" 0.10 axis-angle nil 8
-        (urb:ramp-local-point base-pt axis-angle side-sign (nth 0 wing-a) 0.0)))
-    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-    (setq hatch
-      (urb:add-user-hatch obj "URB-RAMPA" 0.20 (+ axis-angle (/ pi 2.0)) nil 8
-        (urb:ramp-local-point base-pt axis-angle side-sign (nth 0 wing-a) 0.0)))
-    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-    ;; borde inclinado del ala (linea amarilla del plano): del extremo
-    ;; exterior en el sardinel al vertice interior al fondo
+  ;; remates superiores de las aletas (tramo corto vertical en la via)
+  (foreach u1 (list 0.3 (+ width 0.9))
+    (setq ent (urb:ramp-line base-pt axis-angle side-sign u1 0.0 u1 0.2 "URB-RAMPA" 8))
+    (setq objects (cons (vlax-ename->vla-object ent) objects)))
+  ;; linea del sardinel (v=0.20) y banda inferior (1.30 / 1.50 / 1.70)
+  (foreach u1 (list 0.2 1.3 1.5 1.7)
     (setq ent
       (urb:ramp-line base-pt axis-angle side-sign
-        (if (> (nth 2 wing-a) 0) (nth 1 wing-a) (nth 0 wing-a)) 0.0
-        (if (> (nth 2 wing-a) 0) (nth 0 wing-a) (nth 1 wing-a)) depth
-        "URB-RAMPA" 2))
+        0.2 u1 (+ width 1.0) u1 "URB-RAMPA" 8))
     (setq objects (cons (vlax-ename->vla-object ent) objects)))
   (setq objects (reverse objects))
-  (setq area (* (+ width (* 2.0 wing)) depth))
+  ;; area util = superficie del trapecio de rampa
+  (setq area (* 0.5 (+ (+ width 0.6) width) 1.1))
   (setq block-name (strcat "URB_RAMPA_" (itoa (getvar "MILLISECS"))))
   (setq blocks (vla-get-Blocks doc))
   (setq block-definition

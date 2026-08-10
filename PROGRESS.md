@@ -17,6 +17,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 11) — Rampa peatonal según la composición REAL de U-201 + click de dirección
+
+El usuario confirmó que la curva quedó bien y pidió 2 ajustes de rampa. Se disecó la composición interna de los 5 bloques `B RAMPA T1/T2` de U-201 (el espécimen sin rotar `T2 - 3.00MT - Andén 4.00MT` dio las medidas exactas):
+
+- **Geometría real del plano** (reemplaza la inventada de central+aletas 0.65 a todo el fondo): franjas laterales de **0.20 m a todo el fondo** con relleno sólido; superficie de rampa **TRAPEZOIDAL** de W+0.60 contra la vía (T2-3.00 → 3.60, la medida que señaló el usuario) cerrando a W al fondo de rampa con **1.10 m de desarrollo** (v=0.20→1.30); banda inferior 1.30–1.50 y junta a 1.70; el resto del fondo es andén normal (la rampa NO ocupa todo el fondo). Ancho total del módulo = W+1.20. Nueva `urb:ramp-poly-pts` (polilínea cerrada desde puntos locales) para el trapecio. `urb:build-ramp` reescrita; ahora ancla en u=0 desde el punto inicial (ya no centrada).
+- **Flujo**: punto inicial → eje → ancho [2.00/3.00/Fondo] → **click del lado hacia donde va la rampa** (como el lado del toperol; reemplaza la palabra clave "Lado").
+- **Verificado por PDF**: T2-3.00 horizontal y T1-2.00 rotada 30° con lado invertido — ambas coinciden con la composición del plano.
+- Nota técnica: los .lsp de prueba con tildes escritos via bash heredoc (UTF-8) atascan el `load` en AutoCAD (ANSI) — el script de disección se reescribió sin tildes buscando defs por subcadena. U-201.dwg apareció con fecha de modificación de hoy 21:40 (probablemente guardado por el usuario); vigilar que las sesiones headless de solo lectura sigan cerrando con _.QUIT _N.
+
 ### 2026-08-09 (parte 10) — DECISIÓN DE DISEÑO CLAVE del usuario: el material en curvas NO va en abanico — orientación recta que la curva solo recorta
 
 Con la foto del plano en mano, el usuario aclaró el requisito que invalidaba todo el trabajo de "seguir la curva" del material: **las losetas/adoquines en las curvas conservan la MISMA orientación del tramo recto** ("como si el anden fuera recto") — en un andén en L cada pierna lleva su eje propio y se encuentran en una junta diagonal en la esquina; el contorno curvo solo RECORTA el patrón. Nada de bandas radiales.
