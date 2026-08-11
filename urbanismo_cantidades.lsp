@@ -13367,8 +13367,8 @@
 
 (defun urb:build-ramp
   (base-pt axis-angle side-sign width depth etapa subetapa
-   / doc objects obj hatch boundary area total u1 ent trap treg breg forigin piece
-   s e bw gray bp vlo vhi lu lv uvh corners
+   / doc objects obj hatch boundary area total u1 ent trap treg breg forigin
+   rorigin pair piece s e bw gray bp vlo vhi lu lv uvh corners
    block-name blocks block-definition copy-result insert-result block-ref
    block-ename)
   ;; Geometria segun los bloques B RAMPA T1/T2 reales de U-201 (disecados
@@ -13459,19 +13459,17 @@
         (car (nth 3 corners)) (cadr (nth 3 corners))
         "URB-RAMPA-A81" 8))
     (setq objects (cons (vlax-ename->vla-object ent) objects)))
-  ;; AMARILLO: superficie de rampa (trapecio) DESDE EL BORDILLO (v=0, "el
-  ;; rojo") hasta el bordillo horizontal, con el patron del anden
+  ;; AMARILLO: superficie de rampa RECTANGULAR entre los dos A81 (2026-08-11,
+  ;; correccion del usuario sobre el PDF: la rampa NO invade los A81 -- antes
+  ;; era un trapecio hasta el borde exterior y su textura pintaba encima de
+  ;; ellos -- y lleva la MISMA modelacion del anden que el fondo: la textura
+  ;; se aplica por banda mas abajo, en el mismo bucle de fase que el fondo)
   (setq trap
-    (urb:ramp-poly-pts base-pt axis-angle side-sign
-      (list (list 0.3 0.0) (list (+ width 0.9) 0.0)
-            (list (+ width 0.6) 1.3) (list 0.6 1.3))
-      "URB-RAMPA"))
+    (urb:ramp-quad-poly base-pt axis-angle side-sign
+      0.6 0.0 (+ width 0.6) 1.3 "URB-RAMPA"))
   (setq obj (vlax-ename->vla-object trap))
   (setq objects (cons obj objects))
-  (setq hatch
-    (urb:add-user-hatch obj "URB-RAMPA" 0.20 axis-angle T 9
-      (urb:ramp-local-point base-pt axis-angle side-sign 0.3 0.0)))
-  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+  (setq rorigin (urb:ramp-local-point base-pt axis-angle side-sign 0.3 0.0))
   (setq treg
     (vl-catch-all-apply 'urb:add-region-from-object (list obj)))
   ;; ZONA POSTERIOR: el fondo del modulo (del bordillo horizontal hasta el
@@ -13499,74 +13497,61 @@
     (if (or (null vlo) (< (cadr uvh) vlo)) (setq vlo (cadr uvh)))
     (if (or (null vhi) (> (cadr uvh) vhi)) (setq vhi (cadr uvh))))
   (setq vlo (- vlo 0.5) vhi (+ vhi 0.5))
+  ;; RAMPA y FONDO: la MISMA textura real del anden por banda (2026-08-11,
+  ;; correccion del usuario sobre el PDF) -- gris = loseta 20x20 (solido
+  ;; gris + reticula 0.20 doble, como urb:decorate-gray-stripe); blanco =
+  ;; adoquin (solido blanco + juntas 0.10 al eje y 0.20 perpendicular, como
+  ;; urb:decorate-white-stripe). Misma fase de bandas en las dos zonas (el
+  ;; bucle de u es compartido) y mismo origen en u (0.3) para que las
+  ;; columnas de adoquin queden alineadas de corrido entre rampa y fondo.
   (setq s 0.3 gray nil)
   (while (< s (+ width 0.9 -1e-6))
     (setq bw (if gray 0.80 1.00))
     (setq e (min (+ s bw) (+ width 0.9)))
-    ;; RAMPA (trapecio): igual que antes -- solo las bandas grises llevan
-    ;; relleno solido; la reticula 0.20 uniforme de toda la superficie ya
-    ;; quedo aplicada arriba.
-    (if (and gray (not (vl-catch-all-error-p treg)))
-      (progn
-        (setq piece
-          (urb:clip-stripe treg (+ bp s) (+ bp e) vlo vhi axis-angle))
-        (if piece
-          (progn
-            (vla-put-Layer piece "URB-RAMPA")
-            (setq objects (cons piece objects))
-            (setq hatch
-              (vl-catch-all-apply 'urb:add-solid-hatch
-                (list piece "URB-RAMPA" 8)))
-            (if (not (vl-catch-all-error-p hatch))
-              (setq objects (cons hatch objects)))))))
-    ;; FONDO: textura real del anden por banda (2026-08-11, pendiente del
-    ;; usuario) -- gris = loseta 20x20 (solido gris + reticula 0.20 doble,
-    ;; como urb:decorate-gray-stripe); blanco = adoquin (solido blanco +
-    ;; juntas 0.10 al eje y 0.20 perpendicular, como
-    ;; urb:decorate-white-stripe). Misma fase de bandas que la rampa.
-    (if (not (vl-catch-all-error-p breg))
-      (progn
-        (setq piece
-          (urb:clip-stripe breg (+ bp s) (+ bp e) vlo vhi axis-angle))
-        (if piece
-          (progn
-            (vla-put-Layer piece "URB-RAMPA")
-            (setq objects (cons piece objects))
-            (if gray
-              (progn
-                (setq hatch
-                  (vl-catch-all-apply 'urb:add-solid-hatch
-                    (list piece "URB-RAMPA" 8)))
-                (if (not (vl-catch-all-error-p hatch))
-                  (setq objects (cons hatch objects)))
-                (setq hatch
-                  (vl-catch-all-apply 'urb:add-user-hatch
-                    (list piece "URB-RAMPA" 0.20 axis-angle T 9 forigin)))
-                (if (not (vl-catch-all-error-p hatch))
-                  (setq objects (cons hatch objects))))
-              (progn
-                (setq hatch
-                  (vl-catch-all-apply 'urb:add-solid-hatch
-                    (list piece "URB-RAMPA" 7)))
-                (if (not (vl-catch-all-error-p hatch))
-                  (setq objects (cons hatch objects)))
-                (setq hatch
-                  (vl-catch-all-apply 'urb:add-user-hatch
-                    (list piece "URB-RAMPA" 0.10 axis-angle nil 8 forigin)))
-                (if (not (vl-catch-all-error-p hatch))
-                  (setq objects (cons hatch objects)))
-                (setq hatch
-                  (vl-catch-all-apply 'urb:add-user-hatch
-                    (list piece "URB-RAMPA" 0.20 (+ axis-angle (/ pi 2.0))
-                      nil 8 forigin)))
-                (if (not (vl-catch-all-error-p hatch))
-                  (setq objects (cons hatch objects)))))))))
+    (foreach pair (list (list treg rorigin) (list breg forigin))
+      (if (not (vl-catch-all-error-p (car pair)))
+        (progn
+          (setq piece
+            (urb:clip-stripe (car pair) (+ bp s) (+ bp e) vlo vhi axis-angle))
+          (if piece
+            (progn
+              (vla-put-Layer piece "URB-RAMPA")
+              (setq objects (cons piece objects))
+              (if gray
+                (progn
+                  (setq hatch
+                    (vl-catch-all-apply 'urb:add-solid-hatch
+                      (list piece "URB-RAMPA" 8)))
+                  (if (not (vl-catch-all-error-p hatch))
+                    (setq objects (cons hatch objects)))
+                  (setq hatch
+                    (vl-catch-all-apply 'urb:add-user-hatch
+                      (list piece "URB-RAMPA" 0.20 axis-angle T 9 (cadr pair))))
+                  (if (not (vl-catch-all-error-p hatch))
+                    (setq objects (cons hatch objects))))
+                (progn
+                  (setq hatch
+                    (vl-catch-all-apply 'urb:add-solid-hatch
+                      (list piece "URB-RAMPA" 7)))
+                  (if (not (vl-catch-all-error-p hatch))
+                    (setq objects (cons hatch objects)))
+                  (setq hatch
+                    (vl-catch-all-apply 'urb:add-user-hatch
+                      (list piece "URB-RAMPA" 0.10 axis-angle nil 8 (cadr pair))))
+                  (if (not (vl-catch-all-error-p hatch))
+                    (setq objects (cons hatch objects)))
+                  (setq hatch
+                    (vl-catch-all-apply 'urb:add-user-hatch
+                      (list piece "URB-RAMPA" 0.20 (+ axis-angle (/ pi 2.0))
+                        nil 8 (cadr pair))))
+                  (if (not (vl-catch-all-error-p hatch))
+                    (setq objects (cons hatch objects))))))))))
     (setq s e gray (not gray)))
   (if (not (vl-catch-all-error-p treg)) (urb:safe-delete treg))
   (if (not (vl-catch-all-error-p breg)) (urb:safe-delete breg))
   (setq objects (reverse objects))
-  ;; area util = superficie del trapecio de rampa
-  (setq area (* 0.5 (+ (+ width 0.6) width) 1.3))
+  ;; area util = superficie rectangular de rampa (entre los dos A81)
+  (setq area (* width 1.3))
   (setq block-name (strcat "URB_RAMPA_" (itoa (getvar "MILLISECS"))))
   (setq blocks (vla-get-Blocks doc))
   (setq block-definition

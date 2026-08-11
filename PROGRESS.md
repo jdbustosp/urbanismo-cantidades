@@ -17,6 +17,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 2) — Rampa: superficie RECTANGULAR con modelación completa del andén, A81 limpios
+
+El usuario marcó sobre el PDF de la parte 1 dos problemas: (rojo) los A81 seguían "modelándose mal" — la textura de la rampa les pintaba encima, porque la superficie era un TRAPECIO que llegaba hasta el borde exterior (su arista inclinada era la diagonal del A81, así que el triángulo inferior de cada A81 quedaba DENTRO del trapecio y recibía bandas/retícula); (verde) la superficie de la rampa debía llevar la modelación completa del andén como el fondo que "ya quedó bien" (losetas grises con retícula + adoquines en las blancas), no la retícula tenue uniforme sin sólidos.
+
+- La superficie de rampa pasó de trapecio a **RECTÁNGULO entre los dos A81** (u=0.6→W+0.6, v=0→1.3): ya no toca los A81, que quedan como rectángulos limpios 0.30×1.30 con su diagonal (geometría intacta de la parte 13).
+- El bucle de bandas ahora aplica **la misma textura del andén a rampa y fondo** (un solo `foreach` sobre las dos regiones): gris = sólido + retícula 0.20 doble; blanco = sólido + adoquín 0.10×0.20. Misma fase de bandas (bucle de u compartido) y mismo origen en u (0.3) → columnas de adoquín alineadas de corrido entre las dos zonas.
+- `AREA_M2` ajustada: rectángulo W×1.30 (antes ½(W+0.6+W)×1.30 del trapecio).
+- Verificado headless + PDF: censo de hatches exacto (4 sólidos blancos, 8 retículas de adoquín, 4 retículas de loseta, 6 sólidos grises, 3 de bordillo, 0 inesperados) y visualmente el PDF coincide con el marcado del usuario: A81 blancos limpios con diagonal, bandas de rampa gemelas y alineadas con las del fondo.
+
 ### 2026-08-11 — Pendientes 1 y 2 de la parte 14/15: bug de tipos en vía "Pendiente" + textura real del fondo de rampa
 
 De vuelta en la primera máquina (todo sincronizado vía GitHub, archivo local idéntico al último push; los punteros de git quedaron con rutas relativas — ver "Estado del repo"). El usuario pidió trabajar los pendientes 1 y 2 para poderlos probar:
