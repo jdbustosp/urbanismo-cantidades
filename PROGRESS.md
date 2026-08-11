@@ -17,6 +17,12 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 14) — PENDIENTES para la próxima sesión (feedback del usuario con capturas)
+
+1. **Vía con alineamiento "Nuevo" + rasante "Pendiente"**: simplificar el flujo a (1º) dibujar el eje de la vía y (2º) seleccionar DOS cotas, una en cada costado/extremo, para calcular la pendiente lineal entre ambas (hoy el modo Pendiente pide los datos de otra forma). Revisar `urb:create-road` / flujo de cotas.
+2. **Migración de tablas existentes**: botón (en Configuración) que busque las tablas de verificación ya creadas (`ACAD_TABLE` en capa URB-VIA con título "VERIFICACION MOVIMIENTO DE TIERRAS") y las mueva a `URB-VIA-TABLA`.
+3. **Rampa**: la captura del usuario muestra los síntomas de la versión ANTERIOR (retroceso 0.20 contra el bordillo + A81 triangular) — se le pidió recargar el .lsp y reprobar antes de tocar nada. Mejora pendiente sí real: la textura del FONDO del módulo debe igualar al andén de verdad (bandas blancas con retícula de adoquín 0.10×0.20 como `urb:decorate-white-stripe`, no solo la retícula 0.20 doble uniforme) — comparar contra la foto del andén real que envió.
+
 ### 2026-08-09 (parte 13) — 4 ajustes de rampa tras prueba real del usuario
 
 1. **A81 = cuadrado con diagonal** (no triángulo relleno): rectángulo de 0.30×1.30 en `URB-RAMPA-A81` + la línea diagonal (el borde inclinado de la rampa) dentro.
