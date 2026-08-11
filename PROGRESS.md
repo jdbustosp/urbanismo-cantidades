@@ -17,6 +17,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 13) — 4 ajustes de rampa tras prueba real del usuario
+
+1. **A81 = cuadrado con diagonal** (no triángulo relleno): rectángulo de 0.30×1.30 en `URB-RAMPA-A81` + la línea diagonal (el borde inclinado de la rampa) dentro.
+2. **La rampa llega hasta el bordillo** ("el rojo"): el trapecio arranca en v=0 (antes había un retroceso de 0.20 con línea de sardinel, eliminado); desarrollo v=0→1.30.
+3. **El fondo del módulo lleva la modelación del andén**: zona posterior (v=1.50→fondo) con bandas gris 0.80/blanco 1.00 + retícula 0.20, con la MISMA fase en u que la superficie de la rampa (bandas alineadas de corrido entre rampa y fondo).
+4. **"Viga de confinamiento" era en realidad BORDILLO**: las 2 verticales de 0.10 y la horizontal de 0.20 van en la capa existente `URB-BORDILLO` (solo se crea si no existe, para no pisar el color del proyecto); capa URB-RAMPA-VIGA eliminada; atributo `VIGA_ML` renombrado a `BORDILLO_ML`.
+- Verificado por PDF (horizontal + rotada espejada): los 4 ajustes coinciden con el marcado del usuario.
+- Nota de proceso: un `sed` sin archivo de entrada en un heredoc de bash se queda leyendo stdin para siempre — colgó una llamada; cuidado al encadenar.
+
 ### 2026-08-09 (parte 12) — Rampa por COMPONENTES según el marcado del usuario + respuesta sobre vía sin cotas propias
 
 El usuario marcó sobre la foto del plano las 4 partes de la rampa y pidió subdividirlas por capas pero unidas en un solo bloque:

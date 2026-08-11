@@ -13282,7 +13282,7 @@
 
 (defun urb:build-ramp
   (base-pt axis-angle side-sign width depth etapa subetapa
-   / doc objects obj hatch boundary area total u1 ent trap treg piece
+   / doc objects obj hatch boundary area total u1 ent trap treg breg treg2 piece
    s e bw gray bp vlo vhi lu lv uvh corners
    block-name blocks block-definition copy-result insert-result block-ref
    block-ename)
@@ -13305,7 +13305,6 @@
   ;; rampa). Todo queda unido en el mismo bloque URB_RAMPA_*.
   (setq doc (urb:doc))
   (urb:ensure-layer "URB-RAMPA" 7 T)
-  (urb:ensure-layer "URB-RAMPA-VIGA" 9 T)
   (urb:ensure-layer "URB-RAMPA-A81" 8 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
   (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
@@ -13337,70 +13336,95 @@
         (setq objects (cons (vlax-ename->vla-object ent) objects))
         (setq lv (+ lv 0.05)))
       (setq lu (+ lu 0.05))))
-  ;; VERDE: vigas de confinamiento verticales (0.10 junto a cada toperol)
+  ;; VERDE (correccion del usuario: es BORDILLO, no viga): 2 verticales de
+  ;; 0.10 junto a cada toperol + 1 horizontal de 0.20 entre rampa y anden,
+  ;; en la capa existente de bordillo
+  (if (not (tblsearch "LAYER" "URB-BORDILLO"))
+    (urb:ensure-layer "URB-BORDILLO" 9 T))
   (foreach u1 (list 0.2 (+ width 0.9))
     (setq obj
       (vlax-ename->vla-object
         (urb:ramp-quad-poly base-pt axis-angle side-sign
-          u1 0.0 (+ u1 0.1) depth "URB-RAMPA-VIGA")))
+          u1 0.0 (+ u1 0.1) depth "URB-BORDILLO")))
     (setq objects (cons obj objects))
-    (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA-VIGA" 9)))
+    (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-BORDILLO" 9)))
     (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects))))
-  ;; VERDE: viga horizontal entre la rampa y el anden (v=1.30-1.50)
   (setq obj
     (vlax-ename->vla-object
       (urb:ramp-quad-poly base-pt axis-angle side-sign
-        0.3 1.3 (+ width 0.9) 1.5 "URB-RAMPA-VIGA")))
+        0.3 1.3 (+ width 0.9) 1.5 "URB-BORDILLO")))
   (setq objects (cons obj objects))
-  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA-VIGA" 9)))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-BORDILLO" 9)))
   (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-  ;; MORADO: prefabricado A81 -- las 2 cunas inclinadas flanqueando la rampa
+  ;; MORADO: prefabricado A81 -- rectangulo CON DIAGONAL (no triangulo),
+  ;; flanqueando la rampa a cada lado
   (foreach corners
     (list
-      (list (list 0.3 0.2) (list 0.6 1.3) (list 0.3 1.3))
-      (list (list (+ width 0.9) 0.2) (list (+ width 0.6) 1.3) (list (+ width 0.9) 1.3)))
+      (list 0.3 0.6 (list 0.3 0.0) (list 0.6 1.3))
+      (list (+ width 0.6) (+ width 0.9) (list (+ width 0.9) 0.0) (list (+ width 0.6) 1.3)))
     (setq obj
       (vlax-ename->vla-object
-        (urb:ramp-poly-pts base-pt axis-angle side-sign corners "URB-RAMPA-A81")))
+        (urb:ramp-quad-poly base-pt axis-angle side-sign
+          (nth 0 corners) 0.0 (nth 1 corners) 1.3 "URB-RAMPA-A81")))
     (setq objects (cons obj objects))
-    (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA-A81" 8)))
-    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects))))
-  ;; AMARILLO: superficie de rampa (trapecio) con el patron del anden
+    ;; la diagonal del cuadrado (el borde inclinado de la rampa)
+    (setq ent
+      (urb:ramp-line base-pt axis-angle side-sign
+        (car (nth 2 corners)) (cadr (nth 2 corners))
+        (car (nth 3 corners)) (cadr (nth 3 corners))
+        "URB-RAMPA-A81" 8))
+    (setq objects (cons (vlax-ename->vla-object ent) objects)))
+  ;; AMARILLO: superficie de rampa (trapecio) DESDE EL BORDILLO (v=0, "el
+  ;; rojo") hasta el bordillo horizontal, con el patron del anden
   (setq trap
     (urb:ramp-poly-pts base-pt axis-angle side-sign
-      (list (list 0.3 0.2) (list (+ width 0.9) 0.2)
+      (list (list 0.3 0.0) (list (+ width 0.9) 0.0)
             (list (+ width 0.6) 1.3) (list 0.6 1.3))
       "URB-RAMPA"))
   (setq obj (vlax-ename->vla-object trap))
   (setq objects (cons obj objects))
   (setq hatch
     (urb:add-user-hatch obj "URB-RAMPA" 0.20 axis-angle T 9
-      (urb:ramp-local-point base-pt axis-angle side-sign 0.3 0.2)))
+      (urb:ramp-local-point base-pt axis-angle side-sign 0.3 0.0)))
   (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-  ;; bandas grises del patron (0.80 gris / 1.00 blanco a lo largo)
   (setq treg
     (vl-catch-all-apply 'urb:add-region-from-object (list obj)))
-  (if (not (vl-catch-all-error-p treg))
-    (progn
-      (setq bp (+ (* (car base-pt) (cos axis-angle))
-                  (* (cadr base-pt) (sin axis-angle))))
-      (setq vlo nil vhi nil)
-      (foreach corners
-        (list (list 0.3 0.2) (list (+ width 0.9) 0.2)
-              (list (+ width 0.6) 1.3) (list 0.6 1.3))
-        (setq uvh (urb:ramp-frame-uv base-pt axis-angle side-sign
-                    (car corners) (cadr corners)))
-        (if (or (null vlo) (< (cadr uvh) vlo)) (setq vlo (cadr uvh)))
-        (if (or (null vhi) (> (cadr uvh) vhi)) (setq vhi (cadr uvh))))
-      (setq vlo (- vlo 0.5) vhi (+ vhi 0.5))
-      (setq s 0.3 gray nil)
-      (while (< s (+ width 0.9 -1e-6))
-        (setq bw (if gray 0.80 1.00))
-        (setq e (min (+ s bw) (+ width 0.9)))
-        (if gray
+  ;; ZONA POSTERIOR: el fondo del modulo (del bordillo horizontal hasta el
+  ;; final) con la MISMA modelacion del anden (loseta 20x20 / adoquin)
+  (setq ent
+    (urb:ramp-quad-poly base-pt axis-angle side-sign
+      0.3 1.5 (+ width 0.9) depth "URB-RAMPA"))
+  (setq obj (vlax-ename->vla-object ent))
+  (setq objects (cons obj objects))
+  (setq hatch
+    (urb:add-user-hatch obj "URB-RAMPA" 0.20 axis-angle T 9
+      (urb:ramp-local-point base-pt axis-angle side-sign 0.3 1.5)))
+  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+  (setq breg
+    (vl-catch-all-apply 'urb:add-region-from-object (list obj)))
+  ;; bandas grises 0.80/1.00 compartidas (misma fase en rampa y fondo,
+  ;; para que las bandas queden alineadas de corrido)
+  (setq bp (+ (* (car base-pt) (cos axis-angle))
+              (* (cadr base-pt) (sin axis-angle))))
+  (setq vlo nil vhi nil)
+  (foreach corners
+    (list (list 0.3 0.0) (list (+ width 0.9) 0.0)
+          (list 0.3 depth) (list (+ width 0.9) depth))
+    (setq uvh (urb:ramp-frame-uv base-pt axis-angle side-sign
+                (car corners) (cadr corners)))
+    (if (or (null vlo) (< (cadr uvh) vlo)) (setq vlo (cadr uvh)))
+    (if (or (null vhi) (> (cadr uvh) vhi)) (setq vhi (cadr uvh))))
+  (setq vlo (- vlo 0.5) vhi (+ vhi 0.5))
+  (setq s 0.3 gray nil)
+  (while (< s (+ width 0.9 -1e-6))
+    (setq bw (if gray 0.80 1.00))
+    (setq e (min (+ s bw) (+ width 0.9)))
+    (if gray
+      (foreach treg2 (list treg breg)
+        (if (not (vl-catch-all-error-p treg2))
           (progn
             (setq piece
-              (urb:clip-stripe treg (+ bp s) (+ bp e) vlo vhi axis-angle))
+              (urb:clip-stripe treg2 (+ bp s) (+ bp e) vlo vhi axis-angle))
             (if piece
               (progn
                 (vla-put-Layer piece "URB-RAMPA")
@@ -13409,17 +13433,13 @@
                   (vl-catch-all-apply 'urb:add-solid-hatch
                     (list piece "URB-RAMPA" 8)))
                 (if (not (vl-catch-all-error-p hatch))
-                  (setq objects (cons hatch objects)))))))
-        (setq s e gray (not gray)))
-      (urb:safe-delete treg)))
-  ;; lineas: sardinel (v=0.20) y junta inferior (v=1.70)
-  (setq ent (urb:ramp-line base-pt axis-angle side-sign 0.3 0.2 (+ width 0.9) 0.2 "URB-RAMPA" 8))
-  (setq objects (cons (vlax-ename->vla-object ent) objects))
-  (setq ent (urb:ramp-line base-pt axis-angle side-sign 0.2 1.7 (+ width 1.0) 1.7 "URB-RAMPA" 8))
-  (setq objects (cons (vlax-ename->vla-object ent) objects))
+                  (setq objects (cons hatch objects)))))))))
+    (setq s e gray (not gray)))
+  (if (not (vl-catch-all-error-p treg)) (urb:safe-delete treg))
+  (if (not (vl-catch-all-error-p breg)) (urb:safe-delete breg))
   (setq objects (reverse objects))
   ;; area util = superficie del trapecio de rampa
-  (setq area (* 0.5 (+ (+ width 0.6) width) 1.1))
+  (setq area (* 0.5 (+ (+ width 0.6) width) 1.3))
   (setq block-name (strcat "URB_RAMPA_" (itoa (getvar "MILLISECS"))))
   (setq blocks (vla-get-Blocks doc))
   (setq block-definition
@@ -13441,7 +13461,7 @@
       (urb:add-invisible-attribute block-definition base-pt "AREA_M2" "Area m2" (rtos area 2 2))
       (urb:add-invisible-attribute block-definition base-pt "TOPEROL_ML" "Toperol ml"
         (rtos (* 2.0 depth) 2 2))
-      (urb:add-invisible-attribute block-definition base-pt "VIGA_ML" "Viga confinamiento ml"
+      (urb:add-invisible-attribute block-definition base-pt "BORDILLO_ML" "Bordillo ml"
         (rtos (+ (* 2.0 depth) (+ width 0.6)) 2 2))
       (urb:add-invisible-attribute block-definition base-pt "A81_UND" "Prefabricado A81 und" "2")
       (urb:add-invisible-attribute block-definition base-pt "ETAPA" "Etapa" etapa)
