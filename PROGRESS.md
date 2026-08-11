@@ -17,6 +17,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 8) — Bundle de Autodesk Autoloader: instalación en 1 paso, base para comercializar
+
+El usuario decidió el rumbo de producto: esto es el primer desarrollo, más adelante quiere ampliarlo (incluso a Revit) y comercializarlo. Decisión de arquitectura conversada: el LISP sigue siendo el motor de AutoCAD/Civil 3D para siempre (Revit no ejecuta LISP — el día que toque, se hace un núcleo C# compartido y adaptadores por plataforma; el conocimiento de negocio ya documentado se transfiere, no se pierde nada).
+
+- **Nuevo `bundle/PackageContents.xml`**: manifiesto del formato Autodesk Autoloader (`ApplicationPackage`, Platform AutoCAD*, Series R23.0-R25.1, `LoadOnAutoCADStartup`). Es también el formato que exige la Autodesk App Store para vender.
+- **Nuevo `instalar_bundle.ps1`**: copia el `.lsp` + manifiesto a `%AppData%\Autodesk\ApplicationPlugins\UrbanismoCantidades.bundle\` (carpeta confiable por defecto → carga automática al abrir AutoCAD/Civil 3D, sin APPLOAD ni carpetas confiables). **Reinstalar tras editar = correr el script y reiniciar AutoCAD.** En el otro computador: `git pull` + script. Para clientes futuros: se entrega la carpeta .bundle (o un zip/instalador) y se copia — sin git.
+- En la máquina de desarrollo ambos caminos conviven: `(load ...)` directo para probar al instante, bundle para "publicar" (si ambos cargan, los comandos solo se redefinen — inofensivo).
+- **Verificado headless**: AutoCAD lanzado SIN cargar el lsp manualmente → `c:URBANISMO` y `c:EDITAR` quedaron definidos solos por el autoloader, versión 4.17.7. Bundle instalado y funcionando en esta máquina.
+- Pendientes de esta línea (fase 2): pestaña en el ribbon (CUIx parcial dentro del mismo bundle), compilación a VLX para proteger el código antes de distribuir a terceros, y estructura de monorepo (`autocad/`, `core/`, `revit/`) cuando llegue la expansión.
+
 ### 2026-08-11 (parte 7) — Round 5: rampa desde el bordillo, eje sin zigzag y sin clics de extremos
 
 Cuarto reporte en vivo (la rampa salió "súper mal" — doble de larga, porque el punto inicial se marcó en el borde equivocado y la extensión de 3.86 m estiró todo el módulo; y el eje automático de una vía con cruces salió "súper torcido"):

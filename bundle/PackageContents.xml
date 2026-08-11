@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Plantilla del bundle de Autodesk Autoloader para Urbanismo Cantidades.
+  instalar_bundle.ps1 copia este archivo + el .lsp a
+  %AppData%\Autodesk\ApplicationPlugins\UrbanismoCantidades.bundle\
+  (carpeta confiable por defecto: carga automatica al abrir AutoCAD/Civil 3D,
+  sin APPLOAD ni carpetas confiables manuales).
+-->
+<ApplicationPackage
+    SchemaVersion="1.0"
+    AutodeskProduct="AutoCAD"
+    AppVersion="4.17.7"
+    ProductType="Application"
+    Name="Urbanismo Cantidades"
+    Description="Cuantificacion de obras de urbanismo: andenes, vias, rampas, prefabricados, redes y movimiento de tierras. Comandos URBANISMO y EDITAR."
+    Author="JD Bustos"
+    ProductCode="{7A3E6B10-9C44-4D2A-8F5E-URBCANT00001}">
+  <CompanyDetails Name="JD Bustos" Email="jd.bustosp@hotmail.com" />
+  <Components>
+    <!-- R24.x = AutoCAD/Civil 3D 2020-2022, R24.2 = 2023, R25.x = 2024-2026 -->
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R23.0" SeriesMax="R25.1" />
+    <ComponentEntry
+        AppName="UrbanismoCantidades"
+        ModuleName="./Contents/urbanismo_cantidades.lsp"
+        AppDescription="Motor AutoLISP de Urbanismo Cantidades"
+        LoadOnAutoCADStartup="True" />
+  </Components>
+</ApplicationPackage>
