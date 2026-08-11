@@ -17,6 +17,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 7) — Round 5: rampa desde el bordillo, eje sin zigzag y sin clics de extremos
+
+Cuarto reporte en vivo (la rampa salió "súper mal" — doble de larga, porque el punto inicial se marcó en el borde equivocado y la extensión de 3.86 m estiró todo el módulo; y el eje automático de una vía con cruces salió "súper torcido"):
+
+1. **Rampa rediseñada — flujo DESDE EL BORDILLO**: 1) seleccionás el bordillo como entidad, 2) clic del punto inicial (se PROYECTA sobre el bordillo), 3) la dirección sale sola de la tangente del bordillo (un clic decide hacia dónde avanza), 4) ancho/fondo, 5) lado del andén. El módulo arranca EXACTO en el bordillo (v=0) por construcción — se eliminó toda la lógica de extensión (`ext` siempre 0; el parámetro queda por compatibilidad) y ya no hay manera de dejarlo corto ni de marcar el borde equivocado. Respaldo manual (puntos a mano) si se da Enter.
+2. **Eje sin zigzag**: el emparejamiento de las 2 cadenas laterales era por fracción de longitud — con cadenas asimétricas (jogs de bocas de cruce, esquinas) las parejas se desalineaban y el eje salía en zigzag. Ahora cada punto de la cadena A se proyecta PERPENDICULAR (punto más cercano) sobre la cadena B, más un suavizado de promedio móvil de 3. Verificado con un contorno de 8 vértices con boca de cruce: eje recto de extremo a extremo (y ∈ [3.5, 4.5], la excursión local es el reflejo suavizado del jog real).
+3. **Extremos AUTOMÁTICOS, sin clics** ("quiero que sea más fácil"): los 2 bordes extremos ahora se detectan solos para CUALQUIER forma — el par de bordes no adyacentes cuyos puntos medios quedan más lejos entre sí (los jogs de cruce quedan descartados porque sus puntos medios son interiores). e1 = el más cercano al primer vértice dibujado. Los 2 clics de extremos desaparecieron del flujo.
+4. **Cerco final al "consp nil"**: el rastro dijo "areas", pero todas las expresiones de esa ventana son a prueba de nil — marcadores afinados por campo (areas-17/18/14/15/aritmetica) y el aviso ahora también vuelca los primeros 180 caracteres de `data`: la próxima aparición lo entrega sin escapatoria.
+
 ### 2026-08-11 (parte 6) — Round 4: tope de rampa, flujo de vía reordenado y cerco al "consp nil"
 
 Tercer reporte en vivo, con registro de comandos que resolvió el misterio de la rampa:

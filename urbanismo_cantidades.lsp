@@ -11593,33 +11593,46 @@
             verts vb))))
     nil))
 
-;; Bordes extremos del contorno: para 4 vertices RECTOS, el par opuesto
-;; de menor suma (automatico); si no, 2 clics del usuario sobre cada
-;; borde extremo. Devuelve (e1 e2) o nil.
-(defun urb:road-end-edges (boundary / vb pts bulges n l01 l12 l23 l30 p1 p2 e1 e2)
+;; Punto medio (por cuerda) del borde i del contorno.
+(defun urb:edge-midpoint (pts i / n)
+  (setq n (length pts))
+  (mapcar '(lambda (a b) (* 0.5 (+ a b)))
+    (nth i pts) (nth (rem (1+ i) n) pts)))
+
+;; Bordes extremos del contorno, AUTOMATICO para cualquier forma
+;; (2026-08-11 v5, "quiero que sea mas facil"): los extremos de una via
+;; son el par de bordes NO adyacentes cuyos puntos medios quedan mas
+;; lejos entre si -- funciona igual para el cuadrilatero recto y para
+;; contornos con arcos, jogs de cruces o muchos vertices, sin pedirle
+;; clics al usuario. e1 = el extremo mas cercano al PRIMER vertice
+;; dibujado (direccion de abscisado predecible). Devuelve (e1 e2) o nil.
+(defun urb:road-end-edges (boundary / vb pts n i j mi mj d best e1 e2 swap)
   (setq vb (urb:lwpoly-vertex-bulges boundary))
-  (setq pts (car vb) bulges (cadr vb) n (length pts))
-  (cond
-    ((< n 4) nil)
-    ((and (= n 4)
-          (not (vl-some '(lambda (b) (> (abs b) 1e-9)) bulges)))
-      (setq l01 (distance (nth 0 pts) (nth 1 pts))
-            l12 (distance (nth 1 pts) (nth 2 pts))
-            l23 (distance (nth 2 pts) (nth 3 pts))
-            l30 (distance (nth 3 pts) (nth 0 pts)))
-      ;; (3 1) y no (1 3): asi la cadena A (y el eje) arranca junto al
-      ;; PRIMER vertice dibujado, direccion predecible del abscisado
-      (if (< (+ l01 l23) (+ l12 l30)) (list 0 2) (list 3 1)))
-    (T
-      (prompt
-        "\nContorno con arcos o mas de 4 vertices: toque los 2 bordes EXTREMOS de la via.")
-      (setq p1 (getpoint "\nToque el borde EXTREMO INICIAL: "))
-      (if p1 (setq p2 (getpoint "\nToque el borde EXTREMO FINAL: ")))
-      (if (and p1 p2)
+  (setq pts (car vb) n (length pts))
+  (if (< n 4)
+    nil
+    (progn
+      (setq i 0)
+      (while (< i n)
+        (setq mi (urb:edge-midpoint pts i))
+        (setq j (1+ i))
+        (while (< j n)
+          ;; no adyacentes: comparten vertice si j=i+1 o (i=0 y j=n-1)
+          (if (not (or (= j (1+ i)) (and (= i 0) (= j (1- n)))))
+            (progn
+              (setq mj (urb:edge-midpoint pts j))
+              (setq d (distance mi mj))
+              (if (or (null best) (> d best))
+                (setq best d e1 i e2 j))))
+          (setq j (1+ j)))
+        (setq i (1+ i)))
+      (if best
         (progn
-          (setq e1 (urb:nearest-edge-index pts p1))
-          (setq e2 (urb:nearest-edge-index pts p2))
-          (if (and e1 e2 (/= e1 e2)) (list e1 e2) nil))
+          ;; e1 = extremo mas cercano al primer vertice dibujado
+          (if (> (distance (nth 0 pts) (urb:edge-midpoint pts e1))
+                 (distance (nth 0 pts) (urb:edge-midpoint pts e2)))
+            (setq swap e1 e1 e2 e2 swap))
+          (list e1 e2))
         nil))))
 
 ;; Cadenas laterales del contorno dados sus bordes extremos: lista
@@ -11649,13 +11662,20 @@
       (setq la (vlax-curve-getDistAtParam ca (vlax-curve-getEndParam ca)))
       (setq lb (vlax-curve-getDistAtParam cb (vlax-curve-getEndParam cb)))
       (setq steps (max 8 (min 60 (fix (/ (max la lb) 2.0)))))
+      ;; 2026-08-11 v5: emparejamiento por PROYECCION PERPENDICULAR (punto
+      ;; mas cercano de la otra cadena), no por fraccion de longitud -- con
+      ;; cadenas asimetricas (jogs de cruces, esquinas redondeadas) el
+      ;; emparejamiento por fraccion desalineaba las parejas y el eje salia
+      ;; en zigzag (reporte del usuario: "eje super torcido").
       (setq k 0 mids nil)
       (while (<= k steps)
         (setq frac (/ (float k) steps))
         (setq pa (vlax-curve-getPointAtDist ca (* frac la)))
-        ;; chainB avanza del extremo FINAL al INICIAL -> fraccion invertida
-        (setq pb (vlax-curve-getPointAtDist cb (* (- 1.0 frac) lb)))
-        (if (and pa pb)
+        (setq pb
+          (if pa
+            (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list cb pa))
+            nil))
+        (if (and pa pb (not (vl-catch-all-error-p pb)))
           (setq mids
             (cons
               (list (* 0.5 (+ (car pa) (car pb)))
@@ -11663,6 +11683,22 @@
               mids)))
         (setq k (1+ k)))
       (setq mids (reverse mids))
+      ;; suavizado: promedio movil de 3 (extremos intactos) para limar el
+      ;; residuo de los jogs
+      (if (> (length mids) 4)
+        (progn
+          (setq k 1)
+          (setq frac (list (car mids)))
+          (while (< k (1- (length mids)))
+            (setq frac
+              (cons
+                (mapcar
+                  '(lambda (a b c) (/ (+ a b c) 3.0))
+                  (nth (1- k) mids) (nth k mids) (nth (1+ k) mids))
+                frac))
+            (setq k (1+ k)))
+          (setq frac (cons (nth (1- (length mids)) mids) frac))
+          (setq mids (reverse frac))))
       (entdel ca)
       (entdel cb)
       (if (> (length mids) 1)
@@ -11883,11 +11919,15 @@
   ;; *urb-memoria-stage*: rastro fino para cazar el "consp nil" reportado
   ;; en vivo (2026-08-11) que no se ha podido reproducir headless -- el
   ;; aviso blindado de urb:create-road lo imprime junto al error.
-  (setq *urb-memoria-stage* "areas")
+  (setq *urb-memoria-stage* "areas-17")
   (setq area (atof (urb:safe-string (nth 17 data) "0")))
+  (setq *urb-memoria-stage* "areas-18")
   (setq road-length (atof (urb:safe-string (nth 18 data) "0")))
+  (setq *urb-memoria-stage* "areas-14")
   (setq left (atof (urb:safe-string (nth 14 data) "0")))
+  (setq *urb-memoria-stage* "areas-15")
   (setq right (atof (urb:safe-string (nth 15 data) "0")))
+  (setq *urb-memoria-stage* "areas-aritmetica")
   (setq left-area (min area (* road-length left)))
   (setq right-area (min (- area left-area) (* road-length right)))
   (setq over-area (+ left-area right-area))
@@ -12245,7 +12285,12 @@
                           (urb:safe-string
                             (if (boundp '*urb-memoria-stage*)
                               *urb-memoria-stage* nil)
-                            "desconocida")))
+                            "desconocida")
+                          " | data: "
+                          (urb:safe-string
+                            (vl-catch-all-apply
+                              '(lambda () (substr (vl-princ-to-string data) 1 180)))
+                            "(ilegible)")))
                       (alert (strcat "Via creada.\n\nEstado: " status)))
                     (alert memoria-result))))))))))
   (setq *urb-road-picked-cotas* nil)
@@ -13867,13 +13912,47 @@
   ;; del lado hacia donde va la rampa (igual que el lado del toperol).
   ;; El fondo (3.50 default) es opcion del mismo prompt del ancho.
   ;; Etapa/subetapa arrancan en 1/1 (cambiables en lote).
-  (setq depth 3.50 side-sign 1.0 width 2.00 etapa "1" subetapa "1")
-  (setq base-pt (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: "))
-  (if base-pt
-    (setq dir-pt (getpoint base-pt "\nDireccion del borde (eje de la rampa): ")))
-  (if dir-pt
+  (setq depth 3.50 side-sign 1.0 width 2.00 etapa "1" subetapa "1" ext 0.0)
+  ;; 2026-08-11 v5: flujo DESDE EL BORDILLO (el usuario colocaba el punto
+  ;; inicial en el borde equivocado y el modulo salia corrido o doble de
+  ;; largo): 1) seleccionar el bordillo como entidad, 2) click del punto
+  ;; inicial -- se PROYECTA sobre el bordillo, 3) la direccion sale sola
+  ;; de la tangente del bordillo en ese punto (un click decide hacia
+  ;; donde avanza), 4) ancho/fondo, 5) lado del anden. El modulo arranca
+  ;; EXACTO en el bordillo (v=0) por construccion: ya no hay extension
+  ;; que calcular ni manera de dejarlo corto.
+  (setq ext-sel
+    (entsel "\nSeleccione el BORDILLO de la via (Enter para marcar puntos a mano): "))
+  (cond
+    ((and ext-sel (urb:curve-entity-p (car ext-sel)))
+      (setq ext-pt
+        (getpoint "\nPunto INICIAL de la rampa sobre el bordillo: "))
+      (if ext-pt
+        (progn
+          (setq base-pt
+            (vlax-curve-getClosestPointTo (car ext-sel) ext-pt))
+          (setq ext-cp
+            (vlax-curve-getFirstDeriv (car ext-sel)
+              (vlax-curve-getParamAtPoint (car ext-sel) base-pt)))
+          (setq axis-angle (atan (cadr ext-cp) (car ext-cp)))
+          (setq dir-pt
+            (getpoint base-pt
+              "\nHacia donde AVANZA el modulo a lo largo del bordillo (click): "))
+          (if (and dir-pt
+                   (< (+ (* (- (car dir-pt) (car base-pt)) (cos axis-angle))
+                         (* (- (cadr dir-pt) (cadr base-pt)) (sin axis-angle)))
+                      0.0))
+            (setq axis-angle (+ axis-angle pi)))
+          (setq dir-pt T))))
+    (T
+      ;; respaldo manual (sin bordillo seleccionable, p.ej. en xref raro)
+      (setq base-pt
+        (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: "))
+      (if base-pt
+        (setq dir-pt (getpoint base-pt "\nDireccion del borde (eje de la rampa): ")))
+      (if dir-pt (setq axis-angle (angle base-pt dir-pt)))))
+  (if (and base-pt dir-pt axis-angle)
     (progn
-      (setq axis-angle (angle base-pt dir-pt))
       (setq done nil)
       (while (not done)
         (initget "2.00 3.00 Fondo")
@@ -13902,52 +13981,8 @@
       ;; la via queda mas alla, un click sobre ese borde extiende TODO el
       ;; modulo (rampa, A81, toperoles y bordillos verticales) hasta el
       ;; bordillo. Enter = sin extension (comportamiento anterior).
-      (setq ext 0.0)
-      ;; 2026-08-11 v3: se SELECCIONA el bordillo como ENTIDAD (entsel),
-      ;; no un punto suelto -- el usuario reporto 2 veces que "selecciono
-      ;; el bordillo" y la rampa quedaba corta: con getpoint el click sin
-      ;; osnap caia en cualquier parte y la distancia salia mal. Si lo
-      ;; seleccionado es una curva, la extension es la distancia
-      ;; PERPENDICULAR real desde el arranque hasta esa curva (da igual
-      ;; donde se toque); si no es curva (p.ej. bordillo dentro de un
-      ;; xref), se usa el punto del click. Tope 3 m y mensaje SIEMPRE.
-      (setq ext-sel
-        (entsel
-          "\nSeleccione el BORDILLO de la via (Enter si la rampa arranca aqui): "))
-      (if ext-sel
-        (progn
-          (setq ext-pt
-            (if (urb:curve-entity-p (car ext-sel))
-              (progn
-                (setq ext-cp
-                  (vl-catch-all-apply
-                    'vlax-curve-getClosestPointTo
-                    (list (car ext-sel) base-pt)))
-                (if (vl-catch-all-error-p ext-cp) (cadr ext-sel) ext-cp))
-              (cadr ext-sel)))
-          (setq ext
-            (abs
-              (+ (* (- (car ext-pt) (car base-pt)) (- (sin axis-angle)))
-                 (* (- (cadr ext-pt) (cadr base-pt)) (cos axis-angle)))))
-          ;; tope 10 m (2026-08-11 v4: el tope anterior de 3 m descarto un
-          ;; bordillo real a 3.85 m en la prueba en vivo del usuario; con
-          ;; el bordillo seleccionado como entidad la distancia es real y
-          ;; el tope solo protege de selecciones absurdas)
-          (cond
-            ((> ext 10.0)
-              (prompt
-                (strcat "\nEl bordillo quedo a " (rtos ext 2 2)
-                        " m del arranque; se ignora (tope 10.00 m)."))
-              (setq ext 0.0))
-            ((<= ext 0.005)
-              (setq ext 0.0)
-              (prompt "\nSin extension: el bordillo coincide con el arranque de la rampa."))
-            (T
-              (prompt
-                (strcat "\nModulo extendido " (rtos ext 2 3)
-                        " m hasta el bordillo."))))))
-      ;; base-pt es el INICIO del modulo (u=0); el modulo mide W+1.20 a lo
-      ;; largo del eje
+      ;; base-pt es el INICIO del modulo (u=0) SOBRE EL BORDILLO; el
+      ;; modulo mide W+1.20 a lo largo del bordillo y crece hacia el anden
       (setq block-ref
         (urb:build-ramp base-pt axis-angle side-sign width depth etapa subetapa ext))
       (if block-ref
