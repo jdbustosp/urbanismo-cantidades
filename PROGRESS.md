@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 9) — Reorganización: todo el proyecto vive en `BLOQUES PPTOS\CANTIDADES\`
+
+A pedido del usuario ("organices mejor esa carpeta... crees otra carpeta que se llame cantidades y dentro metas todo lo que necesites"):
+
+- **Nueva estructura**: `BLOQUES PPTOS\CANTIDADES\` contiene TODO el proyecto — `urbanismo_cantidades.lsp`, `PROGRESS.md`, `TESTING_CIVIL3D.md`, `bundle/`, `INSTALAR.bat`, `instalar_bundle.ps1`, `.gitignore`, el puntero `.git`, y `backups/` (adentro quedaron también los 20 `urbanismo_cantidades_backup_*.lsp` que estaban sueltos en la raíz). En la raíz de BLOQUES PPTOS solo quedó el `.lsp` viejo de MAIPORE (fuera del repo desde ahora — sus funciones ya están integradas al principal; se dejó en el disco por si el Startup Suite lo referencia, borrable cuando el usuario confirme).
+- **Git**: el worktree pasó a ser `CANTIDADES` — puntero `.git` relativo (`gitdir: ../../REPOSITORIO CODIGOS/urbanismo-cantidades/.git`) y `core.worktree = ../../../BLOQUES PPTOS/CANTIDADES`. Como los archivos se movieron JUNTO con la raíz del worktree, git no ve cambios de rutas (historial limpio, sin renames). Verificado desde la carpeta nueva.
+- **Verificado headless**: el bundle sigue cargando solo, el `load` directo desde `CANTIDADES` funciona sin diálogo de seguridad (la subcarpeta hereda la confianza), e `INSTALAR.bat` corre desde la nueva ubicación (exit 0, instalación recreada desde cero).
+- **Política de PDFs** (pedido del usuario: "nos estamos llenando de pdfs"): verificación numérica primero; los PDFs visuales van SOLO a la carpeta temporal de la sesión de Claude, nunca a Drive. Se borraron los `_tmp_*.pdf` que sesiones anteriores dejaron en BLOQUES PPTOS. Documentado en TESTING_CIVIL3D.md sección 3b.
+- **OJO en el otro computador**: la ruta del `.lsp` cambió a `...\BLOQUES PPTOS\CANTIDADES\urbanismo_cantidades.lsp` — si el Startup Suite o algún atajo apuntaba a la ruta vieja, actualizarlo (o mejor: correr `INSTALAR.bat` y depender solo del bundle).
+
 ### 2026-08-11 (parte 8) — Bundle de Autodesk Autoloader: instalación en 1 paso, base para comercializar
 
 El usuario decidió el rumbo de producto: esto es el primer desarrollo, más adelante quiere ampliarlo (incluso a Revit) y comercializarlo. Decisión de arquitectura conversada: el LISP sigue siendo el motor de AutoCAD/Civil 3D para siempre (Revit no ejecuta LISP — el día que toque, se hace un núcleo C# compartido y adaptadores por plataforma; el conocimiento de negocio ya documentado se transfiere, no se pierde nada).

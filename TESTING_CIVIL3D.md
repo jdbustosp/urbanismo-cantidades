@@ -83,6 +83,10 @@ Notas:
 - Para verificar una función que sí escribe un archivo de verdad (como las que generan un `.dcl`), se puede leer ese archivo después con la herramienta `Read` normal y compararlo contra lo que el código viejo hubiera escrito.
 - Como respaldo rápido que no depende de lanzar Civil 3D en absoluto: un chequeo de balance de paréntesis de todo el archivo (recorrer el texto carácter por carácter, respetando strings entre comillas y comentarios `;`, sumando `(` y restando `)`) detecta la mayoría de errores de sintaxis en segundos. Útil como primera pasada antes de gastar tiempo en el arranque de Civil 3D. Ojo: esta máquina no tiene Python instalado de verdad (solo el stub de Microsoft Store) — escribirlo en PowerShell si hace falta.
 
+## 3b. Política de PDFs de verificación (2026-08-11, pedido del usuario)
+
+La verificación debe ser NUMÉRICA primero (conteos de entidades, censos de hatches por color/patrón, atributos, coordenadas, matemática a mano) — eso no genera archivos. El ploteo a PDF se reserva SOLO para cuando hay que VER una textura o composición, y esos PDFs van SIEMPRE a la carpeta temporal de la sesión de Claude (scratchpad), NUNCA a la carpeta del repo ni a Drive. Los `_tmp_*.pdf` que sesiones anteriores dejaron en BLOQUES PPTOS se borraron el 2026-08-11 — no repetir ese patrón.
+
 ## 4. Lanzar y esperar el resultado
 
 **ADVERTENCIA (2026-08-11): lanzar SIEMPRE desde PowerShell, jamás desde Git Bash.** Bash/MSYS convierte el argumento `/b` en una ruta (`C:/Program Files/Git/b`); AutoCAD lo toma como un dibujo a abrir, muestra un diálogo modal "Cannot find the specified drawing file" (que Claude no puede ver ni cerrar) y la instancia queda eterna en la pantalla [Start]. Este fue el verdadero origen de los "cuelgues" del 2026-08-04 y 2026-08-11 — no era contención de licencia con la sesión abierta del usuario, como se creyó al principio.
