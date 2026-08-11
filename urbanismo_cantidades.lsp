@@ -12908,7 +12908,10 @@
   (setq audit (urb:road-earthwork-audit-rows samples width-total depth))
   (if audit
     (progn
-      (urb:ensure-layer "URB-VIA" 4 T)
+      ;; Capa PROPIA para la tabla de verificacion: permite apagarla o
+      ;; congelarla sin ocultar la via (antes iba en URB-VIA junto con
+      ;; todo lo demas y no se podia esconder por separado).
+      (urb:ensure-layer "URB-VIA-TABLA" 4 T)
       (setq point (urb:road-audit-table-point boundary))
       (setq textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE"))))
       (setq rowheight (* textheight 2.20))
@@ -12919,7 +12922,7 @@
         (vla-AddTable
           (urb:space) (vlax-3d-point point)
           rows-count 9 rowheight colwidth))
-      (vla-put-Layer table "URB-VIA")
+      (vla-put-Layer table "URB-VIA-TABLA")
       (vla-put-Color table 256)
       (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
         (list table :vlax-true))
