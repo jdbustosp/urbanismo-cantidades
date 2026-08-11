@@ -16,7 +16,7 @@ Bitácora de trabajo con Claude Code sobre este repositorio. Úsala para retomar
 Qué vive dónde:
 - **Drive (sincroniza solo entre máquinas):** `BLOQUES PPTOS` (el `.lsp`, esta bitácora, `bundle/`, `instalar_bundle.ps1`) y el control git en `REPOSITORIO CODIGOS` (punteros relativos, funcionan en ambas máquinas).
 - **GitHub (respaldo y fuente de verdad):** cada push de cada sesión. Si Drive alguna vez corrompe o hace "copia en conflicto", `git pull` restaura el estado bueno — no se pierde nada.
-- **Local por máquina (NO se sincroniza, y así debe ser):** el bundle instalado en `%AppData%\Autodesk\ApplicationPlugins\UrbanismoCantidades.bundle` — AutoCAD lo exige local. En cada computador se corre `instalar_bundle.ps1` una vez, y de nuevo cada vez que se quiera actualizar el plugin instalado con el `.lsp` del repo.
+- **Local por máquina (NO se sincroniza, y así debe ser):** el bundle instalado en `%AppData%\Autodesk\ApplicationPlugins\UrbanismoCantidades.bundle` — AutoCAD lo exige local. Para instalar/actualizar en cada computador: **doble clic a `INSTALAR.bat`** (en la raíz de BLOQUES PPTOS; sin terminal, muestra el resultado y espera una tecla). `instalar_bundle.ps1` hace lo mismo desde PowerShell si se prefiere. Correrlo de nuevo = actualizar el plugin a la versión actual del repo.
 
 Disciplina (3 reglas, en orden de importancia):
 1. **Un computador a la vez** — nunca editar en ambos simultáneamente (única causa real de copias en conflicto de Drive sobre el repo).
