@@ -11,6 +11,18 @@ Bitácora de trabajo con Claude Code sobre este repositorio. Úsala para retomar
 - `.gitignore` excluye `backups/` y los `urbanismo_cantidades_backup_*.lsp` sueltos — desde ahora el historial de versiones lo lleva git (`git log`), no copias manuales del archivo completo.
 - Flujo de trabajo: editar → `git add urbanismo_cantidades.lsp` → `git commit` → `git push`. Ver [`TESTING_CIVIL3D.md`](TESTING_CIVIL3D.md) para cómo se verifica cada cambio antes de subirlo.
 
+## Flujo entre computadores (Drive + GitHub + bundle) — 2026-08-11
+
+Qué vive dónde:
+- **Drive (sincroniza solo entre máquinas):** `BLOQUES PPTOS` (el `.lsp`, esta bitácora, `bundle/`, `instalar_bundle.ps1`) y el control git en `REPOSITORIO CODIGOS` (punteros relativos, funcionan en ambas máquinas).
+- **GitHub (respaldo y fuente de verdad):** cada push de cada sesión. Si Drive alguna vez corrompe o hace "copia en conflicto", `git pull` restaura el estado bueno — no se pierde nada.
+- **Local por máquina (NO se sincroniza, y así debe ser):** el bundle instalado en `%AppData%\Autodesk\ApplicationPlugins\UrbanismoCantidades.bundle` — AutoCAD lo exige local. En cada computador se corre `instalar_bundle.ps1` una vez, y de nuevo cada vez que se quiera actualizar el plugin instalado con el `.lsp` del repo.
+
+Disciplina (3 reglas, en orden de importancia):
+1. **Un computador a la vez** — nunca editar en ambos simultáneamente (única causa real de copias en conflicto de Drive sobre el repo).
+2. **Al terminar en una máquina:** commit + push, y dejar que Drive termine de subir antes de apagar.
+3. **Al empezar en la otra:** esperar a que Drive termine de bajar antes de abrir/editar; ante cualquier cosa rara, `git status` y si hace falta `git pull`.
+
 ## Qué es este archivo
 
 AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (andenes, prefabricados, zonas verdes, vías con movimiento de tierras, redes de servicios) y exporta a Excel vía ActiveX. ~14,200 líneas, namespaces `urb:` (núcleo) y `mp:` (módulo "Maipore Redes"). Comandos públicos: `URBANISMO` y `EDITAR`.
