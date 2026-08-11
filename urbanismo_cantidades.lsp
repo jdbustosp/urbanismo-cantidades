@@ -63,6 +63,9 @@
 ;; los modulos de curva (fila tactil intermedia); antes estaba fijo en
 ;; 1.20. Configurable en un solo lugar por si otro proyecto usa otra.
 (setq *urb-guide-offset* 2.50)
+;; Par de cotas (inicial final) seleccionadas en el flujo de via modo
+;; "Pendiente"; se limpia al terminar cada creacion de via.
+(setq *urb-road-picked-cotas* nil)
 ;; Lado elegido para el toperol/guia ("Arriba"/"Abajo"/"Izquierda"/"Derecha").
 ;; Tiene prioridad sobre *urb-current-tactile-side-point* en
 ;; urb:reference-v-edge; se resuelve por-anden con el bbox de cada contorno.
@@ -3990,7 +3993,8 @@
   (ename / boundary metadata material etapa subetapa guia toperol format
    calculate surface grade-source elevation pattern-mode area perimeter points finish-qty
    handle objects filtered obj block-name blocks block-definition
-   copy-result point block-ref insert-result block-ename xdata-result)
+   copy-result point block-ref insert-result block-ename xdata-result
+   fast-ok ss en cmd-result old-attreq)
   (setq boundary (vlax-ename->vla-object ename))
   (urb:ensure-layer "URB-ANDEN" 7 T)
   (setq metadata (urb:get-xdata-strings ename "URB_ANDEN"))
@@ -4064,26 +4068,51 @@
       "_"
       (itoa (getvar "MILLISECS"))))
   (setq blocks (vla-get-Blocks (urb:doc)))
-  (setq block-definition
-    (vla-Add blocks (vlax-3d-point '(0.0 0.0 0.0)) block-name))
-  ;; El empaquetado (CopyObjects + borrado de originales) es la parte
-  ;; lenta del proceso: minutos en andenes grandes con decenas de miles de
-  ;; piezas. Si se interrumpe con Esc a mitad de camino, el material queda
-  ;; suelto SIN bloque -- por eso el aviso explicito.
   (prompt
     (strcat
       "\nEmpaquetando el anden en un bloque ("
       (itoa (length objects))
-      " objetos)... en andenes grandes esto tarda VARIOS MINUTOS."
-      " No interrumpa con Esc ni cierre el dibujo."))
-  (setq copy-result
-    (vl-catch-all-apply
-      'vla-CopyObjects
-      (list
-        (urb:doc)
-        (urb:object-array-variant objects)
-        block-definition)))
-  (if (vl-catch-all-error-p copy-result)
+      " objetos)..."))
+  ;; EMPAQUETADO NATIVO con -BLOCK (2026-08-09): mueve todas las entidades
+  ;; a la definicion en UNA operacion nativa, en vez de CopyObjects +
+  ;; borrado objeto-por-objeto via COM que tardaba MINUTOS con decenas de
+  ;; miles de piezas -- la causa de fondo de "el anden no queda en bloque"
+  ;; (el usuario interrumpia la espera y el material quedaba suelto). Si
+  ;; el comando falla por cualquier razon, se cae al camino COM anterior.
+  (setq fast-ok nil)
+  (setq ss (ssadd))
+  (foreach obj objects
+    (setq en (vl-catch-all-apply 'vlax-vla-object->ename (list obj)))
+    (if (not (vl-catch-all-error-p en)) (ssadd en ss)))
+  (if (> (sslength ss) 0)
+    (progn
+      (setq old-attreq (getvar "ATTREQ"))
+      (setvar "ATTREQ" 0)
+      (setq cmd-result
+        (vl-catch-all-apply 'vl-cmdf
+          (list "_.-BLOCK" block-name "0,0,0" ss "")))
+      (setvar "ATTREQ" old-attreq)
+      (if (and (not (vl-catch-all-error-p cmd-result))
+               (tblsearch "BLOCK" block-name))
+        (progn
+          (setq block-definition
+            (vl-catch-all-apply '(lambda () (vla-Item blocks block-name))))
+          (if (not (vl-catch-all-error-p block-definition))
+            (setq fast-ok T))))))
+  (if (not fast-ok)
+    (progn
+      (prompt "\nEmpaquetado nativo no disponible; usando el metodo lento (varios minutos, no interrumpa)...")
+      (setq block-definition
+        (vla-Add blocks (vlax-3d-point '(0.0 0.0 0.0)) block-name))
+      (setq copy-result
+        (vl-catch-all-apply
+          'vla-CopyObjects
+          (list
+            (urb:doc)
+            (urb:object-array-variant objects)
+            block-definition))))
+    (setq copy-result nil))
+  (if (and (not fast-ok) (vl-catch-all-error-p copy-result))
     (progn
       (urb:safe-delete block-definition)
       (prompt
@@ -4094,7 +4123,9 @@
     (progn
       (urb:set-block-draw-order
         block-definition
-        (urb:variant-object-list copy-result))
+        (if fast-ok
+          (urb:block-object-list block-definition)
+          (urb:variant-object-list copy-result)))
       (urb:add-invisible-attribute
         block-definition point "AREA_M2" "Area m2"
         (rtos area 2 2))
@@ -4212,7 +4243,11 @@
               (if xdata-result
                 (progn
                   (urb:set-anden-pattern-mode block-ename pattern-mode)
-                  (foreach obj objects (urb:safe-delete obj))
+                  ;; con -BLOCK los originales ya fueron MOVIDOS al bloque:
+                  ;; no hay nada que borrar (y recorrer decenas de miles de
+                  ;; objetos muertos costaba minutos extra)
+                  (if (not fast-ok)
+                    (foreach obj objects (urb:safe-delete obj)))
                   block-ref)
                 (progn
                   (urb:safe-delete block-ref)
@@ -11266,6 +11301,36 @@
     (urb:add-road-station axis distance-value label direction parent-handle))
   span)
 
+(defun urb:pick-cota-value (msg / selected ename edata txt value)
+  ;; Selecciona un texto/etiqueta de cota y devuelve su valor numerico
+  ;; (usa el ultimo numero con punto decimal, robusto ante codigos MTEXT).
+  ;; Enter u objeto ilegible -> pide digitarla.
+  (setq selected (nentsel msg))
+  (if selected
+    (progn
+      (setq ename (car selected) edata (entget ename))
+      (setq txt (cdr (assoc 1 edata)))
+      (if txt (setq value (mp:last-decimal-number txt)))))
+  (if (null value)
+    (setq value (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
+  value
+)
+
+(defun urb:pick-two-road-cotas (/ c0 c1)
+  ;; Modo "Pendiente" (2026-08-09, a pedido del usuario): despues de
+  ;; delimitar el poligono de la via se seleccionan DOS cotas, una en
+  ;; cada costado/extremo, y la rasante queda como pendiente lineal entre
+  ;; ambas (util cuando la via nueva conecta dos vias que si tienen cota).
+  (setq c0
+    (urb:pick-cota-value
+      "\nSeleccione la COTA del costado/abscisa INICIAL de la via: "))
+  (if c0
+    (setq c1
+      (urb:pick-cota-value
+        "\nSeleccione la COTA del costado/abscisa FINAL de la via: ")))
+  (if (and c0 c1) (list c0 c1) nil)
+)
+
 (defun urb:road-cota-reference (mode / selected ename edata layer texts count)
   (cond
     ((urb:string-equal-p mode "Textos por capa")
@@ -11648,6 +11713,11 @@
           (setq boundary (urb:draw-road-boundary))
           (if boundary
             (progn
+              ;; modo Pendiente: PRIMERO el poligono (ya dibujado), y AHORA
+              ;; las dos cotas, una por costado -> pendiente lineal
+              (setq *urb-road-picked-cotas* nil)
+              (if (urb:string-equal-p (nth 6 dialog) "Pendiente")
+                (setq *urb-road-picked-cotas* (urb:pick-two-road-cotas)))
               (setq obj (vlax-ename->vla-object boundary))
               (setq area (vla-get-Area obj))
               ;; El eje puede ser mas largo que esta via (compartido entre
@@ -11716,6 +11786,7 @@
                   (vla-Regen (urb:doc) 1)
                   (alert (strcat (urb:road-memory-from-data boundary data)
                     "\n\nEstado: " status))))))))))
+  (setq *urb-road-picked-cotas* nil)
   (if undo-open
     (progn
       (vl-catch-all-apply 'vla-EndUndoMark (list doc))
@@ -12987,6 +13058,11 @@
     (if (and old-mov (> (length old-mov) 8) (/= (nth 8 old-mov) ""))
       (atof (nth 8 old-mov))
       nil))
+  ;; cotas seleccionadas en el flujo Pendiente (una por costado): tienen
+  ;; prioridad como par inicial/final para la pendiente lineal
+  (if (and *urb-road-picked-cotas* (null old-cota0))
+    (setq old-cota0 (car *urb-road-picked-cotas*)
+          old-cota-final (cadr *urb-road-picked-cotas*)))
   (setq surface (urb:select-surface-object (nth 6 data)))
   (setq depth (urb:road-profile-depth (nth 4 data)))
   (cond
@@ -16430,6 +16506,7 @@
   (if (or (null action) (= action "back")) "back" nil))
 
 (defun c:URBANISMO (/ action done result)
+  (vl-catch-all-apply 'urb:migrate-current-drawing nil)
   (while (not done)
     (setq action
       (urb:simple-menu-dialog "urb_main"
@@ -16448,6 +16525,33 @@
       ((= action "config")
         (if (not (urb:string-equal-p (urb:configuration-menu) "back"))
           (setq done T)))))
+  (princ))
+
+(defun urb:migrate-current-drawing (/ ss i count)
+  ;; MIGRACIONES AUTOMATICAS de dibujos hechos con versiones anteriores.
+  ;; Corre al cargar el .lsp y al abrir el menu URBANISMO, y es idempotente
+  ;; (si no hay nada que migrar, no toca nada). Patron establecido a
+  ;; pedido del usuario: cada cambio de capas/estructura futuro agrega
+  ;; aqui su migracion para que lo ya creado se actualice solo.
+  ;; 1) Tablas de verificacion de vias: de URB-VIA a URB-VIA-TABLA
+  ;;    (para poder apagarlas sin ocultar la via).
+  (if (setq ss (ssget "_X" '((0 . "ACAD_TABLE") (8 . "URB-VIA"))))
+    (progn
+      (urb:ensure-layer "URB-VIA-TABLA" 4 T)
+      (setq i 0 count 0)
+      (repeat (sslength ss)
+        (if (not (vl-catch-all-error-p
+                   (vl-catch-all-apply
+                     '(lambda ()
+                        (vla-put-Layer
+                          (vlax-ename->vla-object (ssname ss i))
+                          "URB-VIA-TABLA")))))
+          (setq count (1+ count)))
+        (setq i (1+ i)))
+      (if (> count 0)
+        (prompt
+          (strcat "\nMigracion automatica: " (itoa count)
+                  " tabla(s) de verificacion movida(s) a URB-VIA-TABLA.")))))
   (princ))
 
 (defun urb:remove-legacy-commands (/ command-symbol)
@@ -16482,6 +16586,7 @@
 
 (urb:remove-legacy-commands)
 (mp:install-network-erase-reactor)
+(vl-catch-all-apply 'urb:migrate-current-drawing nil)
 
 (princ
   (strcat

@@ -17,6 +17,12 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 15) — Empaquetado NATIVO del andén, vía "Pendiente" con 2 cotas tras el polígono, y migraciones automáticas
+
+1. **Empaquetado del andén con `-BLOCK` nativo** (ataca "no queda en bloque / se demora"): `urb:package-anden` ahora arma el bloque con el comando nativo `-BLOCK` (mueve TODAS las entidades a la definición en una operación) en vez de `vla-CopyObjects` + borrado objeto-por-objeto vía COM — los dos costos de minutos en andenes grandes. Con fallback automático al camino COM si el comando falla (mensaje "Empaquetado nativo no disponible..."). En el fast-path se omite el bucle de borrado (los originales ya fueron movidos). Verificado: corredor 60×4 curvo con franjas offset → bloque de 10,901 objetos, 0 sueltas, atributos OK, 16.8s total (build 9.5s); en andenes de 100k+ piezas la diferencia vs COM debe ser de minutos.
+2. **Vía modo "Pendiente" (a pedido, con corrección del usuario)**: PRIMERO se delimita el polígono de la vía (contorno) y DESPUÉS se seleccionan DOS cotas, una por costado/extremo (`urb:pick-two-road-cotas`/`urb:pick-cota-value`, parser `mp:last-decimal-number`, con getreal de respaldo si el texto no se puede leer) → pendiente lineal entre ambas vía global `*urb-road-picked-cotas*` que `urb:compute-road-earthworks` toma con prioridad. Se limpia al terminar la creación. No probado interactivamente (nentsel) — pendiente de prueba del usuario.
+3. **Migraciones automáticas** (`urb:migrate-current-drawing`): corre al cargar el .lsp y al abrir el menú URBANISMO, idempotente. Primera migración: tablas de verificación `ACAD_TABLE` en URB-VIA → URB-VIA-TABLA. Patrón establecido: cada cambio de capas futuro agrega aquí su migración para que lo ya creado se actualice solo al actualizar la versión.
+
 ### 2026-08-09 (parte 14) — PENDIENTES para la próxima sesión (feedback del usuario con capturas)
 
 1. **Vía con alineamiento "Nuevo" + rasante "Pendiente"**: simplificar el flujo a (1º) dibujar el eje de la vía y (2º) seleccionar DOS cotas, una en cada costado/extremo, para calcular la pendiente lineal entre ambas (hoy el modo Pendiente pide los datos de otra forma). Revisar `urb:create-road` / flujo de cotas.
