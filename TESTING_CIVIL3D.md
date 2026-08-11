@@ -85,6 +85,8 @@ Notas:
 
 ## 4. Lanzar y esperar el resultado
 
+**ADVERTENCIA (2026-08-11): lanzar SIEMPRE desde PowerShell, jamás desde Git Bash.** Bash/MSYS convierte el argumento `/b` en una ruta (`C:/Program Files/Git/b`); AutoCAD lo toma como un dibujo a abrir, muestra un diálogo modal "Cannot find the specified drawing file" (que Claude no puede ver ni cerrar) y la instancia queda eterna en la pantalla [Start]. Este fue el verdadero origen de los "cuelgues" del 2026-08-04 y 2026-08-11 — no era contención de licencia con la sesión abierta del usuario, como se creyó al principio.
+
 ```powershell
 $scr = "C:\ruta\al\script.scr"
 $proc = Start-Process -FilePath "<acad.exe encontrado en paso 1>" `
