@@ -11551,8 +11551,9 @@
         (getkword "\nCrear sardineles en los costados de la via? [Si/No] <Si>: "))
       (if (not (= kw "No"))
         (progn
-          (setq width (getreal "\nEspesor del sardinel en metros <0.20>: "))
-          (if (or (null width) (<= width 0.0)) (setq width 0.20))
+          ;; espesor fijo 0.20 (2026-08-11: el usuario pidio quitar la
+          ;; pregunta -- el sardinel es siempre de 20 cm)
+          (setq width 0.20)
           (setq quad boundary-points)
           (setq centroid
             (list
@@ -13280,7 +13281,12 @@
         (list table :vlax-false))
       (vl-catch-all-apply 'vla-RecomputeTableBlock (list table :vlax-true))
       (setq handle (vla-get-Handle (vlax-ename->vla-object boundary)))
-      (urb:tag-road-generated table handle)
+      ;; 2026-08-11: etiqueta PROPIA (URB_VIA_TABLA), NO URB_VIA_GEN --
+      ;; los objetos URB_VIA_GEN se empacan dentro del bloque de la via al
+      ;; crear/editar (urb:package-road) y la tabla debe quedar SUELTA
+      ;; donde el usuario la puso.
+      (urb:set-xdata-strings
+        (vlax-vla-object->ename table) "URB_VIA_TABLA" (list handle))
       (prompt
         (strcat
           "\nTabla de verificacion creada: " (itoa (length audit))
@@ -13289,22 +13295,48 @@
       table))
 )
 
-;; Borra las tablas de verificacion GENERADAS (etiquetadas URB_VIA_GEN;
-;; nunca toca tablas hechas a mano). parent-handle nil = todas las del
-;; dibujo (usado por la migracion); con handle, solo las de esa via.
-(defun urb:delete-road-audit-tables (parent-handle / ss index ename data count)
+;; Borra las tablas de verificacion GENERADAS sueltas en el dibujo (nunca
+;; toca tablas hechas a mano). Reconoce el tag nuevo URB_VIA_TABLA y el
+;; viejo URB_VIA_GEN (tablas de versiones anteriores que aun no se hayan
+;; empacado). parent-handle nil = todas (migracion); con handle, solo las
+;; de esa via.
+(defun urb:delete-road-audit-tables (parent-handle / ss index ename data count app)
   (setq count 0)
-  (setq ss (ssget "_X" '((0 . "ACAD_TABLE") (-3 ("URB_VIA_GEN")))))
-  (if ss
-    (progn
-      (setq index 0)
-      (repeat (sslength ss)
-        (setq ename (ssname ss index))
-        (setq data (urb:get-xdata-strings ename "URB_VIA_GEN"))
-        (if (and data (or (null parent-handle) (= (car data) parent-handle)))
-          (if (urb:safe-delete (vlax-ename->vla-object ename))
-            (setq count (1+ count))))
-        (setq index (1+ index)))))
+  (foreach app '("URB_VIA_TABLA" "URB_VIA_GEN")
+    (setq ss (ssget "_X" (list '(0 . "ACAD_TABLE") (list -3 (list app)))))
+    (if ss
+      (progn
+        (setq index 0)
+        (repeat (sslength ss)
+          (setq ename (ssname ss index))
+          (setq data (urb:get-xdata-strings ename app))
+          (if (and data (or (null parent-handle) (= (car data) parent-handle)))
+            (if (urb:safe-delete (vlax-ename->vla-object ename))
+              (setq count (1+ count))))
+          (setq index (1+ index))))))
+  count)
+
+;; 2026-08-11 v2: las tablas de verificacion viejas NO estan sueltas en el
+;; dibujo -- quedaron EMPACADAS dentro del bloque de cada via
+;; (urb:package-road recoge todo lo etiquetado URB_VIA_GEN, tabla
+;; incluida), por eso un ssget de primer nivel no las ve y la migracion
+;; inicial no borro nada (reporte del usuario). Esta funcion las purga de
+;; las DEFINICIONES de los bloques URB_VIA_*: dentro de esos bloques la
+;; unica ACAD_TABLE posible es la de verificacion.
+(defun urb:purge-road-block-tables (/ blocks bdef bname victims obj count)
+  (setq blocks (vla-get-Blocks (urb:doc)) count 0)
+  (vlax-for bdef blocks
+    (setq bname (strcase (vla-get-Name bdef)))
+    (if (and (urb:starts-with bname "URB_VIA_")
+             (= (vla-get-IsLayout bdef) :vlax-false)
+             (= (vla-get-IsXRef bdef) :vlax-false))
+      (progn
+        (setq victims nil)
+        (vlax-for obj bdef
+          (if (= (vla-get-ObjectName obj) "AcDbTable")
+            (setq victims (cons obj victims))))
+        (foreach obj victims
+          (if (urb:safe-delete obj) (setq count (1+ count)))))))
   count)
 
 ;; 2026-08-11: tabla de verificacion BAJO DEMANDA (menu Cantidades). La
@@ -13648,15 +13680,27 @@
           "\nPunto sobre el BORDE DEL BORDILLO de la via (Enter si la rampa arranca aqui): "))
       (if ext-pt
         (progn
-          ;; coordenada v local del punto (positiva hacia el anden); el
-          ;; bordillo queda del lado contrario -> se toma solo si es negativa
+          ;; distancia PERPENDICULAR del click al arranque de la rampa.
+          ;; 2026-08-11 v2: se toma en valor absoluto (antes solo se
+          ;; aceptaba hacia el lado de la via y un click con el signo
+          ;; "equivocado" se descartaba EN SILENCIO -- el usuario reporto
+          ;; que selecciono el bordillo y la rampa quedo corta). Tope de
+          ;; 3 m por si el click se va lejos, y mensaje SIEMPRE.
           (setq ext
-            (* side-sign
-               (+ (* (- (car ext-pt) (car base-pt)) (- (sin axis-angle)))
-                  (* (- (cadr ext-pt) (cadr base-pt)) (cos axis-angle)))))
-          (setq ext (if (< ext -0.005) (- ext) 0.0))
-          (if (> ext 0.0)
-            (prompt (strcat "\nModulo extendido " (rtos ext 2 3) " m hasta el bordillo.")))))
+            (abs
+              (+ (* (- (car ext-pt) (car base-pt)) (- (sin axis-angle)))
+                 (* (- (cadr ext-pt) (cadr base-pt)) (cos axis-angle)))))
+          (if (> ext 3.0)
+            (progn
+              (prompt
+                (strcat "\nEl punto quedo a " (rtos ext 2 2)
+                        " m del arranque; se ignora (tope 3.00 m)."))
+              (setq ext 0.0)))
+          (if (<= ext 0.005) (setq ext 0.0))
+          (prompt
+            (if (> ext 0.0)
+              (strcat "\nModulo extendido " (rtos ext 2 3) " m hasta el bordillo.")
+              "\nSin extension: el punto coincide con el arranque de la rampa."))))
       ;; base-pt es el INICIO del modulo (u=0); el modulo mide W+1.20 a lo
       ;; largo del eje
       (setq block-ref
@@ -16927,14 +16971,21 @@
                   " tabla(s) de verificacion movida(s) a URB-VIA-TABLA.")))))
   ;; 2) (2026-08-11) La tabla de verificacion ya no vive pegada a la via:
   ;;    se despliega bajo demanda desde Cantidades donde el usuario la
-  ;;    quiera. Las tablas GENERADAS por versiones anteriores (etiquetadas
-  ;;    URB_VIA_GEN; las hechas a mano no se tocan) se retiran del dibujo.
-  (setq count (urb:delete-road-audit-tables nil))
+  ;;    quiera. Se retiran las tablas generadas por versiones anteriores,
+  ;;    tanto las sueltas como las EMPACADAS dentro de los bloques
+  ;;    URB_VIA_* (ahi es donde realmente quedaron; las hechas a mano no
+  ;;    se tocan).
+  (setq count
+    (+ (urb:delete-road-audit-tables nil)
+       (urb:purge-road-block-tables)))
   (if (> count 0)
-    (prompt
-      (strcat "\nMigracion automatica: " (itoa count)
-              " tabla(s) de verificacion retirada(s);"
-              " despliegalas desde Cantidades cuando las necesites.")))
+    (progn
+      (vl-catch-all-apply
+        '(lambda () (vla-Regen (urb:doc) 1)))
+      (prompt
+        (strcat "\nMigracion automatica: " (itoa count)
+                " tabla(s) de verificacion retirada(s);"
+                " despliegalas desde Cantidades cuando las necesites."))))
   (princ))
 
 (defun urb:remove-legacy-commands (/ command-symbol)

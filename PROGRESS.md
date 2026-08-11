@@ -17,6 +17,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 4) — Round 2 tras prueba en vivo: 3 correcciones
+
+El usuario probó la parte 3 en vivo y reportó: (1) la extensión de la rampa al bordillo NO funcionó (seleccionó el bordillo y quedó corta; su imagen de referencia no llegó al chat); (2) quitar la pregunta del espesor del sardinel (siempre es 20 cm); (3) las tablas de verificación siguen en las vías viejas.
+
+1. **Rampa-bordillo robusta**: el cálculo anterior solo aceptaba el clic hacia el lado de la vía según `side-sign`, y un clic con el signo "equivocado" se descartaba **en silencio** (ext=0 sin mensaje) — causa más probable del reporte. Ahora la distancia perpendicular se toma en **valor absoluto** (da igual el lado), con tope de 3 m (un clic lejano se ignora con aviso) y **mensaje SIEMPRE**: "Modulo extendido X m..." o "Sin extension...". Verificado matemáticamente a 52° por ambos lados (0.35 y 0.42 exactos) + rampa rotada construida con ext.
+2. **Espesor del sardinel fijo en 0.20** — pregunta eliminada.
+3. **Tablas viejas: la causa real era que están EMPACADAS dentro del bloque de cada vía** (`urb:package-road` recoge todo lo etiquetado `URB_VIA_GEN`, tabla incluida) — un `ssget` de primer nivel no las ve, por eso la migración de la parte 3 no borró nada. Fixes: (a) `urb:purge-road-block-tables` purga las ACAD_TABLE de las definiciones de bloques `URB_VIA_*` (la única tabla posible ahí es la de verificación) y la migración la llama + regen; (b) la tabla nueva bajo demanda ya NO se etiqueta `URB_VIA_GEN` sino `URB_VIA_TABLA` (propia), para que el próximo EDITAR de la vía no la vuelva a tragar al bloque; (c) `urb:delete-road-audit-tables` reconoce ambos tags. Verificado headless reproduciendo el escenario exacto: tabla etiquetada empacada en un bloque URB_VIA_* → la migración la saca (1→0); borrado por handle propio/ajeno correcto.
+- Nota operativa: esta corrida headless convivió sin problema con la sesión abierta del usuario (RESIDUAL.dwg) — confirma que los "cuelgues" nunca fueron de licencia, solo el `/b` roto de Git Bash.
+
 ### 2026-08-11 (parte 3) — 6 pedidos del usuario: rampa hasta el bordillo + 5 ajustes de vía
 
 1. **Rampa hasta el bordillo**: nuevo clic OPCIONAL al crear la rampa ("Punto sobre el BORDE DEL BORDILLO de la via, Enter si arranca aqui"): si el punto inicial se marcó sobre el borde del andén pero el bordillo de la vía queda más allá, TODO el módulo (rampa, A81, toperoles, bordillos verticales) se extiende esa distancia (`urb:build-ramp` ganó el parámetro `ext`; v0=-ext reemplaza los arranques v=0). TOPEROL_ML/BORDILLO_ML/AREA_M2 incluyen la extensión. Verificado: con ext=0.40, AREA_M2=5.10 (3×1.70) y TOPEROL_ML=8.80 (2×4.40) exactos + PDF visual.
