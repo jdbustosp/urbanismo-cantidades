@@ -66,6 +66,13 @@
 ;; Par de cotas (inicial final) seleccionadas en el flujo de via modo
 ;; "Pendiente"; se limpia al terminar cada creacion de via.
 (setq *urb-road-picked-cotas* nil)
+;; Punto de insercion de la tabla de verificacion de via, puesto SOLO por
+;; urb:road-audit-table-command (Cantidades). Si es nil, el calculo de
+;; movimiento de tierras NO crea tabla (2026-08-11: ya no se crea sola).
+(setq *urb-road-audit-point* nil)
+;; Records (distancia-eje cota) del modo Pendiente con 3+ cotas (pozos
+;; sobre la via); se limpia al terminar cada creacion de via.
+(setq *urb-road-picked-stations* nil)
 ;; Lado elegido para el toperol/guia ("Arriba"/"Abajo"/"Izquierda"/"Derecha").
 ;; Tiene prioridad sobre *urb-current-tactile-side-point* en
 ;; urb:reference-v-edge; se resuelve por-anden con el bbox de cada contorno.
@@ -11320,20 +11327,60 @@
   value
 )
 
-(defun urb:pick-two-road-cotas (/ c0 c1)
-  ;; Modo "Pendiente" (2026-08-09, a pedido del usuario): despues de
-  ;; delimitar el poligono de la via se seleccionan DOS cotas, una en
-  ;; cada costado/extremo, y la rasante queda como pendiente lineal entre
-  ;; ambas (util cuando la via nueva conecta dos vias que si tienen cota).
-  (setq c0
-    (urb:pick-cota-value
-      "\nSeleccione la COTA del costado/abscisa INICIAL de la via: "))
-  (if c0
-    (setq c1
-      (urb:pick-cota-value
-        "\nSeleccione la COTA del costado/abscisa FINAL de la via: ")))
-  (if (and c0 c1) (list c0 c1) nil)
-)
+;; Modo "Pendiente" generalizado a N cotas (2026-08-11, pedido del
+;; usuario: pozos sobre la via). Devuelve una lista de (valor punto) --
+;; con 2 cotas la rasante es lineal inicial/final (como antes); con 3 o
+;; mas, cada cota se proyecta sobre el eje en el punto donde se clickeo
+;; su etiqueta y la rasante queda por tramos. Enter tras 2 o mas cotas
+;; termina; Enter antes de 2 cancela.
+(defun urb:pick-road-cotas (/ picks sel txt value point msg n done)
+  (setq picks nil done nil)
+  (while (not done)
+    (setq n (length picks))
+    (setq msg
+      (cond
+        ((= n 0) "\nSeleccione la COTA del extremo INICIAL de la via: ")
+        ((= n 1) "\nSeleccione la COTA del extremo FINAL de la via: ")
+        (T "\nSeleccione OTRA cota sobre la via (pozos, quiebres) o Enter para terminar: ")))
+    (setq sel (nentsel msg))
+    (cond
+      ((null sel)
+        (if (>= n 2)
+          (setq done T)
+          (progn
+            (prompt "\nSe necesitan al menos 2 cotas; seleccion cancelada.")
+            (setq done T picks nil))))
+      (T
+        (setq txt (cdr (assoc 1 (entget (car sel)))))
+        (setq value (if txt (mp:last-decimal-number txt) nil))
+        (if value (setq value (atof value)))
+        (if (null value)
+          (setq value
+            (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
+        (if value
+          (progn
+            (prompt (strcat "\nCota leida: " (rtos value 2 3)))
+            (setq point (cadr sel))
+            (setq picks (append picks (list (list value point)))))))))
+  picks)
+
+;; Proyecta cada cota seleccionada sobre el eje (en el punto del clic) y
+;; devuelve records (distancia-en-el-eje cota) ordenados, listos para
+;; urb:cota-at-axis-distance.
+(defun urb:picked-cotas-to-stations (picks axis / result item point closest d)
+  (foreach item picks
+    (setq point (cadr item))
+    (if point
+      (progn
+        (setq closest
+          (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list axis point)))
+        (if (not (vl-catch-all-error-p closest))
+          (progn
+            (setq d
+              (vl-catch-all-apply 'vlax-curve-getDistAtPoint (list axis closest)))
+            (if (not (vl-catch-all-error-p d))
+              (setq result (cons (list d (car item)) result))))))))
+  (vl-sort result '(lambda (a b) (< (car a) (car b)))))
 
 (defun urb:road-cota-reference (mode / selected ename edata layer texts count)
   (cond
@@ -11438,6 +11485,151 @@
           (prompt "\nEl contorno no genera un area valida.")
           nil)
         ename))))
+
+;; 2026-08-11: eje central AUTOMATICO para via con alineamiento "Nuevo"
+;; (pedido del usuario: dibujar el contorno primero y no tener que dibujar
+;; el eje aparte). Solo aplica a contornos de 4 vertices RECTOS (sin
+;; arcos): los dos lados opuestos de menor suma son los extremos de la
+;; via, y el eje es la linea entre sus puntos medios, dibujada en URB-VIA
+;; como si el usuario la hubiera dibujado. Devuelve el ename del eje o nil
+;; si el contorno no aplica (y el flujo cae a dibujarlo a mano).
+(defun urb:road-axis-from-boundary
+  (boundary / edata item pts bulges p0 p1 p2 p3 l01 l12 l23 l30 m1 m2 swap)
+  (setq edata (entget boundary))
+  (setq pts nil bulges nil)
+  (foreach item edata
+    (cond
+      ((= (car item) 10) (setq pts (cons (cdr item) pts)))
+      ((= (car item) 42) (setq bulges (cons (cdr item) bulges)))))
+  (setq pts (reverse pts))
+  (if (and (= (length pts) 4)
+           (not (vl-some '(lambda (b) (> (abs b) 1e-9)) bulges)))
+    (progn
+      (setq p0 (nth 0 pts) p1 (nth 1 pts) p2 (nth 2 pts) p3 (nth 3 pts))
+      (setq l01 (distance p0 p1) l12 (distance p1 p2)
+            l23 (distance p2 p3) l30 (distance p3 p0))
+      (if (< (+ l01 l23) (+ l12 l30))
+        (setq m1 (mapcar '(lambda (a b) (* 0.5 (+ a b))) p0 p1)
+              m2 (mapcar '(lambda (a b) (* 0.5 (+ a b))) p2 p3))
+        (setq m1 (mapcar '(lambda (a b) (* 0.5 (+ a b))) p1 p2)
+              m2 (mapcar '(lambda (a b) (* 0.5 (+ a b))) p3 p0)))
+      ;; direccion determinista: el eje arranca en el extremo mas cercano
+      ;; al PRIMER vertice dibujado del contorno (donde el usuario empezo),
+      ;; para que el sentido Inicio/Final del abscisado sea predecible
+      (if (> (distance p0 m1) (distance p0 m2))
+        (setq swap m1 m1 m2 m2 swap))
+      (urb:ensure-layer "URB-VIA" 3 T)
+      (entmake
+        (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity")
+              (cons 100 "AcDbPolyline") (cons 8 "URB-VIA")
+              (cons 90 2) (cons 70 0)
+              (cons 10 m1) (cons 10 m2)))
+      (entlast))
+    nil))
+
+;; Proyeccion escalar (clampeada) de un punto sobre el segmento pa->dir.
+(defun urb:project-param-on-segment (pa dir len p / tt)
+  (setq tt (+ (* (- (car p) (car pa)) (car dir))
+              (* (- (cadr p) (cadr pa)) (cadr dir))))
+  (max 0.0 (min len tt)))
+
+;; 2026-08-11: SARDINELES AUTOMATICOS a los costados de la via (pedido del
+;; usuario). Recorre los dos costados LARGOS del contorno (4 vertices) y
+;; construye el sardinel como prefabricado (urb:build-prefab-from-reference,
+;; el mismo bloque del comando Prefabricado) por tramos, dejando huecos
+;; donde la via se cruza con otra: en cada costado el usuario marca pares
+;; INICIO/FIN de los tramos SIN sardinel (bocas de cruce); Enter pasa al
+;; siguiente costado. El costado activo se resalta en verde mientras se
+;; marcan sus huecos.
+(defun urb:create-road-sardineles (boundary-points etapa subetapa
+   / kw width quad sides centroid side pa pb dir len normal mid gaps g1 g2
+   tt1 tt2 swap kept prev item seg ename side-point count)
+  (if (= (length boundary-points) 4)
+    (progn
+      (initget "Si No")
+      (setq kw
+        (getkword "\nCrear sardineles en los costados de la via? [Si/No] <Si>: "))
+      (if (not (= kw "No"))
+        (progn
+          (setq width (getreal "\nEspesor del sardinel en metros <0.20>: "))
+          (if (or (null width) (<= width 0.0)) (setq width 0.20))
+          (setq quad boundary-points)
+          (setq centroid
+            (list
+              (/ (apply '+ (mapcar 'car quad)) 4.0)
+              (/ (apply '+ (mapcar 'cadr quad)) 4.0)))
+          (setq sides
+            (if (> (+ (distance (nth 0 quad) (nth 1 quad))
+                      (distance (nth 2 quad) (nth 3 quad)))
+                   (+ (distance (nth 1 quad) (nth 2 quad))
+                      (distance (nth 3 quad) (nth 0 quad))))
+              (list (list (nth 0 quad) (nth 1 quad))
+                    (list (nth 2 quad) (nth 3 quad)))
+              (list (list (nth 1 quad) (nth 2 quad))
+                    (list (nth 3 quad) (nth 0 quad)))))
+          (setq count 0)
+          (foreach side sides
+            (setq pa (car side) pb (cadr side))
+            (setq len (distance pa pb))
+            (if (> len 0.10)
+              (progn
+                (setq dir (mapcar '(lambda (a b) (/ (- b a) len)) pa pb))
+                (setq normal (list (- (cadr dir)) (car dir)))
+                (setq mid (mapcar '(lambda (a b) (* 0.5 (+ a b))) pa pb))
+                ;; normal hacia AFUERA de la via: alli crece el sardinel
+                (if (< (+ (* (car normal) (- (car mid) (car centroid)))
+                          (* (cadr normal) (- (cadr mid) (cadr centroid))))
+                       0.0)
+                  (setq normal (mapcar '- normal)))
+                (grdraw pa pb 3 1)
+                (prompt (strcat "\nCostado resaltado de " (rtos len 2 2) " m."))
+                (setq gaps nil g1 T)
+                (while g1
+                  (setq g1
+                    (getpoint
+                      "\n  INICIO de tramo SIN sardinel en este costado (cruce; Enter si no hay mas): "))
+                  (if g1
+                    (progn
+                      (setq g2 (getpoint g1 "\n  FIN del tramo sin sardinel: "))
+                      (if g2
+                        (progn
+                          (setq tt1 (urb:project-param-on-segment pa dir len g1))
+                          (setq tt2 (urb:project-param-on-segment pa dir len g2))
+                          (if (> tt1 tt2) (setq swap tt1 tt1 tt2 tt2 swap))
+                          (setq gaps (cons (list tt1 tt2) gaps)))))))
+                (setq gaps (vl-sort gaps '(lambda (a b) (< (car a) (car b)))))
+                ;; intervalos que SI llevan sardinel
+                (setq kept nil prev 0.0)
+                (foreach item gaps
+                  (if (> (- (car item) prev) 0.10)
+                    (setq kept (cons (list prev (car item)) kept)))
+                  (setq prev (max prev (cadr item))))
+                (if (> (- len prev) 0.10)
+                  (setq kept (cons (list prev len) kept)))
+                (setq kept (reverse kept))
+                (foreach seg kept
+                  (setq ename
+                    (entmakex
+                      (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity")
+                            (cons 100 "AcDbPolyline") (cons 8 "URB-VIA")
+                            (cons 90 2) (cons 70 0)
+                            (cons 10
+                              (mapcar '(lambda (a d) (+ a (* d (car seg)))) pa dir))
+                            (cons 10
+                              (mapcar '(lambda (a d) (+ a (* d (cadr seg)))) pa dir)))))
+                  (setq side-point (mapcar '+ mid normal))
+                  (if (and ename
+                           (urb:build-prefab-from-reference
+                             ename side-point "Sardinel" width etapa subetapa
+                             "Exterior"))
+                    (setq count (1+ count)))))))
+          (redraw)
+          (prompt (strcat "\nSardineles creados: " (itoa count) " tramo(s)."))))
+      count)
+    (progn
+      (prompt
+        "\nSardineles automaticos: solo para contornos de 4 vertices (use el comando Prefabricado para este caso).")
+      nil)))
 
 ;; El eje puede ser mucho mas largo que el tramo (varias vias por etapa
 ;; comparten un mismo alineamiento). En vez de pedir al usuario que
@@ -11686,8 +11878,8 @@
 )
 
 (defun urb:create-road
-  (/ dialog axis direction surface cota-info boundary obj area range
-   axis-start axis-length handle label start interval data status
+  (/ dialog axis auto-axis direction surface cota-info boundary obj area range
+   axis-start axis-length handle label start interval data status picks
    via-id block-ref doc undo-open undo-result *error*)
   (setq doc (urb:doc))
   (defun *error* (message)
@@ -11708,20 +11900,53 @@
       nil))
   (if dialog
     (progn
-      (setq axis (urb:select-or-draw-road-axis (nth 4 dialog)))
+      ;; 2026-08-11: con alineamiento "Nuevo" ya NO se dibuja el eje antes
+      ;; del contorno -- se dibuja el contorno primero y el eje central se
+      ;; calcula solo (urb:road-axis-from-boundary); si el contorno no lo
+      ;; permite (mas de 4 vertices o arcos), se dibuja a mano como antes.
+      (setq auto-axis (urb:string-equal-p (nth 4 dialog) "Nuevo"))
+      (setq axis
+        (if auto-axis T (urb:select-or-draw-road-axis (nth 4 dialog))))
       (if axis
         (progn
           (setq direction (urb:road-axis-direction))
           (setq surface (urb:resolve-road-surface (nth 5 dialog)))
           (setq cota-info (urb:road-cota-reference (nth 6 dialog)))
           (setq boundary (urb:draw-road-boundary))
+          (if (and boundary auto-axis)
+            (progn
+              (setq axis (urb:road-axis-from-boundary boundary))
+              (if axis
+                (prompt "\nEje central calculado automaticamente del contorno.")
+                (progn
+                  (prompt
+                    "\nNo se pudo calcular el eje central de este contorno (se necesitan 4 vertices rectos).")
+                  (setq axis (urb:select-or-draw-road-axis "Nuevo"))))))
+          (if (and boundary (not (and axis (urb:curve-entity-p axis))))
+            (progn
+              (prompt "\nSin eje valido; via cancelada.")
+              (setq boundary nil)))
           (if boundary
             (progn
               ;; modo Pendiente: PRIMERO el poligono (ya dibujado), y AHORA
-              ;; las dos cotas, una por costado -> pendiente lineal
+              ;; las cotas -- 2 = pendiente lineal inicial/final; 3 o mas =
+              ;; rasante por tramos proyectando cada clic sobre el eje
               (setq *urb-road-picked-cotas* nil)
+              (setq *urb-road-picked-stations* nil)
               (if (urb:string-equal-p (nth 6 dialog) "Pendiente")
-                (setq *urb-road-picked-cotas* (urb:pick-two-road-cotas)))
+                (progn
+                  (setq picks (urb:pick-road-cotas))
+                  (cond
+                    ((null picks) nil)
+                    ((= (length picks) 2)
+                      (setq *urb-road-picked-cotas* (mapcar 'car picks)))
+                    (T
+                      (setq *urb-road-picked-stations*
+                        (urb:picked-cotas-to-stations picks axis))
+                      (prompt
+                        (strcat "\nRasante por tramos con "
+                          (itoa (length *urb-road-picked-stations*))
+                          " cotas proyectadas sobre el eje."))))))
               (setq obj (vlax-ename->vla-object boundary))
               (setq area (vla-get-Area obj))
               ;; El eje puede ser mas largo que esta via (compartido entre
@@ -11779,6 +12004,11 @@
                     (setq status "MOVIMIENTO DE TIERRAS CALCULADO"))
                   ;; Resumen visible: perfil, areas, capas, corte y relleno.
                   (urb:create-road-summary boundary axis)
+                  ;; Sardineles a los costados (2026-08-11): antes de
+                  ;; empaquetar, con el contorno todavia como polilinea.
+                  (urb:create-road-sardineles
+                    (urb:lwpoly-points boundary)
+                    (nth 1 dialog) (nth 2 dialog))
                   ;; Contorno + abscisado quedan empacados en un bloque con
                   ;; atributos invisibles: los datos calculados se ven en el
                   ;; panel Properties con solo seleccionar la via, sin correr
@@ -11791,6 +12021,7 @@
                   (alert (strcat (urb:road-memory-from-data boundary data)
                     "\n\nEstado: " status))))))))))
   (setq *urb-road-picked-cotas* nil)
+  (setq *urb-road-picked-stations* nil)
   (if undo-open
     (progn
       (vl-catch-all-apply 'vla-EndUndoMark (list doc))
@@ -12801,9 +13032,14 @@
     (cota-coverage
       (list
         samples
-        (strcat
-          "cotas de proyecto interpoladas ("
-          (itoa station-count) " textos)")
+        (if (and (boundp '*urb-road-picked-stations*)
+                 *urb-road-picked-stations*)
+          (strcat
+            "rasante por tramos ("
+            (itoa station-count) " cotas seleccionadas)")
+          (strcat
+            "cotas de proyecto interpoladas ("
+            (itoa station-count) " textos)"))
         nil
         nil))
     ((and old-cota0 old-cota-final)
@@ -12989,7 +13225,12 @@
       ;; congelarla sin ocultar la via (antes iba en URB-VIA junto con
       ;; todo lo demas y no se podia esconder por separado).
       (urb:ensure-layer "URB-VIA-TABLA" 4 T)
-      (setq point (urb:road-audit-table-point boundary))
+      ;; punto elegido por el usuario (comando de Cantidades) o, como
+      ;; respaldo, la esquina superior derecha del contorno como antes
+      (setq point
+        (if (and (boundp '*urb-road-audit-point*) *urb-road-audit-point*)
+          *urb-road-audit-point*
+          (urb:road-audit-table-point boundary)))
       (setq textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE"))))
       (setq rowheight (* textheight 2.20))
       (setq colwidth (* textheight 11.0))
@@ -13047,6 +13288,62 @@
           " m3 | relleno " (rtos fill 2 2) " m3."))
       table))
 )
+
+;; Borra las tablas de verificacion GENERADAS (etiquetadas URB_VIA_GEN;
+;; nunca toca tablas hechas a mano). parent-handle nil = todas las del
+;; dibujo (usado por la migracion); con handle, solo las de esa via.
+(defun urb:delete-road-audit-tables (parent-handle / ss index ename data count)
+  (setq count 0)
+  (setq ss (ssget "_X" '((0 . "ACAD_TABLE") (-3 ("URB_VIA_GEN")))))
+  (if ss
+    (progn
+      (setq index 0)
+      (repeat (sslength ss)
+        (setq ename (ssname ss index))
+        (setq data (urb:get-xdata-strings ename "URB_VIA_GEN"))
+        (if (and data (or (null parent-handle) (= (car data) parent-handle)))
+          (if (urb:safe-delete (vlax-ename->vla-object ename))
+            (setq count (1+ count))))
+        (setq index (1+ index)))))
+  count)
+
+;; 2026-08-11: tabla de verificacion BAJO DEMANDA (menu Cantidades). La
+;; tabla ya no se crea sola al crear/editar la via (aparecia lejos del
+;; contorno): aqui el usuario selecciona la via Y el punto donde quiere la
+;; tabla. Recalcula el movimiento de tierras con los datos guardados de la
+;; via (mismo camino que EDITAR) y borra la tabla anterior de esa via para
+;; no duplicar.
+(defun urb:road-audit-table-command
+  (/ selected road data axis-handle via-id axis point *error*)
+  (defun *error* (message)
+    (setq *urb-road-audit-point* nil)
+    (if (and message
+             (not (member message '("Function cancelled" "quit / exit abort"))))
+      (prompt (strcat "\nError en tabla de verificacion: " message)))
+    (princ))
+  (setq selected (entsel "\nSeleccione la via: "))
+  (if selected (setq road (urb:road-parent-from-entity (car selected))))
+  (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
+    (progn
+      (setq via-id (if (> (length data) 22) (nth 22 data) ""))
+      (setq axis-handle
+        (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
+      (setq axis
+        (or
+          (if (/= axis-handle "") (handent axis-handle) nil)
+          (if (/= via-id "") (urb:cached-road-axis via-id) nil)))
+      (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+      (if (not axis) (setq axis (urb:select-or-draw-road-axis "Existente")))
+      (setq point (getpoint "\nPunto de insercion de la tabla de verificacion: "))
+      (if (and axis point)
+        (progn
+          (urb:delete-road-audit-tables (cdr (assoc 5 (entget road))))
+          (setq *urb-road-audit-point* point)
+          (urb:try-road-earthworks road axis)
+          (setq *urb-road-audit-point* nil))
+        (prompt "\nComando cancelado.")))
+    (prompt "\nEl objeto seleccionado no es una via cuantificable."))
+  (princ))
 
 (defun urb:compute-road-earthworks
   (boundary data axis / surface depth area axis-length axis-start nominal
@@ -13130,6 +13427,14 @@
           (setq coverage
             (urb:cota-stations-cover-p
               stations axis-start (+ axis-start span) interval))
+          ;; 2026-08-11: cotas seleccionadas UNA A UNA en modo Pendiente
+          ;; (3 o mas, p.ej. pozos sobre la via): reemplazan cualquier
+          ;; texto detectado y definen la rasante por tramos completa.
+          (if (and (boundp '*urb-road-picked-stations*)
+                   *urb-road-picked-stations*)
+            (progn
+              (setq stations *urb-road-picked-stations*)
+              (setq coverage T)))
           (if texts
             (prompt
               (strcat
@@ -13193,17 +13498,24 @@
                   (if cota-final (rtos cota-final 2 4) "")
                   (urb:serialize-lisp
                     (urb:compact-road-grade-samples samples))))
-              (setq *urb-earthwork-stage* "creacion de tabla de verificacion")
-              (setq audit-result
-                (vl-catch-all-apply
-                  'urb:create-road-earthwork-audit
-                  (list boundary axis samples width-total depth data
-                    cut fill metodo)))
-              (if (vl-catch-all-error-p audit-result)
-                (prompt
-                  (strcat
-                    "\nAviso: no se pudo crear la tabla de verificacion: "
-                    (vl-catch-all-error-message audit-result))))
+              ;; 2026-08-11: la tabla de verificacion YA NO se crea sola al
+              ;; crear/editar la via (aparecia lejos del contorno y estorbaba).
+              ;; Solo se crea cuando se pide desde Cantidades
+              ;; (urb:road-audit-table-command), que deja el punto de
+              ;; insercion elegido por el usuario en *urb-road-audit-point*.
+              (if (and (boundp '*urb-road-audit-point*) *urb-road-audit-point*)
+                (progn
+                  (setq *urb-earthwork-stage* "creacion de tabla de verificacion")
+                  (setq audit-result
+                    (vl-catch-all-apply
+                      'urb:create-road-earthwork-audit
+                      (list boundary axis samples width-total depth data
+                        cut fill metodo)))
+                  (if (vl-catch-all-error-p audit-result)
+                    (prompt
+                      (strcat
+                        "\nAviso: no se pudo crear la tabla de verificacion: "
+                        (vl-catch-all-error-message audit-result))))))
               (prompt
                 (strcat
                   "\nMovimiento de tierras (" metodo "): corte "
@@ -13273,7 +13585,8 @@
 
 (defun urb:create-ramp-command
   (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
-   depth etapa subetapa axis-angle side-sign block-ref center-pt total-half done)
+   depth etapa subetapa axis-angle side-sign block-ref center-pt total-half done
+   ext ext-pt)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
   ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
   ;; laterales de 0.65 m con adoquin 20x10, fondo = ancho del anden
@@ -13324,10 +13637,30 @@
                      (* (- (cadr side-pt) (cadr base-pt)) (cos axis-angle)))
                   0.0)
             1.0 -1.0)))
+      ;; extension hasta el bordillo (2026-08-11, pedido del usuario): si el
+      ;; punto inicial se marco sobre el borde del anden pero el bordillo de
+      ;; la via queda mas alla, un click sobre ese borde extiende TODO el
+      ;; modulo (rampa, A81, toperoles y bordillos verticales) hasta el
+      ;; bordillo. Enter = sin extension (comportamiento anterior).
+      (setq ext 0.0)
+      (setq ext-pt
+        (getpoint base-pt
+          "\nPunto sobre el BORDE DEL BORDILLO de la via (Enter si la rampa arranca aqui): "))
+      (if ext-pt
+        (progn
+          ;; coordenada v local del punto (positiva hacia el anden); el
+          ;; bordillo queda del lado contrario -> se toma solo si es negativa
+          (setq ext
+            (* side-sign
+               (+ (* (- (car ext-pt) (car base-pt)) (- (sin axis-angle)))
+                  (* (- (cadr ext-pt) (cadr base-pt)) (cos axis-angle)))))
+          (setq ext (if (< ext -0.005) (- ext) 0.0))
+          (if (> ext 0.0)
+            (prompt (strcat "\nModulo extendido " (rtos ext 2 3) " m hasta el bordillo.")))))
       ;; base-pt es el INICIO del modulo (u=0); el modulo mide W+1.20 a lo
       ;; largo del eje
       (setq block-ref
-        (urb:build-ramp base-pt axis-angle side-sign width depth etapa subetapa))
+        (urb:build-ramp base-pt axis-angle side-sign width depth etapa subetapa ext))
       (if block-ref
         (prompt
           (strcat "\nRampa creada: superficie " (rtos (+ width 0.6) 2 2)
@@ -13366,8 +13699,8 @@
 )
 
 (defun urb:build-ramp
-  (base-pt axis-angle side-sign width depth etapa subetapa
-   / doc objects obj hatch boundary area total u1 ent trap treg breg forigin
+  (base-pt axis-angle side-sign width depth etapa subetapa ext
+   / doc objects obj hatch boundary area total v0 u1 ent trap treg breg forigin
    rorigin pair piece s e bw gray bp vlo vhi lu lv uvh corners
    block-name blocks block-definition copy-result insert-result block-ref
    block-ename)
@@ -13394,17 +13727,21 @@
   (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
   (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
   (setq total (+ width 1.20))
+  ;; v0: arranque del modulo hacia la via. Con ext > 0 (2026-08-11) todo el
+  ;; modulo se extiende hasta el bordillo de la via (v0 = -ext); el resto de
+  ;; la geometria (bordillo horizontal 1.3-1.5, fondo, etc.) no cambia.
+  (setq v0 (- (max 0.0 (if ext ext 0.0))))
   (setq objects nil)
   ;; contorno total del modulo
   (setq boundary
-    (urb:ramp-quad-poly base-pt axis-angle side-sign 0.0 0.0 total depth "URB-RAMPA"))
+    (urb:ramp-quad-poly base-pt axis-angle side-sign 0.0 v0 total depth "URB-RAMPA"))
   (setq objects (cons (vlax-ename->vla-object boundary) objects))
   ;; NARANJA: toperol 0.20 en cada costado, a todo el fondo, con puntos
   (foreach u1 (list 0.0 (+ width 1.0))
     (setq obj
       (vlax-ename->vla-object
         (urb:ramp-quad-poly base-pt axis-angle side-sign
-          u1 0.0 (+ u1 0.2) depth "URB-ANDEN-LOSETA-TOPEROL-20X20")))
+          u1 v0 (+ u1 0.2) depth "URB-ANDEN-LOSETA-TOPEROL-20X20")))
     (setq objects (cons obj objects))
     (setq hatch
       (vl-catch-all-apply 'urb:add-solid-hatch
@@ -13412,7 +13749,7 @@
     (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
     (setq lu (+ u1 0.025))
     (while (<= lu (+ u1 0.175 1e-6))
-      (setq lv 0.025)
+      (setq lv (+ v0 0.025))
       (while (<= lv (- depth 0.025))
         (setq uvh (urb:ramp-frame-uv base-pt axis-angle side-sign lu lv))
         (setq ent
@@ -13430,7 +13767,7 @@
     (setq obj
       (vlax-ename->vla-object
         (urb:ramp-quad-poly base-pt axis-angle side-sign
-          u1 0.0 (+ u1 0.1) depth "URB-BORDILLO")))
+          u1 v0 (+ u1 0.1) depth "URB-BORDILLO")))
     (setq objects (cons obj objects))
     (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-BORDILLO" 9)))
     (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects))))
@@ -13445,12 +13782,12 @@
   ;; flanqueando la rampa a cada lado
   (foreach corners
     (list
-      (list 0.3 0.6 (list 0.3 0.0) (list 0.6 1.3))
-      (list (+ width 0.6) (+ width 0.9) (list (+ width 0.9) 0.0) (list (+ width 0.6) 1.3)))
+      (list 0.3 0.6 (list 0.3 v0) (list 0.6 1.3))
+      (list (+ width 0.6) (+ width 0.9) (list (+ width 0.9) v0) (list (+ width 0.6) 1.3)))
     (setq obj
       (vlax-ename->vla-object
         (urb:ramp-quad-poly base-pt axis-angle side-sign
-          (nth 0 corners) 0.0 (nth 1 corners) 1.3 "URB-RAMPA-A81")))
+          (nth 0 corners) v0 (nth 1 corners) 1.3 "URB-RAMPA-A81")))
     (setq objects (cons obj objects))
     ;; la diagonal del cuadrado (el borde inclinado de la rampa)
     (setq ent
@@ -13466,7 +13803,7 @@
   ;; se aplica por banda mas abajo, en el mismo bucle de fase que el fondo)
   (setq trap
     (urb:ramp-quad-poly base-pt axis-angle side-sign
-      0.6 0.0 (+ width 0.6) 1.3 "URB-RAMPA"))
+      0.6 v0 (+ width 0.6) 1.3 "URB-RAMPA"))
   (setq obj (vlax-ename->vla-object trap))
   (setq objects (cons obj objects))
   (setq rorigin (urb:ramp-local-point base-pt axis-angle side-sign 0.3 0.0))
@@ -13490,7 +13827,7 @@
               (* (cadr base-pt) (sin axis-angle))))
   (setq vlo nil vhi nil)
   (foreach corners
-    (list (list 0.3 0.0) (list (+ width 0.9) 0.0)
+    (list (list 0.3 v0) (list (+ width 0.9) v0)
           (list 0.3 depth) (list (+ width 0.9) depth))
     (setq uvh (urb:ramp-frame-uv base-pt axis-angle side-sign
                 (car corners) (cadr corners)))
@@ -13550,8 +13887,9 @@
   (if (not (vl-catch-all-error-p treg)) (urb:safe-delete treg))
   (if (not (vl-catch-all-error-p breg)) (urb:safe-delete breg))
   (setq objects (reverse objects))
-  ;; area util = superficie rectangular de rampa (entre los dos A81)
-  (setq area (* width 1.3))
+  ;; area util = superficie rectangular de rampa (entre los dos A81),
+  ;; incluida la extension hasta el bordillo si la hay
+  (setq area (* width (- 1.3 v0)))
   (setq block-name (strcat "URB_RAMPA_" (itoa (getvar "MILLISECS"))))
   (setq blocks (vla-get-Blocks doc))
   (setq block-definition
@@ -13572,9 +13910,9 @@
       (urb:add-invisible-attribute block-definition base-pt "FONDO_M" "Fondo m" (rtos depth 2 2))
       (urb:add-invisible-attribute block-definition base-pt "AREA_M2" "Area m2" (rtos area 2 2))
       (urb:add-invisible-attribute block-definition base-pt "TOPEROL_ML" "Toperol ml"
-        (rtos (* 2.0 depth) 2 2))
+        (rtos (* 2.0 (- depth v0)) 2 2))
       (urb:add-invisible-attribute block-definition base-pt "BORDILLO_ML" "Bordillo ml"
-        (rtos (+ (* 2.0 depth) (+ width 0.6)) 2 2))
+        (rtos (+ (* 2.0 (- depth v0)) (+ width 0.6)) 2 2))
       (urb:add-invisible-attribute block-definition base-pt "A81_UND" "Prefabricado A81 und" "2")
       (urb:add-invisible-attribute block-definition base-pt "ETAPA" "Etapa" etapa)
       (urb:add-invisible-attribute block-definition base-pt "SUBETAPA" "Subetapa" subetapa)
@@ -13787,6 +14125,7 @@
         ": boxed_column { label = \"Seleccione una opcion\";"
         ": button { label = \"Cuadro en dibujo: andenes y prefabricados\"; key = \"table\"; height = 2; width = 44; }"
         ": button { label = \"Memoria de via\"; key = \"road\"; height = 2; width = 40; }"
+        ": button { label = \"Tabla de verificacion de via (desplegar)\"; key = \"road_audit\"; height = 2; width = 44; }"
         ": button { label = \"Incluir o excluir seleccion\"; key = \"scope\"; height = 2; width = 44; }"
         ": button { label = \"Crear Excel independiente (tabla general)\"; key = \"excel\"; height = 2; width = 44; }"
         ": button { label = \"Vincular o cambiar Excel maestro\"; key = \"link_excel\"; height = 2; width = 44; }"
@@ -16501,7 +16840,7 @@
 (defun urb:quantities-menu (/ action)
   (setq action
     (urb:simple-menu-dialog "urb_quantities"
-      '(("table" "table") ("road" "road")
+      '(("table" "table") ("road" "road") ("road_audit" "road_audit")
         ("scope" "scope")
         ("excel" "excel") ("link_excel" "link_excel")
         ("update_excel" "update_excel")
@@ -16510,6 +16849,7 @@
     ((or (null action) (= action "back")) "back")
     ((= action "table") (urb:insert-quantities-table-command))
     ((= action "road") (urb:road-quantity-command))
+    ((= action "road_audit") (urb:road-audit-table-command))
     ((= action "scope") (urb:quantity-scope-command))
     ((= action "excel") (urb:excel-export-command))
     ((= action "link_excel") (urb:excel-link-command))
@@ -16585,6 +16925,16 @@
         (prompt
           (strcat "\nMigracion automatica: " (itoa count)
                   " tabla(s) de verificacion movida(s) a URB-VIA-TABLA.")))))
+  ;; 2) (2026-08-11) La tabla de verificacion ya no vive pegada a la via:
+  ;;    se despliega bajo demanda desde Cantidades donde el usuario la
+  ;;    quiera. Las tablas GENERADAS por versiones anteriores (etiquetadas
+  ;;    URB_VIA_GEN; las hechas a mano no se tocan) se retiran del dibujo.
+  (setq count (urb:delete-road-audit-tables nil))
+  (if (> count 0)
+    (prompt
+      (strcat "\nMigracion automatica: " (itoa count)
+              " tabla(s) de verificacion retirada(s);"
+              " despliegalas desde Cantidades cuando las necesites.")))
   (princ))
 
 (defun urb:remove-legacy-commands (/ command-symbol)
