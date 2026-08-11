@@ -13271,9 +13271,19 @@
   (entlast)
 )
 
+(defun urb:ramp-frame-uv (base-pt axis-angle side-sign lu lv / w)
+  ;; coordenadas del marco rotado (las que esperan clip-stripe y los
+  ;; simbolos) para un punto LOCAL (u v) de la rampa
+  (setq w (urb:ramp-local-point base-pt axis-angle side-sign lu lv))
+  (list
+    (+ (* (car w) (cos axis-angle)) (* (cadr w) (sin axis-angle)))
+    (+ (* (- (car w)) (sin axis-angle)) (* (cadr w) (cos axis-angle))))
+)
+
 (defun urb:build-ramp
   (base-pt axis-angle side-sign width depth etapa subetapa
-   / doc objects obj hatch boundary area total u1 ent trap
+   / doc objects obj hatch boundary area total u1 ent trap treg piece
+   s e bw gray bp vlo vhi lu lv uvh corners
    block-name blocks block-definition copy-result insert-result block-ref
    block-ename)
   ;; Geometria segun los bloques B RAMPA T1/T2 reales de U-201 (disecados
@@ -13286,24 +13296,76 @@
   ;;  - banda inferior v=1.30-1.50 y junta a v=1.70; el resto del fondo
   ;;    es anden normal (la rampa NO ocupa todo el fondo)
   ;; Ancho total del modulo = W + 1.20 (W=3.00 -> 4.20).
+  ;; Componentes por capa segun el marcado del usuario sobre la foto del
+  ;; plano (2026-08-09): AMARILLO superficie de rampa con el mismo patron
+  ;; del anden (bandas gris/blanco + reticula); NARANJA toperol de 0.20 en
+  ;; los dos costados a todo el fondo; VERDE vigas de confinamiento (0.10
+  ;; junto a cada toperol + una horizontal de 0.20 entre rampa y anden);
+  ;; MORADO prefabricado A81 (las 2 cunas inclinadas que flanquean la
+  ;; rampa). Todo queda unido en el mismo bloque URB_RAMPA_*.
   (setq doc (urb:doc))
   (urb:ensure-layer "URB-RAMPA" 7 T)
+  (urb:ensure-layer "URB-RAMPA-VIGA" 9 T)
+  (urb:ensure-layer "URB-RAMPA-A81" 8 T)
+  (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
+  (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
   (setq total (+ width 1.20))
   (setq objects nil)
   ;; contorno total del modulo
   (setq boundary
     (urb:ramp-quad-poly base-pt axis-angle side-sign 0.0 0.0 total depth "URB-RAMPA"))
   (setq objects (cons (vlax-ename->vla-object boundary) objects))
-  ;; franjas laterales 0.20 a todo el fondo, relleno solido gris
+  ;; NARANJA: toperol 0.20 en cada costado, a todo el fondo, con puntos
   (foreach u1 (list 0.0 (+ width 1.0))
     (setq obj
       (vlax-ename->vla-object
         (urb:ramp-quad-poly base-pt axis-angle side-sign
-          u1 0.0 (+ u1 0.2) depth "URB-RAMPA")))
+          u1 0.0 (+ u1 0.2) depth "URB-ANDEN-LOSETA-TOPEROL-20X20")))
     (setq objects (cons obj objects))
-    (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA" 8)))
+    (setq hatch
+      (vl-catch-all-apply 'urb:add-solid-hatch
+        (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20" 8)))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+    (setq lu (+ u1 0.025))
+    (while (<= lu (+ u1 0.175 1e-6))
+      (setq lv 0.025)
+      (while (<= lv (- depth 0.025))
+        (setq uvh (urb:ramp-frame-uv base-pt axis-angle side-sign lu lv))
+        (setq ent
+          (urb:add-circle-symbol (car uvh) (cadr uvh) 0.008 axis-angle
+            "URB-ANDEN-LOSETA-TOPEROL-20X20" "" 7))
+        (setq objects (cons (vlax-ename->vla-object ent) objects))
+        (setq lv (+ lv 0.05)))
+      (setq lu (+ lu 0.05))))
+  ;; VERDE: vigas de confinamiento verticales (0.10 junto a cada toperol)
+  (foreach u1 (list 0.2 (+ width 0.9))
+    (setq obj
+      (vlax-ename->vla-object
+        (urb:ramp-quad-poly base-pt axis-angle side-sign
+          u1 0.0 (+ u1 0.1) depth "URB-RAMPA-VIGA")))
+    (setq objects (cons obj objects))
+    (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA-VIGA" 9)))
     (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects))))
-  ;; superficie de la rampa: trapecio W+0.60 (via) -> W (fondo de rampa)
+  ;; VERDE: viga horizontal entre la rampa y el anden (v=1.30-1.50)
+  (setq obj
+    (vlax-ename->vla-object
+      (urb:ramp-quad-poly base-pt axis-angle side-sign
+        0.3 1.3 (+ width 0.9) 1.5 "URB-RAMPA-VIGA")))
+  (setq objects (cons obj objects))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA-VIGA" 9)))
+  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+  ;; MORADO: prefabricado A81 -- las 2 cunas inclinadas flanqueando la rampa
+  (foreach corners
+    (list
+      (list (list 0.3 0.2) (list 0.6 1.3) (list 0.3 1.3))
+      (list (list (+ width 0.9) 0.2) (list (+ width 0.6) 1.3) (list (+ width 0.9) 1.3)))
+    (setq obj
+      (vlax-ename->vla-object
+        (urb:ramp-poly-pts base-pt axis-angle side-sign corners "URB-RAMPA-A81")))
+    (setq objects (cons obj objects))
+    (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA-A81" 8)))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects))))
+  ;; AMARILLO: superficie de rampa (trapecio) con el patron del anden
   (setq trap
     (urb:ramp-poly-pts base-pt axis-angle side-sign
       (list (list 0.3 0.2) (list (+ width 0.9) 0.2)
@@ -13315,16 +13377,46 @@
     (urb:add-user-hatch obj "URB-RAMPA" 0.20 axis-angle T 9
       (urb:ramp-local-point base-pt axis-angle side-sign 0.3 0.2)))
   (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-  ;; remates superiores de las aletas (tramo corto vertical en la via)
-  (foreach u1 (list 0.3 (+ width 0.9))
-    (setq ent (urb:ramp-line base-pt axis-angle side-sign u1 0.0 u1 0.2 "URB-RAMPA" 8))
-    (setq objects (cons (vlax-ename->vla-object ent) objects)))
-  ;; linea del sardinel (v=0.20) y banda inferior (1.30 / 1.50 / 1.70)
-  (foreach u1 (list 0.2 1.3 1.5 1.7)
-    (setq ent
-      (urb:ramp-line base-pt axis-angle side-sign
-        0.2 u1 (+ width 1.0) u1 "URB-RAMPA" 8))
-    (setq objects (cons (vlax-ename->vla-object ent) objects)))
+  ;; bandas grises del patron (0.80 gris / 1.00 blanco a lo largo)
+  (setq treg
+    (vl-catch-all-apply 'urb:add-region-from-object (list obj)))
+  (if (not (vl-catch-all-error-p treg))
+    (progn
+      (setq bp (+ (* (car base-pt) (cos axis-angle))
+                  (* (cadr base-pt) (sin axis-angle))))
+      (setq vlo nil vhi nil)
+      (foreach corners
+        (list (list 0.3 0.2) (list (+ width 0.9) 0.2)
+              (list (+ width 0.6) 1.3) (list 0.6 1.3))
+        (setq uvh (urb:ramp-frame-uv base-pt axis-angle side-sign
+                    (car corners) (cadr corners)))
+        (if (or (null vlo) (< (cadr uvh) vlo)) (setq vlo (cadr uvh)))
+        (if (or (null vhi) (> (cadr uvh) vhi)) (setq vhi (cadr uvh))))
+      (setq vlo (- vlo 0.5) vhi (+ vhi 0.5))
+      (setq s 0.3 gray nil)
+      (while (< s (+ width 0.9 -1e-6))
+        (setq bw (if gray 0.80 1.00))
+        (setq e (min (+ s bw) (+ width 0.9)))
+        (if gray
+          (progn
+            (setq piece
+              (urb:clip-stripe treg (+ bp s) (+ bp e) vlo vhi axis-angle))
+            (if piece
+              (progn
+                (vla-put-Layer piece "URB-RAMPA")
+                (setq objects (cons piece objects))
+                (setq hatch
+                  (vl-catch-all-apply 'urb:add-solid-hatch
+                    (list piece "URB-RAMPA" 8)))
+                (if (not (vl-catch-all-error-p hatch))
+                  (setq objects (cons hatch objects)))))))
+        (setq s e gray (not gray)))
+      (urb:safe-delete treg)))
+  ;; lineas: sardinel (v=0.20) y junta inferior (v=1.70)
+  (setq ent (urb:ramp-line base-pt axis-angle side-sign 0.3 0.2 (+ width 0.9) 0.2 "URB-RAMPA" 8))
+  (setq objects (cons (vlax-ename->vla-object ent) objects))
+  (setq ent (urb:ramp-line base-pt axis-angle side-sign 0.2 1.7 (+ width 1.0) 1.7 "URB-RAMPA" 8))
+  (setq objects (cons (vlax-ename->vla-object ent) objects))
   (setq objects (reverse objects))
   ;; area util = superficie del trapecio de rampa
   (setq area (* 0.5 (+ (+ width 0.6) width) 1.1))
@@ -13347,6 +13439,11 @@
       (urb:add-invisible-attribute block-definition base-pt "ANCHO_RAMPA" "Ancho rampa m" (rtos width 2 2))
       (urb:add-invisible-attribute block-definition base-pt "FONDO_M" "Fondo m" (rtos depth 2 2))
       (urb:add-invisible-attribute block-definition base-pt "AREA_M2" "Area m2" (rtos area 2 2))
+      (urb:add-invisible-attribute block-definition base-pt "TOPEROL_ML" "Toperol ml"
+        (rtos (* 2.0 depth) 2 2))
+      (urb:add-invisible-attribute block-definition base-pt "VIGA_ML" "Viga confinamiento ml"
+        (rtos (+ (* 2.0 depth) (+ width 0.6)) 2 2))
+      (urb:add-invisible-attribute block-definition base-pt "A81_UND" "Prefabricado A81 und" "2")
       (urb:add-invisible-attribute block-definition base-pt "ETAPA" "Etapa" etapa)
       (urb:add-invisible-attribute block-definition base-pt "SUBETAPA" "Subetapa" subetapa)
       (setq insert-result

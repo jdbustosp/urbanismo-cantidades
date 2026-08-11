@@ -17,6 +17,19 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-09 (parte 12) — Rampa por COMPONENTES según el marcado del usuario + respuesta sobre vía sin cotas propias
+
+El usuario marcó sobre la foto del plano las 4 partes de la rampa y pidió subdividirlas por capas pero unidas en un solo bloque:
+
+- **AMARILLO — superficie de rampa**: el trapecio lleva el MISMO patrón del andén (bandas gris 0.80 / blanco 1.00 a lo largo + retícula 0.20), partido con `urb:clip-stripe` sobre la región del trapecio. Capa URB-RAMPA.
+- **NARANJA — toperol en los costados**: las franjas laterales de 0.20 a todo el fondo ahora van en capa `URB-ANDEN-LOSETA-TOPEROL-20X20` con relleno gris y PUNTOS reales (círculos 4 columnas por tableta, tono blanco).
+- **VERDE — vigas de confinamiento**: nueva capa `URB-RAMPA-VIGA` (color 9): 2 verticales de 0.10 junto a cada toperol (todo el fondo, en el hueco de 0.10 que ya mostraba la disección del plano) + 1 horizontal de 0.20 entre rampa y andén (v=1.30-1.50).
+- **MORADO — prefabricado A81**: nueva capa `URB-RAMPA-A81` (color 8): las 2 cuñas triangulares inclinadas que flanquean la rampa (entre el borde inclinado del trapecio y la viga vertical).
+- Atributos nuevos del bloque: `TOPEROL_ML` (2×fondo), `VIGA_ML` (2×fondo + ancho+0.6), `A81_UND` (2). Nueva `urb:ramp-frame-uv` (local→marco rotado, para clip-stripe y símbolos).
+- **Verificado por PDF**: T2-3.00 horizontal y T1-2.00 rotada 30° espejada — los 4 componentes coinciden con el marcado del usuario sobre la foto.
+
+**Vía sin alineamiento ni cotas propias (pregunta del usuario)**: confirmado en `urb:road-resolve-grade` que la vía soporta rasante por **pendiente lineal entre cota inicial y cota final** ("cota X → cota Y (pendiente Z)"). Flujo recomendado: dibujar el eje por el corredor, crear la vía con rasante "Alineamiento + cotas" y seleccionar las etiquetas de cota de las DOS vías existentes en cada empalme — el programa interpola linealmente entre ambas y calcula el movimiento de tierras contra la superficie. Si se necesita quiebre intermedio, agregar un texto de cota en ese punto y seleccionarlo también.
+
 ### 2026-08-09 (parte 11) — Rampa peatonal según la composición REAL de U-201 + click de dirección
 
 El usuario confirmó que la curva quedó bien y pidió 2 ajustes de rampa. Se disecó la composición interna de los 5 bloques `B RAMPA T1/T2` de U-201 (el espécimen sin rotar `T2 - 3.00MT - Andén 4.00MT` dio las medidas exactas):
