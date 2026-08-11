@@ -17,6 +17,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 6) — Round 4: tope de rampa, flujo de vía reordenado y cerco al "consp nil"
+
+Tercer reporte en vivo, con registro de comandos que resolvió el misterio de la rampa:
+
+1. **Rampa**: el registro mostró "El bordillo quedo a 3.85 m del arranque; se ignora (tope 3.00 m)" — la selección del bordillo YA funcionaba perfecto, pero el tope arbitrario de 3 m descartaba una distancia real de 3.85 m. Tope subido a 10 m (con el bordillo como entidad la distancia es real; el tope solo protege de selecciones absurdas) y mensajes unificados (antes salían dos contradictorios). Verificado: rampa con ext=3.85 construida, AREA_M2=10.30 exacta.
+2. **Flujo de vía reordenado** (queja: "está largo y no tiene orden"): ahora 1) contorno, 2) eje, 3) sentido del abscisado, 4) superficie y cotas. Antes el sentido y la referencia de cotas se preguntaban ANTES de dibujar nada. Nota al usuario: para cotas en cualquier capa/xref sin seleccionar capa, el modo de cota del diálogo debe ser "Pendiente" (el picker de N cotas lee la etiqueta clickeada sin importar capa ni xref — es exactamente lo que pidió); "Textos por capa" queda para quien sí tenga una capa uniforme.
+3. **"consp nil" de la memoria**: el blindaje de la parte 5 funcionó (la vía quedó creada y salió el aviso). Sigue sin reproducirse headless (probado también con datos de 23 campos sin movimiento). Se instaló un rastro fino `*urb-memoria-stage*` (areas/abscisas/perfil/geometria/movimiento/fin) que el aviso imprime — la próxima corrida en vivo dirá la sección exacta. Huella descubierta: "consp X" viene de car/cdr/nth sobre un valor no-lista; ninguna de 14 funciones nativas candidatas produce "consp nil" con nil, así que el valor ofensor no es nil directo (misterio pendiente, ya sin costo para el usuario).
+4. Del registro también se confirmó que YA funcionan en vivo: eje automático con arcos (2 clics en extremos), sardineles por cadenas con huecos y Si/No por costado (4 tramos creados), y la migración de tablas.
+
 ### 2026-08-11 (parte 5) — Round 3 tras segunda prueba en vivo: arcos, tablas legadas y blindaje
 
 Segundo reporte en vivo (con registro de comandos completo, clave para el diagnóstico):

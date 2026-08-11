@@ -11880,21 +11880,28 @@
 (defun urb:road-memory-from-data
   (boundary data / area road-length left right over-area left-area right-area
    base-area mov result start-number end-label average-width)
-  (setq area (atof (nth 17 data)))
-  (setq road-length (atof (nth 18 data)))
-  (setq left (atof (nth 14 data)))
-  (setq right (atof (nth 15 data)))
+  ;; *urb-memoria-stage*: rastro fino para cazar el "consp nil" reportado
+  ;; en vivo (2026-08-11) que no se ha podido reproducir headless -- el
+  ;; aviso blindado de urb:create-road lo imprime junto al error.
+  (setq *urb-memoria-stage* "areas")
+  (setq area (atof (urb:safe-string (nth 17 data) "0")))
+  (setq road-length (atof (urb:safe-string (nth 18 data) "0")))
+  (setq left (atof (urb:safe-string (nth 14 data) "0")))
+  (setq right (atof (urb:safe-string (nth 15 data) "0")))
   (setq left-area (min area (* road-length left)))
   (setq right-area (min (- area left-area) (* road-length right)))
   (setq over-area (+ left-area right-area))
   (setq base-area (max 0.0 (- area over-area)))
   (setq average-width
     (if (> road-length 1e-9) (/ area road-length) 0.0))
+  (setq *urb-memoria-stage* "abscisas")
   (setq start-number
     (urb:station-number (urb:safe-string (nth 10 data) "0+000")))
   (setq end-label (urb:format-station (+ start-number road-length)))
+  (setq *urb-memoria-stage* "perfil")
   (setq result
     (urb:road-profile-memory (nth 4 data) area base-area left-area right-area))
+  (setq *urb-memoria-stage* "geometria")
   (setq result
     (strcat result
       "\n\nGeometria del tramo:"
@@ -11902,6 +11909,7 @@
       "\nAncho medio real (area/longitud): " (rtos average-width 2 2) " m"
       "\nAbscisado: " (urb:safe-string (nth 10 data) "0+000")
       " a " end-label))
+  (setq *urb-memoria-stage* "movimiento")
   (setq mov (urb:road-movement-data boundary))
   (if mov
     (setq result
@@ -11913,6 +11921,7 @@
         " | omitidas: " (urb:safe-string (nth 4 mov) "0")
         "\nAncho usado: " (urb:safe-string (nth 5 mov) "0") " m"
         " | profundidad: " (urb:safe-string (nth 6 mov) "0") " m")))
+  (setq *urb-memoria-stage* "fin")
   result)
 
 (defun urb:text-to-mtext (text / position result head)
@@ -12105,9 +12114,10 @@
         (if auto-axis T (urb:select-or-draw-road-axis (nth 4 dialog))))
       (if axis
         (progn
-          (setq direction (urb:road-axis-direction))
-          (setq surface (urb:resolve-road-surface (nth 5 dialog)))
-          (setq cota-info (urb:road-cota-reference (nth 6 dialog)))
+          ;; 2026-08-11 v3: flujo REORDENADO a pedido del usuario ("esta
+          ;; largo y no tiene orden"): 1) contorno, 2) eje, 3) sentido,
+          ;; 4) superficie y cotas. Antes el sentido del abscisado y la
+          ;; referencia de cotas se preguntaban antes de dibujar nada.
           (setq boundary (urb:draw-road-boundary))
           (if (and boundary auto-axis)
             (progn
@@ -12116,7 +12126,7 @@
                 (prompt "\nEje central calculado automaticamente del contorno.")
                 (progn
                   (prompt
-                    "\nNo se pudo calcular el eje central de este contorno (se necesitan 4 vertices rectos).")
+                    "\nNo se pudo calcular el eje central de este contorno.")
                   (setq axis (urb:select-or-draw-road-axis "Nuevo"))))))
           (if (and boundary (not (and axis (urb:curve-entity-p axis))))
             (progn
@@ -12124,6 +12134,9 @@
               (setq boundary nil)))
           (if boundary
             (progn
+              (setq direction (urb:road-axis-direction))
+              (setq surface (urb:resolve-road-surface (nth 5 dialog)))
+              (setq cota-info (urb:road-cota-reference (nth 6 dialog)))
               ;; modo Pendiente: PRIMERO el poligono (ya dibujado), y AHORA
               ;; las cotas -- 2 = pendiente lineal inicial/final; 3 o mas =
               ;; rasante por tramos proyectando cada clic sobre el eje
@@ -12227,7 +12240,12 @@
                       (prompt
                         (strcat
                           "\nAviso: la via quedo creada pero no se pudo armar la memoria: "
-                          (vl-catch-all-error-message memoria-result)))
+                          (vl-catch-all-error-message memoria-result)
+                          " | etapa memoria: "
+                          (urb:safe-string
+                            (if (boundp '*urb-memoria-stage*)
+                              *urb-memoria-stage* nil)
+                            "desconocida")))
                       (alert (strcat "Via creada.\n\nEstado: " status)))
                     (alert memoria-result))))))))))
   (setq *urb-road-picked-cotas* nil)
@@ -13911,17 +13929,23 @@
             (abs
               (+ (* (- (car ext-pt) (car base-pt)) (- (sin axis-angle)))
                  (* (- (cadr ext-pt) (cadr base-pt)) (cos axis-angle)))))
-          (if (> ext 3.0)
-            (progn
+          ;; tope 10 m (2026-08-11 v4: el tope anterior de 3 m descarto un
+          ;; bordillo real a 3.85 m en la prueba en vivo del usuario; con
+          ;; el bordillo seleccionado como entidad la distancia es real y
+          ;; el tope solo protege de selecciones absurdas)
+          (cond
+            ((> ext 10.0)
               (prompt
                 (strcat "\nEl bordillo quedo a " (rtos ext 2 2)
-                        " m del arranque; se ignora (tope 3.00 m)."))
-              (setq ext 0.0)))
-          (if (<= ext 0.005) (setq ext 0.0))
-          (prompt
-            (if (> ext 0.0)
-              (strcat "\nModulo extendido " (rtos ext 2 3) " m hasta el bordillo.")
-              "\nSin extension: el bordillo coincide con el arranque de la rampa."))))
+                        " m del arranque; se ignora (tope 10.00 m)."))
+              (setq ext 0.0))
+            ((<= ext 0.005)
+              (setq ext 0.0)
+              (prompt "\nSin extension: el bordillo coincide con el arranque de la rampa."))
+            (T
+              (prompt
+                (strcat "\nModulo extendido " (rtos ext 2 3)
+                        " m hasta el bordillo."))))))
       ;; base-pt es el INICIO del modulo (u=0); el modulo mide W+1.20 a lo
       ;; largo del eje
       (setq block-ref
