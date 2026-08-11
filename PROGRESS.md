@@ -17,6 +17,17 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 5) — Round 3 tras segunda prueba en vivo: arcos, tablas legadas y blindaje
+
+Segundo reporte en vivo (con registro de comandos completo, clave para el diagnóstico):
+
+1. **Rampa aún corta tras "seleccionar el bordillo"**: causa probable definitiva — con `getpoint`, un clic sin osnap cae en cualquier parte y la distancia sale mal. Ahora el bordillo se **SELECCIONA como entidad** (`entsel`): si es una curva, la extensión es la distancia perpendicular real desde el arranque de la rampa hasta esa curva (da igual dónde se toque); si no es curva (xref), se usa el punto del clic. Tope 3 m y mensaje siempre.
+2. **Migración de tablas solo borró 1 de varias**: las más viejas no tienen xdata (se creaban sin etiquetar). Barrido extra por CAPA: todo `ACAD_TABLE` suelto en `URB-VIA-TABLA` se retira (esa capa solo la usan las tablas generadas). Verificado: tabla sin xdata en esa capa → la migración la borra.
+3. **Eje automático con contornos de arcos/N vértices** (el fallback a dibujar a mano molestaba): nueva infraestructura de **cadenas laterales** (`urb:lwpoly-vertex-bulges`/`urb:road-end-edges`/`urb:road-side-chains`/`urb:road-axis-from-chains`): el contorno se parte en 2 bordes extremos + 2 cadenas (conservando bulges); 4 vértices rectos = extremos automáticos, si no el usuario **toca los 2 bordes extremos** (2 clics); el eje = promedio punto a punto de las cadenas (muestreo ~2 m), arrancando junto al primer vértice dibujado. Verificado headless: contorno con arcos en ambos costados → eje exacto por el centro.
+4. **Sardineles generalizados a las cadenas** (ya no solo cuadriláteros): por costado pregunta **[Si/No]** (por si un costado ya tiene sardinel de otra vía — pedido explícito), resalta la cadena, huecos por pares de clics proyectados sobre la cadena (`vlax-curve`), tramos construidos muestreando la cadena cada 0.25 m (sigue arcos). Espesor fijo 0.20 (pregunta eliminada). Reutiliza los extremos del eje (`*urb-road-end-edges*`) sin repreguntar. Verificado headless: sardinel sobre cadena con arco → bloque OK.
+5. **Cotas de pozos que no se dejaban leer**: el picker usaba `entget`/assoc 1, que devuelve nil en MLeaders/etiquetas Civil 3D — ahora lee `vla-get-TextString` (como el picker de tramos de red) con fallback a entget.
+6. **Crash "bad argument type: consp nil"** al final de crear la vía (tras "Regenerating model"): no se pudo reproducir headless con datos completos sintéticos, así que la memoria final quedó **blindada** (`vl-catch-all`): si falla, la vía queda creada igual, sale un aviso con el mensaje real del error (para cazarlo la próxima vez) y un alert básico. Además el `*error*` de crear-vía ahora limpia los globales del flujo (cotas/estaciones/extremos) para que un error no contamine la siguiente vía.
+
 ### 2026-08-11 (parte 4) — Round 2 tras prueba en vivo: 3 correcciones
 
 El usuario probó la parte 3 en vivo y reportó: (1) la extensión de la rampa al bordillo NO funcionó (seleccionó el bordillo y quedó corta; su imagen de referencia no llegó al chat); (2) quitar la pregunta del espesor del sardinel (siempre es 20 cm); (3) las tablas de verificación siguen en las vías viejas.

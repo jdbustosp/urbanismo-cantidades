@@ -73,6 +73,9 @@
 ;; Records (distancia-eje cota) del modo Pendiente con 3+ cotas (pozos
 ;; sobre la via); se limpia al terminar cada creacion de via.
 (setq *urb-road-picked-stations* nil)
+;; Bordes extremos (e1 e2) elegidos al calcular el eje automatico; los
+;; sardineles los reutilizan sin repreguntar. Se limpia por creacion.
+(setq *urb-road-end-edges* nil)
 ;; Lado elegido para el toperol/guia ("Arriba"/"Abajo"/"Izquierda"/"Derecha").
 ;; Tiene prioridad sobre *urb-current-tactile-side-point* en
 ;; urb:reference-v-edge; se resuelve por-anden con el bbox de cada contorno.
@@ -11333,7 +11336,7 @@
 ;; mas, cada cota se proyecta sobre el eje en el punto donde se clickeo
 ;; su etiqueta y la rasante queda por tramos. Enter tras 2 o mas cotas
 ;; termina; Enter antes de 2 cancela.
-(defun urb:pick-road-cotas (/ picks sel txt value point msg n done)
+(defun urb:pick-road-cotas (/ picks sel obj txt value point msg n done)
   (setq picks nil done nil)
   (while (not done)
     (setq n (length picks))
@@ -11351,7 +11354,18 @@
             (prompt "\nSe necesitan al menos 2 cotas; seleccion cancelada.")
             (setq done T picks nil))))
       (T
-        (setq txt (cdr (assoc 1 (entget (car sel)))))
+        ;; 2026-08-11 v2: leer via TextString del objeto (como
+        ;; mp:prompt-clave-from-label) -- entget/assoc 1 devuelve nil en
+        ;; MLeaders y etiquetas de Civil 3D y el usuario terminaba
+        ;; digitando la cota a mano
+        (setq txt nil)
+        (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list (car sel))))
+        (if (and obj (not (vl-catch-all-error-p obj)))
+          (progn
+            (setq txt (vl-catch-all-apply 'vla-get-TextString (list obj)))
+            (if (vl-catch-all-error-p txt) (setq txt nil))))
+        (if (null txt)
+          (setq txt (cdr (assoc 1 (entget (car sel))))))
         (setq value (if txt (mp:last-decimal-number txt) nil))
         (if value (setq value (atof value)))
         (if (null value)
@@ -11488,43 +11502,21 @@
 
 ;; 2026-08-11: eje central AUTOMATICO para via con alineamiento "Nuevo"
 ;; (pedido del usuario: dibujar el contorno primero y no tener que dibujar
-;; el eje aparte). Solo aplica a contornos de 4 vertices RECTOS (sin
-;; arcos): los dos lados opuestos de menor suma son los extremos de la
-;; via, y el eje es la linea entre sus puntos medios, dibujada en URB-VIA
-;; como si el usuario la hubiera dibujado. Devuelve el ename del eje o nil
-;; si el contorno no aplica (y el flujo cae a dibujarlo a mano).
-(defun urb:road-axis-from-boundary
-  (boundary / edata item pts bulges p0 p1 p2 p3 l01 l12 l23 l30 m1 m2 swap)
-  (setq edata (entget boundary))
-  (setq pts nil bulges nil)
-  (foreach item edata
-    (cond
-      ((= (car item) 10) (setq pts (cons (cdr item) pts)))
-      ((= (car item) 42) (setq bulges (cons (cdr item) bulges)))))
-  (setq pts (reverse pts))
-  (if (and (= (length pts) 4)
-           (not (vl-some '(lambda (b) (> (abs b) 1e-9)) bulges)))
+;; el eje aparte). v2 (mismo dia): generalizado a contornos con ARCOS y
+;; cualquier numero de vertices via cadenas laterales -- para 4 vertices
+;; rectos los extremos se detectan solos; para el resto el usuario toca
+;; los 2 bordes extremos y el eje es el promedio punto a punto de las 2
+;; cadenas laterales. Los extremos usados quedan en *urb-road-end-edges*
+;; para que los sardineles reutilicen las mismas cadenas sin repreguntar.
+(defun urb:road-axis-from-boundary (boundary / ends axis)
+  (setq *urb-road-end-edges* nil)
+  (setq ends (urb:road-end-edges boundary))
+  (if ends
     (progn
-      (setq p0 (nth 0 pts) p1 (nth 1 pts) p2 (nth 2 pts) p3 (nth 3 pts))
-      (setq l01 (distance p0 p1) l12 (distance p1 p2)
-            l23 (distance p2 p3) l30 (distance p3 p0))
-      (if (< (+ l01 l23) (+ l12 l30))
-        (setq m1 (mapcar '(lambda (a b) (* 0.5 (+ a b))) p0 p1)
-              m2 (mapcar '(lambda (a b) (* 0.5 (+ a b))) p2 p3))
-        (setq m1 (mapcar '(lambda (a b) (* 0.5 (+ a b))) p1 p2)
-              m2 (mapcar '(lambda (a b) (* 0.5 (+ a b))) p3 p0)))
-      ;; direccion determinista: el eje arranca en el extremo mas cercano
-      ;; al PRIMER vertice dibujado del contorno (donde el usuario empezo),
-      ;; para que el sentido Inicio/Final del abscisado sea predecible
-      (if (> (distance p0 m1) (distance p0 m2))
-        (setq swap m1 m1 m2 m2 swap))
-      (urb:ensure-layer "URB-VIA" 3 T)
-      (entmake
-        (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity")
-              (cons 100 "AcDbPolyline") (cons 8 "URB-VIA")
-              (cons 90 2) (cons 70 0)
-              (cons 10 m1) (cons 10 m2)))
-      (entlast))
+      (setq axis
+        (urb:road-axis-from-chains boundary (car ends) (cadr ends)))
+      (if axis (setq *urb-road-end-edges* ends))
+      axis)
     nil))
 
 ;; Proyeccion escalar (clampeada) de un punto sobre el segmento pa->dir.
@@ -11533,73 +11525,261 @@
               (* (- (cadr p) (cadr pa)) (cadr dir))))
   (max 0.0 (min len tt)))
 
-;; 2026-08-11: SARDINELES AUTOMATICOS a los costados de la via (pedido del
-;; usuario). Recorre los dos costados LARGOS del contorno (4 vertices) y
-;; construye el sardinel como prefabricado (urb:build-prefab-from-reference,
-;; el mismo bloque del comando Prefabricado) por tramos, dejando huecos
-;; donde la via se cruza con otra: en cada costado el usuario marca pares
-;; INICIO/FIN de los tramos SIN sardinel (bocas de cruce); Enter pasa al
-;; siguiente costado. El costado activo se resalta en verde mientras se
-;; marcan sus huecos.
-(defun urb:create-road-sardineles (boundary-points etapa subetapa
-   / kw width quad sides centroid side pa pb dir len normal mid gaps g1 g2
-   tt1 tt2 swap kept prev item seg ename side-point count)
-  (if (= (length boundary-points) 4)
+;; ------------------------------------------------------------------
+;; 2026-08-11 v2: infraestructura de CADENAS LATERALES de un contorno de
+;; via (soporta arcos y cualquier numero de vertices). El contorno se
+;; parte en 2 bordes EXTREMOS + 2 cadenas laterales; el eje automatico es
+;; el promedio punto a punto de las cadenas y los sardineles se
+;; construyen sobre ellas. Para cuadrilateros rectos los extremos se
+;; detectan solos; para el resto el usuario los toca con 2 clics.
+;; ------------------------------------------------------------------
+
+;; vertices y bulges del LWPOLYLINE en orden (bulge i = arco del vertice
+;; i al i+1)
+(defun urb:lwpoly-vertex-bulges (ename / edata item pts bulges)
+  (setq edata (entget ename))
+  (foreach item edata
+    (cond
+      ((= (car item) 10)
+        (setq pts (cons (cdr item) pts))
+        (setq bulges (cons 0.0 bulges)))
+      ((= (car item) 42)
+        (setq bulges (cons (cdr item) (cdr bulges))))))
+  (list (reverse pts) (reverse bulges)))
+
+(defun urb:dist-point-seg (p a b / len dir tt proj)
+  (setq p (list (car p) (cadr p)))
+  (setq len (distance a b))
+  (if (< len 1e-9)
+    (distance p a)
     (progn
-      (initget "Si No")
-      (setq kw
-        (getkword "\nCrear sardineles en los costados de la via? [Si/No] <Si>: "))
-      (if (not (= kw "No"))
+      (setq dir (mapcar '(lambda (x y) (/ (- y x) len)) a b))
+      (setq tt
+        (max 0.0
+          (min len
+            (+ (* (- (car p) (car a)) (car dir))
+               (* (- (cadr p) (cadr a)) (cadr dir))))))
+      (setq proj (mapcar '(lambda (x d) (+ x (* d tt))) a dir))
+      (distance p proj))))
+
+;; indice del borde (vertice i -> i+1) mas cercano al punto p
+(defun urb:nearest-edge-index (pts p / n i best best-d d)
+  (setq n (length pts) i 0)
+  (while (< i n)
+    (setq d (urb:dist-point-seg p (nth i pts) (nth (rem (1+ i) n) pts)))
+    (if (or (null best-d) (< d best-d)) (setq best-d d best i))
+    (setq i (1+ i)))
+  best)
+
+;; polilinea ABIERTA temporal con los vertices i-from..i-to (avance
+;; circular), conservando los bulges de los bordes intermedios
+(defun urb:make-chain-poly (pts bulges i-from i-to / n idx verts vb)
+  (setq n (length pts) idx i-from verts nil vb nil)
+  (while (/= idx i-to)
+    (setq verts (cons (nth idx pts) verts))
+    (setq vb (cons (nth idx bulges) vb))
+    (setq idx (rem (1+ idx) n)))
+  (setq verts (cons (nth i-to pts) verts))
+  (setq vb (cons 0.0 vb))
+  (setq verts (reverse verts) vb (reverse vb))
+  (if (> (length verts) 1)
+    (entmakex
+      (append
+        (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity")
+              (cons 100 "AcDbPolyline") (cons 8 "URB-VIA")
+              (cons 90 (length verts)) (cons 70 0))
+        (apply 'append
+          (mapcar '(lambda (pt b) (list (cons 10 pt) (cons 42 b)))
+            verts vb))))
+    nil))
+
+;; Bordes extremos del contorno: para 4 vertices RECTOS, el par opuesto
+;; de menor suma (automatico); si no, 2 clics del usuario sobre cada
+;; borde extremo. Devuelve (e1 e2) o nil.
+(defun urb:road-end-edges (boundary / vb pts bulges n l01 l12 l23 l30 p1 p2 e1 e2)
+  (setq vb (urb:lwpoly-vertex-bulges boundary))
+  (setq pts (car vb) bulges (cadr vb) n (length pts))
+  (cond
+    ((< n 4) nil)
+    ((and (= n 4)
+          (not (vl-some '(lambda (b) (> (abs b) 1e-9)) bulges)))
+      (setq l01 (distance (nth 0 pts) (nth 1 pts))
+            l12 (distance (nth 1 pts) (nth 2 pts))
+            l23 (distance (nth 2 pts) (nth 3 pts))
+            l30 (distance (nth 3 pts) (nth 0 pts)))
+      ;; (3 1) y no (1 3): asi la cadena A (y el eje) arranca junto al
+      ;; PRIMER vertice dibujado, direccion predecible del abscisado
+      (if (< (+ l01 l23) (+ l12 l30)) (list 0 2) (list 3 1)))
+    (T
+      (prompt
+        "\nContorno con arcos o mas de 4 vertices: toque los 2 bordes EXTREMOS de la via.")
+      (setq p1 (getpoint "\nToque el borde EXTREMO INICIAL: "))
+      (if p1 (setq p2 (getpoint "\nToque el borde EXTREMO FINAL: ")))
+      (if (and p1 p2)
         (progn
-          ;; espesor fijo 0.20 (2026-08-11: el usuario pidio quitar la
-          ;; pregunta -- el sardinel es siempre de 20 cm)
-          (setq width 0.20)
-          (setq quad boundary-points)
+          (setq e1 (urb:nearest-edge-index pts p1))
+          (setq e2 (urb:nearest-edge-index pts p2))
+          (if (and e1 e2 (/= e1 e2)) (list e1 e2) nil))
+        nil))))
+
+;; Cadenas laterales del contorno dados sus bordes extremos: lista
+;; (chainA chainB) de polilineas TEMPORALES (el que llama las borra).
+;; chainA va del extremo inicial al final; chainB en el mismo sentido
+;; geometrico pero recorrida al reves (usar length-fraccion invertida).
+(defun urb:road-side-chains (boundary e1 e2 / vb pts bulges n a b)
+  (setq vb (urb:lwpoly-vertex-bulges boundary))
+  (setq pts (car vb) bulges (cadr vb) n (length pts))
+  (setq a (urb:make-chain-poly pts bulges (rem (1+ e1) n) e2))
+  (setq b (urb:make-chain-poly pts bulges (rem (1+ e2) n) e1))
+  (if (and a b)
+    (list a b)
+    (progn
+      (if a (entdel a))
+      (if b (entdel b))
+      nil)))
+
+;; Eje central por promedio punto a punto de las 2 cadenas laterales.
+;; Devuelve el ename del eje (LWPOLYLINE en URB-VIA) o nil.
+(defun urb:road-axis-from-chains (boundary e1 e2 / chains ca cb la lb k steps
+   frac pa pb mids ename)
+  (setq chains (urb:road-side-chains boundary e1 e2))
+  (if chains
+    (progn
+      (setq ca (car chains) cb (cadr chains))
+      (setq la (vlax-curve-getDistAtParam ca (vlax-curve-getEndParam ca)))
+      (setq lb (vlax-curve-getDistAtParam cb (vlax-curve-getEndParam cb)))
+      (setq steps (max 8 (min 60 (fix (/ (max la lb) 2.0)))))
+      (setq k 0 mids nil)
+      (while (<= k steps)
+        (setq frac (/ (float k) steps))
+        (setq pa (vlax-curve-getPointAtDist ca (* frac la)))
+        ;; chainB avanza del extremo FINAL al INICIAL -> fraccion invertida
+        (setq pb (vlax-curve-getPointAtDist cb (* (- 1.0 frac) lb)))
+        (if (and pa pb)
+          (setq mids
+            (cons
+              (list (* 0.5 (+ (car pa) (car pb)))
+                    (* 0.5 (+ (cadr pa) (cadr pb))))
+              mids)))
+        (setq k (1+ k)))
+      (setq mids (reverse mids))
+      (entdel ca)
+      (entdel cb)
+      (if (> (length mids) 1)
+        (progn
+          (urb:ensure-layer "URB-VIA" 3 T)
+          (setq ename
+            (entmakex
+              (append
+                (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity")
+                      (cons 100 "AcDbPolyline") (cons 8 "URB-VIA")
+                      (cons 90 (length mids)) (cons 70 0))
+                (mapcar '(lambda (p) (cons 10 p)) mids))))
+          ename)
+        nil))
+    nil))
+
+;; Resalta una cadena (polilinea temporal) en pantalla con grdraw.
+(defun urb:highlight-chain (chain / len d step p1 p2)
+  (setq len (vlax-curve-getDistAtParam chain (vlax-curve-getEndParam chain)))
+  (setq step (max 0.25 (/ len 80.0)))
+  (setq d 0.0)
+  (while (< d (- len 1e-6))
+    (setq p1 (vlax-curve-getPointAtDist chain d))
+    (setq p2 (vlax-curve-getPointAtDist chain (min len (+ d step))))
+    (if (and p1 p2) (grdraw p1 p2 3 1))
+    (setq d (+ d step)))
+  len)
+
+;; Sub-polilinea de una cadena entre las distancias d1..d2, muestreada
+;; cada 0.25 m (sigue arcos con precision suficiente para el sardinel).
+(defun urb:chain-subpoly (chain d1 d2 / len steps k d pt pts)
+  (setq len (- d2 d1))
+  (setq steps (max 1 (fix (/ len 0.25))))
+  (setq k 0 pts nil)
+  (while (<= k steps)
+    (setq d (+ d1 (* len (/ (float k) steps))))
+    (setq pt (vlax-curve-getPointAtDist chain d))
+    (if pt (setq pts (cons (list (car pt) (cadr pt)) pts)))
+    (setq k (1+ k)))
+  (setq pts (reverse pts))
+  (if (> (length pts) 1)
+    (entmakex
+      (append
+        (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity")
+              (cons 100 "AcDbPolyline") (cons 8 "URB-VIA")
+              (cons 90 (length pts)) (cons 70 0))
+        (mapcar '(lambda (p) (cons 10 p)) pts)))
+    nil))
+
+;; 2026-08-11 v2: SARDINELES AUTOMATICOS sobre las CADENAS laterales del
+;; contorno (soporta arcos y cualquier numero de vertices, ya no solo
+;; cuadrilateros -- reporte del usuario). Por cada costado: pregunta
+;; [Si/No] (por si un costado ya tiene sardinel de otra via), resalta la
+;; cadena en verde, y el usuario marca pares INICIO/FIN de los tramos SIN
+;; sardinel (bocas de cruce); Enter sigue. Espesor fijo 0.20 (pedido del
+;; usuario). Reutiliza los bordes extremos ya elegidos para el eje
+;; automatico (*urb-road-end-edges*) sin repreguntar.
+(defun urb:create-road-sardineles (boundary etapa subetapa
+   / ends chains chain len kw pts centroid g1 g2 c1 c2 tt1 tt2 swap gaps
+   kept prev item seg ename mid-pt deriv dlen normal side-point count)
+  (setq ends
+    (if (and (boundp '*urb-road-end-edges*) *urb-road-end-edges*)
+      *urb-road-end-edges*
+      (urb:road-end-edges boundary)))
+  (if (null ends)
+    (progn
+      (prompt "\nSardineles automaticos: no se pudieron determinar los costados.")
+      nil)
+    (progn
+      (setq chains (urb:road-side-chains boundary (car ends) (cadr ends)))
+      (if (null chains)
+        (progn
+          (prompt "\nSardineles automaticos: no se pudieron construir los costados.")
+          nil)
+        (progn
+          (setq pts (urb:lwpoly-points boundary))
           (setq centroid
             (list
-              (/ (apply '+ (mapcar 'car quad)) 4.0)
-              (/ (apply '+ (mapcar 'cadr quad)) 4.0)))
-          (setq sides
-            (if (> (+ (distance (nth 0 quad) (nth 1 quad))
-                      (distance (nth 2 quad) (nth 3 quad)))
-                   (+ (distance (nth 1 quad) (nth 2 quad))
-                      (distance (nth 3 quad) (nth 0 quad))))
-              (list (list (nth 0 quad) (nth 1 quad))
-                    (list (nth 2 quad) (nth 3 quad)))
-              (list (list (nth 1 quad) (nth 2 quad))
-                    (list (nth 3 quad) (nth 0 quad)))))
+              (/ (apply '+ (mapcar 'car pts)) (float (length pts)))
+              (/ (apply '+ (mapcar 'cadr pts)) (float (length pts)))))
           (setq count 0)
-          (foreach side sides
-            (setq pa (car side) pb (cadr side))
-            (setq len (distance pa pb))
-            (if (> len 0.10)
+          (foreach chain chains
+            (setq len (urb:highlight-chain chain))
+            (initget "Si No")
+            (setq kw
+              (getkword
+                (strcat "\nSardinel en el costado resaltado ("
+                        (rtos len 2 2) " m)? [Si/No] <Si>: ")))
+            (if (not (= kw "No"))
               (progn
-                (setq dir (mapcar '(lambda (a b) (/ (- b a) len)) pa pb))
-                (setq normal (list (- (cadr dir)) (car dir)))
-                (setq mid (mapcar '(lambda (a b) (* 0.5 (+ a b))) pa pb))
-                ;; normal hacia AFUERA de la via: alli crece el sardinel
-                (if (< (+ (* (car normal) (- (car mid) (car centroid)))
-                          (* (cadr normal) (- (cadr mid) (cadr centroid))))
-                       0.0)
-                  (setq normal (mapcar '- normal)))
-                (grdraw pa pb 3 1)
-                (prompt (strcat "\nCostado resaltado de " (rtos len 2 2) " m."))
                 (setq gaps nil g1 T)
                 (while g1
                   (setq g1
                     (getpoint
-                      "\n  INICIO de tramo SIN sardinel en este costado (cruce; Enter si no hay mas): "))
+                      "\n  INICIO de tramo SIN sardinel (cruce; Enter si no hay mas): "))
                   (if g1
                     (progn
                       (setq g2 (getpoint g1 "\n  FIN del tramo sin sardinel: "))
                       (if g2
                         (progn
-                          (setq tt1 (urb:project-param-on-segment pa dir len g1))
-                          (setq tt2 (urb:project-param-on-segment pa dir len g2))
-                          (if (> tt1 tt2) (setq swap tt1 tt1 tt2 tt2 swap))
-                          (setq gaps (cons (list tt1 tt2) gaps)))))))
+                          (setq c1
+                            (vl-catch-all-apply
+                              'vlax-curve-getClosestPointTo (list chain g1)))
+                          (setq c2
+                            (vl-catch-all-apply
+                              'vlax-curve-getClosestPointTo (list chain g2)))
+                          (if (and (not (vl-catch-all-error-p c1))
+                                   (not (vl-catch-all-error-p c2)))
+                            (progn
+                              (setq tt1 (vlax-curve-getDistAtPoint chain c1))
+                              (setq tt2 (vlax-curve-getDistAtPoint chain c2))
+                              (if (and tt1 tt2)
+                                (progn
+                                  (if (> tt1 tt2)
+                                    (setq swap tt1 tt1 tt2 tt2 swap))
+                                  (setq gaps (cons (list tt1 tt2) gaps)))))))))))
                 (setq gaps (vl-sort gaps '(lambda (a b) (< (car a) (car b)))))
-                ;; intervalos que SI llevan sardinel
                 (setq kept nil prev 0.0)
                 (foreach item gaps
                   (if (> (- (car item) prev) 0.10)
@@ -11609,28 +11789,37 @@
                   (setq kept (cons (list prev len) kept)))
                 (setq kept (reverse kept))
                 (foreach seg kept
-                  (setq ename
-                    (entmakex
-                      (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity")
-                            (cons 100 "AcDbPolyline") (cons 8 "URB-VIA")
-                            (cons 90 2) (cons 70 0)
-                            (cons 10
-                              (mapcar '(lambda (a d) (+ a (* d (car seg)))) pa dir))
-                            (cons 10
-                              (mapcar '(lambda (a d) (+ a (* d (cadr seg)))) pa dir)))))
-                  (setq side-point (mapcar '+ mid normal))
-                  (if (and ename
-                           (urb:build-prefab-from-reference
-                             ename side-point "Sardinel" width etapa subetapa
-                             "Exterior"))
-                    (setq count (1+ count)))))))
-          (redraw)
-          (prompt (strcat "\nSardineles creados: " (itoa count) " tramo(s)."))))
-      count)
-    (progn
-      (prompt
-        "\nSardineles automaticos: solo para contornos de 4 vertices (use el comando Prefabricado para este caso).")
-      nil)))
+                  (setq ename (urb:chain-subpoly chain (car seg) (cadr seg)))
+                  (if ename
+                    (progn
+                      ;; lado de crecimiento: hacia AFUERA de la via
+                      (setq mid-pt
+                        (vlax-curve-getPointAtDist chain
+                          (* 0.5 (+ (car seg) (cadr seg)))))
+                      (setq deriv
+                        (vlax-curve-getFirstDeriv chain
+                          (vlax-curve-getParamAtDist chain
+                            (* 0.5 (+ (car seg) (cadr seg))))))
+                      (setq dlen (distance '(0.0 0.0 0.0) deriv))
+                      (setq normal
+                        (if (> dlen 1e-9)
+                          (list (- (/ (cadr deriv) dlen)) (/ (car deriv) dlen))
+                          (list 0.0 1.0)))
+                      (if (< (+ (* (car normal) (- (car mid-pt) (car centroid)))
+                                (* (cadr normal) (- (cadr mid-pt) (cadr centroid))))
+                             0.0)
+                        (setq normal (mapcar '- normal)))
+                      (setq side-point
+                        (list (+ (car mid-pt) (car normal))
+                              (+ (cadr mid-pt) (cadr normal))))
+                      (if (urb:build-prefab-from-reference
+                            ename side-point "Sardinel" 0.20 etapa subetapa
+                            "Exterior")
+                        (setq count (1+ count))))))))
+            (redraw))
+          (foreach chain chains (if (entget chain) (entdel chain)))
+          (prompt (strcat "\nSardineles creados: " (itoa count) " tramo(s)."))
+          count)))))
 
 ;; El eje puede ser mucho mas largo que el tramo (varias vias por etapa
 ;; comparten un mismo alineamiento). En vez de pedir al usuario que
@@ -11881,9 +12070,15 @@
 (defun urb:create-road
   (/ dialog axis auto-axis direction surface cota-info boundary obj area range
    axis-start axis-length handle label start interval data status picks
-   via-id block-ref doc undo-open undo-result *error*)
+   memoria-result via-id block-ref doc undo-open undo-result *error*)
   (setq doc (urb:doc))
   (defun *error* (message)
+    ;; limpiar TAMBIEN los globales del flujo: si un error corta la
+    ;; creacion, unas cotas/estaciones viejas no deben contaminar la
+    ;; siguiente via (2026-08-11 v2)
+    (setq *urb-road-picked-cotas* nil)
+    (setq *urb-road-picked-stations* nil)
+    (setq *urb-road-end-edges* nil)
     (if undo-open
       (progn
         (vl-catch-all-apply 'vla-EndUndoMark (list doc))
@@ -12008,8 +12203,7 @@
                   ;; Sardineles a los costados (2026-08-11): antes de
                   ;; empaquetar, con el contorno todavia como polilinea.
                   (urb:create-road-sardineles
-                    (urb:lwpoly-points boundary)
-                    (nth 1 dialog) (nth 2 dialog))
+                    boundary (nth 1 dialog) (nth 2 dialog))
                   ;; Contorno + abscisado quedan empacados en un bloque con
                   ;; atributos invisibles: los datos calculados se ven en el
                   ;; panel Properties con solo seleccionar la via, sin correr
@@ -12019,10 +12213,26 @@
                     (or (urb:as-ename block-ref) boundary))
                   (setq data (urb:get-xdata-strings boundary "URB_VIA"))
                   (vla-Regen (urb:doc) 1)
-                  (alert (strcat (urb:road-memory-from-data boundary data)
-                    "\n\nEstado: " status))))))))))
+                  ;; blindado (2026-08-11 v2): un fallo al ARMAR la memoria
+                  ;; no debe abortar la creacion (la via ya existe completa
+                  ;; en este punto) -- el usuario reporto "bad argument
+                  ;; type: consp nil" justo aqui y perdia el cierre limpio.
+                  (setq memoria-result
+                    (vl-catch-all-apply
+                      '(lambda ()
+                         (strcat (urb:road-memory-from-data boundary data)
+                           "\n\nEstado: " status))))
+                  (if (vl-catch-all-error-p memoria-result)
+                    (progn
+                      (prompt
+                        (strcat
+                          "\nAviso: la via quedo creada pero no se pudo armar la memoria: "
+                          (vl-catch-all-error-message memoria-result)))
+                      (alert (strcat "Via creada.\n\nEstado: " status)))
+                    (alert memoria-result))))))))))
   (setq *urb-road-picked-cotas* nil)
   (setq *urb-road-picked-stations* nil)
+  (setq *urb-road-end-edges* nil)
   (if undo-open
     (progn
       (vl-catch-all-apply 'vla-EndUndoMark (list doc))
@@ -13618,7 +13828,7 @@
 (defun urb:create-ramp-command
   (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
    depth etapa subetapa axis-angle side-sign block-ref center-pt total-half done
-   ext ext-pt)
+   ext ext-pt ext-sel ext-cp)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
   ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
   ;; laterales de 0.65 m con adoquin 20x10, fondo = ancho del anden
@@ -13675,17 +13885,28 @@
       ;; modulo (rampa, A81, toperoles y bordillos verticales) hasta el
       ;; bordillo. Enter = sin extension (comportamiento anterior).
       (setq ext 0.0)
-      (setq ext-pt
-        (getpoint base-pt
-          "\nPunto sobre el BORDE DEL BORDILLO de la via (Enter si la rampa arranca aqui): "))
-      (if ext-pt
+      ;; 2026-08-11 v3: se SELECCIONA el bordillo como ENTIDAD (entsel),
+      ;; no un punto suelto -- el usuario reporto 2 veces que "selecciono
+      ;; el bordillo" y la rampa quedaba corta: con getpoint el click sin
+      ;; osnap caia en cualquier parte y la distancia salia mal. Si lo
+      ;; seleccionado es una curva, la extension es la distancia
+      ;; PERPENDICULAR real desde el arranque hasta esa curva (da igual
+      ;; donde se toque); si no es curva (p.ej. bordillo dentro de un
+      ;; xref), se usa el punto del click. Tope 3 m y mensaje SIEMPRE.
+      (setq ext-sel
+        (entsel
+          "\nSeleccione el BORDILLO de la via (Enter si la rampa arranca aqui): "))
+      (if ext-sel
         (progn
-          ;; distancia PERPENDICULAR del click al arranque de la rampa.
-          ;; 2026-08-11 v2: se toma en valor absoluto (antes solo se
-          ;; aceptaba hacia el lado de la via y un click con el signo
-          ;; "equivocado" se descartaba EN SILENCIO -- el usuario reporto
-          ;; que selecciono el bordillo y la rampa quedo corta). Tope de
-          ;; 3 m por si el click se va lejos, y mensaje SIEMPRE.
+          (setq ext-pt
+            (if (urb:curve-entity-p (car ext-sel))
+              (progn
+                (setq ext-cp
+                  (vl-catch-all-apply
+                    'vlax-curve-getClosestPointTo
+                    (list (car ext-sel) base-pt)))
+                (if (vl-catch-all-error-p ext-cp) (cadr ext-sel) ext-cp))
+              (cadr ext-sel)))
           (setq ext
             (abs
               (+ (* (- (car ext-pt) (car base-pt)) (- (sin axis-angle)))
@@ -13693,14 +13914,14 @@
           (if (> ext 3.0)
             (progn
               (prompt
-                (strcat "\nEl punto quedo a " (rtos ext 2 2)
+                (strcat "\nEl bordillo quedo a " (rtos ext 2 2)
                         " m del arranque; se ignora (tope 3.00 m)."))
               (setq ext 0.0)))
           (if (<= ext 0.005) (setq ext 0.0))
           (prompt
             (if (> ext 0.0)
               (strcat "\nModulo extendido " (rtos ext 2 3) " m hasta el bordillo.")
-              "\nSin extension: el punto coincide con el arranque de la rampa."))))
+              "\nSin extension: el bordillo coincide con el arranque de la rampa."))))
       ;; base-pt es el INICIO del modulo (u=0); el modulo mide W+1.20 a lo
       ;; largo del eje
       (setq block-ref
@@ -16978,6 +17199,21 @@
   (setq count
     (+ (urb:delete-road-audit-tables nil)
        (urb:purge-road-block-tables)))
+  ;; barrido extra por CAPA (2026-08-11 v2): las tablas mas viejas no
+  ;; tienen xdata (se creaban sin etiquetar); la capa URB-VIA-TABLA solo
+  ;; la usan las tablas de verificacion generadas, asi que todo ACAD_TABLE
+  ;; suelto en esa capa tambien se retira. Reporte del usuario: la
+  ;; migracion anterior solo borro 1 de varias.
+  (if (setq ss (ssget "_X" '((0 . "ACAD_TABLE") (8 . "URB-VIA-TABLA"))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (if (not (vl-catch-all-error-p
+                   (vl-catch-all-apply
+                     '(lambda ()
+                        (vla-Delete (vlax-ename->vla-object (ssname ss i)))))))
+          (setq count (1+ count)))
+        (setq i (1+ i)))))
   (if (> count 0)
     (progn
       (vl-catch-all-apply
