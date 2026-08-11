@@ -11302,15 +11302,19 @@
   span)
 
 (defun urb:pick-cota-value (msg / selected ename edata txt value)
-  ;; Selecciona un texto/etiqueta de cota y devuelve su valor numerico
-  ;; (usa el ultimo numero con punto decimal, robusto ante codigos MTEXT).
-  ;; Enter u objeto ilegible -> pide digitarla.
+  ;; Selecciona un texto/etiqueta de cota y devuelve su valor numerico REAL
+  ;; (mp:last-decimal-number devuelve STRING -- se convierte con atof aqui
+  ;; mismo; los consumidores hacen aritmetica/rtos directo y truenan con
+  ;; un string). Enter u objeto ilegible -> pide digitarla.
   (setq selected (nentsel msg))
   (if selected
     (progn
       (setq ename (car selected) edata (entget ename))
       (setq txt (cdr (assoc 1 edata)))
-      (if txt (setq value (mp:last-decimal-number txt)))))
+      (if txt (setq value (mp:last-decimal-number txt)))
+      (if value (setq value (atof value)))
+      (if value
+        (prompt (strcat "\nCota leida de la etiqueta: " (rtos value 2 3))))))
   (if (null value)
     (setq value (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
   value
@@ -12813,7 +12817,9 @@
           "cota " (rtos cota0 2 2)
           " -> cota " (rtos cota-final 2 2)
           " (pendiente " (rtos slope 2 2)
-          "%, conservada de la edicion anterior)"))
+          (if *urb-road-picked-cotas*
+            "%, cotas seleccionadas en el dibujo)"
+            "%, conservada de la edicion anterior)")))
       (list (car grade) metodo cota0 cota-final))
     (T
       (prompt "\nNo hay suficientes cotas de proyecto cerca del eje.")
@@ -13361,7 +13367,7 @@
 
 (defun urb:build-ramp
   (base-pt axis-angle side-sign width depth etapa subetapa
-   / doc objects obj hatch boundary area total u1 ent trap treg breg treg2 piece
+   / doc objects obj hatch boundary area total u1 ent trap treg breg forigin piece
    s e bw gray bp vlo vhi lu lv uvh corners
    block-name blocks block-definition copy-result insert-result block-ref
    block-ename)
@@ -13469,16 +13475,15 @@
   (setq treg
     (vl-catch-all-apply 'urb:add-region-from-object (list obj)))
   ;; ZONA POSTERIOR: el fondo del modulo (del bordillo horizontal hasta el
-  ;; final) con la MISMA modelacion del anden (loseta 20x20 / adoquin)
+  ;; final) con la MISMA modelacion del anden real: banda por banda (gris
+  ;; loseta 20x20 / blanco adoquin 0.10x0.20), NO una reticula uniforme --
+  ;; la textura se aplica por banda mas abajo, en el mismo bucle de fase.
   (setq ent
     (urb:ramp-quad-poly base-pt axis-angle side-sign
       0.3 1.5 (+ width 0.9) depth "URB-RAMPA"))
   (setq obj (vlax-ename->vla-object ent))
   (setq objects (cons obj objects))
-  (setq hatch
-    (urb:add-user-hatch obj "URB-RAMPA" 0.20 axis-angle T 9
-      (urb:ramp-local-point base-pt axis-angle side-sign 0.3 1.5)))
-  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+  (setq forigin (urb:ramp-local-point base-pt axis-angle side-sign 0.3 1.5))
   (setq breg
     (vl-catch-all-apply 'urb:add-region-from-object (list obj)))
   ;; bandas grises 0.80/1.00 compartidas (misma fase en rampa y fondo,
@@ -13498,19 +13503,62 @@
   (while (< s (+ width 0.9 -1e-6))
     (setq bw (if gray 0.80 1.00))
     (setq e (min (+ s bw) (+ width 0.9)))
-    (if gray
-      (foreach treg2 (list treg breg)
-        (if (not (vl-catch-all-error-p treg2))
+    ;; RAMPA (trapecio): igual que antes -- solo las bandas grises llevan
+    ;; relleno solido; la reticula 0.20 uniforme de toda la superficie ya
+    ;; quedo aplicada arriba.
+    (if (and gray (not (vl-catch-all-error-p treg)))
+      (progn
+        (setq piece
+          (urb:clip-stripe treg (+ bp s) (+ bp e) vlo vhi axis-angle))
+        (if piece
           (progn
-            (setq piece
-              (urb:clip-stripe treg2 (+ bp s) (+ bp e) vlo vhi axis-angle))
-            (if piece
+            (vla-put-Layer piece "URB-RAMPA")
+            (setq objects (cons piece objects))
+            (setq hatch
+              (vl-catch-all-apply 'urb:add-solid-hatch
+                (list piece "URB-RAMPA" 8)))
+            (if (not (vl-catch-all-error-p hatch))
+              (setq objects (cons hatch objects)))))))
+    ;; FONDO: textura real del anden por banda (2026-08-11, pendiente del
+    ;; usuario) -- gris = loseta 20x20 (solido gris + reticula 0.20 doble,
+    ;; como urb:decorate-gray-stripe); blanco = adoquin (solido blanco +
+    ;; juntas 0.10 al eje y 0.20 perpendicular, como
+    ;; urb:decorate-white-stripe). Misma fase de bandas que la rampa.
+    (if (not (vl-catch-all-error-p breg))
+      (progn
+        (setq piece
+          (urb:clip-stripe breg (+ bp s) (+ bp e) vlo vhi axis-angle))
+        (if piece
+          (progn
+            (vla-put-Layer piece "URB-RAMPA")
+            (setq objects (cons piece objects))
+            (if gray
               (progn
-                (vla-put-Layer piece "URB-RAMPA")
-                (setq objects (cons piece objects))
                 (setq hatch
                   (vl-catch-all-apply 'urb:add-solid-hatch
                     (list piece "URB-RAMPA" 8)))
+                (if (not (vl-catch-all-error-p hatch))
+                  (setq objects (cons hatch objects)))
+                (setq hatch
+                  (vl-catch-all-apply 'urb:add-user-hatch
+                    (list piece "URB-RAMPA" 0.20 axis-angle T 9 forigin)))
+                (if (not (vl-catch-all-error-p hatch))
+                  (setq objects (cons hatch objects))))
+              (progn
+                (setq hatch
+                  (vl-catch-all-apply 'urb:add-solid-hatch
+                    (list piece "URB-RAMPA" 7)))
+                (if (not (vl-catch-all-error-p hatch))
+                  (setq objects (cons hatch objects)))
+                (setq hatch
+                  (vl-catch-all-apply 'urb:add-user-hatch
+                    (list piece "URB-RAMPA" 0.10 axis-angle nil 8 forigin)))
+                (if (not (vl-catch-all-error-p hatch))
+                  (setq objects (cons hatch objects)))
+                (setq hatch
+                  (vl-catch-all-apply 'urb:add-user-hatch
+                    (list piece "URB-RAMPA" 0.20 (+ axis-angle (/ pi 2.0))
+                      nil 8 forigin)))
                 (if (not (vl-catch-all-error-p hatch))
                   (setq objects (cons hatch objects)))))))))
     (setq s e gray (not gray)))
