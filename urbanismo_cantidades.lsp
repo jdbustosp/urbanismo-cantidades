@@ -353,84 +353,105 @@
     (prompt (strcat "\n  Etapa " (car entry) " -> subetapas: " linea)))
   (princ))
 
-;; Gestor de Ajustes -> Etapas y subetapas (2026-08-11, pedido del
-;; usuario): habilitar/deshabilitar globalmente y editar el catalogo
-;; (agregar/quitar etapas, redefinir subetapas). Todo por linea de
-;; comandos, persistido en el dibujo.
-(defun urb:etapas-manager-command (/ done kw name subs entry nuevas)
-  (setq done nil)
+;; texto "3A,3B" de las subetapas de una etapa (para el edit_box)
+(defun urb:etapas-subs-string (etapa / linea)
+  (setq linea "")
+  (foreach s (urb:subetapas-for etapa)
+    (setq linea (strcat linea (if (= linea "") "" ",") s)))
+  linea)
+
+(defun urb:etapas-replace-at (i newentry / k out entry)
+  (setq k 0 out nil)
+  (foreach entry *urb-etapas-catalog*
+    (setq out (cons (if (= k i) newentry entry) out))
+    (setq k (1+ k)))
+  (setq *urb-etapas-catalog* (reverse out)))
+
+(defun urb:etapas-remove-at (i / k out entry)
+  (setq k 0 out nil)
+  (foreach entry *urb-etapas-catalog*
+    (if (/= k i) (setq out (cons entry out)))
+    (setq k (1+ k)))
+  (setq *urb-etapas-catalog* (reverse out)))
+
+;; Gestor de Ajustes -> Etapas y subetapas (2026-08-11 v2: CUADRO DE
+;; DIALOGO con desplegables, pedido del usuario -- no menu de linea de
+;; comandos). El dialogo se reabre tras cada operacion para refrescar la
+;; lista; el toggle Habilitadas se persiste en cada salida. Con etapas
+;; deshabilitadas, los popups etapa/subetapa de los dialogos de creacion
+;; quedan grises (urb:fill-popup / mp:fill-popup).
+(defun urb:etapas-manager-command
+  (/ filename dcl-id done code idx activo subs nueva nuevasubs lst etapa)
+  (urb:refresh-etapas-catalog)
+  (setq done nil idx 0)
   (while (not done)
-    (urb:etapas-print-catalog)
-    (initget "Habilitar Deshabilitar Agregar Quitar Subetapas Restaurar Salir")
-    (setq kw
-      (getkword
-        "\n[Habilitar/Deshabilitar/Agregar etapa/Quitar etapa/Subetapas de una etapa/Restaurar/Salir] <Salir>: "))
-    (cond
-      ((or (null kw) (= kw "Salir")) (setq done T))
-      ((= kw "Habilitar")
-        (urb:config-write "URB_ETAPAS_ACTIVO" "1")
-        (prompt "\nEtapas y subetapas HABILITADAS."))
-      ((= kw "Deshabilitar")
-        (urb:config-write "URB_ETAPAS_ACTIVO" "0")
-        (prompt
-          "\nEtapas y subetapas DESHABILITADAS: apareceran grises en los dialogos y todo se creara con la etapa por defecto."))
-      ((= kw "Agregar")
-        (setq name (vl-string-trim " " (getstring "\nNombre de la etapa nueva: ")))
-        (if (/= name "")
-          (if (assoc name *urb-etapas-catalog*)
-            (prompt "\nEsa etapa ya existe.")
-            (progn
-              (setq subs
-                (urb:split-subetapas
-                  (getstring T
-                    (strcat "\nSubetapas de la etapa " name
-                      " separadas por comas <" name ">: "))))
-              (if (null subs) (setq subs (list name)))
-              (setq *urb-etapas-catalog*
-                (append *urb-etapas-catalog* (list (list name subs))))
-              (urb:save-etapas-catalog)
-              (prompt (strcat "\nEtapa " name " agregada."))))))
-      ((= kw "Quitar")
-        (setq name (vl-string-trim " " (getstring "\nNombre de la etapa a quitar: ")))
-        (if (assoc name *urb-etapas-catalog*)
-          (if (<= (length *urb-etapas-catalog*) 1)
-            (prompt "\nDebe quedar al menos una etapa.")
-            (progn
-              (setq nuevas nil)
-              (foreach entry *urb-etapas-catalog*
-                (if (/= (car entry) name)
-                  (setq nuevas (cons entry nuevas))))
-              (setq *urb-etapas-catalog* (reverse nuevas))
-              (urb:save-etapas-catalog)
-              (prompt (strcat "\nEtapa " name " eliminada del catalogo."))))
-          (prompt "\nEsa etapa no existe.")))
-      ((= kw "Subetapas")
-        (setq name (vl-string-trim " " (getstring "\nEtapa a editar: ")))
-        (if (assoc name *urb-etapas-catalog*)
-          (progn
-            (setq subs
-              (urb:split-subetapas
-                (getstring T
-                  (strcat "\nNuevas subetapas de la etapa " name
-                    " separadas por comas: "))))
-            (if (null subs)
-              (prompt "\nSin cambios (lista vacia).")
+    (setq filename (urb:write-main-menu-dcl))
+    (setq dcl-id (if filename (load_dialog filename) -1))
+    (if (and dcl-id (> dcl-id 0) (new_dialog "urb_etapas" dcl-id))
+      (progn
+        (if (>= idx (length *urb-etapa-list*)) (setq idx 0))
+        ;; llenado DIRECTO (sin urb:fill-popup: esa pondria gris el popup
+        ;; del propio gestor cuando las etapas estan deshabilitadas)
+        (start_list "etapa")
+        (mapcar 'add_list *urb-etapa-list*)
+        (end_list)
+        (set_tile "etapa" (itoa idx))
+        (set_tile "activo" (if (urb:etapas-enabled-p) "1" "0"))
+        (set_tile "subs" (urb:etapas-subs-string (nth idx *urb-etapa-list*)))
+        (action_tile "etapa"
+          (strcat
+            "(setq idx (atoi $value))"
+            "(set_tile \"subs\" (urb:etapas-subs-string (nth idx *urb-etapa-list*)))"))
+        (action_tile "guardar"
+          "(setq activo (get_tile \"activo\") subs (get_tile \"subs\"))(done_dialog 2)")
+        (action_tile "quitar"
+          "(setq activo (get_tile \"activo\"))(done_dialog 3)")
+        (action_tile "agregar"
+          "(setq activo (get_tile \"activo\") nueva (get_tile \"nueva\") nuevasubs (get_tile \"nuevasubs\"))(done_dialog 4)")
+        (action_tile "restaurar"
+          "(setq activo (get_tile \"activo\"))(done_dialog 5)")
+        (action_tile "accept"
+          "(setq activo (get_tile \"activo\"))(done_dialog 1)")
+        (setq code (start_dialog))
+        (unload_dialog dcl-id)
+        (if activo
+          (urb:config-write "URB_ETAPAS_ACTIVO" (if (= activo "1") "1" "0")))
+        (cond
+          ((= code 2)
+            (setq lst (urb:split-subetapas subs))
+            (setq etapa (nth idx *urb-etapa-list*))
+            (if (and lst etapa)
               (progn
-                (setq nuevas nil)
-                (foreach entry *urb-etapas-catalog*
-                  (setq nuevas
-                    (cons
-                      (if (= (car entry) name) (list name subs) entry)
-                      nuevas)))
-                (setq *urb-etapas-catalog* (reverse nuevas))
+                (urb:etapas-replace-at idx (list etapa lst))
+                (urb:save-etapas-catalog))
+              (alert "Escriba al menos una subetapa.")))
+          ((= code 3)
+            (if (<= (length *urb-etapas-catalog*) 1)
+              (alert "Debe quedar al menos una etapa.")
+              (progn
+                (urb:etapas-remove-at idx)
                 (urb:save-etapas-catalog)
-                (prompt (strcat "\nSubetapas de " name " actualizadas.")))))
-          (prompt "\nEsa etapa no existe.")))
-      ((= kw "Restaurar")
-        (setq *urb-etapas-catalog* (urb:default-etapas-catalog))
-        (urb:save-etapas-catalog)
-        (urb:config-write "URB_ETAPAS_ACTIVO" "1")
-        (prompt "\nCatalogo restaurado a los valores originales."))))
+                (setq idx 0))))
+          ((= code 4)
+            (setq nueva (vl-string-trim " " (urb:safe-string nueva "")))
+            (cond
+              ((= nueva "") (alert "Escriba el nombre de la etapa nueva."))
+              ((assoc nueva *urb-etapas-catalog*) (alert "Esa etapa ya existe."))
+              (T
+                (setq lst (urb:split-subetapas nuevasubs))
+                (if (null lst) (setq lst (list nueva)))
+                (setq *urb-etapas-catalog*
+                  (append *urb-etapas-catalog* (list (list nueva lst))))
+                (urb:save-etapas-catalog)
+                (setq idx (1- (length *urb-etapa-list*))))))
+          ((= code 5)
+            (setq *urb-etapas-catalog* (urb:default-etapas-catalog))
+            (urb:save-etapas-catalog)
+            (setq idx 0))
+          (T (setq done T))))
+      (progn
+        (prompt "\nNo se pudo abrir el dialogo de etapas.")
+        (setq done T))))
   (princ))
 
 (defun urb:subetapas-for (etapa / entry)
@@ -14591,6 +14612,21 @@
         ": button { label = \"Referencia de relleno de tramos de red\"; key = \"network_fill_ref\"; height = 2; width = 40; }"
         ": button { label = \"Recalcular tramos existentes con la referencia actual\"; key = \"recalc_tramos\"; height = 2; width = 40; } }"
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
+        "urb_etapas : dialog { label = \"Etapas y subetapas\";"
+        ": toggle { key = \"activo\"; label = \"Habilitadas (etapa/subetapa activas en los dialogos de creacion)\"; }"
+        ": boxed_column { label = \"Catalogo\";"
+        ": popup_list { key = \"etapa\"; label = \"Etapa\"; width = 22; }"
+        ": edit_box { key = \"subs\"; label = \"Subetapas (separadas por coma)\"; edit_width = 30; }"
+        ": row {"
+        ": button { key = \"guardar\"; label = \"Guardar subetapas\"; width = 20; }"
+        ": button { key = \"quitar\"; label = \"Quitar etapa\"; width = 16; } } }"
+        ": boxed_column { label = \"Nueva etapa\";"
+        ": edit_box { key = \"nueva\"; label = \"Nombre\"; edit_width = 12; }"
+        ": edit_box { key = \"nuevasubs\"; label = \"Subetapas (separadas por coma)\"; edit_width = 30; }"
+        ": button { key = \"agregar\"; label = \"Agregar etapa\"; width = 20; } }"
+        ": row {"
+        ": button { key = \"restaurar\"; label = \"Restaurar original\"; width = 20; }"
+        "ok_only; } }"
         "urb_quantities : dialog { label = \"Cantidades\";"
         ": boxed_column { label = \"Seleccione una opcion\";"
         ": button { label = \"Cuadro en dibujo: andenes y prefabricados\"; key = \"table\"; height = 2; width = 44; }"

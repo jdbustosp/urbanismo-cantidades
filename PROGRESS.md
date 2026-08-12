@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 16) — Ribbon v3: descarga COM del cuix, Excel agrupado y gestor de etapas en DIÁLOGO
+
+Tercer reporte del usuario: seguía la pestaña doble, Excel quedó "suelto" en Cantidades, y el gestor de etapas debía ser un cuadro de diálogo con desplegables (no menú de línea de comandos).
+
+1. **Pestaña doble — causa real**: el auto-CUIUNLOAD por comando abría el DIÁLOGO de CUIUNLOAD (FILEDIA=1) y nunca descargaba. Ahora el DLL descarga el partial legado por **COM** (`Application.AcadApplication` → `MenuGroups` → `.Unload()` via `dynamic`, con `Microsoft.CSharp`/`System.Core` agregados al build 2023) en el primer Idle — sin comandos, sin diálogos, y quita el registro del perfil permanentemente.
+2. **Excel agrupado**: `RibbonSplitButton` "Excel" (IsSplit=false, sin sincronizar → botón-menú puro) dentro de Cantidades con las 4 acciones adentro (Exportar/Actualizar/Vincular/Desvincular).
+3. **Gestor de etapas como DIÁLOGO** (`urb_etapas` en el DCL principal): toggle "Habilitadas", desplegable de etapa → edit_box con sus subetapas (editable, "Guardar subetapas"), "Quitar etapa", bloque "Nueva etapa" (nombre + subetapas + "Agregar"), "Restaurar original". El diálogo se reabre tras cada operación para refrescar listas; el llenado del popup del gestor es DIRECTO (sin urb:fill-popup, que lo pondría gris con etapas deshabilitadas). Helpers: `urb:etapas-subs-string/replace-at/remove-at`.
+4. **Instalador resiliente a DLL bloqueado**: si AutoCAD está abierto, el DLL cargado no se puede reemplazar — ahora avisa "cierre AutoCAD y corra INSTALAR.bat de nuevo" y el resto (lsp, íconos) se instala igual. REGLA OPERATIVA: las actualizaciones de la cinta requieren TODAS las ventanas de AutoCAD cerradas al instalar.
+- **Verificado headless (parte LISP)**: DCL urb_etapas generado con sus 5 controles, helpers definidos, subs-string("3")="3,3A,3B". El DLL nuevo quedó compilado (2023 y 2025) pero NO instalado aún por el bloqueo — el usuario debe cerrar Civil 3D → INSTALAR.bat → reabrir.
+
 ### 2026-08-11 (parte 15) — Ribbon v2 (jerarquía Urbanismo), Cantidades+Excel y gestor de etapas/subetapas
 
 El usuario confirmó que la pestaña .NET apareció (con la vieja del cuix duplicada al lado — su sesión tenía el cuix bloqueado cuando el instalador intentó borrarlo) y pidió el rediseño completo:

@@ -27,6 +27,8 @@ $wpf = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF"
   ("/r:" + (Join-Path $wpf "PresentationFramework.dll")) `
   ("/r:" + (Join-Path $wpf "WindowsBase.dll")) `
   ("/r:" + "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Xaml.dll") `
+  ("/r:" + "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Core.dll") `
+  ("/r:" + "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\Microsoft.CSharp.dll") `
   $src
 
 if ($LASTEXITCODE -ne 0) { throw "csc fallo con codigo $LASTEXITCODE" }

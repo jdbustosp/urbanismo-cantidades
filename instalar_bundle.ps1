@@ -30,12 +30,16 @@ foreach ($old in @("cantidades.cui","cantidades.cuix","cantidades.bak.cuix","can
   $p = Join-Path $contents $old
   if (Test-Path $p) { try { Remove-Item $p -Force } catch {} }
 }
-# DLLs del ribbon (2023 = .NET FW 4.8, 2025 = .NET 8; el manifiesto elige)
+# DLLs del ribbon (2023 = .NET FW 4.8, 2025 = .NET 8; el manifiesto elige).
+# Si AutoCAD esta abierto, el DLL cargado queda bloqueado: se avisa y el
+# resto de la instalacion continua (cerrar AutoCAD y volver a correr).
+$dllBloqueado = $false
 $netDir = Join-Path $repo "bundle\net"
 if (Test-Path $netDir) {
   New-Item -ItemType Directory -Force -Path (Join-Path $contents "net") | Out-Null
   Get-ChildItem $netDir -Filter "*.dll" | ForEach-Object {
-    Copy-Item $_.FullName (Join-Path $contents ("net\" + $_.Name)) -Force }
+    try { Copy-Item $_.FullName (Join-Path $contents ("net\" + $_.Name)) -Force -ErrorAction Stop }
+    catch { $dllBloqueado = $true } }
 }
 # iconos junto al DLL (los carga desde disco)
 $icoDir = Join-Path $repo "bundle\iconos"
@@ -73,4 +77,10 @@ Write-Output "Plugin instalado/actualizado en:"
 Write-Output "  $dest"
 Write-Output "Version del motor: $ver"
 Write-Output "Perfiles de AutoCAD con ruta confiable agregada: $updated"
-Write-Output "Reinicie AutoCAD/Civil 3D: comandos + pestana CANTIDADES cargan solos."
+if ($dllBloqueado) {
+  Write-Output ""
+  Write-Output "AVISO: AutoCAD esta abierto y la cinta (.dll) NO se pudo actualizar."
+  Write-Output "Cierre TODAS las ventanas de AutoCAD y corra INSTALAR.bat de nuevo."
+} else {
+  Write-Output "Reinicie AutoCAD/Civil 3D: comandos + pestana CANTIDADES cargan solos."
+}

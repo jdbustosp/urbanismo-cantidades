@@ -68,17 +68,28 @@ namespace UrbanismoCantidades
 
         private static void OnIdleUnloadLegacy(object sender, EventArgs e)
         {
+            // Descarga el partial CUIX legado por COM (MenuGroups.Unload):
+            // la via de comando (CUIUNLOAD) abria un dialogo con FILEDIA=1
+            // y nunca descargaba -- por eso la pestana salia duplicada.
             try
             {
                 if (_legacyChecked) { Application.Idle -= OnIdleUnloadLegacy; return; }
-                Document doc = Application.DocumentManager.MdiActiveDocument;
-                if (doc == null) return;
                 _legacyChecked = true;
                 Application.Idle -= OnIdleUnloadLegacy;
-                doc.SendStringToExecute(
-                    "(if (menugroup \"CANTIDADES\") (command \"_.CUIUNLOAD\" \"CANTIDADES\"))(princ) ",
-                    true, false, false);
-                Log("Chequeo de partial CUIX legado enviado");
+                dynamic acad = Application.AcadApplication;
+                dynamic groups = acad.MenuGroups;
+                int count = (int)groups.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    dynamic g = groups.Item(i);
+                    string name = (string)g.Name;
+                    if (name != null && name.ToUpper() == "CANTIDADES")
+                    {
+                        g.Unload();
+                        Log("Partial CUIX legado CANTIDADES descargado por COM");
+                        break;
+                    }
+                }
             }
             catch (System.Exception ex) { Log("ERROR IdleLegacy: " + ex.Message); }
         }
@@ -107,16 +118,14 @@ namespace UrbanismoCantidades
                 tab.Panels.Add(MakePanel("Editar", new string[][] {
                     new string[] { "Editar", "EDITAR", "editar", "L" },
                     new string[] { "Etapas", "ETAPAS", "etapas", "L" } }));
-                // Cantidades absorbe Excel (2026-08-11 v2); incluir/excluir
-                // y CSV redes salieron de la cinta (siguen por comando)
-                tab.Panels.Add(MakePanel("Cantidades", new string[][] {
+                // Cantidades absorbe Excel agrupado en UN boton desplegable
+                // (2026-08-11 v3, pedido del usuario)
+                RibbonPanel cantPanel = MakePanel("Cantidades", new string[][] {
                     new string[] { "Cuadro", "QCUADRO", "qcuadro", "L" },
                     new string[] { "Memoria", "QMEMORIA", "qmemoria", "L" },
-                    new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" },
-                    new string[] { "Exportar", "QEXCEL", "qexcel", "L" },
-                    new string[] { "Actualizar", "QACTUALIZAR", "qactualizar", "L" },
-                    new string[] { "Vincular", "QVINCULAR", "qvincular", "S" },
-                    new string[] { "Desvincular", "QDESVINCULAR", "qdesvincular", "S" } }));
+                    new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" } });
+                cantPanel.Source.Items.Add(MakeExcelGroup());
+                tab.Panels.Add(cantPanel);
                 tab.Panels.Add(MakePanel("Configuracion", new string[][] {
                     new string[] { "Perfiles", "PERFILES", "perfiles", "L" },
                     new string[] { "Ajustes", "AJUSTES", "ajustes", "L" } }));
@@ -223,6 +232,31 @@ namespace UrbanismoCantidades
                 }
                 catch (System.Exception ex) { Log("ERROR Nav: " + ex.Message); }
             }
+        }
+
+        // Boton desplegable "Excel" con las 4 acciones adentro (siempre
+        // muestra "Excel"; la lista se abre al oprimirlo)
+        private static RibbonSplitButton MakeExcelGroup()
+        {
+            RibbonSplitButton sb = new RibbonSplitButton();
+            sb.Text = "Excel";
+            sb.ShowText = true;
+            sb.ToolTip = "Exportar y sincronizar con Excel";
+            sb.Size = RibbonItemSize.Large;
+            sb.Orientation = System.Windows.Controls.Orientation.Vertical;
+            sb.IsSplit = false;
+            sb.IsSynchronizedWithCurrentItem = false;
+            sb.ListStyle = RibbonSplitButtonListStyle.List;
+            BitmapImage img16 = LoadIcon("cant_qexcel_16.png");
+            BitmapImage img32 = LoadIcon("cant_qexcel_32.png");
+            if (img16 != null) sb.Image = img16;
+            if (img32 != null) sb.LargeImage = img32;
+            sb.ShowImage = true;
+            sb.Items.Add(MakeBig("Exportar Excel", "QEXCEL", "qexcel"));
+            sb.Items.Add(MakeBig("Actualizar Excel vinculado", "QACTUALIZAR", "qactualizar"));
+            sb.Items.Add(MakeBig("Vincular Excel maestro", "QVINCULAR", "qvincular"));
+            sb.Items.Add(MakeBig("Desvincular Excel", "QDESVINCULAR", "qdesvincular"));
+            return sb;
         }
 
         // --- fabrica de paneles y botones -----------------------------
