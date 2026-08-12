@@ -29,6 +29,17 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-12 (parte 19) — v4.18.0: rampa manual, cotas auto-detect, andén sin Modulación y etapas OCULTAS (solo .lsp, sin cambios .NET)
+
+Round multi-disciplina pedido por el usuario (pantallazos de rampa, diálogo de vía, andén en curva y diálogo de andén):
+
+1. **Rampa — selector eliminado**: el prompt "Seleccione el BORDILLO o eje..." se quitó por completo (v6). El usuario reportó que no reconocía el fondo hasta el bordillo y el fondo tocaba digitarlo igual. Flujo actual: punto inicial sobre el borde de la vía → dirección del eje → ancho/fondo por teclado (el fondo digitado ya extendía bien el módulo completo).
+2. **Vía — picker de cotas con AUTO-DETECCIÓN** (`urb:pick-road-cotas` + nuevo `urb:cota-from-via`): al seleccionar la cota inicial/final (o las intermedias de pozos), el mismo clic reconoce solo si se tocó (a) un texto/etiqueta de cota en CUALQUIER capa o xref (vía `TextString`/DXF 1 + `mp:last-decimal-number`), o (b) una **vía ya creada** — en ese caso toma la cota de la RASANTE de esa vía en el punto exacto del clic (proyección al eje guardado + records de rasante, con dirección Inicio/Final). Sin preseleccionar tipo; si nada se puede leer, se digita.
+3. **Andén — diálogo depurado**: se eliminó la sección **Modulación** completa (Orientación/Extremo — "no está funcionando para nada"; internamente creación usa Automatico/Normal y EDITAR conserva el sentido de cada andén) y el popup **Calcular** del movimiento de tierras (ahora SIEMPRE se calcula; solo queda cómo: Superficie TN + Rasante desde). La orientación recta en curvas ya estaba implementada de la sesión anterior (la curva solo recorta, sin abanico).
+4. **Andén — nueva fuente de rasante "Cotas seleccionadas"** (`urb:select-anden-picked-grade`): para andenes SIN vía creada y sin depender de una capa de cotas. Se selecciona o dibuja el eje de referencia y se clickean N cotas con el mismo picker auto-detect del punto 2 (texto en cualquier capa/xref, vía creada o digitada); cada cota se proyecta al eje en el punto del clic → rasante por tramos (`urb:picked-cotas-to-stations`, modo RAW). Queda de tercera opción junto a "Via creada" y "Alineamiento + cotas".
+5. **Etapas OCULTAS (no grises)**: con etapas deshabilitadas (Ajustes → Etapas y subetapas), los tiles etapa/subetapa **ya no se emiten en los DCL de CREACIÓN** (andén, vía, prefabricado, zona verde, tramo red/MT/BT, punto hidro, caja eléctrica, elemento eléctrico, accesorio acueducto) y todos los `get_tile`/fills quedan condicionados (un tile ausente truena). Los diálogos de EDICIÓN (`edit_*` de redes, gestor de etapas, comando ETAPAS) conservan los tiles (grises), controlado con `*mp-dialog-edit-mode*` que fijan los `mp:write-dcl*`. El gestor de etapas invalida los caches DCL (`*urb-*-dcl-ok*`, `*mp-dcl-*-ok*`) al cambiar el toggle para regenerarlos al vuelo. `mp:gettile` blindado con `vl-catch-all` para tiles ausentes tras `done_dialog`.
+- Sin cambios en C# (DLLs intactas). Verificado headless: versión, DCLs generados con etapas ON (etapa presente, Modulación/Calcular ausentes) y OFF (etapa ausente en creación, presente en edición), funciones nuevas definidas.
+
 ### 2026-08-12 (parte 18) — Ribbon v4: Urbanismo externo (3 niveles), sin botón Perfiles y rampa por nentsel
 
 Tres ajustes pedidos por el usuario (con su pantallazo de Ajustes ya funcionando):

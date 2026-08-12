@@ -37,7 +37,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.17.7")
+(setq *urb-version* "4.18.0")
 (setq *urb-schema-version* "22")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
@@ -54,7 +54,8 @@
 (setq *urb-material-list* '("Loseta"))
 (setq *urb-yes-no-list* '("No" "Si"))
 (setq *urb-loseta-format-list* '("40 x 40 cm" "20 x 20 cm"))
-(setq *urb-anden-grade-source-list* '("Via creada" "Alineamiento + cotas"))
+(setq *urb-anden-grade-source-list*
+  '("Via creada" "Cotas seleccionadas" "Alineamiento + cotas"))
 (setq *urb-prefab-list* '("Bordillo" "Sardinel" "Canuela"))
 (setq *urb-prefab-mode-list* '("Interior" "Exterior"))
 (setq *urb-unit-warning-dwg* nil)
@@ -415,7 +416,18 @@
         (setq code (start_dialog))
         (unload_dialog dcl-id)
         (if activo
-          (urb:config-write "URB_ETAPAS_ACTIVO" (if (= activo "1") "1" "0")))
+          (progn
+            (urb:config-write "URB_ETAPAS_ACTIVO" (if (= activo "1") "1" "0"))
+            ;; 2026-08-12: los tiles etapa/subetapa se OCULTAN (no se
+            ;; emiten en el DCL) cuando las etapas estan deshabilitadas;
+            ;; se invalidan los caches para que los dialogos de creacion
+            ;; se regeneren con el estado nuevo del toggle.
+            (setq *urb-anden-dcl-ok* nil
+                  *urb-prefab-dcl-ok* nil
+                  *urb-green-dcl-ok* nil
+                  *urb-stage-dcl-ok* nil
+                  *mp-dcl-listas-ok* nil
+                  *mp-dcl-puntos-ok* nil)))
         (cond
           ((= code 2)
             (setq lst (urb:split-subetapas subs))
@@ -516,19 +528,21 @@
       ": boxed_column { label = \"Clasificacion\";"
       ": popup_list { label = \"Material\"; key = \"material\"; }"
       ": popup_list { label = \"Formato de loseta\"; key = \"formato\"; }"
-      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
-      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+      ;; 2026-08-12: si las etapas estan deshabilitadas los tiles NO se
+      ;; emiten (pedido del usuario: ocultar, no engrisar). El gestor de
+      ;; etapas resetea *urb-anden-dcl-ok* al cambiar el toggle.
+      (if (urb:etapas-enabled-p)
+        ": popup_list { label = \"Etapa\"; key = \"etapa\"; }" "")
+      (if (urb:etapas-enabled-p)
+        ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" "")
       "}"
       ": boxed_column { label = \"Accesibilidad\";"
       ": popup_list { label = \"Loseta guia\"; key = \"guia\"; }"
       ": popup_list { label = \"Loseta toperol\"; key = \"toperol\"; }"
       "}"
-      ": boxed_column { label = \"Modulacion\";"
-      ": popup_list { label = \"Orientacion\"; key = \"orientacion\"; }"
-      ": popup_list { label = \"Extremo inicial\"; key = \"extremo\"; }"
-      "}"
+      ;; 2026-08-12: Modulacion (orientacion/extremo) eliminada del dialogo
+      ;; y "Calcular" tambien (el movimiento de tierras SIEMPRE se calcula).
       ": boxed_column { label = \"Movimiento de tierras\";"
-      ": popup_list { label = \"Calcular\"; key = \"calcular\"; }"
       ": popup_list { label = \"Superficie TN\"; key = \"superficie\"; }"
       ": popup_list { label = \"Rasante desde\"; key = \"rasante\"; }"
       "} ok_cancel; }"))
@@ -572,17 +586,23 @@
         "formato"
         *urb-loseta-format-list*
         (urb:index-of current-format *urb-loseta-format-list*))
-      (urb:fill-popup
-        "etapa"
-        *urb-etapa-list*
-        (urb:index-of current-etapa *urb-etapa-list*))
-      (setq *urb-dialog-etapa*
-        (nth (atoi (get_tile "etapa")) *urb-etapa-list*))
-      (setq subetapas (urb:subetapas-for *urb-dialog-etapa*))
-      (urb:fill-popup
-        "subetapa"
-        subetapas
-        (urb:index-of current-subetapa subetapas))
+      ;; 2026-08-12: etapa/subetapa solo existen en el DCL cuando las
+      ;; etapas estan habilitadas -- get_tile sobre un tile ausente truena,
+      ;; asi que todo lo relacionado va condicionado.
+      (if (urb:etapas-enabled-p)
+        (progn
+          (urb:fill-popup
+            "etapa"
+            *urb-etapa-list*
+            (urb:index-of current-etapa *urb-etapa-list*))
+          (setq *urb-dialog-etapa*
+            (nth (atoi (get_tile "etapa")) *urb-etapa-list*))
+          (setq subetapas (urb:subetapas-for *urb-dialog-etapa*))
+          (urb:fill-popup
+            "subetapa"
+            subetapas
+            (urb:index-of current-subetapa subetapas))
+          (action_tile "etapa" "(urb:dialog-update-subetapa)")))
       (urb:fill-popup
         "guia"
         *urb-yes-no-list*
@@ -592,35 +612,24 @@
         *urb-yes-no-list*
         (urb:index-of current-toperol *urb-yes-no-list*))
       (urb:fill-popup
-        "calcular"
-        *urb-yes-no-list*
-        (urb:index-of current-calculate *urb-yes-no-list*))
-      (urb:fill-popup
         "superficie" surfaces (urb:index-of current-surface surfaces))
       (urb:fill-popup
         "rasante" *urb-anden-grade-source-list*
         (urb:index-of current-grade-source *urb-anden-grade-source-list*))
-      (urb:fill-popup
-        "orientacion" orientation-list
-        (urb:index-of current-orientation orientation-list))
-      (urb:fill-popup
-        "extremo" start-list
-        (urb:index-of current-start start-list))
-      (action_tile "etapa" "(urb:dialog-update-subetapa)")
       (action_tile
         "accept"
         (strcat
           "(setq *urb-dialog-material-index* (atoi (get_tile \"material\"))"
           " *urb-dialog-format-index* (atoi (get_tile \"formato\"))"
-          " *urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
-          " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\"))"
+          (if (urb:etapas-enabled-p)
+            (strcat
+              " *urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
+              " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\"))")
+            "")
           " *urb-dialog-guia-index* (atoi (get_tile \"guia\"))"
           " *urb-dialog-toperol-index* (atoi (get_tile \"toperol\"))"
-          " *urb-dialog-calculate-index* (atoi (get_tile \"calcular\"))"
           " *urb-dialog-surface-index* (atoi (get_tile \"superficie\"))"
-          " *urb-dialog-grade-index* (atoi (get_tile \"rasante\"))"
-          " *urb-dialog-orientation-index* (atoi (get_tile \"orientacion\"))"
-          " *urb-dialog-start-index* (atoi (get_tile \"extremo\")))"
+          " *urb-dialog-grade-index* (atoi (get_tile \"rasante\")))"
           "(done_dialog 1)"))
       (setq accepted (= 1 (start_dialog)))
       (unload_dialog dcl-id)
@@ -630,24 +639,26 @@
             (nth *urb-dialog-material-index* *urb-material-list*))
           (setq current-format
             (nth *urb-dialog-format-index* *urb-loseta-format-list*))
-          (setq current-etapa
-            (nth *urb-dialog-etapa-index* *urb-etapa-list*))
-          (setq subetapas (urb:subetapas-for current-etapa))
-          (setq current-subetapa
-            (nth *urb-dialog-subetapa-index* subetapas))
+          (if (urb:etapas-enabled-p)
+            (progn
+              (setq current-etapa
+                (nth *urb-dialog-etapa-index* *urb-etapa-list*))
+              (setq subetapas (urb:subetapas-for current-etapa))
+              (setq current-subetapa
+                (nth *urb-dialog-subetapa-index* subetapas))))
           (setq current-guia
             (nth *urb-dialog-guia-index* *urb-yes-no-list*))
           (setq current-toperol
             (nth *urb-dialog-toperol-index* *urb-yes-no-list*))
-          (setq current-calculate
-            (nth *urb-dialog-calculate-index* *urb-yes-no-list*))
+          ;; Movimiento de tierras SIEMPRE se calcula (2026-08-12).
+          (setq current-calculate "Si")
           (setq current-surface
             (nth *urb-dialog-surface-index* surfaces))
           (setq current-grade-source
             (nth *urb-dialog-grade-index* *urb-anden-grade-source-list*))
-          (setq current-orientation
-            (nth *urb-dialog-orientation-index* orientation-list))
-          (setq current-start (nth *urb-dialog-start-index* start-list))
+          ;; Modulacion eliminada del dialogo: la orientacion y el extremo
+          ;; conservan lo que paso el llamador (creacion = "Automatico"/
+          ;; "Normal"; EDITAR = "Conservar").
           (setq result
             (list current-material current-format current-etapa current-subetapa
                   current-guia current-toperol current-calculate
@@ -665,8 +676,10 @@
       "urbanismo_prefabricado : dialog { label = \"Datos del prefabricado\";"
       ": popup_list { label = \"Tipo\"; key = \"tipo\"; }"
       ": edit_box { label = \"Espesor en metros\"; key = \"espesor\"; edit_width = 12; }"
-      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
-      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+      (if (urb:etapas-enabled-p)
+        ": popup_list { label = \"Etapa\"; key = \"etapa\"; }" "")
+      (if (urb:etapas-enabled-p)
+        ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" "")
       ": popup_list { label = \"Modelado\"; key = \"modo\"; }"
       "ok_cancel; }"))
 )
@@ -694,25 +707,30 @@
         "tipo" *urb-prefab-list*
         (urb:index-of current-type *urb-prefab-list*))
       (set_tile "espesor" (rtos current-width 2 3))
-      (urb:fill-popup
-        "etapa" *urb-etapa-list*
-        (urb:index-of current-etapa *urb-etapa-list*))
-      (setq *urb-dialog-etapa*
-        (nth (atoi (get_tile "etapa")) *urb-etapa-list*))
-      (setq subetapas (urb:subetapas-for *urb-dialog-etapa*))
-      (urb:fill-popup
-        "subetapa" subetapas
-        (urb:index-of current-subetapa subetapas))
+      (if (urb:etapas-enabled-p)
+        (progn
+          (urb:fill-popup
+            "etapa" *urb-etapa-list*
+            (urb:index-of current-etapa *urb-etapa-list*))
+          (setq *urb-dialog-etapa*
+            (nth (atoi (get_tile "etapa")) *urb-etapa-list*))
+          (setq subetapas (urb:subetapas-for *urb-dialog-etapa*))
+          (urb:fill-popup
+            "subetapa" subetapas
+            (urb:index-of current-subetapa subetapas))
+          (action_tile "etapa" "(urb:dialog-update-subetapa)")))
       (urb:fill-popup
         "modo" *urb-prefab-mode-list*
         (urb:index-of current-mode *urb-prefab-mode-list*))
-      (action_tile "etapa" "(urb:dialog-update-subetapa)")
       (action_tile
         "accept"
         (strcat
           "(setq *urb-dialog-prefab-index* (atoi (get_tile \"tipo\"))"
-          " *urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
-          " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\"))"
+          (if (urb:etapas-enabled-p)
+            (strcat
+              " *urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
+              " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\"))")
+            "")
           " *urb-dialog-prefab-mode-index* (atoi (get_tile \"modo\"))"
           " *urb-dialog-prefab-width* (get_tile \"espesor\"))"
           "(done_dialog 1)"))
@@ -722,11 +740,13 @@
         (progn
           (setq current-type
             (nth *urb-dialog-prefab-index* *urb-prefab-list*))
-          (setq current-etapa
-            (nth *urb-dialog-etapa-index* *urb-etapa-list*))
-          (setq subetapas (urb:subetapas-for current-etapa))
-          (setq current-subetapa
-            (nth *urb-dialog-subetapa-index* subetapas))
+          (if (urb:etapas-enabled-p)
+            (progn
+              (setq current-etapa
+                (nth *urb-dialog-etapa-index* *urb-etapa-list*))
+              (setq subetapas (urb:subetapas-for current-etapa))
+              (setq current-subetapa
+                (nth *urb-dialog-subetapa-index* subetapas))))
           (setq current-mode
             (nth *urb-dialog-prefab-mode-index*
               *urb-prefab-mode-list*))
@@ -745,10 +765,15 @@
     '*urb-green-dcl-ok*
     (list
       "urbanismo_zona_verde : dialog { label = \"Datos de la zona verde\";"
-      ": boxed_column { label = \"Clasificacion\";"
-      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
-      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
-      "}"
+      ;; sin etapas habilitadas la Clasificacion completa se omite (solo
+      ;; contiene etapa/subetapa)
+      (if (urb:etapas-enabled-p)
+        ": boxed_column { label = \"Clasificacion\";" "")
+      (if (urb:etapas-enabled-p)
+        ": popup_list { label = \"Etapa\"; key = \"etapa\"; }" "")
+      (if (urb:etapas-enabled-p)
+        ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" "")
+      (if (urb:etapas-enabled-p) "}" "")
       ": boxed_column { label = \"Tierra negra\";"
       ": edit_box { label = \"Espesor (m)\"; key = \"espesor\"; edit_width = 12; }"
       "}"
@@ -773,35 +798,42 @@
            (> (setq dcl-id (load_dialog filename)) 0)
            (new_dialog "urbanismo_zona_verde" dcl-id))
     (progn
-      (urb:fill-popup
-        "etapa" *urb-etapa-list*
-        (urb:index-of current-etapa *urb-etapa-list*))
-      (setq *urb-dialog-etapa*
-        (nth (atoi (get_tile "etapa")) *urb-etapa-list*))
-      (setq subetapas (urb:subetapas-for *urb-dialog-etapa*))
-      (urb:fill-popup
-        "subetapa" subetapas
-        (urb:index-of current-subetapa subetapas))
+      (if (urb:etapas-enabled-p)
+        (progn
+          (urb:fill-popup
+            "etapa" *urb-etapa-list*
+            (urb:index-of current-etapa *urb-etapa-list*))
+          (setq *urb-dialog-etapa*
+            (nth (atoi (get_tile "etapa")) *urb-etapa-list*))
+          (setq subetapas (urb:subetapas-for *urb-dialog-etapa*))
+          (urb:fill-popup
+            "subetapa" subetapas
+            (urb:index-of current-subetapa subetapas))
+          (action_tile "etapa" "(urb:dialog-update-subetapa)")))
       (set_tile "espesor" (rtos current-thickness 2 3))
-      (action_tile "etapa" "(urb:dialog-update-subetapa)")
       (action_tile
         "accept"
         (strcat
-          "(setq *urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
-          " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\"))"
-          " *urb-dialog-green-thickness* (get_tile \"espesor\"))"
+          "(setq "
+          (if (urb:etapas-enabled-p)
+            (strcat
+              "*urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
+              " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\")) ")
+            "")
+          "*urb-dialog-green-thickness* (get_tile \"espesor\"))"
           "(done_dialog 1)"))
       (setq accepted (= 1 (start_dialog)))
       (unload_dialog dcl-id)
       (if accepted
         (progn
-          (setq current-etapa
-            (nth *urb-dialog-etapa-index* *urb-etapa-list*)
-                subetapas (urb:subetapas-for current-etapa)
-                current-subetapa
-                  (nth *urb-dialog-subetapa-index* subetapas)
-                thickness-value
-                  (urb:parse-real *urb-dialog-green-thickness*))
+          (if (urb:etapas-enabled-p)
+            (setq current-etapa
+              (nth *urb-dialog-etapa-index* *urb-etapa-list*)
+                  subetapas (urb:subetapas-for current-etapa)
+                  current-subetapa
+                    (nth *urb-dialog-subetapa-index* subetapas)))
+          (setq thickness-value
+            (urb:parse-real *urb-dialog-green-thickness*))
           (if (or (null thickness-value) (<= thickness-value 0.0))
             (progn
               (alert
@@ -4781,10 +4813,40 @@
           (prompt "\nNo se encontraron suficientes cotas cerca del alineamiento.") nil))))
 )
 
+;; "Cotas seleccionadas" (2026-08-12, pedido del usuario: rasante del
+;; anden SIN via creada y SIN depender de una capa de cotas): se
+;; selecciona o dibuja el eje de referencia y luego se clickean N cotas
+;; una a una con el mismo picker auto-detect de las vias (texto/etiqueta
+;; en CUALQUIER capa o xref, o una via ya creada, o digitada). Cada cota
+;; se proyecta al eje en el punto del click -> rasante por tramos.
+(defun urb:select-anden-picked-grade (/ axis picks records axis-length)
+  (setq axis (urb:select-or-draw-road-axis "Existente"))
+  (if axis
+    (progn
+      (prompt
+        (strcat "\nSeleccione las cotas de rasante sobre el eje "
+                "(textos en cualquier capa/xref, vias creadas o digitadas)."))
+      (setq picks (urb:pick-road-cotas))
+      (if picks
+        (progn
+          (setq records (urb:picked-cotas-to-stations picks axis))
+          (setq axis-length
+            (vlax-curve-getDistAtParam axis (vlax-curve-getEndParam axis)))
+          (if (urb:grade-records-valid-p records)
+            (list axis records 0.0 axis-length "Inicio" "RAW"
+              "Cotas seleccionadas" "" "")
+            (progn
+              (prompt "\nNo se pudieron proyectar las cotas al eje.") nil)))
+        nil)))
+)
+
 (defun urb:select-anden-grade-reference (source)
-  (if (urb:string-equal-p source "Via creada")
-    (urb:select-anden-road-grade)
-    (urb:select-anden-alignment-grade))
+  (cond
+    ((urb:string-equal-p source "Via creada")
+      (urb:select-anden-road-grade))
+    ((urb:string-equal-p source "Cotas seleccionadas")
+      (urb:select-anden-picked-grade))
+    (T (urb:select-anden-alignment-grade)))
 )
 
 (defun urb:anden-axis-edge-offset (points axis / p closest offset minimum)
@@ -7211,6 +7273,17 @@
   (if (and a (/= (cdr a) "")) (cdr a) def))
 
 (defun mp:safe-str (x) (if (null x) "" (vl-princ-to-string x)))
+
+;; 2026-08-12: tiles etapa/subetapa OCULTOS en los dialogos de CREACION
+;; cuando las etapas estan deshabilitadas. Los DCL de creacion emiten
+;; esta cadena (vacia si estan deshabilitadas); los de EDICION mantienen
+;; los tiles (grises). *mp-dialog-edit-mode* lo fijan los write-dcl.
+(setq *mp-dialog-edit-mode* nil)
+(defun mp:dcl-etapa-str ()
+  (if (urb:etapas-enabled-p)
+    ": popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+    ""))
+
 (defun mp:reset-dialog-capture ()
   (setq *mp-dialog-values* nil)
   (setq *mp-dialog-values-active* nil))
@@ -7239,8 +7312,10 @@
            (setq pair (assoc key *mp-dialog-values*)))
     (cdr pair)
     (progn
-      (setq v (get_tile key))
-      (if (null v) "" v))))
+      ;; vl-catch-all: un tile oculto (etapa/subetapa deshabilitadas) no
+      ;; queda en la captura y get_tile puede tronar tras done_dialog
+      (setq v (vl-catch-all-apply 'get_tile (list key)))
+      (if (or (null v) (vl-catch-all-error-p v)) "" v))))
 
 (defun mp:update-red-diam ()
   (if (= (mp:gettile "red") "2")
@@ -7395,7 +7470,9 @@
   (urb:subetapas-for e))
 
 (defun mp:update-subetapa ()
-  (mp:fill-popup "subetapa" (mp:subetapas-for (mp:item *mp-etapa-list* "etapa")) 0))
+  ;; sin etapas habilitadas el tile no existe en los dialogos de creacion
+  (if (or (urb:etapas-enabled-p) *mp-dialog-edit-mode*)
+    (mp:fill-popup "subetapa" (mp:subetapas-for (mp:item *mp-etapa-list* "etapa")) 0)))
 
 (defun mp:ensure-layers ()
   ;; Capas nuevas de presupuesto: siempre con prefijo PPTO-
@@ -7513,6 +7590,7 @@
 
 (defun mp:write-dcl (/ fn f)
   (mp:reset-dialog-capture)
+  (setq *mp-dialog-edit-mode* nil)
   (setq fn (urb:temp-file "maipore_listas_v10" ".dcl"))
   (if (and *mp-dcl-listas-ok* (findfile fn))
     fn
@@ -7521,8 +7599,7 @@
   (write-line "maipore_tramo_red : dialog { label = \"Maipore - Tramo red PPTO\";" f)
   (write-line ": boxed_column { label = \"Datos de presupuesto\";" f)
   (write-line ": popup_list { label = \"Red\"; key = \"red\"; }" f)
-  (write-line ": popup_list { label = \"Etapa\"; key = \"etapa\"; }" f)
-  (write-line ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" f)
+  (write-line (mp:dcl-etapa-str) f)
   (write-line ": edit_box { label = \"Nodo/pozo inicial\"; key = \"pini\"; edit_width = 20; }" f)
   (write-line ": edit_box { label = \"Nodo/pozo final\"; key = \"pfin\"; edit_width = 20; }" f)
   (write-line ": popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
@@ -7537,19 +7614,21 @@
   (write-line ": text { label = \"Las cotas TN se toman de SUP_TN al marcar los extremos.\"; } ok_cancel; }" f)
 
   (write-line "maipore_tramo_mt : dialog { label = \"Maipore - Tramo MT PPTO\"; : boxed_column {" f)
-  (write-line ": edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" f)
+  (write-line ": edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; }" f)
+  (write-line (mp:dcl-etapa-str) f)
   (write-line ": edit_box { label = \"Circuito\"; key = \"circuito\"; edit_width = 26; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; }" f)
   (write-line ": edit_box { label = \"Ductos libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad de zanja m\"; key = \"prof\"; edit_width = 12; } : text { label = \"Cotas TN: automaticas desde SUP_TN al marcar los extremos.\"; } : text { label = \"Cantidades de construccion: pendientes de parametros.\"; } } ok_cancel; }" f)
 
   (write-line "maipore_tramo_bt : dialog { label = \"Maipore - Tramo BT/AP PPTO\"; : boxed_column {" f)
-  (write-line ": edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" f)
+  (write-line ": edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; }" f)
+  (write-line (mp:dcl-etapa-str) f)
   (write-line ": edit_box { label = \"Circuito AP/BT\"; key = \"circuito\"; edit_width = 26; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : edit_box { label = \"Ductos libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad de zanja m\"; key = \"prof\"; edit_width = 12; } : text { label = \"Cotas TN: automaticas desde SUP_TN al marcar los extremos.\"; } : text { label = \"Cantidades de construccion: pendientes de parametros.\"; } } ok_cancel; }" f)
 
   ;; Se mantienen los formularios de puntos/accesorios para compatibilidad con los comandos existentes.
-  (write-line "maipore_elem_elec : dialog { label = \"Maipore - Elemento electrico\"; : boxed_column { : popup_list { label = \"Tipo elemento\"; key = \"blk\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 26; } : edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Lote / circuito\"; key = \"lote\"; edit_width = 26; } : edit_box { label = \"CD\"; key = \"cd\"; edit_width = 20; } : edit_box { label = \"PF\"; key = \"pf\"; edit_width = 20; } : popup_list { label = \"Luminaria\"; key = \"lum\"; } : popup_list { label = \"Fuente LED\"; key = \"led\"; } : edit_box { label = \"Altura montaje m\"; key = \"altura\"; edit_width = 12; } : edit_box { label = \"Brazo m\"; key = \"brazo\"; edit_width = 12; } : edit_box { label = \"Avance m\"; key = \"avance\"; edit_width = 12; } } ok_cancel; }" f)
-  (write-line "maipore_acc_acu : dialog { label = \"Maipore - Accesorio acueducto\"; : boxed_column { : popup_list { label = \"Tipo accesorio\"; key = \"acc\"; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : popup_list { label = \"Diametro principal\"; key = \"diam\"; } : popup_list { label = \"Diametro salida\"; key = \"diamsal\"; } : popup_list { label = \"Material\"; key = \"mat\"; } : edit_box { label = \"Lote/Sector\"; key = \"lote\"; edit_width = 26; } } ok_cancel; }" f)
+  (write-line (strcat "maipore_elem_elec : dialog { label = \"Maipore - Elemento electrico\"; : boxed_column { : popup_list { label = \"Tipo elemento\"; key = \"blk\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 26; } : edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } " (mp:dcl-etapa-str) " : edit_box { label = \"Lote / circuito\"; key = \"lote\"; edit_width = 26; } : edit_box { label = \"CD\"; key = \"cd\"; edit_width = 20; } : edit_box { label = \"PF\"; key = \"pf\"; edit_width = 20; } : popup_list { label = \"Luminaria\"; key = \"lum\"; } : popup_list { label = \"Fuente LED\"; key = \"led\"; } : edit_box { label = \"Altura montaje m\"; key = \"altura\"; edit_width = 12; } : edit_box { label = \"Brazo m\"; key = \"brazo\"; edit_width = 12; } : edit_box { label = \"Avance m\"; key = \"avance\"; edit_width = 12; } } ok_cancel; }") f)
+  (write-line (strcat "maipore_acc_acu : dialog { label = \"Maipore - Accesorio acueducto\"; : boxed_column { : popup_list { label = \"Tipo accesorio\"; key = \"acc\"; } " (mp:dcl-etapa-str) " : popup_list { label = \"Diametro principal\"; key = \"diam\"; } : popup_list { label = \"Diametro salida\"; key = \"diamsal\"; } : popup_list { label = \"Material\"; key = \"mat\"; } : edit_box { label = \"Lote/Sector\"; key = \"lote\"; edit_width = 26; } } ok_cancel; }") f)
   (close f)
   (setq *mp-dcl-listas-ok* T)
   fn)))
@@ -7774,17 +7853,19 @@
 
 (defun mp:write-dcl-puntos (/ fn f)
   (mp:reset-dialog-capture)
+  (setq *mp-dialog-edit-mode* nil)
   (setq fn (urb:temp-file "maipore_puntos_v11" ".dcl"))
   (if (and *mp-dcl-puntos-ok* (findfile fn))
     fn
     (progn
   (setq f (open fn "w"))
   (write-line "maipore_punto_hidro : dialog { label = \"Maipore - Punto hidrosanitario\"; : boxed_column {" f)
-  (write-line ": popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" f)
+  (write-line (mp:dcl-etapa-str) f)
   (write-line ": edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
   (write-line ": edit_box { label = \"Cota terreno (automatica SUP_TN)\"; key = \"ctn\"; edit_width = 12; } : edit_box { label = \"Cota clave\"; key = \"cclave\"; edit_width = 12; } : edit_box { label = \"Profundidad\"; key = \"prof\"; edit_width = 12; } } ok_cancel; }" f)
   (write-line "maipore_caja_elec : dialog { label = \"Maipore - Caja / camara electrica\"; : boxed_column {" f)
-  (write-line ": popup_list { label = \"Tipo\"; key = \"tipo\"; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" f)
+  (write-line ": popup_list { label = \"Tipo\"; key = \"tipo\"; }" f)
+  (write-line (mp:dcl-etapa-str) f)
   (write-line ": edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : edit_box { label = \"Ductos\"; key = \"ductos\"; edit_width = 12; } : edit_box { label = \"Libres\"; key = \"libres\"; edit_width = 12; }" f)
   (write-line ": edit_box { label = \"Profundidad\"; key = \"prof\"; edit_width = 12; } : edit_box { label = \"CD\"; key = \"cd\"; edit_width = 14; } : edit_box { label = \"PF\"; key = \"pf\"; edit_width = 14; } } ok_cancel; }" f)
   (close f)
@@ -7915,6 +7996,9 @@
 
 (defun mp:write-dcl-editar (/ fn f)
   (mp:reset-dialog-capture)
+  ;; dialogos de EDICION: los tiles etapa/subetapa se conservan siempre
+  ;; (grises si las etapas estan deshabilitadas)
+  (setq *mp-dialog-edit-mode* T)
   (setq fn (urb:temp-file "maipore_editar_v12" ".dcl"))
   (if (and *mp-dcl-editar-ok* (findfile fn))
     fn
@@ -8206,16 +8290,25 @@
     (setq *mp-popup-lists* (cons (cons key lst) *mp-popup-lists*))))
 
 (defun mp:fill-popup (key lst idx)
-  (mp:remember-popup key lst)
-  (start_list key)
-  (mapcar 'add_list lst)
-  (end_list)
-  (if (not idx) (setq idx 0))
-  (set_tile key (itoa idx))
-  ;; etapas deshabilitadas -> popup gris (mismo criterio que urb:fill-popup)
+  ;; 2026-08-12: con etapas deshabilitadas los tiles etapa/subetapa NO se
+  ;; emiten en los DCL de creacion (ocultos, no grises) -- llenar un tile
+  ;; inexistente truena, asi que se omite aqui centralizadamente. Los
+  ;; dialogos de EDICION si conservan los tiles y quedan grises.
   (if (and (member key '("etapa" "subetapa"))
-           (not (urb:etapas-enabled-p)))
-    (mode_tile key 1)))
+           (not (urb:etapas-enabled-p))
+           (not *mp-dialog-edit-mode*))
+    nil
+    (progn
+      (mp:remember-popup key lst)
+      (start_list key)
+      (mapcar 'add_list lst)
+      (end_list)
+      (if (not idx) (setq idx 0))
+      (set_tile key (itoa idx))
+      ;; etapas deshabilitadas -> popup gris (dialogos de edicion)
+      (if (and (member key '("etapa" "subetapa"))
+               (not (urb:etapas-enabled-p)))
+        (mode_tile key 1)))))
 
 (defun mp:item (lst key / raw i use)
   (setq use (mp:popup-list key lst))
@@ -10862,11 +10955,15 @@
   (setq filename (urb:temp-file "urbanismo_via" ".dcl"))
   (if
     (urb:write-lines filename
-      '("urb_road : dialog { label = \"Crear / editar via\";"
+      (list
+        "urb_road : dialog { label = \"Crear / editar via\";"
         ": boxed_column { label = \"Clasificacion\";"
         ": edit_box { label = \"Nombre de la via\"; key = \"name\"; edit_width = 24; }"
-        ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
-        ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+        ;; etapa/subetapa ocultas cuando las etapas estan deshabilitadas
+        (if (urb:etapas-enabled-p)
+          ": popup_list { label = \"Etapa\"; key = \"etapa\"; }" "")
+        (if (urb:etapas-enabled-p)
+          ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" "")
         ": popup_list { label = \"Perfil estratigrafico\"; key = \"profile\"; } }"
         ": boxed_column { label = \"Referencia\";"
         ": popup_list { label = \"Eje / alineamiento (admite XREF)\"; key = \"alignment\"; }"
@@ -10915,7 +11012,10 @@
     ((and (member mode '("Derecho" "Ambos")) (null right-input))
       (alert "El sobreancho derecho no es un numero valido.") nil)
     (T
-      (setq stage (nth (atoi (get_tile "etapa")) *urb-etapa-list*))
+      (setq stage
+        (if (urb:etapas-enabled-p)
+          (nth (atoi (get_tile "etapa")) *urb-etapa-list*)
+          (car *urb-etapa-list*)))
       (setq subetapas (urb:subetapas-for stage))
       (setq left
         (if (member mode '("Izquierdo" "Ambos"))
@@ -10927,7 +11027,9 @@
         (list
           name
           stage
-          (nth (atoi (get_tile "subetapa")) subetapas)
+          (if (urb:etapas-enabled-p)
+            (nth (atoi (get_tile "subetapa")) subetapas)
+            (car subetapas))
           (nth (atoi (get_tile "profile")) *urb-road-dialog-profiles*)
           (nth (atoi (get_tile "alignment")) *urb-road-alignment-modes*)
           (nth (atoi (get_tile "surface")) *urb-road-dialog-surfaces*)
@@ -10960,9 +11062,13 @@
   (if (and (> dcl 0) (new_dialog "urb_road" dcl))
     (progn
       (set_tile "name" (urb:road-default defaults "name" "VIA-01"))
-      (urb:fill-popup "etapa" *urb-etapa-list* (urb:index-of stage *urb-etapa-list*))
-      (urb:fill-popup "subetapa" (urb:subetapas-for stage)
-        (urb:index-of sub (urb:subetapas-for stage)))
+      (if (urb:etapas-enabled-p)
+        (progn
+          (urb:fill-popup "etapa" *urb-etapa-list*
+            (urb:index-of stage *urb-etapa-list*))
+          (urb:fill-popup "subetapa" (urb:subetapas-for stage)
+            (urb:index-of sub (urb:subetapas-for stage)))
+          (action_tile "etapa" "(urb:road-dialog-update-subetapa)")))
       (urb:fill-popup "profile" *urb-road-dialog-profiles*
         (urb:index-of profile *urb-road-dialog-profiles*))
       (urb:fill-popup "alignment" *urb-road-alignment-modes*
@@ -10978,7 +11084,6 @@
       (set_tile "left_over" (urb:road-default defaults "left_over" "1.00"))
       (set_tile "right_over" (urb:road-default defaults "right_over" "1.00"))
       (urb:road-dialog-update-overwidth)
-      (action_tile "etapa" "(urb:road-dialog-update-subetapa)")
       (action_tile "overwidth" "(urb:road-dialog-update-overwidth)")
       (action_tile "accept" "(if (urb:road-dialog-capture) (done_dialog 1))")
       (action_tile "cancel" "(done_dialog 0)")
@@ -11499,6 +11604,62 @@
   value
 )
 
+;; Si lo seleccionado pertenece a una VIA ya creada por el plugin,
+;; devuelve la cota de RASANTE de esa via en el punto del click
+;; (proyectado a su eje, con los records de rasante guardados); nil si no
+;; es una via o no tiene rasante calculada. (2026-08-12: para que el
+;; picker de cotas reconozca automaticamente texto O via, sin preguntar.)
+(defun urb:cota-from-via (ename point / road data mov records via-id
+   axis-handle axis span axis-start direction c0 c1 closest d station)
+  (setq road (urb:road-parent-from-entity ename))
+  (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
+    (progn
+      (setq mov (urb:road-movement-data road))
+      (setq records
+        (if (and mov (> (length mov) 9))
+          (urb:read-lisp-safe (nth 9 mov))
+          nil))
+      (if (not (urb:grade-records-valid-p records)) (setq records nil))
+      (setq via-id (if (> (length data) 22) (nth 22 data) ""))
+      (setq axis-handle
+        (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
+      (setq axis
+        (or (if (/= axis-handle "") (handent axis-handle) nil)
+            (if (/= via-id "") (urb:cached-road-axis via-id) nil)))
+      (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+      (setq span
+        (atof (urb:safe-string (if (> (length data) 18) (nth 18 data) nil) "0")))
+      (setq axis-start
+        (atof (urb:safe-string (if (> (length data) 21) (nth 21 data) nil) "0")))
+      (setq direction
+        (urb:safe-string (if (> (length data) 12) (nth 12 data) nil) "Inicio"))
+      (if (and (null records) mov (> (length mov) 8))
+        (progn
+          (setq c0 (urb:parse-real (nth 7 mov)))
+          (setq c1 (urb:parse-real (nth 8 mov)))
+          (if (and c0 c1 (> span 1e-6))
+            (setq records (list (list 0.0 c0) (list span c1))))))
+      (if (and axis records)
+        (progn
+          (setq closest
+            (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list axis point)))
+          (if (vl-catch-all-error-p closest)
+            nil
+            (progn
+              (setq d
+                (vl-catch-all-apply 'vlax-curve-getDistAtPoint (list axis closest)))
+              (if (vl-catch-all-error-p d)
+                nil
+                (progn
+                  ;; records de rasante en coordenada LOCAL (0..span)
+                  (setq station
+                    (if (urb:string-equal-p direction "Final")
+                      (- (+ axis-start span) d)
+                      (- d axis-start)))
+                  (urb:cota-at-axis-distance station records))))))
+        nil))
+    nil))
+
 ;; Modo "Pendiente" generalizado a N cotas (2026-08-11, pedido del
 ;; usuario: pozos sobre la via). Devuelve una lista de (valor punto) --
 ;; con 2 cotas la rasante es lineal inicial/final (como antes); con 3 o
@@ -11523,10 +11684,10 @@
             (prompt "\nSe necesitan al menos 2 cotas; seleccion cancelada.")
             (setq done T picks nil))))
       (T
-        ;; 2026-08-11 v2: leer via TextString del objeto (como
-        ;; mp:prompt-clave-from-label) -- entget/assoc 1 devuelve nil en
-        ;; MLeaders y etiquetas de Civil 3D y el usuario terminaba
-        ;; digitando la cota a mano
+        ;; AUTO-DETECCION (2026-08-12, pedido del usuario): el mismo click
+        ;; reconoce solo que se selecciono -- 1) un TEXTO/etiqueta de cota
+        ;; (cualquier capa, cualquier xref), o 2) una VIA ya creada (toma
+        ;; su rasante en ese punto). Sin preseleccionar el tipo.
         (setq txt nil)
         (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list (car sel))))
         (if (and obj (not (vl-catch-all-error-p obj)))
@@ -11537,12 +11698,19 @@
           (setq txt (cdr (assoc 1 (entget (car sel))))))
         (setq value (if txt (mp:last-decimal-number txt) nil))
         (if value (setq value (atof value)))
+        (if value
+          (prompt (strcat "\nCota leida de la etiqueta: " (rtos value 2 3)))
+          (progn
+            (setq value (urb:cota-from-via (car sel) (cadr sel)))
+            (if value
+              (prompt
+                (strcat "\nCota tomada de la RASANTE de la via seleccionada: "
+                        (rtos value 2 3))))))
         (if (null value)
           (setq value
             (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
         (if value
           (progn
-            (prompt (strcat "\nCota leida: " (rtos value 2 3)))
             (setq point (cadr sel))
             (setq picks (append picks (list (list value point)))))))))
   picks)
@@ -14082,50 +14250,16 @@
   ;; El fondo (3.50 default) es opcion del mismo prompt del ancho.
   ;; Etapa/subetapa arrancan en 1/1 (cambiables en lote).
   (setq depth 3.50 side-sign 1.0 width 2.00 etapa "1" subetapa "1" ext 0.0)
-  ;; 2026-08-11 v5: flujo DESDE EL BORDILLO (el usuario colocaba el punto
-  ;; inicial en el borde equivocado y el modulo salia corrido o doble de
-  ;; largo): 1) seleccionar el bordillo como entidad, 2) click del punto
-  ;; inicial -- se PROYECTA sobre el bordillo, 3) la direccion sale sola
-  ;; de la tangente del bordillo en ese punto (un click decide hacia
-  ;; donde avanza), 4) ancho/fondo, 5) lado del anden. El modulo arranca
-  ;; EXACTO en el bordillo (v=0) por construccion: ya no hay extension
-  ;; que calcular ni manera de dejarlo corto.
-  ;; nentsel y no entsel (2026-08-11 v4): el bordillo/sardinel creado por
-  ;; el propio plugin es un BLOQUE, y las vias de proyecto suelen venir en
-  ;; xref -- entsel devolvia el INSERT (no una curva) y el flujo caia EN
-  ;; SILENCIO al modo manual, dejando la rampa corta (reporte del
-  ;; usuario). nentsel perfora bloque/xref y entrega la curva real; sirve
-  ;; el bordillo O el eje: cualquier linea hasta donde deba llegar.
-  (setq ext-sel
-    (nentsel "\nSeleccione el BORDILLO o eje hasta donde llega la rampa (Enter para marcar puntos a mano): "))
-  (cond
-    ((and ext-sel (urb:curve-entity-p (car ext-sel)))
-      (setq ext-pt
-        (getpoint "\nPunto INICIAL de la rampa sobre esa linea: "))
-      (if ext-pt
-        (progn
-          (setq base-pt
-            (vlax-curve-getClosestPointTo (car ext-sel) ext-pt))
-          (setq ext-cp
-            (vlax-curve-getFirstDeriv (car ext-sel)
-              (vlax-curve-getParamAtPoint (car ext-sel) base-pt)))
-          (setq axis-angle (atan (cadr ext-cp) (car ext-cp)))
-          (setq dir-pt
-            (getpoint base-pt
-              "\nHacia donde AVANZA el modulo a lo largo del bordillo (click): "))
-          (if (and dir-pt
-                   (< (+ (* (- (car dir-pt) (car base-pt)) (cos axis-angle))
-                         (* (- (cadr dir-pt) (cadr base-pt)) (sin axis-angle)))
-                      0.0))
-            (setq axis-angle (+ axis-angle pi)))
-          (setq dir-pt T))))
-    (T
-      ;; respaldo manual (sin bordillo seleccionable, p.ej. en xref raro)
-      (setq base-pt
-        (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: "))
-      (if base-pt
-        (setq dir-pt (getpoint base-pt "\nDireccion del borde (eje de la rampa): ")))
-      (if dir-pt (setq axis-angle (angle base-pt dir-pt)))))
+  ;; 2026-08-12 v6: FLUJO MANUAL DIRECTO (pedido del usuario -- el
+  ;; selector de bordillo se elimino porque no reconocia el fondo hasta
+  ;; el bordillo y tocaba digitarlo igual): punto inicial sobre el borde
+  ;; de la via, direccion, ancho/fondo (el fondo se digita si el anden no
+  ;; es de 3.50) y lado del anden.
+  (setq base-pt
+    (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: "))
+  (if base-pt
+    (setq dir-pt (getpoint base-pt "\nDireccion del borde (eje de la rampa): ")))
+  (if dir-pt (setq axis-angle (angle base-pt dir-pt)))
   (if (and base-pt dir-pt axis-angle)
     (progn
       (setq done nil)
