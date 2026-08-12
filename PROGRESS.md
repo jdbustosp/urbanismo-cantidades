@@ -29,6 +29,18 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 15) — Ribbon v2 (jerarquía Urbanismo), Cantidades+Excel y gestor de etapas/subetapas
+
+El usuario confirmó que la pestaña .NET apareció (con la vieja del cuix duplicada al lado — su sesión tenía el cuix bloqueado cuando el instalador intentó borrarlo) y pidió el rediseño completo:
+
+1. **Doble pestaña**: el DLL ahora auto-descarga el partial CUIX legado (`CUIUNLOAD CANTIDADES` vía SendStringToExecute en el primer Idle con documento). Fix inmediato manual: comando `CUIUNLOAD` → CANTIDADES → Unload.
+2. **Panel Crear con jerarquía de 2 niveles** (todo en el mismo espacio, botones GRANDES con el nombre debajo — "los símbolos se ven muy pequeños" resuelto): `[Urbanismo]` (ya con ícono propio) → nivel 1: Via, Anden, Rampa, Zona verde, Prefabricado, Red sanitaria, Red pluvial, Acueducto, Media tension → subniveles: sanitaria(Tramo, Pozo), pluvial(Tramo, Sumidero, Pozo), acueducto(Tramo, Accesorios), media tensión(Tramo MT, Tramo BT, Alumbrado, Camara, Luminaria). Botón "<" para subir de nivel.
+3. **Cantidades absorbe Excel**: Cuadro, Memoria, Verificacion, Exportar, Actualizar (grandes) + Vincular/Desvincular (chicos). Incluir/excluir y CSV redes salieron de la cinta (los comandos QALCANCE/QCSV siguen escribibles). Panel Excel eliminado → 4 paneles.
+4. **Comandos nuevos** `TMT`/`TBT`/`TAP` (tramos media tensión, baja tensión y alumbrado — las funciones internas ya existían en el menú de redes).
+5. **Ajustes depurado**: salieron "Cargar perfiles base faltantes" y "Diagnosticar y migrar redes" (funciones siguen por código); entró **"Etapas y subetapas"**.
+6. **Sistema de etapas/subetapas editable y des/habilitable** (`urb:etapas-manager-command`): catálogo persistido en el dibujo (`URB_ETAPAS_CATALOGO`, mismos mecanismos que los perfiles) con Agregar/Quitar etapa, editar Subetapas (parser de listas con comas/;/espacios), Restaurar, y **Habilitar/Deshabilitar global** (`URB_ETAPAS_ACTIVO`). Al deshabilitar, los popups etapa/subetapa de TODOS los diálogos de creación quedan grises — centralizado en `urb:fill-popup` y `mp:fill-popup` (un solo punto, cubre urb y mp), y los elementos se crean con la etapa por defecto. `urb:subetapas-for` ahora lee del catálogo (deja de estar quemado en código); `*urb-etapa-list*`/`*mp-etapa-list*` se refrescan al cargar y tras cada edición.
+- **Verificado headless**: DLL "Tab construida: 4 paneles" ✓; lsp con TMT/TAP/manager definidos ✓; catálogo 9 etapas y sub("3")=3 ✓; toggle deshabilitar/habilitar ✓; agregar etapa "10" (2 subetapas) persiste y restaurar vuelve a 9 ✓; parser de subetapas ✓. Pendiente visual del usuario: reiniciar, verificar pestaña única con la jerarquía nueva, y probar el gestor en Ajustes.
+
 ### 2026-08-11 (parte 14) — FASE .NET: ribbon dinámico dual 2023/2025 (aprobada por el usuario)
 
 El usuario aprobó arrancar la capa .NET con alcance quirúrgico: SOLO la cinta, con el comportamiento que pidió (oprimir "Urbanismo" y que los 14 símbolos de creación aparezcan EN EL MISMO ESPACIO del panel — imposible en CUIx, posible con ribbon dinámico). El motor sigue 100% en el lsp; también confirmó que el otro computador usa Civil 3D **2025** (esta máquina 2023) → soporte dual.

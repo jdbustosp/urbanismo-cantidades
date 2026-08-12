@@ -1,4 +1,4 @@
-// Pestana CANTIDADES dinamica (fase 1 .NET de Urbanismo Cantidades).
+// Pestana CANTIDADES dinamica (fase .NET de Urbanismo Cantidades).
 // El motor sigue siendo urbanismo_cantidades.lsp: cada boton dispara un
 // comando LISP via SendStringToExecute. Este DLL solo dibuja la cinta.
 //
@@ -7,11 +7,16 @@
 // Windows (.NET Framework 4.8, AutoCAD 2019-2024) y con dotnet SDK 8
 // (AutoCAD 2025+). No modernizar la sintaxis sin revisar compilar_2023.
 //
-// Comportamiento pedido por el usuario: el panel Crear muestra un solo
-// boton "Urbanismo"; al oprimirlo, los 14 simbolos de creacion aparecen
-// EN EL MISMO ESPACIO del panel (con un boton para volver a compactar).
+// Jerarquia del panel Crear (2026-08-11 v2, pedido del usuario):
+//   [Urbanismo] -> 10 simbolos GRANDES con su nombre debajo:
+//     Via, Anden, Rampa, Zona verde, Prefabricado,
+//     Red sanitaria ->  Tramo, Pozo sanitario
+//     Red pluvial   ->  Tramo, Sumidero, Pozo
+//     Acueducto     ->  Tramo, Accesorios
+//     Media tension ->  Tramo MT, Tramo BT, Alumbrado, Camara, Luminaria
+//   Todo aparece EN EL MISMO ESPACIO del panel (swap en vivo), con "<"
+//   para volver un nivel.
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
@@ -27,6 +32,7 @@ namespace UrbanismoCantidades
     {
         private const string TabId = "URBCANT_TAB_NET";
         private static bool _built;
+        private static bool _legacyChecked;
         private static RibbonPanelSource _crearSource;
         private static string _dir;
 
@@ -41,6 +47,10 @@ namespace UrbanismoCantidades
                     ComponentManager.ItemInitialized += OnItemInitialized;
                 else
                     BuildTab();
+                // el partial CUIX viejo (si sigue registrado en el perfil)
+                // duplicaria la pestana: se descarga solo, una vez, cuando
+                // haya documento activo
+                Application.Idle += OnIdleUnloadLegacy;
             }
             catch (System.Exception ex) { Log("ERROR Initialize: " + ex.Message); }
         }
@@ -54,6 +64,23 @@ namespace UrbanismoCantidades
                 ComponentManager.ItemInitialized -= OnItemInitialized;
                 BuildTab();
             }
+        }
+
+        private static void OnIdleUnloadLegacy(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_legacyChecked) { Application.Idle -= OnIdleUnloadLegacy; return; }
+                Document doc = Application.DocumentManager.MdiActiveDocument;
+                if (doc == null) return;
+                _legacyChecked = true;
+                Application.Idle -= OnIdleUnloadLegacy;
+                doc.SendStringToExecute(
+                    "(if (menugroup \"CANTIDADES\") (command \"_.CUIUNLOAD\" \"CANTIDADES\"))(princ) ",
+                    true, false, false);
+                Log("Chequeo de partial CUIX legado enviado");
+            }
+            catch (System.Exception ex) { Log("ERROR IdleLegacy: " + ex.Message); }
         }
 
         private static void BuildTab()
@@ -75,18 +102,17 @@ namespace UrbanismoCantidades
                 RibbonPanel crearPanel = new RibbonPanel();
                 crearPanel.Source = _crearSource;
                 tab.Panels.Add(crearPanel);
-                ShowUrbanismoButton();
+                ShowCrearRoot();
 
                 tab.Panels.Add(MakePanel("Editar", new string[][] {
                     new string[] { "Editar", "EDITAR", "editar", "L" },
                     new string[] { "Etapas", "ETAPAS", "etapas", "L" } }));
+                // Cantidades absorbe Excel (2026-08-11 v2); incluir/excluir
+                // y CSV redes salieron de la cinta (siguen por comando)
                 tab.Panels.Add(MakePanel("Cantidades", new string[][] {
                     new string[] { "Cuadro", "QCUADRO", "qcuadro", "L" },
                     new string[] { "Memoria", "QMEMORIA", "qmemoria", "L" },
                     new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" },
-                    new string[] { "Incluir/excluir", "QALCANCE", "qalcance", "S" },
-                    new string[] { "CSV redes", "QCSV", "qcsv", "S" } }));
-                tab.Panels.Add(MakePanel("Excel", new string[][] {
                     new string[] { "Exportar", "QEXCEL", "qexcel", "L" },
                     new string[] { "Actualizar", "QACTUALIZAR", "qactualizar", "L" },
                     new string[] { "Vincular", "QVINCULAR", "qvincular", "S" },
@@ -101,77 +127,124 @@ namespace UrbanismoCantidades
             catch (System.Exception ex) { Log("ERROR BuildTab: " + ex.Message); }
         }
 
-        // --- panel Crear dinamico -------------------------------------
+        // --- panel Crear dinamico (2 niveles) --------------------------
 
-        private static void ShowUrbanismoButton()
+        private static void ShowCrearRoot()
         {
             _crearSource.Items.Clear();
-            RibbonButton urb = MakeButton("Urbanismo", null, "urbanismo", true);
-            urb.CommandHandler = new SwapHandler(true);
+            RibbonButton urb = MakeBig("Urbanismo", null, "urbanismo");
+            urb.CommandHandler = new NavHandler("nivel1");
             _crearSource.Items.Add(urb);
         }
 
-        private static void ShowCreateIcons()
+        private static void ShowNivel1()
         {
             _crearSource.Items.Clear();
+            AddBack("root");
+            AddBigCmd("Via", "VIA", "via");
+            AddBigCmd("Anden", "ANDEN", "anden");
+            AddBigCmd("Rampa", "RAMPA", "rampa");
+            AddBigCmd("Zona verde", "ZONAVERDE", "zonaverde");
+            AddBigCmd("Prefabricado", "PREFABRICADO", "prefabricado");
+            AddBigNav("Red sanitaria", "sanitaria", "tsanitario");
+            AddBigNav("Red pluvial", "pluvial", "tpluvial");
+            AddBigNav("Acueducto", "acueducto", "tacueducto");
+            AddBigNav("Media tension", "media", "mediatension");
+        }
 
+        private static void ShowSub(string which)
+        {
+            _crearSource.Items.Clear();
+            AddBack("nivel1");
+            if (which == "sanitaria")
+            {
+                AddBigCmd("Tramo", "TSANITARIO", "tsanitario");
+                AddBigCmd("Pozo sanitario", "POZOSAN", "pozosan");
+            }
+            else if (which == "pluvial")
+            {
+                AddBigCmd("Tramo", "TPLUVIAL", "tpluvial");
+                AddBigCmd("Sumidero", "SUMIDERO", "sumidero");
+                AddBigCmd("Pozo", "POZOPLU", "pozoplu");
+            }
+            else if (which == "acueducto")
+            {
+                AddBigCmd("Tramo", "TACUEDUCTO", "tacueducto");
+                AddBigCmd("Accesorios", "ACCESORIO", "accesorio");
+            }
+            else if (which == "media")
+            {
+                AddBigCmd("Tramo MT", "TMT", "mediatension");
+                AddBigCmd("Tramo BT", "TBT", "camara");
+                AddBigCmd("Alumbrado", "TAP", "luminaria");
+                AddBigCmd("Camara", "CAMARA", "camara");
+                AddBigCmd("Luminaria", "LUMINARIA", "luminaria");
+            }
+        }
+
+        private static void AddBack(string target)
+        {
             RibbonButton back = new RibbonButton();
             back.Text = "<";
             back.ShowText = true;
             back.ShowImage = false;
             back.Size = RibbonItemSize.Large;
             back.Orientation = System.Windows.Controls.Orientation.Vertical;
-            back.ToolTip = "Volver a compactar";
-            back.CommandHandler = new SwapHandler(false);
+            back.ToolTip = "Volver";
+            back.CommandHandler = new NavHandler(target);
             _crearSource.Items.Add(back);
-
-            string[][] items = new string[][] {
-                new string[] { "Via", "VIA", "via" },
-                new string[] { "Anden", "ANDEN", "anden" },
-                new string[] { "Rampa", "RAMPA", "rampa" },
-                new string[] { "Zona verde", "ZONAVERDE", "zonaverde" },
-                new string[] { "Prefabricado", "PREFABRICADO", "prefabricado" },
-                new string[] { "Tramo sanitario", "TSANITARIO", "tsanitario" },
-                new string[] { "Tramo pluvial", "TPLUVIAL", "tpluvial" },
-                new string[] { "Tramo acueducto", "TACUEDUCTO", "tacueducto" },
-                new string[] { "Pozo sanitario", "POZOSAN", "pozosan" },
-                new string[] { "Pozo pluvial", "POZOPLU", "pozoplu" },
-                new string[] { "Sumidero", "SUMIDERO", "sumidero" },
-                new string[] { "Camara electrica", "CAMARA", "camara" },
-                new string[] { "Accesorio acueducto", "ACCESORIO", "accesorio" },
-                new string[] { "Luminaria", "LUMINARIA", "luminaria" } };
-
-            // 14 simbolos en 2 filas de 7, solo icono (el nombre queda en
-            // el tooltip) -- "los simbolos en el mismo espacio"
-            RibbonRowPanel rows = new RibbonRowPanel();
-            for (int i = 0; i < items.Length; i++)
-            {
-                if (i == 7) rows.Items.Add(new RibbonRowBreak());
-                RibbonButton b = MakeButton(items[i][0], items[i][1], items[i][2], false);
-                b.ShowText = false;
-                rows.Items.Add(b);
-            }
-            _crearSource.Items.Add(rows);
         }
 
-        private class SwapHandler : ICommand
+        private static void AddBigCmd(string text, string command, string icon)
         {
-            private readonly bool _expand;
-            public SwapHandler(bool expand) { _expand = expand; }
+            _crearSource.Items.Add(MakeBig(text, command, icon));
+        }
+
+        private static void AddBigNav(string text, string target, string icon)
+        {
+            RibbonButton b = MakeBig(text, null, icon);
+            b.CommandHandler = new NavHandler(target);
+            _crearSource.Items.Add(b);
+        }
+
+        private class NavHandler : ICommand
+        {
+            private readonly string _target;
+            public NavHandler(string target) { _target = target; }
             public bool CanExecute(object p) { return true; }
             public event EventHandler CanExecuteChanged { add { } remove { } }
             public void Execute(object p)
             {
                 try
                 {
-                    if (_expand) ShowCreateIcons();
-                    else ShowUrbanismoButton();
+                    if (_target == "root") ShowCrearRoot();
+                    else if (_target == "nivel1") ShowNivel1();
+                    else ShowSub(_target);
                 }
-                catch (System.Exception ex) { Log("ERROR Swap: " + ex.Message); }
+                catch (System.Exception ex) { Log("ERROR Nav: " + ex.Message); }
             }
         }
 
         // --- fabrica de paneles y botones -----------------------------
+
+        private static RibbonButton MakeBig(string text, string command, string icon)
+        {
+            // boton GRANDE con el nombre debajo del simbolo (pedido del
+            // usuario: "abajo de cada simbolo este la descripcion")
+            RibbonButton b = new RibbonButton();
+            b.Text = text;
+            b.ShowText = true;
+            b.ToolTip = text;
+            b.Size = RibbonItemSize.Large;
+            b.Orientation = System.Windows.Controls.Orientation.Vertical;
+            BitmapImage img16 = LoadIcon("cant_" + icon + "_16.png");
+            BitmapImage img32 = LoadIcon("cant_" + icon + "_32.png");
+            if (img16 != null) b.Image = img16;
+            if (img32 != null) b.LargeImage = img32;
+            b.ShowImage = (img16 != null || img32 != null);
+            if (command != null) b.CommandHandler = new CmdHandler(command);
+            return b;
+        }
 
         private static RibbonPanel MakePanel(string title, string[][] items)
         {
@@ -181,13 +254,21 @@ namespace UrbanismoCantidades
             for (int i = 0; i < items.Length; i++)
             {
                 bool large = items[i][3] == "L";
-                RibbonButton b = MakeButton(items[i][0], items[i][1], items[i][2], large);
                 if (large)
                 {
-                    src.Items.Add(b);
+                    src.Items.Add(MakeBig(items[i][0], items[i][1], items[i][2]));
                 }
                 else
                 {
+                    RibbonButton b = new RibbonButton();
+                    b.Text = items[i][0];
+                    b.ShowText = true;
+                    b.ToolTip = items[i][0];
+                    b.Size = RibbonItemSize.Standard;
+                    b.Orientation = System.Windows.Controls.Orientation.Horizontal;
+                    BitmapImage img16 = LoadIcon("cant_" + items[i][2] + "_16.png");
+                    if (img16 != null) { b.Image = img16; b.ShowImage = true; }
+                    b.CommandHandler = new CmdHandler(items[i][1]);
                     if (smallRows == null)
                     {
                         smallRows = new RibbonRowPanel();
@@ -203,26 +284,6 @@ namespace UrbanismoCantidades
             RibbonPanel panel = new RibbonPanel();
             panel.Source = src;
             return panel;
-        }
-
-        private static RibbonButton MakeButton(
-            string text, string command, string icon, bool large)
-        {
-            RibbonButton b = new RibbonButton();
-            b.Text = text;
-            b.ShowText = true;
-            b.ToolTip = text;
-            b.Size = large ? RibbonItemSize.Large : RibbonItemSize.Standard;
-            b.Orientation = large
-                ? System.Windows.Controls.Orientation.Vertical
-                : System.Windows.Controls.Orientation.Horizontal;
-            BitmapImage img16 = LoadIcon("cant_" + icon + "_16.png");
-            BitmapImage img32 = LoadIcon("cant_" + icon + "_32.png");
-            if (img16 != null) b.Image = img16;
-            if (img32 != null) b.LargeImage = img32;
-            b.ShowImage = (img16 != null || img32 != null);
-            if (command != null) b.CommandHandler = new CmdHandler(command);
-            return b;
         }
 
         private class CmdHandler : ICommand

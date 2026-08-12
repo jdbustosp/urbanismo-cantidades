@@ -195,4 +195,23 @@ New-Icon "ajustes" { param($g, $s)
     $g.FillRectangle((B $cGris), ($x - 2.2)*$s, ($y - 2.2)*$s, 4.4*$s, 4.4*$s) }
   $g.FillEllipse((B ([System.Drawing.Color]::FromArgb(60, 60, 60))), 13*$s, 13*$s, 6*$s, 6*$s)
 }
+New-Icon "urbanismo" { param($g, $s)
+  $g.FillRectangle((B $cGrisOs), 4*$s, 12*$s, 7*$s, 16*$s)
+  $g.FillRectangle((B $cAzul), 12*$s, 5*$s, 8*$s, 23*$s)
+  $g.FillRectangle((B $cGris), 21*$s, 16*$s, 7*$s, 12*$s)
+  $b = B ([System.Drawing.Color]::FromArgb(45, 45, 45))
+  foreach ($y in @(8, 13, 18, 23)) {
+    $g.FillRectangle($b, 14*$s, $y*$s, 2*$s, 2*$s)
+    $g.FillRectangle($b, 17*$s, $y*$s, 2*$s, 2*$s) }
+}
+New-Icon "mediatension" { param($g, $s)
+  $g.DrawLine((P $cGris (2*$s)), 16*$s, 6*$s, 16*$s, 28*$s)
+  $g.DrawLine((P $cGris (2*$s)), 7*$s, 9*$s, 25*$s, 9*$s)
+  $g.DrawLine((P $cGrisOs (1.2*$s)), 8*$s, 9*$s, 12*$s, 15*$s)
+  $g.DrawLine((P $cGrisOs (1.2*$s)), 24*$s, 9*$s, 20*$s, 15*$s)
+  $g.FillPolygon((B $cAmar), @(
+    ([System.Drawing.PointF]::new(21*$s, 14*$s)), ([System.Drawing.PointF]::new(14*$s, 22*$s)),
+    ([System.Drawing.PointF]::new(18*$s, 22*$s)), ([System.Drawing.PointF]::new(16*$s, 29*$s)),
+    ([System.Drawing.PointF]::new(24*$s, 19*$s)), ([System.Drawing.PointF]::new(20*$s, 19*$s))))
+}
 Write-Output "Iconos generados en $dir"

@@ -284,18 +284,158 @@
     c:MT c:MEDIA_TENSION c:MEDIATENSION c:ALUMBRADO c:INS_TRAMO_MT)
   (vl-catch-all-apply 'vl-acad-undefun (list old-command)))
 
-(defun urb:subetapas-for (etapa)
-  (cond
-    ((= etapa "1") '("1"))
-    ((= etapa "2") '("2"))
-    ((= etapa "3") '("3" "3A" "3B"))
-    ((= etapa "4") '("4" "4A" "4B" "4C" "4D" "4E"))
-    ((= etapa "5") '("5A" "5B" "5C" "5D" "5E"))
-    ((= etapa "6") '("6"))
-    ((= etapa "7") '("7"))
-    ((= etapa "8") '("8A" "8B" "8C"))
-    ((= etapa "9") '("9A" "9B" "9C" "9D" "9E"))
-    (T '("1")))
+;; --- Etapas/subetapas EDITABLES y des/habilitables (2026-08-11) ------
+;; El catalogo vive en la configuracion del dibujo (URB_ETAPAS_CATALOGO,
+;; misma mecanica que los perfiles de via); el interruptor global en
+;; URB_ETAPAS_ACTIVO. Se administra desde Ajustes -> Etapas y subetapas
+;; (urb:etapas-manager-command). Con etapas DESHABILITADAS, los popups
+;; "etapa"/"subetapa" de TODOS los dialogos de creacion quedan grises
+;; (centralizado en urb:fill-popup y mp:fill-popup) y los elementos se
+;; crean con la etapa por defecto.
+(defun urb:default-etapas-catalog ()
+  (list
+    (list "1" (list "1"))
+    (list "2" (list "2"))
+    (list "3" (list "3" "3A" "3B"))
+    (list "4" (list "4" "4A" "4B" "4C" "4D" "4E"))
+    (list "5" (list "5A" "5B" "5C" "5D" "5E"))
+    (list "6" (list "6"))
+    (list "7" (list "7"))
+    (list "8" (list "8A" "8B" "8C"))
+    (list "9" (list "9A" "9B" "9C" "9D" "9E"))))
+(setq *urb-etapas-catalog* (urb:default-etapas-catalog))
+
+(defun urb:refresh-etapas-catalog (/ raw parsed)
+  ;; corre al cargar el lsp (despues de que exista urb:config-read) y
+  ;; tras cada edicion del catalogo
+  (setq raw (urb:config-read "URB_ETAPAS_CATALOGO"))
+  (if (and raw (/= raw ""))
+    (progn
+      (setq parsed (urb:read-lisp-safe raw))
+      (if (and parsed (listp parsed) (listp (car parsed)))
+        (setq *urb-etapas-catalog* parsed))))
+  (setq *urb-etapa-list* (mapcar 'car *urb-etapas-catalog*))
+  (setq *mp-etapa-list* *urb-etapa-list*)
+  (princ))
+
+(defun urb:save-etapas-catalog ()
+  (urb:config-write "URB_ETAPAS_CATALOGO"
+    (urb:serialize-lisp *urb-etapas-catalog*))
+  (setq *urb-etapa-list* (mapcar 'car *urb-etapas-catalog*))
+  (setq *mp-etapa-list* *urb-etapa-list*))
+
+(defun urb:etapas-enabled-p ()
+  (/= (urb:safe-string (urb:config-read "URB_ETAPAS_ACTIVO") "1") "0"))
+
+;; separa "3,3A,3B" (o con ; o espacios) en lista limpia de strings
+(defun urb:split-subetapas (text / result token i c)
+  (setq text (urb:safe-string text "") result nil token "" i 1)
+  (while (<= i (strlen text))
+    (setq c (substr text i 1))
+    (if (member c '("," ";" " "))
+      (progn
+        (if (/= token "") (setq result (cons token result)))
+        (setq token ""))
+      (setq token (strcat token c)))
+    (setq i (1+ i)))
+  (if (/= token "") (setq result (cons token result)))
+  (reverse result))
+
+(defun urb:etapas-print-catalog (/ entry linea)
+  (prompt
+    (strcat "\nEtapas "
+      (if (urb:etapas-enabled-p) "HABILITADAS" "DESHABILITADAS (grises en los dialogos)")
+      ":"))
+  (foreach entry *urb-etapas-catalog*
+    (setq linea "")
+    (foreach s (cadr entry)
+      (setq linea (strcat linea (if (= linea "") "" ", ") s)))
+    (prompt (strcat "\n  Etapa " (car entry) " -> subetapas: " linea)))
+  (princ))
+
+;; Gestor de Ajustes -> Etapas y subetapas (2026-08-11, pedido del
+;; usuario): habilitar/deshabilitar globalmente y editar el catalogo
+;; (agregar/quitar etapas, redefinir subetapas). Todo por linea de
+;; comandos, persistido en el dibujo.
+(defun urb:etapas-manager-command (/ done kw name subs entry nuevas)
+  (setq done nil)
+  (while (not done)
+    (urb:etapas-print-catalog)
+    (initget "Habilitar Deshabilitar Agregar Quitar Subetapas Restaurar Salir")
+    (setq kw
+      (getkword
+        "\n[Habilitar/Deshabilitar/Agregar etapa/Quitar etapa/Subetapas de una etapa/Restaurar/Salir] <Salir>: "))
+    (cond
+      ((or (null kw) (= kw "Salir")) (setq done T))
+      ((= kw "Habilitar")
+        (urb:config-write "URB_ETAPAS_ACTIVO" "1")
+        (prompt "\nEtapas y subetapas HABILITADAS."))
+      ((= kw "Deshabilitar")
+        (urb:config-write "URB_ETAPAS_ACTIVO" "0")
+        (prompt
+          "\nEtapas y subetapas DESHABILITADAS: apareceran grises en los dialogos y todo se creara con la etapa por defecto."))
+      ((= kw "Agregar")
+        (setq name (vl-string-trim " " (getstring "\nNombre de la etapa nueva: ")))
+        (if (/= name "")
+          (if (assoc name *urb-etapas-catalog*)
+            (prompt "\nEsa etapa ya existe.")
+            (progn
+              (setq subs
+                (urb:split-subetapas
+                  (getstring T
+                    (strcat "\nSubetapas de la etapa " name
+                      " separadas por comas <" name ">: "))))
+              (if (null subs) (setq subs (list name)))
+              (setq *urb-etapas-catalog*
+                (append *urb-etapas-catalog* (list (list name subs))))
+              (urb:save-etapas-catalog)
+              (prompt (strcat "\nEtapa " name " agregada."))))))
+      ((= kw "Quitar")
+        (setq name (vl-string-trim " " (getstring "\nNombre de la etapa a quitar: ")))
+        (if (assoc name *urb-etapas-catalog*)
+          (if (<= (length *urb-etapas-catalog*) 1)
+            (prompt "\nDebe quedar al menos una etapa.")
+            (progn
+              (setq nuevas nil)
+              (foreach entry *urb-etapas-catalog*
+                (if (/= (car entry) name)
+                  (setq nuevas (cons entry nuevas))))
+              (setq *urb-etapas-catalog* (reverse nuevas))
+              (urb:save-etapas-catalog)
+              (prompt (strcat "\nEtapa " name " eliminada del catalogo."))))
+          (prompt "\nEsa etapa no existe.")))
+      ((= kw "Subetapas")
+        (setq name (vl-string-trim " " (getstring "\nEtapa a editar: ")))
+        (if (assoc name *urb-etapas-catalog*)
+          (progn
+            (setq subs
+              (urb:split-subetapas
+                (getstring T
+                  (strcat "\nNuevas subetapas de la etapa " name
+                    " separadas por comas: "))))
+            (if (null subs)
+              (prompt "\nSin cambios (lista vacia).")
+              (progn
+                (setq nuevas nil)
+                (foreach entry *urb-etapas-catalog*
+                  (setq nuevas
+                    (cons
+                      (if (= (car entry) name) (list name subs) entry)
+                      nuevas)))
+                (setq *urb-etapas-catalog* (reverse nuevas))
+                (urb:save-etapas-catalog)
+                (prompt (strcat "\nSubetapas de " name " actualizadas.")))))
+          (prompt "\nEsa etapa no existe.")))
+      ((= kw "Restaurar")
+        (setq *urb-etapas-catalog* (urb:default-etapas-catalog))
+        (urb:save-etapas-catalog)
+        (urb:config-write "URB_ETAPAS_ACTIVO" "1")
+        (prompt "\nCatalogo restaurado a los valores originales."))))
+  (princ))
+
+(defun urb:subetapas-for (etapa / entry)
+  (setq entry (assoc etapa *urb-etapas-catalog*))
+  (if entry (cadr entry) (list (urb:safe-string etapa "1")))
 )
 
 (defun urb:index-of (value items / index found)
@@ -316,6 +456,10 @@
   (mapcar 'add_list items)
   (end_list)
   (set_tile key (itoa selected))
+  ;; etapas deshabilitadas -> el popup queda gris en TODOS los dialogos
+  (if (and (member key '("etapa" "subetapa"))
+           (not (urb:etapas-enabled-p)))
+    (mode_tile key 1))
 )
 
 (defun urb:dialog-update-subetapa ()
@@ -8046,7 +8190,11 @@
   (mapcar 'add_list lst)
   (end_list)
   (if (not idx) (setq idx 0))
-  (set_tile key (itoa idx)))
+  (set_tile key (itoa idx))
+  ;; etapas deshabilitadas -> popup gris (mismo criterio que urb:fill-popup)
+  (if (and (member key '("etapa" "subetapa"))
+           (not (urb:etapas-enabled-p)))
+    (mode_tile key 1)))
 
 (defun mp:item (lst key / raw i use)
   (setq use (mp:popup-list key lst))
@@ -14438,9 +14586,7 @@
         "urb_config : dialog { label = \"Configuracion de urbanismo\";"
         ": boxed_column { label = \"Bibliotecas\";"
         ": button { label = \"Perfiles estratigraficos de vias\"; key = \"road_profiles\"; height = 2; width = 40; }"
-        ": button { label = \"Cargar perfiles base faltantes\"; key = \"base_profiles\"; height = 2; width = 40; } }"
-        ": boxed_column { label = \"Integridad de datos\";"
-        ": button { label = \"Diagnosticar y migrar redes\"; key = \"repair_networks\"; height = 2; width = 40; } }"
+        ": button { label = \"Etapas y subetapas\"; key = \"etapas_config\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Movimiento de tierras\";"
         ": button { label = \"Referencia de relleno de tramos de red\"; key = \"network_fill_ref\"; height = 2; width = 40; }"
         ": button { label = \"Recalcular tramos existentes con la referencia actual\"; key = \"recalc_tramos\"; height = 2; width = 40; } }"
@@ -17183,19 +17329,19 @@
   (if (or (null action) (= action "back")) "back" nil))
 
 (defun urb:configuration-menu (/ action)
+  ;; 2026-08-11: "Cargar perfiles base faltantes" y "Diagnosticar y migrar
+  ;; redes" salieron del menu a pedido del usuario (las funciones siguen
+  ;; existiendo por codigo); entro "Etapas y subetapas".
   (setq action
     (urb:simple-menu-dialog "urb_config"
       '(("road_profiles" "road_profiles")
-        ("base_profiles" "base_profiles")
-        ("repair_networks" "repair_networks")
+        ("etapas_config" "etapas_config")
         ("network_fill_ref" "network_fill_ref")
         ("recalc_tramos" "recalc_tramos"))))
   (cond
     ((or (null action) (= action "back")) "back")
     ((= action "road_profiles") (urb:manage-road-profiles))
-    ((= action "base_profiles") (urb:load-base-profiles-command))
-    ((= action "repair_networks")
-      (urb:update-network-blocks-command))
+    ((= action "etapas_config") (urb:etapas-manager-command))
     ((= action "network_fill_ref")
       (mp:network-fill-reference-command))
     ((= action "recalc_tramos")
@@ -17327,6 +17473,9 @@
 (defun c:TSANITARIO () (urb:create-network-segment-direct "segment_sanitary") (princ))
 (defun c:TPLUVIAL () (urb:create-network-segment-direct "segment_storm") (princ))
 (defun c:TACUEDUCTO () (urb:create-network-segment-direct "segment_water") (princ))
+(defun c:TMT () (urb:create-network-segment-direct "segment_mt") (princ))
+(defun c:TBT () (urb:create-network-segment-direct "segment_bt") (princ))
+(defun c:TAP () (urb:create-network-segment-direct "segment_ap") (princ))
 (defun c:POZOSAN () (if (urb:confirm-meter-units) (urb:create-sanitary-manhole)) (princ))
 (defun c:POZOPLU () (if (urb:confirm-meter-units) (urb:create-storm-manhole)) (princ))
 (defun c:SUMIDERO () (if (urb:confirm-meter-units) (urb:create-inlet)) (princ))
@@ -17425,6 +17574,7 @@
 (urb:remove-legacy-commands)
 (mp:install-network-erase-reactor)
 (vl-catch-all-apply 'urb:ensure-trusted-path nil)
+(vl-catch-all-apply 'urb:refresh-etapas-catalog nil)
 (vl-catch-all-apply 'urb:migrate-current-drawing nil)
 ;; OJO (2026-08-11 v3): urb:ensure-ribbon YA NO se llama automaticamente.
 ;; Si el lsp carga el cuix por COM ANTES que el Autoloader, el Autoloader
