@@ -1,6 +1,7 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
+;;; 4.21.1: elimina huecos de bandas curvas con solape, validacion y relleno base.
 ;;; 4.17.7: evita unidades adicionales por residuos decimales de punto flotante.
 ;;; 4.17.6: separa giro de 90 grados y cambio del extremo inicial.
 ;;; 4.17.5: ancla la modulacion al contorno real y evita losetas iniciales cortadas.
@@ -37,7 +38,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.21.0")
+(setq *urb-version* "4.21.1")
 (setq *urb-schema-version* "22")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
@@ -2263,6 +2264,23 @@
     nil)
 )
 
+(defun urb:region-usable-p (region / area-value)
+  ;; Una operacion ACIS puede terminar sin excepcion y aun devolver una
+  ;; region vacia/degenerada. Esas regiones fallan despues al crear el
+  ;; HATCH y antes se contaban como bandas validas, dejando el fondo negro.
+  (setq area-value
+    (if (urb:valid-vla-object-p region)
+      (vl-catch-all-apply 'vla-get-Area (list region))
+      nil))
+  (and (numberp area-value) (> area-value 1e-10))
+)
+
+(defun urb:stripe-overlaps ()
+  ;; Solapes progresivos en metros. Siempre se expanden LOS DOS bordes:
+  ;; las bandas vecinas se pisan unas milesimas en vez de separarse.
+  '(0.0 0.0005 0.0015 0.004 0.010)
+)
+
 (defun urb:clip-stripe-once
   (base-region umin umax vmin vmax angle-value
    / clipped stripe result box elevation)
@@ -2284,30 +2302,30 @@
         (vl-catch-all-apply
           'vla-Boolean
           (list clipped 1 stripe)))
-      (if (vl-catch-all-error-p result)
+      ;; Boolean consume normalmente la segunda region; si una version de
+      ;; AutoCAD la conserva, se limpia de forma defensiva.
+      (urb:safe-delete stripe)
+      (if (or (vl-catch-all-error-p result)
+              (not (urb:region-usable-p clipped)))
         (progn
           (urb:safe-delete clipped)
-          (urb:safe-delete stripe)
           nil)
         clipped)
     )
   )
 )
 
-;; 2026-08-12: el booleano de una banda puede fallar cuando el borde de
-;; la franja pasa EXACTO por un vertice del contorno (tangencias con las
-;; cuerdas de un arco) -- la banda se saltaba en silencio y quedaba un
-;; hueco en blanco en el anden (pantallazo del usuario, anden curvo).
-;; Reintento con corrimientos de ~1.5 mm de la franja: cambia la
-;; condicion de tangencia sin efecto visible (las bandas vecinas siguen
-;; en sus cursores exactos).
+;; 2026-08-12 v2: el reintento anterior TRASLADABA toda la banda. Eso
+;; rompia la tangencia, pero podia abrir una separacion en el borde que se
+;; alejaba de la banda vecina. Ahora la banda se ENSANCHA simetricamente,
+;; se valida su area real y el solape queda oculto por el orden de dibujo.
 (defun urb:clip-stripe
   (base-region umin umax vmin vmax angle-value / result eps)
-  (foreach eps '(0.0 0.0015 -0.0015 0.004)
+  (foreach eps (urb:stripe-overlaps)
     (if (null result)
       (setq result
         (urb:clip-stripe-once
-          base-region (+ umin eps) (+ umax eps)
+          base-region (- umin eps) (+ umax eps)
           (- vmin eps) (+ vmax eps) angle-value))))
   result
 )
@@ -2448,6 +2466,31 @@
      10.0)
 )
 
+(defun urb:add-solid-hatch-safe
+  (boundary layer color / hatch result)
+  ;; Variante transaccional para las bandas del anden. Si AppendOuterLoop,
+  ;; propiedades o Evaluate fallan, elimina el HATCH parcial y devuelve nil;
+  ;; asi el caller puede volver a recortar y reintentar la banda completa.
+  (setq hatch
+    (vl-catch-all-apply
+      'vla-AddHatch
+      (list (urb:space) 1 "SOLID" :vlax-true)))
+  (if (vl-catch-all-error-p hatch)
+    nil
+    (progn
+      (setq result
+        (vl-catch-all-apply
+          '(lambda ()
+             (vla-AppendOuterLoop hatch (urb:make-loop-array boundary))
+             (vla-put-Layer hatch (urb:safe-string layer "0"))
+             (vla-put-Color hatch color)
+             (vla-Evaluate hatch)
+             hatch)))
+      (if (vl-catch-all-error-p result)
+        (progn (urb:safe-delete hatch) nil)
+        hatch)))
+)
+
 (defun urb:decorate-gray-stripe
   (region angle-value origin parent-handle / result joints)
   ;; Antes vivia en la capa auxiliar URB-ANDEN-AUX (no imprimible, separada
@@ -2456,10 +2499,9 @@
   (vla-put-Layer region "URB-ANDEN-LOSETA-GRIS-20X20")
   (urb:tag-generated-role region parent-handle "FILL")
   (setq result
-    (vl-catch-all-apply
-      'urb:add-solid-hatch
-      (list region "URB-ANDEN-LOSETA-GRIS-20X20" 8)))
-  (if (not (vl-catch-all-error-p result))
+    (urb:add-solid-hatch-safe
+      region "URB-ANDEN-LOSETA-GRIS-20X20" 8))
+  (if result
     (progn
       (urb:tag-generated-role result parent-handle "FILL")
       (setq joints
@@ -2471,7 +2513,9 @@
           T
           9
           origin))
-      (urb:tag-generated-role joints parent-handle "JOINT")))
+      (urb:tag-generated-role joints parent-handle "JOINT")
+      T)
+    nil)
 )
 
 (defun urb:decorate-white-stripe
@@ -2479,10 +2523,9 @@
   (vla-put-Layer region "URB-ANDEN-BLOQUE-BLANCO-20X10")
   (urb:tag-generated-role region parent-handle "FILL")
   (setq result
-    (vl-catch-all-apply
-      'urb:add-solid-hatch
-      (list region "URB-ANDEN-BLOQUE-BLANCO-20X10" 7)))
-  (if (not (vl-catch-all-error-p result))
+    (urb:add-solid-hatch-safe
+      region "URB-ANDEN-BLOQUE-BLANCO-20X10" 7))
+  (if result
     (progn
       (urb:tag-generated-role result parent-handle "FILL")
       ;; Bloque blanco de 0.20 x 0.10 m, alineado con el origen comun.
@@ -2506,7 +2549,50 @@
           8
           origin))
       (urb:tag-generated-role joints-v parent-handle "JOINT")
-      ))
+      T)
+    nil)
+)
+
+(defun urb:decorate-composite-stripe
+  (base-region umin umax vmin vmax angle-value origin parent-handle gray
+   / eps region success)
+  ;; El exito exige DOS cosas: region con area y relleno SOLID evaluado.
+  ;; Si cualquiera falla, elimina la tentativa y repite con mas solape.
+  (foreach eps (urb:stripe-overlaps)
+    (if (null success)
+      (progn
+        (setq region
+          (urb:clip-stripe-once
+            base-region (- umin eps) (+ umax eps)
+            (- vmin eps) (+ vmax eps) angle-value))
+        (if region
+          (progn
+            (setq success
+              (if gray
+                (urb:decorate-gray-stripe
+                  region angle-value origin parent-handle)
+                (urb:decorate-white-stripe
+                  region angle-value origin parent-handle)))
+            (if (not success) (urb:safe-delete region)))))))
+  success
+)
+
+(defun urb:add-composite-base-fill
+  (base-region parent-handle / result)
+  ;; Cobertura visual inferior para el detalle 20x20. Las bandas reales
+  ;; quedan encima; si ACIS rechazara todos los reintentos de una banda,
+  ;; esta base blanca evita que aparezca el fondo negro del dibujo.
+  ;; No interviene en cantidades: solo es una entidad generada del bloque.
+  (vla-put-Layer base-region "URB-ANDEN-BLOQUE-BLANCO-20X10")
+  (urb:tag-generated-role base-region parent-handle "BASE_FILL")
+  (setq result
+    (urb:add-solid-hatch-safe
+      base-region "URB-ANDEN-BLOQUE-BLANCO-20X10" 7))
+  (if result
+    (progn
+      (urb:tag-generated-role result parent-handle "BASE_FILL")
+      T)
+    nil)
 )
 
 (defun urb:create-two-axis-regions
@@ -2566,8 +2652,8 @@
 (defun urb:decorate-composite-region
   (base-region angle-value format parent-handle reverse-pattern phase-offset
    / points bounds umin umax actual-vmin actual-vmax vmin vmax
-   cursor next region gray count origin pattern-v-origin module layer grid
-   phase-state first-band band-width iter-guard)
+   cursor next gray count origin pattern-v-origin module layer grid
+   phase-state first-band band-width iter-guard base-fill-ok band-ok)
   (setq points (urb:region-outline-points base-region))
   (if (null points)
     (setq points (urb:object-box-points base-region)))
@@ -2610,6 +2696,8 @@
         (progn
           ;; Detalle 20x20: 0.80 m de loseta gris y 1.00 m de adoquin
           ;; blanco, repetidos sobre el eje local de esta zona.
+          (setq base-fill-ok
+            (urb:add-composite-base-fill base-region parent-handle))
           (setq vmin (- actual-vmin 1.0)
                 vmax (+ actual-vmax 1.0)
                 cursor (if reverse-pattern umax umin)
@@ -2639,28 +2727,24 @@
               (if reverse-pattern
                 (max umin (- cursor band-width))
                 (min umax (+ cursor band-width))))
-            (setq region
+            ;; todas las bandas comparten el origen global ya alineado.
+            ;; La rutina solo devuelve T cuando tambien existe el SOLID.
+            (setq band-ok
               (if reverse-pattern
-                (urb:clip-stripe
-                  base-region next cursor vmin vmax angle-value)
-                (urb:clip-stripe
-                  base-region cursor next vmin vmax angle-value)))
-            (if region
-              (progn
-                ;; todas las bandas comparten el origen global ya alineado
-                ;; (la reticula del hatch es infinita: el origen solo fija
-                ;; la FASE de las juntas, no donde empieza a dibujarse)
-                (if gray
-                  (urb:decorate-gray-stripe
-                    region angle-value origin parent-handle)
-                  (urb:decorate-white-stripe
-                    region angle-value origin parent-handle))
-                (setq count (1+ count))))
+                (urb:decorate-composite-stripe
+                  base-region next cursor vmin vmax angle-value
+                  origin parent-handle gray)
+                (urb:decorate-composite-stripe
+                  base-region cursor next vmin vmax angle-value
+                  origin parent-handle gray)))
+            (if band-ok (setq count (1+ count)))
             (setq cursor next
                   gray (not gray)
                   first-band nil))
-          (urb:safe-delete base-region)
-          (> count 0)))))
+          ;; Si el relleno base se creo, conserva su region asociativa para
+          ;; empaquetarla; si fallo, mantiene el comportamiento anterior.
+          (if (not base-fill-ok) (urb:safe-delete base-region))
+          (or base-fill-ok (> count 0))))))
 )
 
 (defun urb:turning-angle (a1 a2 / delta two-pi)
@@ -4140,11 +4224,12 @@
   table
 )
 
-;; Clasifica el rol xdata (ver urb:tag-generated-role) en uno de los 5
+;; Clasifica el rol xdata (ver urb:tag-generated-role) en grupos de
 ;; grupos de orden de dibujo. No depende de en que capa quedo la pieza,
 ;; asi que las capas se pueden consolidar sin romper el apilamiento.
 (defun urb:draw-role-bucket (role)
   (cond
+    ((= role "BASE_FILL") "BASE_FILL")
     ((member role '("FILL" "RELLENO")) "FILL")
     ((= role "JOINT") "JOINT")
     ((= role "FEATURE_FILL") "FEATURE_FILL")
@@ -4159,13 +4244,14 @@
 )
 
 (defun urb:set-block-draw-order
-  (block objects / fills joints feature-fills features boundaries item table result
+  (block objects / base-fills fills joints feature-fills features boundaries item table result
    bucket)
   (foreach item objects
     (if (vlax-property-available-p item 'Layer)
       (progn
         (setq bucket (urb:draw-role-bucket (urb:generated-role item)))
         (cond
+          ((= bucket "BASE_FILL") (setq base-fills (cons item base-fills)))
           ((= bucket "FILL") (setq fills (cons item fills)))
           ((= bucket "JOINT") (setq joints (cons item joints)))
           ((= bucket "FEATURE_FILL")
@@ -4179,6 +4265,11 @@
     (vl-catch-all-apply
       'vla-MoveToBottom
       (list table (urb:object-array-variant fills))))
+  ;; Se mueve DESPUES de FILL para quedar por debajo de todas las bandas.
+  (if base-fills
+    (vl-catch-all-apply
+      'vla-MoveToBottom
+      (list table (urb:object-array-variant base-fills))))
   (if boundaries
     (vl-catch-all-apply
       'vla-MoveToTop

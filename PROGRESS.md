@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-12 (parte 23) — v4.21.1: cobertura garantizada en la modulación curva
+
+El usuario volvió a reproducir el hueco negro con la versión 4.21.0 realmente instalada y cargada. La copia del repositorio y la de `ApplicationPlugins` tenían el mismo SHA-256; Civil 3D había iniciado después de la instalación y la captura era posterior, por lo que el reintento de la parte 22 no cubría todos los casos.
+
+- **Causa corregida**: 4.21.0 trasladaba la banda completa para romper la tangencia y solo verificaba si `vla-Boolean` lanzaba una excepción. Una operación podía terminar con región degenerada o el `HATCH SOLID` podía fallar después; aun así la banda se contaba como válida. Además, trasladarla podía abrir una separación microscópica contra la banda vecina.
+- **Recorte sin separaciones**: `urb:clip-stripe` ahora ensancha simétricamente ambos bordes con solapes progresivos `0 / 0.5 / 1.5 / 4 / 10 mm`; las bandas se superponen ligeramente en vez de apartarse. `urb:region-usable-p` exige un área real positiva después del booleano.
+- **Relleno transaccional**: nuevo `urb:add-solid-hatch-safe` elimina cualquier hatch parcial si falla `AppendOuterLoop`, una propiedad o `Evaluate`. `urb:decorate-composite-stripe` solo acepta la banda si existen tanto la región útil como el sólido; si no, elimina la tentativa y repite con mayor solape.
+- **Cobertura final garantizada**: el detalle 20x20 conserva debajo una única base blanca del contorno completo (`BASE_FILL`). Las bandas grises/blancas quedan por encima mediante el orden de dibujo; si ACIS rechazara todos los reintentos de una banda excepcional, nunca vuelve a verse el fondo negro. Esta base es exclusivamente visual y no modifica las cantidades almacenadas.
+- **Mantenimiento**: `PackageContents.xml` se sincronizó de `AppVersion=4.17.7` a `4.21.1`.
+
 ### 2026-08-12 (parte 22) — v4.21.0: eje de vía auto-recuperado, aviso de vía sin rasante y bandas sin huecos
 
 El usuario confirmó que la orientación del andén curvo ya sale como debe. Tres arreglos de seguimiento:
