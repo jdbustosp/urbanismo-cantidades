@@ -126,8 +126,9 @@ namespace UrbanismoCantidades
                     new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" } });
                 cantPanel.Source.Items.Add(MakeExcelGroup());
                 tab.Panels.Add(cantPanel);
+                // solo Ajustes (2026-08-11 v4: "Perfiles" duplicaba la
+                // opcion que ya vive dentro de Ajustes)
                 tab.Panels.Add(MakePanel("Configuracion", new string[][] {
-                    new string[] { "Perfiles", "PERFILES", "perfiles", "L" },
                     new string[] { "Ajustes", "AJUSTES", "ajustes", "L" } }));
 
                 _built = true;
@@ -136,57 +137,85 @@ namespace UrbanismoCantidades
             catch (System.Exception ex) { Log("ERROR BuildTab: " + ex.Message); }
         }
 
-        // --- panel Crear dinamico (2 niveles) --------------------------
+        // --- panel Crear dinamico (jerarquia v3, 2026-08-11) -----------
+        //  [Urbanismo externo]
+        //    Urbanismo      -> Via, Anden, Rampa, Zona verde, Prefabricado
+        //    Redes humedas  -> Acueducto     -> Tramo, Accesorios
+        //                      Alcantarillado -> Tramo, Pozo sanitario
+        //                      Pluvial        -> Tramo, Sumidero, Pozo
+        //    Redes secas    -> Media tension  -> Tramo MT, Tramo BT, Camara
+        //                      Alumbrado      -> Tramo alumbrado, Luminaria
 
         private static void ShowCrearRoot()
         {
             _crearSource.Items.Clear();
-            RibbonButton urb = MakeBig("Urbanismo", null, "urbanismo");
-            urb.CommandHandler = new NavHandler("nivel1");
+            RibbonButton urb = MakeBig("Urbanismo externo", null, "urbanismo");
+            urb.CommandHandler = new NavHandler("ext");
             _crearSource.Items.Add(urb);
-        }
-
-        private static void ShowNivel1()
-        {
-            _crearSource.Items.Clear();
-            AddBack("root");
-            AddBigCmd("Via", "VIA", "via");
-            AddBigCmd("Anden", "ANDEN", "anden");
-            AddBigCmd("Rampa", "RAMPA", "rampa");
-            AddBigCmd("Zona verde", "ZONAVERDE", "zonaverde");
-            AddBigCmd("Prefabricado", "PREFABRICADO", "prefabricado");
-            AddBigNav("Red sanitaria", "sanitaria", "tsanitario");
-            AddBigNav("Red pluvial", "pluvial", "tpluvial");
-            AddBigNav("Acueducto", "acueducto", "tacueducto");
-            AddBigNav("Media tension", "media", "mediatension");
         }
 
         private static void ShowSub(string which)
         {
             _crearSource.Items.Clear();
-            AddBack("nivel1");
-            if (which == "sanitaria")
+            if (which == "ext")
             {
+                AddBack("root");
+                AddBigNav("Urbanismo", "urb", "urbanismo");
+                AddBigNav("Redes humedas", "hum", "tpluvial");
+                AddBigNav("Redes secas", "sec", "mediatension");
+            }
+            else if (which == "urb")
+            {
+                AddBack("ext");
+                AddBigCmd("Via", "VIA", "via");
+                AddBigCmd("Anden", "ANDEN", "anden");
+                AddBigCmd("Rampa", "RAMPA", "rampa");
+                AddBigCmd("Zona verde", "ZONAVERDE", "zonaverde");
+                AddBigCmd("Prefabricado", "PREFABRICADO", "prefabricado");
+            }
+            else if (which == "hum")
+            {
+                AddBack("ext");
+                AddBigNav("Acueducto", "acu", "tacueducto");
+                AddBigNav("Alcantarillado", "alc", "tsanitario");
+                AddBigNav("Pluvial", "plu", "tpluvial");
+            }
+            else if (which == "acu")
+            {
+                AddBack("hum");
+                AddBigCmd("Tramo", "TACUEDUCTO", "tacueducto");
+                AddBigCmd("Accesorios", "ACCESORIO", "accesorio");
+            }
+            else if (which == "alc")
+            {
+                AddBack("hum");
                 AddBigCmd("Tramo", "TSANITARIO", "tsanitario");
                 AddBigCmd("Pozo sanitario", "POZOSAN", "pozosan");
             }
-            else if (which == "pluvial")
+            else if (which == "plu")
             {
+                AddBack("hum");
                 AddBigCmd("Tramo", "TPLUVIAL", "tpluvial");
                 AddBigCmd("Sumidero", "SUMIDERO", "sumidero");
                 AddBigCmd("Pozo", "POZOPLU", "pozoplu");
             }
-            else if (which == "acueducto")
+            else if (which == "sec")
             {
-                AddBigCmd("Tramo", "TACUEDUCTO", "tacueducto");
-                AddBigCmd("Accesorios", "ACCESORIO", "accesorio");
+                AddBack("ext");
+                AddBigNav("Media tension", "mt", "mediatension");
+                AddBigNav("Alumbrado", "alum", "luminaria");
             }
-            else if (which == "media")
+            else if (which == "mt")
             {
+                AddBack("sec");
                 AddBigCmd("Tramo MT", "TMT", "mediatension");
                 AddBigCmd("Tramo BT", "TBT", "camara");
-                AddBigCmd("Alumbrado", "TAP", "luminaria");
                 AddBigCmd("Camara", "CAMARA", "camara");
+            }
+            else if (which == "alum")
+            {
+                AddBack("sec");
+                AddBigCmd("Tramo alumbrado", "TAP", "luminaria");
                 AddBigCmd("Luminaria", "LUMINARIA", "luminaria");
             }
         }
@@ -227,7 +256,6 @@ namespace UrbanismoCantidades
                 try
                 {
                     if (_target == "root") ShowCrearRoot();
-                    else if (_target == "nivel1") ShowNivel1();
                     else ShowSub(_target);
                 }
                 catch (System.Exception ex) { Log("ERROR Nav: " + ex.Message); }

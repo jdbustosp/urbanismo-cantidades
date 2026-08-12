@@ -29,6 +29,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-12 (parte 18) — Ribbon v4: Urbanismo externo (3 niveles), sin botón Perfiles y rampa por nentsel
+
+Tres ajustes pedidos por el usuario (con su pantallazo de Ajustes ya funcionando):
+
+1. **Botón "Perfiles" eliminado** del panel Configuración (duplicaba "Perfiles estratigraficos de vias" que vive dentro de Ajustes). Queda solo Ajustes.
+2. **Jerarquía Crear v3**: `[Urbanismo externo]` → **Urbanismo** (Via, Anden, Rampa, Zona verde, Prefabricado) | **Redes humedas** (Acueducto → Tramo/Accesorios; Alcantarillado → Tramo/Pozo sanitario; Pluvial → Tramo/Sumidero/Pozo) | **Redes secas** (Media tension → Tramo MT/Tramo BT/Camara; **Alumbrado** separado → Tramo alumbrado/Luminaria). Hasta 4 niveles de navegación en el mismo espacio con "<".
+3. **Rampa corta — causa encontrada**: el selector del bordillo usaba `entsel`, pero el sardinel creado por el propio plugin es un BLOQUE (y las vías de proyecto suelen ser xref) → devolvía el INSERT, no una curva, y caía EN SILENCIO al modo manual (por eso "seleccionaba el bordillo" y la rampa quedaba corta). Ahora usa `nentsel` (perfora bloques/xrefs, patrón ya probado en este proyecto) y acepta el bordillo O el eje: cualquier línea hasta donde deba llegar la rampa; el punto inicial se proyecta sobre esa curva y el módulo completo (bordillos, losetas, adoquín) nace desde ahí.
+- Verificado headless: lsp OK, sin pestaña legada, DLL v4 "Tab construida: 4 paneles". Pendiente visual del usuario (jerarquía nueva + rampa seleccionando su sardinel-bloque).
+
 ### 2026-08-11 (parte 17) — PESTAÑA DOBLE RESUELTA DE RAÍZ: la copia fantasma del Autoloader
 
 Con Civil 3D cerrado por el usuario se pudo instalar el DLL nuevo y cazar la causa REAL de la pestaña doble: cuando el Autoloader cargó el cuix como ComponentEntry (parte 12), **lo COPIÓ a la carpeta Support del perfil** (`%AppData%\Autodesk\C3D 2023\enu\Support\cantidades.cuix` — visto en la clave de registro `Loaded`) y esa copia, fuera del bundle, revivía la pestaña vieja en cada arranque sin que el instalador la tocara.

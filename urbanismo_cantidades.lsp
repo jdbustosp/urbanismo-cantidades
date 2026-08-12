@@ -14090,12 +14090,18 @@
   ;; donde avanza), 4) ancho/fondo, 5) lado del anden. El modulo arranca
   ;; EXACTO en el bordillo (v=0) por construccion: ya no hay extension
   ;; que calcular ni manera de dejarlo corto.
+  ;; nentsel y no entsel (2026-08-11 v4): el bordillo/sardinel creado por
+  ;; el propio plugin es un BLOQUE, y las vias de proyecto suelen venir en
+  ;; xref -- entsel devolvia el INSERT (no una curva) y el flujo caia EN
+  ;; SILENCIO al modo manual, dejando la rampa corta (reporte del
+  ;; usuario). nentsel perfora bloque/xref y entrega la curva real; sirve
+  ;; el bordillo O el eje: cualquier linea hasta donde deba llegar.
   (setq ext-sel
-    (entsel "\nSeleccione el BORDILLO de la via (Enter para marcar puntos a mano): "))
+    (nentsel "\nSeleccione el BORDILLO o eje hasta donde llega la rampa (Enter para marcar puntos a mano): "))
   (cond
     ((and ext-sel (urb:curve-entity-p (car ext-sel)))
       (setq ext-pt
-        (getpoint "\nPunto INICIAL de la rampa sobre el bordillo: "))
+        (getpoint "\nPunto INICIAL de la rampa sobre esa linea: "))
       (if ext-pt
         (progn
           (setq base-pt
