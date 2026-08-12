@@ -29,6 +29,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-12 (parte 20) — v4.19.0: rampa con fondo por clic al bordillo, auto-detect también en "Textos por capa" y curva de andén SIN diagonal
+
+Tres correcciones tras la prueba en vivo del usuario (pantallazos de rampa, log de vía y andén curvo):
+
+1. **Rampa — lado + fondo en UN clic**: el clic del "lado del andén" ahora se hace **sobre el BORDILLO** donde termina la rampa (con osnap Nearest cae exacto). La distancia perpendicular de ese clic al eje de la rampa **es el fondo** — sin seleccionar entidades (solo el punto), así funciona igual con bordillos en bloques, xrefs o líneas sueltas (lo que mató los intentos anteriores con `entsel`/`nentsel`). Un clic pegado al eje (<0.5 m) solo define el lado y el fondo queda el configurado (3.50 o el digitado con la opción Fondo).
+2. **Vía — el auto-detect ahora también vive en "Textos por capa"** (el modo por defecto, que fue el que el usuario usó): el primer prompt acepta un texto de cota (comportamiento de siempre: barre la capa), **o una VÍA ya creada** (toma su rasante en el punto del clic), **o una etiqueta con número** (MLeader/etiqueta Civil). Si el clic no fue texto, en vez de cancelar con "El objeto no es texto ni MText", cambia solo a **cotas seleccionadas**: sigue pidiendo la cota final y las intermedias con el mismo picker del modo Pendiente (`urb:pick-road-cotas-loop`, refactor con semilla). El resultado viaja como marcador `("PICKED" picks ...)` que interceptan los 4 consumidores: creación de vía, EDITAR vía, rasante de andén por alineamiento y reconstrucción de rasante de vías viejas.
+3. **Andén — diagonal en la curva ARREGLADA de raíz**: la partición en dos ejes (`urb:two-axis-split-data`, pensada para andenes en L) se disparaba también en curvas porque las cuerdas en que se subdivide un arco inventaban un segundo "eje dominante" → la zona curva salía con bandas diagonales. Regla nueva (`urb:lwpoly-has-arcs-p`): si el contorno tiene **arcos reales (bulge)** es una curva continua → **un solo eje** (el del tramo recto dominante) y la curva solo recorta; la partición en dos ejes queda solo para L de esquinas rectas (sin bulges).
+- Verificado headless: v4.19.0, `has-arcs-p` distingue polilínea con arco vs recta, el polígono con arco efectivamente genera >1 cluster (la causa raíz confirmada), funciones nuevas definidas. Pendiente prueba visual del usuario.
+
 ### 2026-08-12 (parte 19) — v4.18.0: rampa manual, cotas auto-detect, andén sin Modulación y etapas OCULTAS (solo .lsp, sin cambios .NET)
 
 Round multi-disciplina pedido por el usuario (pantallazos de rampa, diálogo de vía, andén en curva y diálogo de andén):

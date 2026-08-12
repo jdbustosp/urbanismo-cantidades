@@ -37,7 +37,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.18.0")
+(setq *urb-version* "4.19.0")
 (setq *urb-schema-version* "22")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
@@ -1619,6 +1619,20 @@
   (urb:lwpoly-points-with-arcs-impl ename nil)
 )
 
+;; T si la polilinea tiene al menos un segmento en ARCO real (bulge).
+;; 2026-08-12 (pantallazo del usuario: bandas diagonales en la curva):
+;; las cuerdas en que se subdivide un arco generaban un segundo "eje
+;; dominante" y el material se partia en dos zonas con orientaciones
+;; distintas (abanico parcial). Un contorno CON arcos es una curva
+;; continua -> UN solo eje y la curva solo recorta; la particion en dos
+;; ejes queda solo para andenes en L de esquinas rectas (sin bulges).
+(defun urb:lwpoly-has-arcs-p (ename / found pair)
+  (foreach pair (entget ename)
+    (if (and (= (car pair) 42) (> (abs (cdr pair)) 1e-6))
+      (setq found T)))
+  found
+)
+
 (defun urb:lwpoly-points-with-arcs-fine (ename)
   ;; muestreo ADAPTATIVO (~1 por metro de arco): solo para la cadena de la
   ;; franja tactil, que necesita seguir el arco real (con 8 cuerdas por
@@ -2895,7 +2909,14 @@
       ;; SI sigue el borde curvo (metodo offset), como en el plano.
       (progn
         (progn
-          (if (> (length clusters) 1)
+          ;; 2026-08-12: la particion en dos ejes SOLO aplica a andenes en
+          ;; L con esquinas rectas. Si el contorno tiene arcos (curva
+          ;; dibujada con bulge), las cuerdas del arco inventaban un
+          ;; segundo eje y la zona curva salia con bandas DIAGONALES
+          ;; (pantallazo del usuario) -- en curvas se usa un solo eje (el
+          ;; del tramo recto dominante) y la curva solo recorta.
+          (if (and (> (length clusters) 1)
+                   (not (urb:lwpoly-has-arcs-p ename)))
             (setq split-data
               (urb:two-axis-split-data
                 points (car clusters) (cadr clusters))))
@@ -4715,17 +4736,23 @@
       (prompt
         "\nLa via es anterior a la rasante guardada. Seleccione una cota de su capa para reconstruirla: ")
       (setq info (urb:road-cota-reference "Textos por capa"))
-      (setq layer (urb:safe-string (car info) layer))
-      (setq texts (if (/= layer "") (urb:collect-cota-texts layer) nil))
-      (setq records
-        (if texts
-          (urb:cota-stations-on-axis axis texts axis-start span 15.0)
-          nil))
-      (setq records (urb:cota-best-per-source records))
-      (setq records
-        (urb:cota-snap-to-project-grid records axis-start span
-          station-start interval direction))
-      (setq records (urb:cota-deduplicate-stations records 0.05))))
+      (if (urb:string-equal-p (urb:safe-string (car info) "") "PICKED")
+        ;; auto-detect: cotas seleccionadas una a una (via/etiqueta/texto)
+        (setq records
+          (urb:cota-deduplicate-stations
+            (urb:picked-cotas-to-stations (cadr info) axis) 0.05))
+        (progn
+          (setq layer (urb:safe-string (car info) layer))
+          (setq texts (if (/= layer "") (urb:collect-cota-texts layer) nil))
+          (setq records
+            (if texts
+              (urb:cota-stations-on-axis axis texts axis-start span 15.0)
+              nil))
+          (setq records (urb:cota-best-per-source records))
+          (setq records
+            (urb:cota-snap-to-project-grid records axis-start span
+              station-start interval direction))
+          (setq records (urb:cota-deduplicate-stations records 0.05))))))
   records
 )
 
@@ -4798,14 +4825,20 @@
   (if axis
     (progn
       (setq info (urb:road-cota-reference "Textos por capa"))
-      (setq layer (car info))
-      (setq texts (if (/= layer "") (urb:collect-cota-texts layer) nil))
       (setq axis-length
         (vlax-curve-getDistAtParam axis (vlax-curve-getEndParam axis)))
-      (setq records
-        (if texts (urb:cota-stations-on-axis axis texts 0.0 axis-length 15.0) nil))
-      (setq records (urb:cota-best-per-source records))
-      (setq records (urb:cota-deduplicate-stations records 0.05))
+      (if (urb:string-equal-p (urb:safe-string (car info) "") "PICKED")
+        ;; auto-detect: cotas seleccionadas una a una (via/etiqueta/texto)
+        (setq records
+          (urb:cota-deduplicate-stations
+            (urb:picked-cotas-to-stations (cadr info) axis) 0.05))
+        (progn
+          (setq layer (car info))
+          (setq texts (if (/= layer "") (urb:collect-cota-texts layer) nil))
+          (setq records
+            (if texts (urb:cota-stations-on-axis axis texts 0.0 axis-length 15.0) nil))
+          (setq records (urb:cota-best-per-source records))
+          (setq records (urb:cota-deduplicate-stations records 0.05))))
       (if (urb:grade-records-valid-p records)
         (list axis records 0.0 axis-length "Inicio" "RAW"
           "Alineamiento + cotas" "" "")
@@ -11666,8 +11699,16 @@
 ;; mas, cada cota se proyecta sobre el eje en el punto donde se clickeo
 ;; su etiqueta y la rasante queda por tramos. Enter tras 2 o mas cotas
 ;; termina; Enter antes de 2 cancela.
-(defun urb:pick-road-cotas (/ picks sel obj txt value point msg n done)
-  (setq picks nil done nil)
+(defun urb:pick-road-cotas (/)
+  (urb:pick-road-cotas-loop nil))
+
+;; Bucle interno reutilizable (2026-08-12): seed-picks permite arrancar
+;; con la primera cota ya capturada -- lo usa "Textos por capa" cuando el
+;; primer clic resulta ser una VIA creada o una etiqueta con numero
+;; (auto-detect) y el flujo continua pidiendo la cota final y las
+;; intermedias, igual que el modo Pendiente.
+(defun urb:pick-road-cotas-loop (picks / sel obj txt value point msg n done)
+  (setq done nil)
   (while (not done)
     (setq n (length picks))
     (setq msg
@@ -11733,15 +11774,16 @@
               (setq result (cons (list d (car item)) result))))))))
   (vl-sort result '(lambda (a b) (< (car a) (car b)))))
 
-(defun urb:road-cota-reference (mode / selected ename edata layer texts count)
+(defun urb:road-cota-reference
+  (mode / selected ename edata layer texts count obj txt via-cota picks)
   (cond
     ((urb:string-equal-p mode "Textos por capa")
       ;; nentsel (no entsel) para poder tomar un texto anidado en un xref.
       (setq selected
         (nentsel
           (strcat
-            "\nSeleccione un texto de cota de la capa correspondiente a esta via."
-            " Puede estar en un XREF diferente al eje: ")))
+            "\nSeleccione un texto de cota (cualquier capa/XREF)"
+            " o una VIA ya creada como cota inicial: ")))
       (if selected
         (progn
           (setq ename (car selected) edata (entget ename))
@@ -11760,7 +11802,45 @@
               (prompt
                 (strcat "\nCotas detectadas en la capa " layer ": " (itoa count)))
               (list layer (itoa count) (if (> count 0) "DETECTADAS" "PENDIENTE")))
-            (progn (prompt "\nEl objeto no es texto ni MText.") (list "" "0" "PENDIENTE"))))
+            ;; 2026-08-12 AUTO-DETECT (pedido del usuario): si el primer
+            ;; clic no fue TEXT/MTEXT pero si una etiqueta con numero
+            ;; (MLeader, etiqueta Civil 3D) o una VIA ya creada (toma su
+            ;; RASANTE en el punto del clic), el flujo NO se cancela:
+            ;; cambia a cotas seleccionadas (mismo picker del modo
+            ;; Pendiente) y sigue pidiendo la cota final y las intermedias.
+            (progn
+              (setq via-cota nil)
+              (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
+              (if (and obj (not (vl-catch-all-error-p obj)))
+                (progn
+                  (setq txt (vl-catch-all-apply 'vla-get-TextString (list obj)))
+                  (if (vl-catch-all-error-p txt) (setq txt nil))))
+              (if txt (setq via-cota (mp:last-decimal-number txt)))
+              (if via-cota (setq via-cota (atof via-cota)))
+              (if via-cota
+                (prompt
+                  (strcat "\nCota leida de la etiqueta: " (rtos via-cota 2 3)))
+                (progn
+                  (setq via-cota (urb:cota-from-via ename (cadr selected)))
+                  (if via-cota
+                    (prompt
+                      (strcat
+                        "\nCota INICIAL tomada de la RASANTE de la via"
+                        " seleccionada: " (rtos via-cota 2 3))))))
+              (if via-cota
+                (progn
+                  (setq picks
+                    (urb:pick-road-cotas-loop
+                      (list (list via-cota (cadr selected)))))
+                  (if picks
+                    (list "PICKED" picks "DETECTADAS")
+                    (progn
+                      (prompt "\nSe necesitan al menos 2 cotas.")
+                      (list "" "0" "PENDIENTE"))))
+                (progn
+                  (prompt
+                    "\nEl objeto no es texto, etiqueta con numero ni via creada.")
+                  (list "" "0" "PENDIENTE"))))))
         (list "" "0" "PENDIENTE")))
     ((urb:string-equal-p mode "Perfil Civil 3D")
       (setq selected (entsel "\nSeleccione el perfil Civil 3D: "))
@@ -12519,20 +12599,27 @@
               ;; rasante por tramos proyectando cada clic sobre el eje
               (setq *urb-road-picked-cotas* nil)
               (setq *urb-road-picked-stations* nil)
+              (setq picks nil)
               (if (urb:string-equal-p (nth 6 dialog) "Pendiente")
+                (setq picks (urb:pick-road-cotas)))
+              ;; auto-detect en "Textos por capa": el primer clic fue una
+              ;; via creada o una etiqueta -> mismo camino que Pendiente
+              (if (urb:string-equal-p
+                    (urb:safe-string (car cota-info) "") "PICKED")
                 (progn
-                  (setq picks (urb:pick-road-cotas))
-                  (cond
-                    ((null picks) nil)
-                    ((= (length picks) 2)
-                      (setq *urb-road-picked-cotas* (mapcar 'car picks)))
-                    (T
-                      (setq *urb-road-picked-stations*
-                        (urb:picked-cotas-to-stations picks axis))
-                      (prompt
-                        (strcat "\nRasante por tramos con "
-                          (itoa (length *urb-road-picked-stations*))
-                          " cotas proyectadas sobre el eje."))))))
+                  (setq picks (cadr cota-info))
+                  (setq cota-info (list "" "0" "PENDIENTE"))))
+              (cond
+                ((null picks) nil)
+                ((= (length picks) 2)
+                  (setq *urb-road-picked-cotas* (mapcar 'car picks)))
+                (T
+                  (setq *urb-road-picked-stations*
+                    (urb:picked-cotas-to-stations picks axis))
+                  (prompt
+                    (strcat "\nRasante por tramos con "
+                      (itoa (length *urb-road-picked-stations*))
+                      " cotas proyectadas sobre el eje."))))
               (setq obj (vlax-ename->vla-object boundary))
               (setq area (vla-get-Area obj))
               ;; El eje puede ser mas largo que esta via (compartido entre
@@ -12718,6 +12805,20 @@
                     (if (urb:string-equal-p (nth 6 dialog) "Textos por capa")
                       (urb:road-cota-reference (nth 6 dialog))
                       (list (nth 8 old) (nth 9 old) "DETECTADAS")))
+                  ;; auto-detect: el primer clic fue una via creada o una
+                  ;; etiqueta -> cotas seleccionadas (como modo Pendiente)
+                  (if (urb:string-equal-p
+                        (urb:safe-string (car cota-info) "") "PICKED")
+                    (progn
+                      (setq *urb-road-picked-cotas* nil
+                            *urb-road-picked-stations* nil)
+                      (if (= (length (cadr cota-info)) 2)
+                        (setq *urb-road-picked-cotas*
+                          (mapcar 'car (cadr cota-info)))
+                        (setq *urb-road-picked-stations*
+                          (urb:picked-cotas-to-stations
+                            (cadr cota-info) axis)))
+                      (setq cota-info (list "" "0" "PENDIENTE"))))
                   (setq obj (vlax-ename->vla-object boundary))
                   (setq area (vla-get-Area obj))
                   ;; Se reproyecta el contorno (sin cambios) sobre el eje por
@@ -14228,7 +14329,7 @@
 (defun urb:create-ramp-command
   (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
    depth etapa subetapa axis-angle side-sign block-ref center-pt total-half done
-   ext ext-pt ext-sel ext-cp)
+   ext ext-pt ext-sel ext-cp vproj)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
   ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
   ;; laterales de 0.65 m con adoquin 20x10, fondo = ancho del anden
@@ -14275,16 +14376,31 @@
             (if (or (null depth) (< depth 0.5)) (setq depth 3.50)))
           ((= kw "3.00") (setq width 3.00) (setq done T))
           (T (setq width 2.00) (setq done T))))
-      ;; direccion de la rampa: un click del lado del ANDEN (hacia donde
-      ;; se extiende la rampa desde el borde de la via)
+      ;; 2026-08-12 v7 (pedido del usuario): el MISMO clic define el lado
+      ;; del anden Y hasta donde llega el FONDO. Se clickea SOBRE el
+      ;; BORDILLO donde termina la rampa (con osnap Nearest cae exacto);
+      ;; la distancia perpendicular del clic al eje es el fondo. Sin
+      ;; seleccionar entidades: solo el punto, asi funciona igual con
+      ;; bordillos en bloques, xrefs o lineas sueltas. Un clic muy cerca
+      ;; del eje (<0.5 m) solo define el lado y el fondo queda el
+      ;; configurado (3.50 o el digitado con la opcion Fondo).
       (setq side-pt
-        (getpoint base-pt "\nMarque hacia que lado va la rampa (lado del anden): "))
+        (getpoint base-pt
+          (strcat "\nClic sobre el BORDILLO donde termina el fondo"
+                  " (lado del anden; clic pegado al eje = fondo "
+                  (rtos depth 2 2) " m): ")))
       (if side-pt
-        (setq side-sign
-          (if (>= (+ (* (- (car side-pt) (car base-pt)) (- (sin axis-angle)))
-                     (* (- (cadr side-pt) (cadr base-pt)) (cos axis-angle)))
-                  0.0)
-            1.0 -1.0)))
+        (progn
+          (setq vproj
+            (+ (* (- (car side-pt) (car base-pt)) (- (sin axis-angle)))
+               (* (- (cadr side-pt) (cadr base-pt)) (cos axis-angle))))
+          (setq side-sign (if (>= vproj 0.0) 1.0 -1.0))
+          (if (>= (abs vproj) 0.5)
+            (progn
+              (setq depth (abs vproj))
+              (prompt
+                (strcat "\nFondo tomado del clic sobre el bordillo: "
+                        (rtos depth 2 2) " m."))))))
       ;; extension hasta el bordillo (2026-08-11, pedido del usuario): si el
       ;; punto inicial se marco sobre el borde del anden pero el bordillo de
       ;; la via queda mas alla, un click sobre ese borde extiende TODO el
