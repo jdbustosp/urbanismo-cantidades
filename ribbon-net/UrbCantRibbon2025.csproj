@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Variante para AutoCAD/Civil 3D 2025+ (.NET 8). Mismo UrbCantRibbon.cs
+    que la variante 2023; las referencias vienen del paquete NuGet oficial
+    AutoCAD.NET (no hace falta tener AutoCAD 2025 instalado para compilar).
+    Compilar con: ribbon-net\compilar_2025.ps1 (requiere dotnet SDK 8).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>UrbCantRibbon2025</AssemblyName>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- referencias directas (el meta-paquete AutoCAD.NET 25.0.0 tiene un
+         pin roto a Core 25.0.0-V058 que no existe en nuget.org) -->
+    <PackageReference Include="AutoCAD.NET" Version="25.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="AutoCAD.NET.Core" Version="25.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="AutoCAD.NET.Model" Version="25.0.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+</Project>

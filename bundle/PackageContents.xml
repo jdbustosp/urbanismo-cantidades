@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Plantilla del bundle de Autodesk Autoloader para Urbanismo Cantidades.
-  instalar_bundle.ps1 copia este archivo + el .lsp a
-  %AppData%\Autodesk\ApplicationPlugins\UrbanismoCantidades.bundle\
-  (carpeta confiable por defecto: carga automatica al abrir AutoCAD/Civil 3D,
-  sin APPLOAD ni carpetas confiables manuales).
+  Bundle de Autodesk Autoloader para Urbanismo Cantidades.
+  DOS bloques de componentes: cada version de AutoCAD carga solo el suyo.
+  - 2019-2024 (R23.0-R24.2): lsp + UrbCantRibbon2023.dll (.NET Framework 4.8)
+  - 2025+     (R25.0+):      lsp + UrbCantRibbon2025.dll (.NET 8)
+  La pestana CANTIDADES la dibuja el DLL en vivo (ribbon dinamico); el
+  cuix quedo como respaldo en el repo pero YA NO se instala (evita
+  pestana duplicada). instalar_bundle.ps1 copia todo.
 -->
 <ApplicationPackage
     SchemaVersion="1.0"
@@ -12,25 +14,34 @@
     AppVersion="4.17.7"
     ProductType="Application"
     Name="Urbanismo Cantidades"
-    Description="Cuantificacion de obras de urbanismo: andenes, vias, rampas, prefabricados, redes y movimiento de tierras. Comandos URBANISMO y EDITAR."
+    Description="Cuantificacion de obras de urbanismo: andenes, vias, rampas, prefabricados, redes y movimiento de tierras. Pestana CANTIDADES."
     Author="JD Bustos"
     ProductCode="{7A3E6B10-9C44-4D2A-8F5E-URBCANT00001}">
   <CompanyDetails Name="JD Bustos" Email="jd.bustosp@hotmail.com" />
   <Components>
-    <!-- R24.x = AutoCAD/Civil 3D 2020-2022, R24.2 = 2023, R25.x = 2024-2026 -->
-    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R23.0" SeriesMax="R25.1" />
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R23.0" SeriesMax="R24.2" />
     <ComponentEntry
         AppName="UrbanismoCantidades"
         ModuleName="./Contents/urbanismo_cantidades.lsp"
         AppDescription="Motor AutoLISP de Urbanismo Cantidades"
         LoadOnAutoCADStartup="True" />
-    <!-- El cuix declarado aqui hace que el Autoloader FUSIONE la pestana
-         al workspace (cargar el cuix por COM registra el menugroup pero
-         NO muestra la pestana - descubierto 2026-08-11) -->
     <ComponentEntry
-        AppName="UrbanismoCantidadesUI"
-        ModuleName="./Contents/cantidades.cuix"
-        AppDescription="Pestana CANTIDADES del ribbon"
+        AppName="UrbanismoCantidadesRibbon2023"
+        ModuleName="./Contents/net/UrbCantRibbon2023.dll"
+        AppDescription="Pestana CANTIDADES (ribbon dinamico, 2019-2024)"
+        LoadOnAutoCADStartup="True" />
+  </Components>
+  <Components>
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.0" SeriesMax="R25.1" />
+    <ComponentEntry
+        AppName="UrbanismoCantidades25"
+        ModuleName="./Contents/urbanismo_cantidades.lsp"
+        AppDescription="Motor AutoLISP de Urbanismo Cantidades"
+        LoadOnAutoCADStartup="True" />
+    <ComponentEntry
+        AppName="UrbanismoCantidadesRibbon2025"
+        ModuleName="./Contents/net/UrbCantRibbon2025.dll"
+        AppDescription="Pestana CANTIDADES (ribbon dinamico, 2025+)"
         LoadOnAutoCADStartup="True" />
   </Components>
 </ApplicationPackage>

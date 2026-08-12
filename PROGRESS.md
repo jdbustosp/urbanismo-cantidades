@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 14) — FASE .NET: ribbon dinámico dual 2023/2025 (aprobada por el usuario)
+
+El usuario aprobó arrancar la capa .NET con alcance quirúrgico: SOLO la cinta, con el comportamiento que pidió (oprimir "Urbanismo" y que los 14 símbolos de creación aparezcan EN EL MISMO ESPACIO del panel — imposible en CUIx, posible con ribbon dinámico). El motor sigue 100% en el lsp; también confirmó que el otro computador usa Civil 3D **2025** (esta máquina 2023) → soporte dual.
+
+- **`ribbon-net/UrbCantRibbon.cs`**: fuente C# ÚNICO para ambas versiones, en sintaxis C#5 A PROPÓSITO (sin `$""`, sin `?.`) porque la variante 2023 se compila con el csc.exe integrado de Windows. Estructura: `IExtensionApplication` → construye la pestaña vía `Autodesk.Windows` (espera `ComponentManager.ItemInitialized` si el ribbon no existe aún); panel Crear dinámico (`ShowUrbanismoButton` ↔ `ShowCreateIcons`: 14 botones solo-ícono en 2 filas + botón "<" para compactar, swap en vivo del `RibbonPanelSource`); paneles Editar/Cantidades/Excel/Configuración fijos; cada botón dispara su comando LISP con `SendStringToExecute`; íconos PNG cargados desde `Contents/net/iconos/`; log de diagnóstico en `%TEMP%\urbcant_ribbon.log`.
+- **Compilación dual**: `compilar_2023.ps1` (csc.exe de Windows + DLLs de referencia del AutoCAD 2023 instalado + WPF del GAC — System.Xaml vive en la raíz del Framework64, no en la subcarpeta WPF) → `bundle/net/UrbCantRibbon2023.dll`. `compilar_2025.ps1` (dotnet SDK 8 — instalado con winget — + paquetes NuGet oficiales `AutoCAD.NET`/`.Core`/`.Model` 25.0.0, SIN necesitar AutoCAD 2025 instalado; ojo: el meta-paquete 25.0.0 tiene un pin roto a `Core 25.0.0-V058`, se resuelve referenciando los 3 paquetes directo) → `bundle/net/UrbCantRibbon2025.dll`. Ambas DLL quedan VERSIONADAS en el repo → el otro PC solo hace pull + INSTALAR.bat, nunca compila.
+- **`PackageContents.xml` con 2 bloques `<Components>`** (R23.0-R24.2 → lsp + DLL 2023; R25.0+ → lsp + DLL 2025): cada AutoCAD carga solo lo suyo. **El cuix ya NO se instala** (la pestaña la dibuja el DLL; si el cuix quedara, saldría duplicada por el registro de parciales del perfil) — el instalador lo borra del bundle instalado; el fuente cui/cuix sigue en el repo como respaldo.
+- **Verificado en 2023 (esta máquina)**: log del DLL tras arranque limpio: "Initialize" → "Tab construida: 5 paneles" ✓. Pendiente: verificación visual del usuario (reiniciar Civil 3D 2023) y primera verificación de la variante 2025 en el otro computador (pull + INSTALAR.bat; si la pestaña no aparece, revisar `%TEMP%\urbcant_ribbon.log`).
+- Diferencias operativas de la capa .NET (documentadas al usuario): cambios de la CINTA requieren recompilar (script de 1 comando) y reiniciar AutoCAD; el motor LISP sigue recargándose al instante como siempre. `CARGARCINTA` quedó obsoleto (cuix retirado).
+
 ### 2026-08-11 (parte 13) — PESTAÑA FUNCIONANDO (confirmada por el usuario) + íconos de los 27 botones
 
 - **CONFIRMADO EN VIVO**: la pestaña CANTIDADES apareció con sus 6 grupos y 27 botones tras `CARGARCINTA` ("Customization file loaded successfully. Customization Group: CANTIDADES"). El camino ganador: cuix empaquetado a mano + CUILOAD por comando.

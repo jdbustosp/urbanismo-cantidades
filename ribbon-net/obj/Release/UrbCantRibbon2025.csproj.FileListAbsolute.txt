@@ -1,0 +1,9 @@
+C:\Users\juanbusper\AppData\Local\Temp\urbcant_net8_build\UrbCantRibbon2025.dll
+C:\Users\juanbusper\Streaming de Google Drive\Mi unidad\VARIOS\BLOQUES PPTOS\CANTIDADES\ribbon-net\obj\Release\UrbCantRibbon2025.csproj.AssemblyReference.cache
+C:\Users\juanbusper\Streaming de Google Drive\Mi unidad\VARIOS\BLOQUES PPTOS\CANTIDADES\ribbon-net\obj\Release\UrbCantRibbon2025.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\juanbusper\Streaming de Google Drive\Mi unidad\VARIOS\BLOQUES PPTOS\CANTIDADES\ribbon-net\obj\Release\UrbCantRibbon2025.AssemblyInfoInputs.cache
+C:\Users\juanbusper\Streaming de Google Drive\Mi unidad\VARIOS\BLOQUES PPTOS\CANTIDADES\ribbon-net\obj\Release\UrbCantRibbon2025.AssemblyInfo.cs
+C:\Users\juanbusper\Streaming de Google Drive\Mi unidad\VARIOS\BLOQUES PPTOS\CANTIDADES\ribbon-net\obj\Release\UrbCantRibbon2025.csproj.CoreCompileInputs.cache
+C:\Users\juanbusper\Streaming de Google Drive\Mi unidad\VARIOS\BLOQUES PPTOS\CANTIDADES\ribbon-net\obj\Release\UrbCantRibbon2025.dll
+C:\Users\juanbusper\Streaming de Google Drive\Mi unidad\VARIOS\BLOQUES PPTOS\CANTIDADES\ribbon-net\obj\Release\refint\UrbCantRibbon2025.dll
+C:\Users\juanbusper\Streaming de Google Drive\Mi unidad\VARIOS\BLOQUES PPTOS\CANTIDADES\ribbon-net\obj\Release\ref\UrbCantRibbon2025.dll

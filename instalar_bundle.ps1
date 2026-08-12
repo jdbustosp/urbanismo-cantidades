@@ -22,15 +22,27 @@ if (-not (Test-Path $xml)) { throw "No se encontro bundle\PackageContents.xml en
 New-Item -ItemType Directory -Force -Path $contents | Out-Null
 Copy-Item $xml (Join-Path $dest "PackageContents.xml") -Force
 Copy-Item $lsp (Join-Path $contents "urbanismo_cantidades.lsp") -Force
-if (Test-Path $cuix) {
-  # la interfaz se entrega como .cuix ya empaquetado (el convertidor de
-  # .cui monoliticos es pre-ribbon y descartaba los paneles); se limpian
-  # residuos de intentos anteriores (.cui, .bak.cuix, .mnr)
-  foreach ($old in @("cantidades.cui","cantidades.bak.cuix","cantidades.mnr","cantidades_light.mnr")) {
-    $p = Join-Path $contents $old
-    if (Test-Path $p) { try { Remove-Item $p -Force } catch {} }
-  }
-  Copy-Item $cuix (Join-Path $contents "cantidades.cuix") -Force
+
+# 2026-08-11 fase .NET: la pestana la dibuja el DLL (ribbon dinamico).
+# El cuix YA NO se instala (si quedara, la pestana saldria duplicada por
+# el registro de parciales del perfil) -- se retira junto con residuos.
+foreach ($old in @("cantidades.cui","cantidades.cuix","cantidades.bak.cuix","cantidades.mnr","cantidades_light.mnr")) {
+  $p = Join-Path $contents $old
+  if (Test-Path $p) { try { Remove-Item $p -Force } catch {} }
+}
+# DLLs del ribbon (2023 = .NET FW 4.8, 2025 = .NET 8; el manifiesto elige)
+$netDir = Join-Path $repo "bundle\net"
+if (Test-Path $netDir) {
+  New-Item -ItemType Directory -Force -Path (Join-Path $contents "net") | Out-Null
+  Get-ChildItem $netDir -Filter "*.dll" | ForEach-Object {
+    Copy-Item $_.FullName (Join-Path $contents ("net\" + $_.Name)) -Force }
+}
+# iconos junto al DLL (los carga desde disco)
+$icoDir = Join-Path $repo "bundle\iconos"
+if (Test-Path $icoDir) {
+  New-Item -ItemType Directory -Force -Path (Join-Path $contents "net\iconos") | Out-Null
+  Get-ChildItem $icoDir -Filter "*.png" | ForEach-Object {
+    Copy-Item $_.FullName (Join-Path $contents ("net\iconos\" + $_.Name)) -Force }
 }
 
 # TRUSTEDPATHS en todos los perfiles de AutoCAD/Civil 3D del usuario
