@@ -29,6 +29,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-12 (parte 22) — v4.21.0: eje de vía auto-recuperado, aviso de vía sin rasante y bandas sin huecos
+
+El usuario confirmó que la orientación del andén curvo ya sale como debe. Tres arreglos de seguimiento:
+
+1. **Eje identificado solo** (`urb:road-axis-recover`): al usar "Vía creada" para la rasante del andén ya NO pide seleccionar el eje — se resuelve con el handle guardado, la cache de sesión o **reconstrucción automática** desde el contorno crudo dentro del bloque de la vía (la única LWPOLYLINE cerrada de la definición, mismo algoritmo del eje automático de la creación). Solo si todo falla lo pide. La misma recuperación la usa `urb:cota-from-via`, así que clickear una vía como cota también funciona aunque su eje original haya desaparecido.
+2. **"No se pudo leer la cota" al clickear una vía — explicado**: si la vía clickeada se reconoce pero NO tiene rasante calculada (el movimiento de tierras se omitió al crearla, como en la vía de prueba del usuario según su log anterior), ahora lo dice explícito: "La via seleccionada NO tiene rasante calculada... Editela y asignele cotas, o seleccione un texto de cota" — antes fallaba en silencio y caía a digitar.
+3. **Pedazo en blanco en el andén curvo**: el booleano de una banda falla cuando el borde de la franja pasa exacto por un vértice del contorno (tangencias con las cuerdas del arco) y la banda se saltaba en silencio. `urb:clip-stripe` ahora reintenta con corrimientos de ~1.5 mm (`0 / +1.5 / -1.5 / +4 mm`) que rompen la tangencia sin efecto visible.
+- Pregunta del usuario sobre el EMPATE en el cruce vía nueva / vía anterior: el clic sobre la vía anterior se proyecta a SU eje (cota de su rasante en ese punto) y el mismo clic se proyecta al eje de la vía nueva como estación inicial — clickeando exactamente la junta (osnap intersección/endpoint) el empate es exacto.
+
 ### 2026-08-12 (parte 21) — v4.20.0: andén curvo con dirección marcada por el usuario, vía-bloque reconocida en el picker y memoria blindada
 
 La rampa de la parte 20 quedó bien (confirmado por el usuario). Tres arreglos sobre lo que siguió fallando:

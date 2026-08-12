@@ -37,7 +37,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.20.0")
+(setq *urb-version* "4.21.0")
 (setq *urb-schema-version* "22")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
@@ -2263,7 +2263,7 @@
     nil)
 )
 
-(defun urb:clip-stripe
+(defun urb:clip-stripe-once
   (base-region umin umax vmin vmax angle-value
    / clipped stripe result box elevation)
   (setq clipped (vla-Copy base-region))
@@ -2292,6 +2292,24 @@
         clipped)
     )
   )
+)
+
+;; 2026-08-12: el booleano de una banda puede fallar cuando el borde de
+;; la franja pasa EXACTO por un vertice del contorno (tangencias con las
+;; cuerdas de un arco) -- la banda se saltaba en silencio y quedaba un
+;; hueco en blanco en el anden (pantallazo del usuario, anden curvo).
+;; Reintento con corrimientos de ~1.5 mm de la franja: cambia la
+;; condicion de tangencia sin efecto visible (las bandas vecinas siguen
+;; en sus cursores exactos).
+(defun urb:clip-stripe
+  (base-region umin umax vmin vmax angle-value / result eps)
+  (foreach eps '(0.0 0.0015 -0.0015 0.004)
+    (if (null result)
+      (setq result
+        (urb:clip-stripe-once
+          base-region (+ umin eps) (+ umax eps)
+          (- vmin eps) (+ vmax eps) angle-value))))
+  result
 )
 
 (defun urb:grid-phase-shift (global-offset module / m)
@@ -4826,13 +4844,10 @@
   (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
     (progn
       (setq via-id (if (> (length data) 22) (nth 22 data) ""))
-      (setq axis-handle
-        (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
-      (setq axis
-        (or
-          (if (/= axis-handle "") (handent axis-handle) nil)
-          (if (/= via-id "") (urb:cached-road-axis via-id) nil)))
-      (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+      ;; 2026-08-12 (pedido del usuario): el eje se identifica SOLO --
+      ;; handle guardado, cache o reconstruccion automatica del contorno
+      ;; del bloque. Solo si todo eso falla se pide seleccionarlo.
+      (setq axis (urb:road-axis-recover road data via-id))
       (if (not axis)
         (setq axis (urb:select-or-draw-road-axis "Existente")))
       (if (and axis (/= via-id "")) (urb:cache-road-axis via-id axis))
@@ -11740,12 +11755,9 @@
           nil))
       (if (not (urb:grade-records-valid-p records)) (setq records nil))
       (setq via-id (if (> (length data) 22) (nth 22 data) ""))
-      (setq axis-handle
-        (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
-      (setq axis
-        (or (if (/= axis-handle "") (handent axis-handle) nil)
-            (if (/= via-id "") (urb:cached-road-axis via-id) nil)))
-      (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+      ;; 2026-08-12: si el handle del eje ya no existe, se reconstruye
+      ;; solo desde el contorno del bloque (sin pedirle nada al usuario)
+      (setq axis (urb:road-axis-recover road data via-id))
       (setq span
         (atof (urb:safe-string (if (> (length data) 18) (nth 18 data) nil) "0")))
       (setq axis-start
@@ -11776,7 +11788,17 @@
                       (- (+ axis-start span) d)
                       (- d axis-start)))
                   (urb:cota-at-axis-distance station records))))))
-        nil))
+        (progn
+          ;; se reconocio una via del programa pero no se puede dar cota:
+          ;; explicar POR QUE en vez de fallar en silencio (reporte del
+          ;; usuario: "no puede leer la cota cuando selecciono la via")
+          (if (null records)
+            (prompt
+              (strcat "\nLa via seleccionada NO tiene rasante calculada"
+                      " (el movimiento de tierras se omitio al crearla);"
+                      " no se puede tomar su cota. Editela y asignele"
+                      " cotas, o seleccione un texto de cota.")))
+          nil)))
     nil))
 
 ;; Modo "Pendiente" generalizado a N cotas (2026-08-11, pedido del
@@ -11785,6 +11807,51 @@
 ;; mas, cada cota se proyecta sobre el eje en el punto donde se clickeo
 ;; su etiqueta y la rasante queda por tramos. Enter tras 2 o mas cotas
 ;; termina; Enter antes de 2 cancela.
+;; Resuelve el EJE de una via YA CREADA sin pedirselo al usuario:
+;; 1) handent del handle guardado, 2) cache de sesion, 3) RECONSTRUCCION
+;; automatica desde el contorno crudo guardado dentro del bloque (la
+;; unica LWPOLYLINE cerrada de la definicion; mismo algoritmo del eje
+;; automatico de la creacion). El eje recuperado se cachea por via-id
+;; para no duplicarlo. (2026-08-12: el usuario pidio que al seleccionar
+;; la via NO le toque volver a seleccionar el eje.)
+(defun urb:road-axis-recover (road data via-id / axis axis-handle bname
+   ent edata boundary cache-key)
+  (setq axis-handle
+    (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
+  (setq via-id (urb:safe-string via-id ""))
+  (setq cache-key
+    (if (/= via-id "")
+      via-id
+      (vl-catch-all-apply
+        '(lambda () (vla-get-Handle (vlax-ename->vla-object road))))))
+  (if (vl-catch-all-error-p cache-key) (setq cache-key nil))
+  (setq axis
+    (or (if (/= axis-handle "") (handent axis-handle) nil)
+        (if cache-key (urb:cached-road-axis cache-key) nil)))
+  (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+  (if (and (null axis) (urb:road-block-p road))
+    (progn
+      (setq bname
+        (vl-catch-all-apply
+          '(lambda () (vla-get-Name (vlax-ename->vla-object road)))))
+      (if (vl-catch-all-error-p bname) (setq bname nil))
+      (setq ent
+        (if bname (cdr (assoc -2 (tblsearch "BLOCK" bname))) nil))
+      (while (and ent (null boundary))
+        (setq edata (entget ent))
+        (if (and (= (cdr (assoc 0 edata)) "LWPOLYLINE")
+                 (= 1 (logand 1 (cdr (assoc 70 edata)))))
+          (setq boundary ent))
+        (setq ent (entnext ent)))
+      (if boundary
+        (setq axis
+          (vl-catch-all-apply 'urb:road-axis-from-boundary (list boundary))))
+      (if (vl-catch-all-error-p axis) (setq axis nil))
+      (if axis
+        (prompt "\nEje de la via reconstruido automaticamente del contorno."))))
+  (if (and axis cache-key) (urb:cache-road-axis cache-key axis))
+  axis)
+
 ;; Prueba la entidad clickeada Y sus bloques contenedores: cuando el clic
 ;; cae dentro de un bloque o xref, nentsel devuelve la geometria ANIDADA
 ;; como (car sel) y los INSERT contenedores en el 4to elemento. Las vias
