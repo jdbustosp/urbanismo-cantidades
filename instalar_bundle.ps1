@@ -30,6 +30,16 @@ foreach ($old in @("cantidades.cui","cantidades.cuix","cantidades.bak.cuix","can
   $p = Join-Path $contents $old
   if (Test-Path $p) { try { Remove-Item $p -Force } catch {} }
 }
+# COPIAS FANTASMA (descubierto 2026-08-11): cuando el Autoloader cargo el
+# cuix como componente, lo COPIO a la carpeta Support del perfil
+# (p.ej. ...\Autodesk\C3D 2023\enu\Support\cantidades.cuix) y esa copia
+# revivia la pestana vieja en cada arranque. Se barren todas.
+foreach ($root in (Get-ChildItem (Join-Path $env:APPDATA 'Autodesk') -Directory -ErrorAction SilentlyContinue)) {
+  if ($root.Name -ne 'ApplicationPlugins') {
+    Get-ChildItem $root.FullName -Recurse -Depth 3 -Filter 'cantidades*' -ErrorAction SilentlyContinue |
+      ForEach-Object { try { Remove-Item $_.FullName -Force } catch {} }
+  }
+}
 # DLLs del ribbon (2023 = .NET FW 4.8, 2025 = .NET 8; el manifiesto elige).
 # Si AutoCAD esta abierto, el DLL cargado queda bloqueado: se avisa y el
 # resto de la instalacion continua (cerrar AutoCAD y volver a correr).

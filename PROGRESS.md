@@ -29,6 +29,14 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 17) — PESTAÑA DOBLE RESUELTA DE RAÍZ: la copia fantasma del Autoloader
+
+Con Civil 3D cerrado por el usuario se pudo instalar el DLL nuevo y cazar la causa REAL de la pestaña doble: cuando el Autoloader cargó el cuix como ComponentEntry (parte 12), **lo COPIÓ a la carpeta Support del perfil** (`%AppData%\Autodesk\C3D 2023\enu\Support\cantidades.cuix` — visto en la clave de registro `Loaded`) y esa copia, fuera del bundle, revivía la pestaña vieja en cada arranque sin que el instalador la tocara.
+
+- Se eliminaron las copias fantasma (cuix + bak + mnr) de Support y el instalador ahora **barre `cantidades*` de todas las carpetas de perfil de Autodesk** (excepto ApplicationPlugins) en cada corrida — protege también al computador del 2025.
+- El instalador quedó resiliente al DLL bloqueado (avisa "cierre AutoCAD" y continúa con lsp+íconos) — regla operativa confirmada: actualizar la CINTA requiere AutoCAD cerrado.
+- **Verificación final headless**: arranque limpio → lsp OK, `menugroup CANTIDADES` AUSENTE (pestaña única) y DLL nuevo "Tab construida: 4 paneles" (con Excel agrupado en botón desplegable y descarga COM de respaldo). Pendiente solo el vistazo del usuario.
+
 ### 2026-08-11 (parte 16) — Ribbon v3: descarga COM del cuix, Excel agrupado y gestor de etapas en DIÁLOGO
 
 Tercer reporte del usuario: seguía la pestaña doble, Excel quedó "suelto" en Cantidades, y el gestor de etapas debía ser un cuadro de diálogo con desplegables (no menú de línea de comandos).
