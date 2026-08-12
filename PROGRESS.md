@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 11) — Ribbon round 2: diálogo de seguridad resuelto y CUIX empaquetado a mano
+
+El usuario probó y reportó: (a) diálogo "Unsigned Executable File" al cargar el lsp del bundle, (b) la pestaña no aparecía (abrió el CUI buscándola).
+
+- **Diálogo de seguridad**: la carpeta del bundle no estaba en TRUSTEDPATHS (BLOQUES PPTOS sí lo estaba de antes, por eso el load directo nunca molestó). El instalador ahora agrega `%AppData%\...\UrbanismoCantidades.bundle\Contents` a TRUSTEDPATHS de TODOS los perfiles de AutoCAD del usuario vía registro (5 perfiles actualizados en esta máquina). `INSTALAR.bat` quedó como envoltorio delgado de `instalar_bundle.ps1` (una sola base de código de instalación).
+- **HALLAZGO CLAVE — por qué no aparecía la pestaña**: el `.cui` monolítico se cargó bien (menugroup + macros), pero al convertirlo a `.cuix` AutoCAD **descartó el RibbonRoot completo en silencio** — el convertidor de `.cui` monolíticos es de la era pre-ribbon (2006-2009) y no migra ribbon SIN IMPORTAR el esquema. Se comprobó dos veces (RibbonRoot.cui de 479 bytes = `<RibbonRoot />`), incluso con el esquema correcto copiado de acetmain.cuix (`MenuMacroID`, `Id="AcRibbonCommandButton"`, `Name`, `ModifiedRev` — el primer intento además usaba `MacroID`, que no existe).
+- **Solución definitiva**: empaquetar el `.cuix` DIRECTAMENTE (es un zip OPC): `bundle/armar_cuix.ps1` extrae las secciones MacroGroup y RibbonRoot de `cantidades.cui` (que queda como FUENTE legible), arma las 6 partes (Header.cui, MenuGroup.cui, RibbonRoot.cui, [Content_Types].xml, _rels/.rels, Menu_Package_Info.xml — estructura copiada de acetmain.cuix de Express Tools, que muestra su pestaña sin sección de workspace) y las zipea con nombres de entrada con `/`. Flujo tras editar la interfaz: editar `cantidades.cui` → `armar_cuix.ps1` → `INSTALAR.bat`.
+- `urb:ensure-ribbon` carga el `.cuix` (nunca el `.cui`); el instalador limpia residuos de intentos anteriores (`cantidades.cui`, `.bak.cuix`, `.mnr` viejos) del bundle instalado.
+- **Verificado headless**: AutoCAD limpio → lsp autocargado → menugroup CANTIDADES OK → y el `.cuix` instalado conserva **6 paneles / 27 botones** después de la carga (sin conversión destructiva; AutoCAD solo generó sus `.mnr` de recursos, normal). Pendiente SOLO la confirmación visual del usuario tras reiniciar. Si la pestaña no aparece sola: clic derecho sobre el ribbon → Show Tabs → CANTIDADES (2 clics), o CUI → workspace.
+
 ### 2026-08-11 (parte 10) — Pestaña CANTIDADES en el ribbon
 
 El usuario aprobó el esquema (mockup en sesión) y pidió la pestaña llamada CANTIDADES (no URBANISMO). Arquitectura: el ribbon depende del lsp, nunca al revés — cada botón solo dispara un comando público; toda la lógica sigue en el lsp y funciona igual sin ribbon.

@@ -17358,11 +17358,15 @@
 (defun urb:ensure-ribbon (/ candidates path found result)
   (if (not (menugroup "CANTIDADES"))
     (progn
+      ;; SIEMPRE el .cuix empaquetado (2026-08-11 v2): el convertidor de
+      ;; .cui monoliticos es anterior al ribbon y descartaba los paneles
+      ;; en silencio -- el .cui del repo es solo la FUENTE legible; lo que
+      ;; se carga es el .cuix armado por armar_cuix.ps1.
       (setq candidates
         (list
           (strcat (urb:safe-string (getenv "APPDATA") "")
-            "\\Autodesk\\ApplicationPlugins\\UrbanismoCantidades.bundle\\Contents\\cantidades.cui")
-          (findfile "cantidades.cui")))
+            "\\Autodesk\\ApplicationPlugins\\UrbanismoCantidades.bundle\\Contents\\cantidades.cuix")
+          (findfile "cantidades.cuix")))
       (foreach path candidates
         (if (and path
                  (not (menugroup "CANTIDADES"))

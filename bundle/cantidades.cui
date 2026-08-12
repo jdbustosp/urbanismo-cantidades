@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<CustSection SchemaVersion="4.0">
-  <MenuGroup Name="CANTIDADES">
-    <MacroGroup Name="CantidadesMacros" UID="MG_CANT">
+<CustSection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <FileVersion MajorVersion="0" MinorVersion="1" IncrementalVersion="0" UserVersion="0" />
+  <Header>
+    <CommonConfiguration>
+      <CommonItems>
+        <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+      </CommonItems>
+    </CommonConfiguration>
+  </Header>
+  <MenuGroup Name="CANTIDADES" DisplayName="CANTIDADES">
+    <MacroGroup Name="CantidadesMacros">
       <MenuMacro UID="MM_VIA"><Macro type="Any"><Name xlate="true">Via</Name><Command>^C^C_VIA </Command></Macro></MenuMacro>
       <MenuMacro UID="MM_ANDEN"><Macro type="Any"><Name xlate="true">Anden</Name><Command>^C^C_ANDEN </Command></Macro></MenuMacro>
       <MenuMacro UID="MM_RAMPA"><Macro type="Any"><Name xlate="true">Rampa</Name><Command>^C^C_RAMPA </Command></Macro></MenuMacro>
@@ -31,102 +39,221 @@
       <MenuMacro UID="MM_AJUS"><Macro type="Any"><Name xlate="true">Ajustes</Name><Command>^C^C_AJUSTES </Command></Macro></MenuMacro>
     </MacroGroup>
     <RibbonRoot>
-      <RibbonPanelSourceCollection>
-        <RibbonPanelSource UID="PS_CREAR" Text="Crear" Id="cant_pnl_crear">
-          <RibbonRow>
-            <RibbonCommandButton UID="BT_VIA" Text="Via" MacroID="MM_VIA" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonCommandButton UID="BT_ANDEN" Text="Anden" MacroID="MM_ANDEN" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonCommandButton UID="BT_RAMPA" Text="Rampa" MacroID="MM_RAMPA" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonRowPanel UID="RP_CREAR2">
-              <RibbonRow>
-                <RibbonCommandButton UID="BT_ZVERDE" Text="Zona verde" MacroID="MM_ZVERDE" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+      <RibbonPanelSourceCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+        <RibbonPanelSource UID="RBC_P1" Text="Crear" HiddenInEditor="false" KeyTip="CR">
+          <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          <Name xlate="true" UID="XLC_P1">Cantidades - Crear</Name>
+          <RibbonRow UID="RBC_P1R1">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            <RibbonCommandButton UID="RBC_B01" Id="AcRibbonCommandButton" Text="Via" ButtonStyle="LargeWithText" MenuMacroID="MM_VIA" KeyTip="VI">
+              <TooltipTitle xlate="true" UID="XLC_B01">Crear via con eje automatico y movimiento de tierras</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonCommandButton UID="RBC_B02" Id="AcRibbonCommandButton" Text="Anden" ButtonStyle="LargeWithText" MenuMacroID="MM_ANDEN" KeyTip="AN">
+              <TooltipTitle xlate="true" UID="XLC_B02">Crear anden con materiales y cantidades</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonCommandButton UID="RBC_B03" Id="AcRibbonCommandButton" Text="Rampa" ButtonStyle="LargeWithText" MenuMacroID="MM_RAMPA" KeyTip="RA">
+              <TooltipTitle xlate="true" UID="XLC_B03">Crear rampa peatonal desde el bordillo</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonRowPanel UID="RBC_P1RP">
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+              <RibbonRow UID="RBC_P1R2">
+                <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                <RibbonCommandButton UID="RBC_B04" Id="AcRibbonCommandButton" Text="Zona verde" ButtonStyle="SmallWithText" MenuMacroID="MM_ZVERDE" KeyTip="ZV">
+                  <TooltipTitle xlate="true" UID="XLC_B04">Crear zona verde</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
               </RibbonRow>
-              <RibbonRow>
-                <RibbonCommandButton UID="BT_PREFAB" Text="Prefabricado" MacroID="MM_PREFAB" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
-              </RibbonRow>
-            </RibbonRowPanel>
-          </RibbonRow>
-        </RibbonPanelSource>
-        <RibbonPanelSource UID="PS_REDES" Text="Redes" Id="cant_pnl_redes">
-          <RibbonRow>
-            <RibbonCommandButton UID="BT_TSAN" Text="Sanitario" MacroID="MM_TSAN" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonCommandButton UID="BT_TPLU" Text="Pluvial" MacroID="MM_TPLU" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonCommandButton UID="BT_TACU" Text="Acueducto" MacroID="MM_TACU" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonRowPanel UID="RP_REDES2">
-              <RibbonRow>
-                <RibbonCommandButton UID="BT_PSAN" Text="Pozo san." MacroID="MM_PSAN" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
-                <RibbonCommandButton UID="BT_PPLU" Text="Pozo pluv." MacroID="MM_PPLU" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
-              </RibbonRow>
-              <RibbonRow>
-                <RibbonCommandButton UID="BT_SUMID" Text="Sumidero" MacroID="MM_SUMID" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
-                <RibbonCommandButton UID="BT_CAMARA" Text="Camara" MacroID="MM_CAMARA" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
-              </RibbonRow>
-              <RibbonRow>
-                <RibbonCommandButton UID="BT_ACCES" Text="Accesorio" MacroID="MM_ACCES" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
-                <RibbonCommandButton UID="BT_LUMIN" Text="Luminaria" MacroID="MM_LUMIN" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
-              </RibbonRow>
-            </RibbonRowPanel>
-          </RibbonRow>
-        </RibbonPanelSource>
-        <RibbonPanelSource UID="PS_EDITAR" Text="Editar" Id="cant_pnl_editar">
-          <RibbonRow>
-            <RibbonCommandButton UID="BT_EDITAR" Text="Editar" MacroID="MM_EDITAR" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonCommandButton UID="BT_ETAPAS" Text="Etapas" MacroID="MM_ETAPAS" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-          </RibbonRow>
-        </RibbonPanelSource>
-        <RibbonPanelSource UID="PS_CANT" Text="Cantidades" Id="cant_pnl_cant">
-          <RibbonRow>
-            <RibbonCommandButton UID="BT_QCUADRO" Text="Cuadro" MacroID="MM_QCUADRO" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonCommandButton UID="BT_QMEM" Text="Memoria" MacroID="MM_QMEM" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonCommandButton UID="BT_QVERIF" Text="Verificacion" MacroID="MM_QVERIF" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonRowPanel UID="RP_CANT2">
-              <RibbonRow>
-                <RibbonCommandButton UID="BT_QALC" Text="Incluir/excluir" MacroID="MM_QALC" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
-              </RibbonRow>
-              <RibbonRow>
-                <RibbonCommandButton UID="BT_QCSV" Text="CSV redes" MacroID="MM_QCSV" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              <RibbonRow UID="RBC_P1R3">
+                <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                <RibbonCommandButton UID="RBC_B05" Id="AcRibbonCommandButton" Text="Prefabricado" ButtonStyle="SmallWithText" MenuMacroID="MM_PREFAB" KeyTip="PR">
+                  <TooltipTitle xlate="true" UID="XLC_B05">Crear bordillo, sardinel o canuela</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
               </RibbonRow>
             </RibbonRowPanel>
           </RibbonRow>
         </RibbonPanelSource>
-        <RibbonPanelSource UID="PS_EXCEL" Text="Excel" Id="cant_pnl_excel">
-          <RibbonRow>
-            <RibbonCommandButton UID="BT_QEXCEL" Text="Exportar" MacroID="MM_QEXCEL" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonCommandButton UID="BT_QACT" Text="Actualizar" MacroID="MM_QACT" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonRowPanel UID="RP_EXCEL2">
-              <RibbonRow>
-                <RibbonCommandButton UID="BT_QVINC" Text="Vincular" MacroID="MM_QVINC" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+        <RibbonPanelSource UID="RBC_P2" Text="Redes" HiddenInEditor="false" KeyTip="RE">
+          <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          <Name xlate="true" UID="XLC_P2">Cantidades - Redes</Name>
+          <RibbonRow UID="RBC_P2R1">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            <RibbonCommandButton UID="RBC_B06" Id="AcRibbonCommandButton" Text="Sanitario" ButtonStyle="LargeWithText" MenuMacroID="MM_TSAN" KeyTip="TS">
+              <TooltipTitle xlate="true" UID="XLC_B06">Tramo de alcantarillado sanitario</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonCommandButton UID="RBC_B07" Id="AcRibbonCommandButton" Text="Pluvial" ButtonStyle="LargeWithText" MenuMacroID="MM_TPLU" KeyTip="TP">
+              <TooltipTitle xlate="true" UID="XLC_B07">Tramo de alcantarillado pluvial</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonCommandButton UID="RBC_B08" Id="AcRibbonCommandButton" Text="Acueducto" ButtonStyle="LargeWithText" MenuMacroID="MM_TACU" KeyTip="TA">
+              <TooltipTitle xlate="true" UID="XLC_B08">Tramo de acueducto</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonRowPanel UID="RBC_P2RP">
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+              <RibbonRow UID="RBC_P2R2">
+                <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                <RibbonCommandButton UID="RBC_B09" Id="AcRibbonCommandButton" Text="Pozo san." ButtonStyle="SmallWithText" MenuMacroID="MM_PSAN" KeyTip="PS">
+                  <TooltipTitle xlate="true" UID="XLC_B09">Pozo sanitario</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
+                <RibbonCommandButton UID="RBC_B10" Id="AcRibbonCommandButton" Text="Pozo pluv." ButtonStyle="SmallWithText" MenuMacroID="MM_PPLU" KeyTip="PP">
+                  <TooltipTitle xlate="true" UID="XLC_B10">Pozo pluvial</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
               </RibbonRow>
-              <RibbonRow>
-                <RibbonCommandButton UID="BT_QDESV" Text="Desvincular" MacroID="MM_QDESV" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              <RibbonRow UID="RBC_P2R3">
+                <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                <RibbonCommandButton UID="RBC_B11" Id="AcRibbonCommandButton" Text="Sumidero" ButtonStyle="SmallWithText" MenuMacroID="MM_SUMID" KeyTip="SU">
+                  <TooltipTitle xlate="true" UID="XLC_B11">Sumidero</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
+                <RibbonCommandButton UID="RBC_B12" Id="AcRibbonCommandButton" Text="Camara" ButtonStyle="SmallWithText" MenuMacroID="MM_CAMARA" KeyTip="CA">
+                  <TooltipTitle xlate="true" UID="XLC_B12">Camara electrica</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
+              </RibbonRow>
+              <RibbonRow UID="RBC_P2R4">
+                <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                <RibbonCommandButton UID="RBC_B13" Id="AcRibbonCommandButton" Text="Accesorio" ButtonStyle="SmallWithText" MenuMacroID="MM_ACCES" KeyTip="AC">
+                  <TooltipTitle xlate="true" UID="XLC_B13">Accesorio de acueducto</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
+                <RibbonCommandButton UID="RBC_B14" Id="AcRibbonCommandButton" Text="Luminaria" ButtonStyle="SmallWithText" MenuMacroID="MM_LUMIN" KeyTip="LU">
+                  <TooltipTitle xlate="true" UID="XLC_B14">Luminaria</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
               </RibbonRow>
             </RibbonRowPanel>
           </RibbonRow>
         </RibbonPanelSource>
-        <RibbonPanelSource UID="PS_CONF" Text="Configuracion" Id="cant_pnl_conf">
-          <RibbonRow>
-            <RibbonCommandButton UID="BT_PERF" Text="Perfiles" MacroID="MM_PERF" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
-            <RibbonCommandButton UID="BT_AJUS" Text="Ajustes" MacroID="MM_AJUS" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+        <RibbonPanelSource UID="RBC_P3" Text="Editar" HiddenInEditor="false" KeyTip="ED">
+          <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          <Name xlate="true" UID="XLC_P3">Cantidades - Editar</Name>
+          <RibbonRow UID="RBC_P3R1">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            <RibbonCommandButton UID="RBC_B15" Id="AcRibbonCommandButton" Text="Editar" ButtonStyle="LargeWithText" MenuMacroID="MM_EDITAR" KeyTip="EE">
+              <TooltipTitle xlate="true" UID="XLC_B15">Editar cualquier elemento creado</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonCommandButton UID="RBC_B16" Id="AcRibbonCommandButton" Text="Etapas" ButtonStyle="LargeWithText" MenuMacroID="MM_ETAPAS" KeyTip="ET">
+              <TooltipTitle xlate="true" UID="XLC_B16">Cambiar etapa y subetapa en lote</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+          </RibbonRow>
+        </RibbonPanelSource>
+        <RibbonPanelSource UID="RBC_P4" Text="Cantidades" HiddenInEditor="false" KeyTip="CA">
+          <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          <Name xlate="true" UID="XLC_P4">Cantidades - Cantidades</Name>
+          <RibbonRow UID="RBC_P4R1">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            <RibbonCommandButton UID="RBC_B17" Id="AcRibbonCommandButton" Text="Cuadro" ButtonStyle="LargeWithText" MenuMacroID="MM_QCUADRO" KeyTip="QC">
+              <TooltipTitle xlate="true" UID="XLC_B17">Cuadro de cantidades en el dibujo</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonCommandButton UID="RBC_B18" Id="AcRibbonCommandButton" Text="Memoria" ButtonStyle="LargeWithText" MenuMacroID="MM_QMEM" KeyTip="QM">
+              <TooltipTitle xlate="true" UID="XLC_B18">Memoria de cantidades de una via</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonCommandButton UID="RBC_B19" Id="AcRibbonCommandButton" Text="Verificacion" ButtonStyle="LargeWithText" MenuMacroID="MM_QVERIF" KeyTip="QV">
+              <TooltipTitle xlate="true" UID="XLC_B19">Tabla de verificacion de movimiento de tierras</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonRowPanel UID="RBC_P4RP">
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+              <RibbonRow UID="RBC_P4R2">
+                <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                <RibbonCommandButton UID="RBC_B20" Id="AcRibbonCommandButton" Text="Incluir/excluir" ButtonStyle="SmallWithText" MenuMacroID="MM_QALC" KeyTip="QI">
+                  <TooltipTitle xlate="true" UID="XLC_B20">Incluir o excluir elementos del cuadro</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
+              </RibbonRow>
+              <RibbonRow UID="RBC_P4R3">
+                <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                <RibbonCommandButton UID="RBC_B21" Id="AcRibbonCommandButton" Text="CSV redes" ButtonStyle="SmallWithText" MenuMacroID="MM_QCSV" KeyTip="QR">
+                  <TooltipTitle xlate="true" UID="XLC_B21">Exportar detalle tecnico de redes</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
+              </RibbonRow>
+            </RibbonRowPanel>
+          </RibbonRow>
+        </RibbonPanelSource>
+        <RibbonPanelSource UID="RBC_P5" Text="Excel" HiddenInEditor="false" KeyTip="EX">
+          <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          <Name xlate="true" UID="XLC_P5">Cantidades - Excel</Name>
+          <RibbonRow UID="RBC_P5R1">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            <RibbonCommandButton UID="RBC_B22" Id="AcRibbonCommandButton" Text="Exportar" ButtonStyle="LargeWithText" MenuMacroID="MM_QEXCEL" KeyTip="XE">
+              <TooltipTitle xlate="true" UID="XLC_B22">Crear Excel independiente</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonCommandButton UID="RBC_B23" Id="AcRibbonCommandButton" Text="Actualizar" ButtonStyle="LargeWithText" MenuMacroID="MM_QACT" KeyTip="XA">
+              <TooltipTitle xlate="true" UID="XLC_B23">Actualizar Excel vinculado</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonRowPanel UID="RBC_P5RP">
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+              <RibbonRow UID="RBC_P5R2">
+                <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                <RibbonCommandButton UID="RBC_B24" Id="AcRibbonCommandButton" Text="Vincular" ButtonStyle="SmallWithText" MenuMacroID="MM_QVINC" KeyTip="XV">
+                  <TooltipTitle xlate="true" UID="XLC_B24">Vincular o cambiar Excel maestro</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
+              </RibbonRow>
+              <RibbonRow UID="RBC_P5R3">
+                <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                <RibbonCommandButton UID="RBC_B25" Id="AcRibbonCommandButton" Text="Desvincular" ButtonStyle="SmallWithText" MenuMacroID="MM_QDESV" KeyTip="XD">
+                  <TooltipTitle xlate="true" UID="XLC_B25">Eliminar vinculo con Excel</TooltipTitle>
+                  <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+                </RibbonCommandButton>
+              </RibbonRow>
+            </RibbonRowPanel>
+          </RibbonRow>
+        </RibbonPanelSource>
+        <RibbonPanelSource UID="RBC_P6" Text="Configuracion" HiddenInEditor="false" KeyTip="CO">
+          <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          <Name xlate="true" UID="XLC_P6">Cantidades - Configuracion</Name>
+          <RibbonRow UID="RBC_P6R1">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            <RibbonCommandButton UID="RBC_B26" Id="AcRibbonCommandButton" Text="Perfiles" ButtonStyle="LargeWithText" MenuMacroID="MM_PERF" KeyTip="PE">
+              <TooltipTitle xlate="true" UID="XLC_B26">Perfiles estratigraficos de vias</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
+            <RibbonCommandButton UID="RBC_B27" Id="AcRibbonCommandButton" Text="Ajustes" ButtonStyle="LargeWithText" MenuMacroID="MM_AJUS" KeyTip="AJ">
+              <TooltipTitle xlate="true" UID="XLC_B27">Configuracion general de urbanismo</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
           </RibbonRow>
         </RibbonPanelSource>
       </RibbonPanelSourceCollection>
       <RibbonTabSourceCollection>
-        <RibbonTabSource UID="TAB_CANT" Text="CANTIDADES" Id="cant_tab" KeyTip="CT">
-          <RibbonPanelSourceReference UID="TR_CREAR" PanelId="cant_pnl_crear" />
-          <RibbonPanelSourceReference UID="TR_REDES" PanelId="cant_pnl_redes" />
-          <RibbonPanelSourceReference UID="TR_EDITAR" PanelId="cant_pnl_editar" />
-          <RibbonPanelSourceReference UID="TR_CANT" PanelId="cant_pnl_cant" />
-          <RibbonPanelSourceReference UID="TR_EXCEL" PanelId="cant_pnl_excel" />
-          <RibbonPanelSourceReference UID="TR_CONF" PanelId="cant_pnl_conf" />
+        <RibbonTabSource Text="CANTIDADES" UID="RBC_TAB" KeyTip="CT">
+          <ModifiedRev MajorVersion="18" MinorVersion="1" UserVersion="0" />
+          <Name xlate="true" UID="XLC_TAB">CANTIDADES</Name>
+          <RibbonPanelSourceReference UID="RBC_TR1" PanelId="RBC_P1" ResizeStyle="Default">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          </RibbonPanelSourceReference>
+          <RibbonPanelSourceReference UID="RBC_TR2" PanelId="RBC_P2" ResizeStyle="Default">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          </RibbonPanelSourceReference>
+          <RibbonPanelSourceReference UID="RBC_TR3" PanelId="RBC_P3" ResizeStyle="Default">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          </RibbonPanelSourceReference>
+          <RibbonPanelSourceReference UID="RBC_TR4" PanelId="RBC_P4" ResizeStyle="Default">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          </RibbonPanelSourceReference>
+          <RibbonPanelSourceReference UID="RBC_TR5" PanelId="RBC_P5" ResizeStyle="Default">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          </RibbonPanelSourceReference>
+          <RibbonPanelSourceReference UID="RBC_TR6" PanelId="RBC_P6" ResizeStyle="Default">
+            <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+          </RibbonPanelSourceReference>
         </RibbonTabSource>
       </RibbonTabSourceCollection>
     </RibbonRoot>
-    <WorkspaceRoot>
-      <WorkspaceConfig UID="WS_CANT" Name="CANTIDADES" MenuGroupOverride="true">
-        <WSRibbonRoot>
-          <WSRibbonTabSourceReference UID="WSTAB_CANT" RibbonTabSourceUID="TAB_CANT" Display="1" MergeOrInsert="Merge" />
-        </WSRibbonRoot>
-      </WorkspaceConfig>
-    </WorkspaceRoot>
   </MenuGroup>
 </CustSection>
