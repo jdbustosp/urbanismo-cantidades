@@ -1,7 +1,7 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
-;;; 4.21.1: elimina huecos de bandas curvas con solape, validacion y relleno base.
+;;; 4.21.2: recupera bandas curvas por piezas y conserva toperol/ejes existentes.
 ;;; 4.17.7: evita unidades adicionales por residuos decimales de punto flotante.
 ;;; 4.17.6: separa giro de 90 grados y cambio del extremo inicial.
 ;;; 4.17.5: ancla la modulacion al contorno real y evita losetas iniciales cortadas.
@@ -38,7 +38,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.21.1")
+(setq *urb-version* "4.21.2")
 (setq *urb-schema-version* "22")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
@@ -2364,6 +2364,276 @@
   region
 )
 
+(defun urb:point-near-2d-p (left right tolerance / dx dy)
+  (if (and left right)
+    (progn
+      (setq dx (- (car left) (car right))
+            dy (- (cadr left) (cadr right)))
+      (<= (+ (* dx dx) (* dy dy)) (* tolerance tolerance)))
+    nil)
+)
+
+(defun urb:clean-polygon-points (raw-points / result point)
+  ;; El muestreo de arcos puede repetir un vertice en una union. Los
+  ;; duplicados consecutivos producen triangulos degenerados.
+  (foreach point raw-points
+    (if (or (null result)
+            (not (urb:point-near-2d-p point (car result) 1e-8)))
+      (setq result (cons point result))))
+  (setq result (reverse result))
+  (if (and (> (length result) 2)
+           (urb:point-near-2d-p
+             (car result) (last result) 1e-8))
+    (setq result (reverse (cdr (reverse result)))))
+  result
+)
+
+(defun urb:polygon-signed-area (points / area i p1 p2 n)
+  (setq area 0.0 i 0 n (length points))
+  (repeat n
+    (setq p1 (nth i points)
+          p2 (nth (rem (1+ i) n) points)
+          area (+ area (- (* (car p1) (cadr p2))
+                          (* (car p2) (cadr p1))))
+          i (1+ i)))
+  (* 0.5 area)
+)
+
+(defun urb:triangle-cross (a b c)
+  (- (* (- (car b) (car a)) (- (cadr c) (cadr a)))
+     (* (- (cadr b) (cadr a)) (- (car c) (car a))))
+)
+
+(defun urb:point-in-triangle-p (p a b c / c1 c2 c3 tol)
+  (setq tol 1e-9
+        c1 (urb:triangle-cross a b p)
+        c2 (urb:triangle-cross b c p)
+        c3 (urb:triangle-cross c a p))
+  (or (and (>= c1 (- tol)) (>= c2 (- tol)) (>= c3 (- tol)))
+      (and (<= c1 tol) (<= c2 tol) (<= c3 tol)))
+)
+
+(defun urb:remove-point-once (points target / removed result point)
+  (foreach point points
+    (if (and (not removed) (urb:point-near-2d-p point target 1e-12))
+      (setq removed T)
+      (setq result (cons point result))))
+  (reverse result)
+)
+
+(defun urb:triangulate-polygon
+  (points / verts triangles guard n i prev cur nxt test contains ear-found)
+  ;; Ear clipping sobre el contorno ordenado de la LWPOLYLINE. Cada
+  ;; triangulo es convexo y su interseccion con una banda tambien lo es;
+  ;; evita la operacion ACIS multi-isla que falla en curvas concavas.
+  (setq verts (urb:clean-polygon-points points))
+  (if (< (urb:polygon-signed-area verts) 0.0)
+    (setq verts (reverse verts)))
+  (setq guard 0 triangles nil)
+  (while (and (> (length verts) 3) (< guard 20000))
+    (setq n (length verts) i 0 ear-found nil)
+    (while (and (< i n) (not ear-found))
+      (setq prev (nth (rem (+ i n -1) n) verts)
+            cur (nth i verts)
+            nxt (nth (rem (1+ i) n) verts))
+      (if (> (urb:triangle-cross prev cur nxt) 1e-10)
+        (progn
+          (setq contains nil)
+          (foreach test verts
+            (if (and (not contains)
+                     (not (urb:point-near-2d-p test prev 1e-12))
+                     (not (urb:point-near-2d-p test cur 1e-12))
+                     (not (urb:point-near-2d-p test nxt 1e-12))
+                     (urb:point-in-triangle-p test prev cur nxt))
+              (setq contains T)))
+          (if (not contains)
+            (progn
+              (setq triangles (cons (list prev cur nxt) triangles)
+                    verts (urb:remove-point-once verts cur)
+                    ear-found T)))))
+      (setq i (1+ i)))
+    (if (not ear-found) (setq guard 20000))
+    (setq guard (1+ guard)))
+  (if (= (length verts) 3)
+    (reverse (cons verts triangles))
+    nil)
+)
+
+(defun urb:point-u-coordinate (point angle-value)
+  (+ (* (car point) (cos angle-value))
+     (* (cadr point) (sin angle-value)))
+)
+
+(defun urb:u-boundary-intersection
+  (p1 p2 u1 u2 limit / ratio)
+  (if (< (abs (- u2 u1)) 1e-12)
+    p2
+    (progn
+      (setq ratio (/ (- limit u1) (- u2 u1)))
+      (list
+        (+ (car p1) (* ratio (- (car p2) (car p1))))
+        (+ (cadr p1) (* ratio (- (cadr p2) (cadr p1)))))))
+)
+
+(defun urb:clip-polygon-u-side
+  (points limit angle-value keep-greater
+   / output previous current previous-u current-u previous-in current-in)
+  (if points
+    (progn
+      (setq previous (last points)
+            previous-u (urb:point-u-coordinate previous angle-value)
+            previous-in
+              (if keep-greater (>= previous-u (- limit 1e-9))
+                (<= previous-u (+ limit 1e-9))))
+      (foreach current points
+        (setq current-u (urb:point-u-coordinate current angle-value)
+              current-in
+                (if keep-greater (>= current-u (- limit 1e-9))
+                  (<= current-u (+ limit 1e-9))))
+        (cond
+          (current-in
+            (if (not previous-in)
+              (setq output
+                (append output
+                  (list (urb:u-boundary-intersection
+                          previous current previous-u current-u limit)))))
+            (setq output (append output (list current))))
+          (previous-in
+            (setq output
+              (append output
+                (list (urb:u-boundary-intersection
+                        previous current previous-u current-u limit))))))
+        (setq previous current previous-u current-u previous-in current-in))))
+  (urb:clean-polygon-points output)
+)
+
+(defun urb:clip-polygon-to-band (points umin umax angle-value / clipped)
+  (setq clipped (urb:clip-polygon-u-side points umin angle-value T))
+  (if clipped
+    (setq clipped (urb:clip-polygon-u-side clipped umax angle-value nil)))
+  (if (and clipped (> (length clipped) 2)
+           (> (abs (urb:polygon-signed-area clipped)) 1e-10))
+    clipped
+    nil)
+)
+
+(defun urb:polygon-region (points elevation / coords poly region)
+  (setq coords
+    (apply 'append
+      (mapcar '(lambda (p) (list (car p) (cadr p))) points)))
+  (setq poly
+    (vla-AddLightWeightPolyline (urb:space)
+      (urb:double-array-variant coords)))
+  (if (and (numberp elevation)
+           (vlax-property-available-p poly 'Elevation T))
+    (vla-put-Elevation poly elevation))
+  (vla-put-Closed poly :vlax-true)
+  (setq region (urb:add-region-from-object poly))
+  (urb:safe-delete poly)
+  (if (vl-catch-all-error-p region) nil region)
+)
+
+(defun urb:add-solid-hatch-detached-safe
+  (boundary layer color / hatch result)
+  (setq hatch
+    (vl-catch-all-apply 'vla-AddHatch
+      (list (urb:space) 1 "SOLID" :vlax-false)))
+  (if (vl-catch-all-error-p hatch)
+    nil
+    (progn
+      (setq result
+        (vl-catch-all-apply
+          '(lambda ()
+             (vla-AppendOuterLoop hatch (urb:make-loop-array boundary))
+             (vla-put-Layer hatch layer)
+             (vla-put-Color hatch color)
+             (vla-Evaluate hatch)
+             hatch)))
+      (if (vl-catch-all-error-p result)
+        (progn (urb:safe-delete hatch) nil)
+        hatch)))
+)
+
+(defun urb:add-user-hatch-detached-safe
+  (boundary layer spacing angle-value double-lines color origin
+   / hatch result pattern-angle)
+  (setq pattern-angle (urb:wcs-angle-to-current-ucs angle-value))
+  (setq hatch
+    (vl-catch-all-apply 'vla-AddHatch
+      (list (urb:space) 0 "USER" :vlax-false)))
+  (if (vl-catch-all-error-p hatch)
+    nil
+    (progn
+      (setq result
+        (vl-catch-all-apply
+          '(lambda ()
+             (vla-AppendOuterLoop hatch (urb:make-loop-array boundary))
+             (vla-put-Layer hatch layer)
+             (vla-put-Color hatch color)
+             (vla-put-PatternDouble hatch
+               (if double-lines :vlax-true :vlax-false))
+             (vla-put-PatternSpace hatch spacing)
+             (vla-put-PatternAngle hatch pattern-angle)
+             (vla-Evaluate hatch)
+             (if origin (urb:set-hatch-origin-dxf hatch origin))
+             hatch)))
+      (if (vl-catch-all-error-p result)
+        (progn (urb:safe-delete hatch) nil)
+        hatch)))
+)
+
+(defun urb:decorate-composite-fallback-piece
+  (points elevation angle-value origin parent-handle gray
+   / region layer color solid joint1 joint2 success)
+  (setq region (urb:polygon-region points elevation))
+  (if region
+    (progn
+      (setq layer
+        (if gray "URB-ANDEN-LOSETA-GRIS-20X20"
+          "URB-ANDEN-BLOQUE-BLANCO-20X10")
+            color (if gray 8 7)
+            solid (urb:add-solid-hatch-detached-safe region layer color))
+      (if solid
+        (progn
+          (urb:tag-generated-role solid parent-handle "FILL")
+          (if gray
+            (progn
+              (setq joint1
+                (urb:add-user-hatch-detached-safe
+                  region layer 0.20 angle-value T 9 origin))
+              (if joint1
+                (urb:tag-generated-role joint1 parent-handle "JOINT")))
+            (progn
+              (setq joint1
+                (urb:add-user-hatch-detached-safe
+                  region layer 0.10 angle-value nil 8 origin))
+              (setq joint2
+                (urb:add-user-hatch-detached-safe
+                  region layer 0.20 (+ angle-value (/ pi 2.0)) nil 8 origin))
+              (if joint1
+                (urb:tag-generated-role joint1 parent-handle "JOINT"))
+              (if joint2
+                (urb:tag-generated-role joint2 parent-handle "JOINT"))))
+          (setq success T)))
+      (urb:safe-delete region)))
+  success
+)
+
+(defun urb:decorate-composite-band-fallback
+  (triangles umin umax angle-value origin parent-handle gray elevation
+   / triangle piece count)
+  ;; Solo se usa para la banda que ACIS no pudo resolver. No pinta un
+  ;; fondo general: cada pieza hereda el tono y la fase de ESA banda.
+  (setq count 0)
+  (foreach triangle triangles
+    (setq piece (urb:clip-polygon-to-band triangle umin umax angle-value))
+    (if (and piece
+             (urb:decorate-composite-fallback-piece
+               piece elevation angle-value origin parent-handle gray))
+      (setq count (1+ count))))
+  (> count 0)
+)
+
 (defun urb:clip-edge-wedge
   (base-region p1 p2 bis1 bis2 span
    / d1 d2 q1 q2 q3 q4 clipped wedge result box elevation
@@ -2577,24 +2847,6 @@
   success
 )
 
-(defun urb:add-composite-base-fill
-  (base-region parent-handle / result)
-  ;; Cobertura visual inferior para el detalle 20x20. Las bandas reales
-  ;; quedan encima; si ACIS rechazara todos los reintentos de una banda,
-  ;; esta base blanca evita que aparezca el fondo negro del dibujo.
-  ;; No interviene en cantidades: solo es una entidad generada del bloque.
-  (vla-put-Layer base-region "URB-ANDEN-BLOQUE-BLANCO-20X10")
-  (urb:tag-generated-role base-region parent-handle "BASE_FILL")
-  (setq result
-    (urb:add-solid-hatch-safe
-      base-region "URB-ANDEN-BLOQUE-BLANCO-20X10" 7))
-  (if result
-    (progn
-      (urb:tag-generated-role result parent-handle "BASE_FILL")
-      T)
-    nil)
-)
-
 (defun urb:create-two-axis-regions
   (base-region split-data / first second split-angle bounds margin split-v
    first-low umin umax vmin vmax first-region second-region)
@@ -2651,9 +2903,11 @@
 
 (defun urb:decorate-composite-region
   (base-region angle-value format parent-handle reverse-pattern phase-offset
+   fallback-points
    / points bounds umin umax actual-vmin actual-vmax vmin vmax
    cursor next gray count origin pattern-v-origin module layer grid
-   phase-state first-band band-width iter-guard base-fill-ok band-ok)
+   phase-state first-band band-width iter-guard band-ok fallback-triangles
+   elevation box all-bands-ok band-umin band-umax)
   (setq points (urb:region-outline-points base-region))
   (if (null points)
     (setq points (urb:object-box-points base-region)))
@@ -2696,8 +2950,15 @@
         (progn
           ;; Detalle 20x20: 0.80 m de loseta gris y 1.00 m de adoquin
           ;; blanco, repetidos sobre el eje local de esta zona.
-          (setq base-fill-ok
-            (urb:add-composite-base-fill base-region parent-handle))
+          (setq fallback-triangles
+            (if fallback-points
+              (urb:triangulate-polygon fallback-points)
+              nil))
+          (setq box (urb:object-box-points base-region)
+                elevation
+                  (if (and box (caddr (car box)))
+                    (caddr (car box)) 0.0)
+                all-bands-ok T)
           (setq vmin (- actual-vmin 1.0)
                 vmax (+ actual-vmax 1.0)
                 cursor (if reverse-pattern umax umin)
@@ -2729,22 +2990,30 @@
                 (min umax (+ cursor band-width))))
             ;; todas las bandas comparten el origen global ya alineado.
             ;; La rutina solo devuelve T cuando tambien existe el SOLID.
+            (setq band-umin (if reverse-pattern next cursor)
+                  band-umax (if reverse-pattern cursor next))
             (setq band-ok
-              (if reverse-pattern
-                (urb:decorate-composite-stripe
-                  base-region next cursor vmin vmax angle-value
-                  origin parent-handle gray)
-                (urb:decorate-composite-stripe
-                  base-region cursor next vmin vmax angle-value
-                  origin parent-handle gray)))
+              (urb:decorate-composite-stripe
+                base-region band-umin band-umax vmin vmax angle-value
+                origin parent-handle gray))
+            ;; Una banda que cruza un contorno concavo puede producir dos
+            ;; o mas islas. Si ACIS no devuelve una region util, se recorta
+            ;; geometricamente contra triangulos internos; el tono y el
+            ;; origen de reticula siguen siendo los de la banda original.
+            (if (and (not band-ok) fallback-triangles)
+              (setq band-ok
+                (urb:decorate-composite-band-fallback
+                  fallback-triangles band-umin band-umax angle-value
+                  origin parent-handle gray elevation)))
             (if band-ok (setq count (1+ count)))
+            (if (not band-ok) (setq all-bands-ok nil))
             (setq cursor next
                   gray (not gray)
                   first-band nil))
-          ;; Si el relleno base se creo, conserva su region asociativa para
-          ;; empaquetarla; si fallo, mantiene el comportamiento anterior.
-          (if (not base-fill-ok) (urb:safe-delete base-region))
-          (or base-fill-ok (> count 0))))))
+          ;; La region maestra ya no queda como fondo blanco: ocultaba el
+          ;; fallo, pero convertia toda la banda ausente en adoquin blanco.
+          (urb:safe-delete base-region)
+          (and (> count 0) all-bands-ok)))))
 )
 
 (defun urb:turning-angle (a1 a2 / delta two-pi)
@@ -3020,7 +3289,7 @@
     (if slice
       (progn
         (urb:decorate-composite-region
-          slice angle-value format parent-handle reverse-pattern phase-offset)
+          slice angle-value format parent-handle reverse-pattern phase-offset nil)
         (setq count (1+ count))))
     (setq cum-offset (+ cum-offset (- umax umin)))
     (setq edge-index (1+ edge-index)))
@@ -3029,12 +3298,13 @@
 )
 
 (defun urb:create-composite-loseta
-  (ename format / obj copy base-region points parent-handle clusters
+  (ename format / obj copy base-region points fine-points parent-handle clusters
    split-data zones zone success angle-value pattern-mode reverse-pattern
    driving-chain forced-angle)
   (setq obj (vlax-ename->vla-object ename)
         parent-handle (vla-get-Handle obj)
         points (urb:lwpoly-points-with-arcs ename)
+        fine-points (urb:lwpoly-points-with-arcs-fine ename)
         pattern-mode (urb:anden-pattern-mode ename)
         reverse-pattern (urb:anden-pattern-reversed-p pattern-mode)
         clusters (urb:dominant-anden-axis-clusters points)
@@ -3094,7 +3364,7 @@
                             (urb:anden-pattern-angle
                               (cadr zone) pattern-mode)
                             format parent-handle
-                            reverse-pattern 0.0))
+                            reverse-pattern 0.0 nil))
                       (setq success nil)))
                   success)
                 (progn
@@ -3110,7 +3380,7 @@
                       angle-value pattern-mode))
                   (urb:decorate-composite-region
                     base-region angle-value format parent-handle
-                    reverse-pattern 0.0))))
+                    reverse-pattern 0.0 fine-points))))
             (progn
               (setq angle-value
                 (cond
@@ -3122,7 +3392,7 @@
                   angle-value pattern-mode))
               (urb:decorate-composite-region
                 base-region angle-value format parent-handle
-                reverse-pattern 0.0)))))))
+                reverse-pattern 0.0 fine-points)))))))
 )
 
 (defun urb:generated-xdata-fragment (parent-handle role)
@@ -3517,14 +3787,15 @@
 (defun urb:offset-strip-symbols
   (chain-poly len d1 d2 perp-sign feature module layer parent-handle
    / spacing margin half-length half-width radius tile-k tile-g sym-color
-     su dist pt ang normal ro wpt u v cs sn joint-p1 joint-p2)
+     su dist pt ang normal ro wpt u v cs sn joint-p1 joint-p2
+     symbol-result created)
   ;; simbolos y juntas por tableta caminando la curva real
   (setq spacing 0.05 margin 0.025)
   (if (= feature "GUIA")
     (setq half-length 0.075 half-width 0.012)
     (setq radius 0.008))
   (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
-  (setq tile-k 0)
+  (setq tile-k 0 created 0)
   (while (< (setq tile-g (* tile-k module)) (- len 1e-6))
     ;; junta radial en el arranque de cada tableta (excepto la primera)
     (if (> tile-k 0)
@@ -3570,19 +3841,23 @@
                 ;; helpers de simbolo
                 (setq u (+ (* (car wpt) cs) (* (cadr wpt) sn))
                       v (+ (* (- (car wpt)) sn) (* (cadr wpt) cs)))
-                (if (= feature "GUIA")
-                  (urb:add-capsule-symbol u v half-length half-width ang layer parent-handle sym-color)
-                  (urb:add-circle-symbol u v radius ang layer parent-handle sym-color))
+                (setq symbol-result
+                  (if (= feature "GUIA")
+                    (urb:add-capsule-symbol
+                      u v half-length half-width ang layer parent-handle sym-color)
+                    (urb:add-circle-symbol
+                      u v radius ang layer parent-handle sym-color)))
+                (if symbol-result (setq created (1+ created)))
                 (setq ro (+ ro spacing)))))))
       (setq su (+ su spacing)))
     (setq tile-k (1+ tile-k)))
-  T
+  (> created 0)
 )
 
 (defun urb:build-offset-strip
   (base-region chain-poly d1 d2 off-sign perp-sign layer feature module
    parent-handle elevation span
-   / c1 c2 band strip len booleaned)
+   / c1 c2 band strip len booleaned tone-count symbols-ok)
   (setq c1
     (if (< (abs d1) 1e-9)
       (urb:as-ename (vla-Copy (vlax-ename->vla-object chain-poly)))
@@ -3609,19 +3884,29 @@
               nil)
             (progn
               (setq len (urb:curve-length chain-poly))
-              (urb:offset-strip-tones
-                strip chain-poly len layer parent-handle elevation span)
+              (setq tone-count
+                (urb:offset-strip-tones
+                  strip chain-poly len layer parent-handle elevation span))
               (urb:safe-delete strip)
-              ;; bordes de la franja: las dos curvas offset quedan como
-              ;; lineas de junta visibles
-              (foreach c (list c1 c2)
-                (vla-put-Layer (vlax-ename->vla-object c) layer)
-                (vla-put-Color (vlax-ename->vla-object c) 8)
-                (urb:tag-generated-role
-                  (vlax-ename->vla-object c) parent-handle "FEATURE"))
-              (urb:offset-strip-symbols
-                chain-poly len d1 d2 perp-sign feature module layer parent-handle)
-              T))))))
+              (if (<= tone-count 0)
+                (progn
+                  (entdel c1) (entdel c2)
+                  nil)
+                (progn
+                  ;; bordes de la franja: las dos curvas offset quedan como
+                  ;; lineas de junta visibles
+                  (foreach c (list c1 c2)
+                    (vla-put-Layer (vlax-ename->vla-object c) layer)
+                    (vla-put-Color (vlax-ename->vla-object c) 8)
+                    (urb:tag-generated-role
+                      (vlax-ename->vla-object c) parent-handle "FEATURE"))
+                  (setq symbols-ok
+                    (urb:offset-strip-symbols
+                      chain-poly len d1 d2 perp-sign feature module
+                      layer parent-handle))
+                  ;; Un strip sin domos/capsulas no cuenta como terminado;
+                  ;; el caller puede activar su metodo segmentado de respaldo.
+                  symbols-ok))))))))
 )
 
 (defun urb:create-accessibility-features-offset
@@ -4229,34 +4514,31 @@
 ;; asi que las capas se pueden consolidar sin romper el apilamiento.
 (defun urb:draw-role-bucket (role)
   (cond
-    ((= role "BASE_FILL") "BASE_FILL")
     ((member role '("FILL" "RELLENO")) "FILL")
     ((= role "JOINT") "JOINT")
     ((= role "FEATURE_FILL") "FEATURE_FILL")
-    ;; FEATURE_SYMBOL: cada capsula/circulo individual de guia/toperol
-    ;; (urb:fill-tactile-symbols). Sin este caso explicito caian en el
-    ;; default "BOUNDARY" (casi al fondo de la pila, justo encima del
-    ;; relleno base) -- el usuario los veia "atras" del resto del
-    ;; material. Van en el mismo bucket que el resto de FEATURE (el mas
-    ;; arriba de todos), que es donde deben verse los simbolos tactiles.
-    ((member role '("FEATURE" "FEATURE_SYMBOL" "INTERIOR" "EXTERIOR" "REMATE")) "FEATURE")
+    ;; Los domos/capsulas se separan de las juntas y bordes tactiles para
+    ;; moverlos al tope en una operacion final y determinista.
+    ((= role "FEATURE_SYMBOL") "FEATURE_SYMBOL")
+    ((member role '("FEATURE" "INTERIOR" "EXTERIOR" "REMATE")) "FEATURE")
     (T "BOUNDARY"))
 )
 
 (defun urb:set-block-draw-order
-  (block objects / base-fills fills joints feature-fills features boundaries item table result
-   bucket)
+  (block objects / fills joints feature-fills features feature-symbols
+   boundaries item table result bucket)
   (foreach item objects
     (if (vlax-property-available-p item 'Layer)
       (progn
         (setq bucket (urb:draw-role-bucket (urb:generated-role item)))
         (cond
-          ((= bucket "BASE_FILL") (setq base-fills (cons item base-fills)))
           ((= bucket "FILL") (setq fills (cons item fills)))
           ((= bucket "JOINT") (setq joints (cons item joints)))
           ((= bucket "FEATURE_FILL")
             (setq feature-fills (cons item feature-fills)))
           ((= bucket "FEATURE") (setq features (cons item features)))
+          ((= bucket "FEATURE_SYMBOL")
+            (setq feature-symbols (cons item feature-symbols)))
           ((= bucket "BOUNDARY")
             (setq boundaries (cons item boundaries))))))
   )
@@ -4265,11 +4547,6 @@
     (vl-catch-all-apply
       'vla-MoveToBottom
       (list table (urb:object-array-variant fills))))
-  ;; Se mueve DESPUES de FILL para quedar por debajo de todas las bandas.
-  (if base-fills
-    (vl-catch-all-apply
-      'vla-MoveToBottom
-      (list table (urb:object-array-variant base-fills))))
   (if boundaries
     (vl-catch-all-apply
       'vla-MoveToTop
@@ -4288,7 +4565,15 @@
       (vl-catch-all-apply
         'vla-MoveToTop
         (list table (urb:object-array-variant features)))))
-  (or (and (null joints) (null feature-fills) (null features))
+  ;; Ultimo movimiento: el patron material y la trama tactil nunca pueden
+  ;; tapar los simbolos de toperol/guia.
+  (if feature-symbols
+    (setq result
+      (vl-catch-all-apply
+        'vla-MoveToTop
+        (list table (urb:object-array-variant feature-symbols)))))
+  (or (and (null joints) (null feature-fills) (null features)
+           (null feature-symbols))
       (not (vl-catch-all-error-p result)))
 )
 
@@ -4935,13 +5220,13 @@
   (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
     (progn
       (setq via-id (if (> (length data) 22) (nth 22 data) ""))
-      ;; 2026-08-12 (pedido del usuario): el eje se identifica SOLO --
-      ;; handle guardado, cache o reconstruccion automatica del contorno
-      ;; del bloque. Solo si todo eso falla se pide seleccionarlo.
+      ;; El eje se identifica SOLO entre entidades existentes: handle,
+      ;; cache o vinculo via-id. Nunca se reconstruye uno nuevo del bloque.
       (setq axis (urb:road-axis-recover road data via-id))
       (if (not axis)
         (setq axis (urb:select-or-draw-road-axis "Existente")))
-      (if (and axis (/= via-id "")) (urb:cache-road-axis via-id axis))
+      (if axis
+        (urb:remember-road-axis road data via-id axis))
       (setq mov (urb:road-movement-data road))
       (if (and mov (> (length mov) 9))
         (setq records (urb:read-lisp-safe (nth 9 mov))))
@@ -11898,15 +12183,67 @@
 ;; mas, cada cota se proyecta sobre el eje en el punto donde se clickeo
 ;; su etiqueta y la rasante queda por tramos. Enter tras 2 o mas cotas
 ;; termina; Enter antes de 2 cancela.
-;; Resuelve el EJE de una via YA CREADA sin pedirselo al usuario:
-;; 1) handent del handle guardado, 2) cache de sesion, 3) RECONSTRUCCION
-;; automatica desde el contorno crudo guardado dentro del bloque (la
-;; unica LWPOLYLINE cerrada de la definicion; mismo algoritmo del eje
-;; automatico de la creacion). El eje recuperado se cachea por via-id
-;; para no duplicarlo. (2026-08-12: el usuario pidio que al seleccionar
-;; la via NO le toque volver a seleccionar el eje.)
-(defun urb:road-axis-recover (road data via-id / axis axis-handle bname
-   ent edata boundary cache-key)
+;; Localiza un eje YA existente por el identificador estable de la via.
+;; Desde 4.21.2 URB_VIA_EJE guarda (handle-contorno via-id); el segundo
+;; valor permite recuperar el mismo eje aunque el bloque de via cambie de
+;; handle al editarse o el DWG se vuelva a abrir.
+(defun urb:find-linked-road-axis (via-id / selection index candidate link axis)
+  (setq via-id (urb:safe-string via-id ""))
+  (if (/= via-id "")
+    (setq selection (ssget "_X" '((-3 ("URB_VIA_EJE"))))))
+  (setq index 0)
+  (if selection
+    (repeat (sslength selection)
+      (setq candidate (ssname selection index)
+            link (urb:get-xdata-strings candidate "URB_VIA_EJE"))
+      (if (and (null axis)
+               (> (length link) 1)
+               (urb:string-equal-p (nth 1 link) via-id)
+               (urb:curve-entity-p candidate))
+        (setq axis candidate))
+      (setq index (1+ index))))
+  axis
+)
+
+(defun urb:remember-road-axis
+  (road data via-id axis / axis-handle road-handle updated)
+  ;; Registra una seleccion manual para que las siguientes operaciones de
+  ;; ese anden/via no vuelvan a preguntar. En ejes de xref la escritura de
+  ;; xdata puede no estar permitida; la cache de sesion sigue funcionando.
+  (setq via-id (urb:safe-string via-id ""))
+  (if (and axis (/= via-id ""))
+    (urb:cache-road-axis via-id axis))
+  (setq axis-handle
+    (if axis
+      (vl-catch-all-apply
+        '(lambda () (vla-get-Handle (vlax-ename->vla-object axis))))
+      nil))
+  (if (vl-catch-all-error-p axis-handle) (setq axis-handle nil))
+  (setq road-handle
+    (if road
+      (vl-catch-all-apply
+        '(lambda () (vla-get-Handle (vlax-ename->vla-object road))))
+      nil))
+  (if (vl-catch-all-error-p road-handle) (setq road-handle ""))
+  (if (and axis axis-handle (/= via-id ""))
+    (vl-catch-all-apply
+      'urb:set-xdata-strings
+      (list axis "URB_VIA_EJE"
+        (list (urb:safe-string road-handle "") via-id))))
+  (if (and road data axis-handle)
+    (progn
+      (setq updated (urb:list-set-extended data 5 axis-handle))
+      (vl-catch-all-apply
+        'urb:set-xdata-strings (list road "URB_VIA" updated))))
+  axis
+)
+
+;; Resuelve el EJE de una via YA CREADA sin fabricar geometria nueva:
+;; 1) handle guardado, 2) cache de sesion, 3) xdata URB_VIA_EJE/via-id.
+;; Si los tres fallan, el flujo superior pide seleccionar el eje existente
+;; y lo recuerda. Se retiro deliberadamente la reconstruccion desde el
+;; contorno, que era la responsable de crear un alineamiento duplicado.
+(defun urb:road-axis-recover (road data via-id / axis axis-handle cache-key)
   (setq axis-handle
     (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
   (setq via-id (urb:safe-string via-id ""))
@@ -11918,28 +12255,9 @@
   (if (vl-catch-all-error-p cache-key) (setq cache-key nil))
   (setq axis
     (or (if (/= axis-handle "") (handent axis-handle) nil)
-        (if cache-key (urb:cached-road-axis cache-key) nil)))
+        (if cache-key (urb:cached-road-axis cache-key) nil)
+        (urb:find-linked-road-axis via-id)))
   (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
-  (if (and (null axis) (urb:road-block-p road))
-    (progn
-      (setq bname
-        (vl-catch-all-apply
-          '(lambda () (vla-get-Name (vlax-ename->vla-object road)))))
-      (if (vl-catch-all-error-p bname) (setq bname nil))
-      (setq ent
-        (if bname (cdr (assoc -2 (tblsearch "BLOCK" bname))) nil))
-      (while (and ent (null boundary))
-        (setq edata (entget ent))
-        (if (and (= (cdr (assoc 0 edata)) "LWPOLYLINE")
-                 (= 1 (logand 1 (cdr (assoc 70 edata)))))
-          (setq boundary ent))
-        (setq ent (entnext ent)))
-      (if boundary
-        (setq axis
-          (vl-catch-all-apply 'urb:road-axis-from-boundary (list boundary))))
-      (if (vl-catch-all-error-p axis) (setq axis nil))
-      (if axis
-        (prompt "\nEje de la via reconstruido automaticamente del contorno."))))
   (if (and axis cache-key) (urb:cache-road-axis cache-key axis))
   axis)
 
@@ -12918,7 +13236,7 @@
                       "DATOS PRELIMINARES" "MOVIMIENTO DE TIERRAS PENDIENTE"))
                   (vl-catch-all-apply
                     'urb:set-xdata-strings
-                    (list axis "URB_VIA_EJE" (list handle)))
+                    (list axis "URB_VIA_EJE" (list handle via-id)))
                   (urb:set-road-data boundary
                     (nth 0 dialog) (nth 1 dialog) (nth 2 dialog) (nth 3 dialog)
                     (vla-get-Handle (vlax-ename->vla-object axis))
@@ -13109,6 +13427,9 @@
                       "\nEl contorno de la via no genera un tramo valido sobre el eje.")
                     (progn
                       (setq handle (vla-get-Handle obj))
+                      (vl-catch-all-apply
+                        'urb:set-xdata-strings
+                        (list axis "URB_VIA_EJE" (list handle via-id)))
                       (urb:delete-road-generated handle)
                       (setq label
                         (urb:prompt-station-start
