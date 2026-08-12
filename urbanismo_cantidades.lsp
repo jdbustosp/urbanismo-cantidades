@@ -17384,8 +17384,25 @@
                         (vl-catch-all-error-message result)))))))))
   (princ))
 
+;; Auto-reparacion de TRUSTEDPATHS (2026-08-11): AutoCAD reescribe esa
+;; variable al cerrar con lo que tenia en memoria, asi que agregarla por
+;; registro desde afuera se pierde si habia una sesion abierta. Aqui, ya
+;; ADENTRO de AutoCAD, se agrega la carpeta del bundle a la variable viva
+;; (persiste al cerrar). Tras el primer "Always Load"/"Load Once" del
+;; usuario, ninguna sesion futura vuelve a preguntar.
+(defun urb:ensure-trusted-path (/ target current)
+  (setq target
+    (strcat (urb:safe-string (getenv "APPDATA") "")
+      "\\Autodesk\\ApplicationPlugins\\UrbanismoCantidades.bundle\\Contents"))
+  (setq current (urb:safe-string (getvar "TRUSTEDPATHS") ""))
+  (if (not (vl-string-search (strcase target) (strcase current)))
+    (setvar "TRUSTEDPATHS"
+      (if (= current "") target (strcat current ";" target))))
+  (princ))
+
 (urb:remove-legacy-commands)
 (mp:install-network-erase-reactor)
+(vl-catch-all-apply 'urb:ensure-trusted-path nil)
 (vl-catch-all-apply 'urb:migrate-current-drawing nil)
 (vl-catch-all-apply 'urb:ensure-ribbon nil)
 

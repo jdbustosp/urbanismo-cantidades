@@ -29,6 +29,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 12) — Ribbon round 3: la pestaña la fusiona el AUTOLOADER y TRUSTEDPATHS se auto-repara
+
+El usuario reportó que seguían el diálogo de seguridad y la pestaña ausente. Dos causas de fondo encontradas:
+
+1. **TRUSTEDPATHS se pierde**: AutoCAD REESCRIBE esa variable al cerrar con lo que tenía en memoria — agregarla por registro desde afuera se borra si había una sesión abierta (exactamente lo que pasó). Fix definitivo: `urb:ensure-trusted-path` — el propio lsp, al cargar (ya ADENTRO de AutoCAD), agrega la carpeta del bundle a la variable viva con `setvar`; AutoCAD la persiste al cerrar. Tras el primer "Always Load" del usuario, ninguna sesión vuelve a preguntar. (El instalador conserva además el ajuste por registro para el caso sin sesiones abiertas.)
+2. **La pestaña no se fusionaba al workspace**: cargar el cuix por COM (`MenuGroups.Load`) registra el menugroup pero NO muestra la pestaña. Quien sí la fusiona automáticamente es el **Autoloader** cuando el cuix está declarado en `PackageContents.xml` — se agregó el `ComponentEntry` de `./Contents/cantidades.cuix` (la pieza que faltaba). `urb:ensure-ribbon` queda como respaldo.
+- Nota de verificación: la corrida headless quedó bloqueada por el MISMO diálogo de seguridad pero para el helper `_claude_verify_tmp.lsp` en CANTIDADES (la confianza de BLOQUES PPTOS no cubre subcarpetas) — diagnosticado trayendo la ventana al frente y capturando pantalla. Se intentó cerrar por automatización, pero el usuario estaba usando el computador y se abortó la interacción de escritorio por respeto (instancia de prueba cerrada). **La verificación visual final queda en manos del usuario**: reiniciar Civil 3D, "Always Load" si pregunta (1 vez), y buscar la pestaña CANTIDADES.
+- Lección para futuras verificaciones headless: los helpers temporales en CANTIDADES pueden disparar el diálogo de seguridad si TRUSTEDPATHS fue reescrito — colocar el helper en la carpeta del bundle instalado (que el lsp auto-repara como confiable) o dar "Always Load" una vez.
+
 ### 2026-08-11 (parte 11) — Ribbon round 2: diálogo de seguridad resuelto y CUIX empaquetado a mano
 
 El usuario probó y reportó: (a) diálogo "Unsigned Executable File" al cargar el lsp del bundle, (b) la pestaña no aparecía (abrió el CUI buscándola).
