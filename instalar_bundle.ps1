@@ -19,6 +19,8 @@ if (-not (Test-Path $xml)) { throw "No se encontro bundle\PackageContents.xml en
 New-Item -ItemType Directory -Force -Path (Join-Path $dest "Contents") | Out-Null
 Copy-Item $xml (Join-Path $dest "PackageContents.xml") -Force
 Copy-Item $lsp (Join-Path $dest "Contents\urbanismo_cantidades.lsp") -Force
+$cui = Join-Path $repo "bundle\cantidades.cui"
+if (Test-Path $cui) { Copy-Item $cui (Join-Path $dest "Contents\cantidades.cui") -Force }
 
 # version informativa (del *urb-version* del lsp)
 $ver = (Select-String -Path $lsp -Pattern '\*urb-version\*\s+"([^"]+)"' | Select-Object -First 1).Matches[0].Groups[1].Value

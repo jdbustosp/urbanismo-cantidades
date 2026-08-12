@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 10) — Pestaña CANTIDADES en el ribbon
+
+El usuario aprobó el esquema (mockup en sesión) y pidió la pestaña llamada CANTIDADES (no URBANISMO). Arquitectura: el ribbon depende del lsp, nunca al revés — cada botón solo dispara un comando público; toda la lógica sigue en el lsp y funciona igual sin ribbon.
+
+- **Comandos públicos nuevos** (bloque "COMANDOS PUBLICOS DEL RIBBON" al final del lsp, envoltorios de 1 línea): Crear `VIA ANDEN RAMPA ZONAVERDE PREFABRICADO`; Redes `TSANITARIO TPLUVIAL TACUEDUCTO POZOSAN POZOPLU SUMIDERO CAMARA ACCESORIO LUMINARIA`; Editar `EDITAR ETAPAS`; Cantidades `QCUADRO QMEMORIA QVERIFICACION QALCANCE QCSV`; Excel `QEXCEL QVINCULAR QACTUALIZAR QDESVINCULAR`; Config `PERFILES AJUSTES`. También sirven escritos a mano. `urb:remove-legacy-commands` dejó de borrar los nombres que ahora son oficiales (c:VIA, c:ANDEN, c:PREFABRICADO, c:SUMIDERO, c:LUMINARIA salieron de su lista).
+- **`bundle/cantidades.cui`**: CUI parcial XML escrito a mano (MenuGroup CANTIDADES: 27 macros + RibbonRoot con 6 paneles — Crear, Redes, Editar, Cantidades, Excel, Configuracion — y la RibbonTabSource; botones sin ícono por ahora, solo texto). Los instaladores copian el .cui a Contents del bundle.
+- **`urb:ensure-ribbon`** (corre al cargar el lsp): si el menugroup CANTIDADES no está, carga el .cui vía COM (`MenuGroups.Load` — no necesita contexto de comando, funciona durante el autoload del bundle). Busca primero la copia instalada del bundle (`%AppData%...\Contents\cantidades.cui`) y de respaldo `findfile`.
+- **Verificado headless de punta a punta**: AutoCAD limpio sin cargas manuales → lsp autocargado, todos los comandos definidos, y `(menugroup "CANTIDADES")` registrado (el XML pasó el cargador). **Pendiente de verificación visual del usuario**: que la PESTAÑA aparezca en la cinta (el merge al workspace no se puede ver headless). Si no aparece sola: CUI → Partial Customization Files → CANTIDADES → arrastrar la pestaña al workspace actual, una sola vez.
+- Botones sin íconos propios en esta v1 (texto solo); diseñar íconos BMP/PNG queda como pulido posterior.
+
 ### 2026-08-11 (parte 9) — Reorganización: todo el proyecto vive en `BLOQUES PPTOS\CANTIDADES\`
 
 A pedido del usuario ("organices mejor esa carpeta... crees otra carpeta que se llame cantidades y dentro metas todo lo que necesites"):

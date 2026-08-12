@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<CustSection SchemaVersion="4.0">
+  <MenuGroup Name="CANTIDADES">
+    <MacroGroup Name="CantidadesMacros" UID="MG_CANT">
+      <MenuMacro UID="MM_VIA"><Macro type="Any"><Name xlate="true">Via</Name><Command>^C^C_VIA </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_ANDEN"><Macro type="Any"><Name xlate="true">Anden</Name><Command>^C^C_ANDEN </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_RAMPA"><Macro type="Any"><Name xlate="true">Rampa</Name><Command>^C^C_RAMPA </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_ZVERDE"><Macro type="Any"><Name xlate="true">Zona verde</Name><Command>^C^C_ZONAVERDE </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_PREFAB"><Macro type="Any"><Name xlate="true">Prefabricado</Name><Command>^C^C_PREFABRICADO </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_TSAN"><Macro type="Any"><Name xlate="true">Tramo sanitario</Name><Command>^C^C_TSANITARIO </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_TPLU"><Macro type="Any"><Name xlate="true">Tramo pluvial</Name><Command>^C^C_TPLUVIAL </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_TACU"><Macro type="Any"><Name xlate="true">Tramo acueducto</Name><Command>^C^C_TACUEDUCTO </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_PSAN"><Macro type="Any"><Name xlate="true">Pozo sanitario</Name><Command>^C^C_POZOSAN </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_PPLU"><Macro type="Any"><Name xlate="true">Pozo pluvial</Name><Command>^C^C_POZOPLU </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_SUMID"><Macro type="Any"><Name xlate="true">Sumidero</Name><Command>^C^C_SUMIDERO </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_CAMARA"><Macro type="Any"><Name xlate="true">Camara electrica</Name><Command>^C^C_CAMARA </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_ACCES"><Macro type="Any"><Name xlate="true">Accesorio acueducto</Name><Command>^C^C_ACCESORIO </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_LUMIN"><Macro type="Any"><Name xlate="true">Luminaria</Name><Command>^C^C_LUMINARIA </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_EDITAR"><Macro type="Any"><Name xlate="true">Editar</Name><Command>^C^C_EDITAR </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_ETAPAS"><Macro type="Any"><Name xlate="true">Etapas en lote</Name><Command>^C^C_ETAPAS </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_QCUADRO"><Macro type="Any"><Name xlate="true">Cuadro de cantidades</Name><Command>^C^C_QCUADRO </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_QMEM"><Macro type="Any"><Name xlate="true">Memoria de via</Name><Command>^C^C_QMEMORIA </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_QVERIF"><Macro type="Any"><Name xlate="true">Tabla de verificacion</Name><Command>^C^C_QVERIFICACION </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_QALC"><Macro type="Any"><Name xlate="true">Incluir o excluir</Name><Command>^C^C_QALCANCE </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_QCSV"><Macro type="Any"><Name xlate="true">CSV de redes</Name><Command>^C^C_QCSV </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_QEXCEL"><Macro type="Any"><Name xlate="true">Exportar Excel</Name><Command>^C^C_QEXCEL </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_QVINC"><Macro type="Any"><Name xlate="true">Vincular Excel</Name><Command>^C^C_QVINCULAR </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_QACT"><Macro type="Any"><Name xlate="true">Actualizar Excel</Name><Command>^C^C_QACTUALIZAR </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_QDESV"><Macro type="Any"><Name xlate="true">Desvincular Excel</Name><Command>^C^C_QDESVINCULAR </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_PERF"><Macro type="Any"><Name xlate="true">Perfiles de via</Name><Command>^C^C_PERFILES </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_AJUS"><Macro type="Any"><Name xlate="true">Ajustes</Name><Command>^C^C_AJUSTES </Command></Macro></MenuMacro>
+    </MacroGroup>
+    <RibbonRoot>
+      <RibbonPanelSourceCollection>
+        <RibbonPanelSource UID="PS_CREAR" Text="Crear" Id="cant_pnl_crear">
+          <RibbonRow>
+            <RibbonCommandButton UID="BT_VIA" Text="Via" MacroID="MM_VIA" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonCommandButton UID="BT_ANDEN" Text="Anden" MacroID="MM_ANDEN" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonCommandButton UID="BT_RAMPA" Text="Rampa" MacroID="MM_RAMPA" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonRowPanel UID="RP_CREAR2">
+              <RibbonRow>
+                <RibbonCommandButton UID="BT_ZVERDE" Text="Zona verde" MacroID="MM_ZVERDE" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              </RibbonRow>
+              <RibbonRow>
+                <RibbonCommandButton UID="BT_PREFAB" Text="Prefabricado" MacroID="MM_PREFAB" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              </RibbonRow>
+            </RibbonRowPanel>
+          </RibbonRow>
+        </RibbonPanelSource>
+        <RibbonPanelSource UID="PS_REDES" Text="Redes" Id="cant_pnl_redes">
+          <RibbonRow>
+            <RibbonCommandButton UID="BT_TSAN" Text="Sanitario" MacroID="MM_TSAN" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonCommandButton UID="BT_TPLU" Text="Pluvial" MacroID="MM_TPLU" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonCommandButton UID="BT_TACU" Text="Acueducto" MacroID="MM_TACU" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonRowPanel UID="RP_REDES2">
+              <RibbonRow>
+                <RibbonCommandButton UID="BT_PSAN" Text="Pozo san." MacroID="MM_PSAN" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+                <RibbonCommandButton UID="BT_PPLU" Text="Pozo pluv." MacroID="MM_PPLU" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              </RibbonRow>
+              <RibbonRow>
+                <RibbonCommandButton UID="BT_SUMID" Text="Sumidero" MacroID="MM_SUMID" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+                <RibbonCommandButton UID="BT_CAMARA" Text="Camara" MacroID="MM_CAMARA" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              </RibbonRow>
+              <RibbonRow>
+                <RibbonCommandButton UID="BT_ACCES" Text="Accesorio" MacroID="MM_ACCES" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+                <RibbonCommandButton UID="BT_LUMIN" Text="Luminaria" MacroID="MM_LUMIN" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              </RibbonRow>
+            </RibbonRowPanel>
+          </RibbonRow>
+        </RibbonPanelSource>
+        <RibbonPanelSource UID="PS_EDITAR" Text="Editar" Id="cant_pnl_editar">
+          <RibbonRow>
+            <RibbonCommandButton UID="BT_EDITAR" Text="Editar" MacroID="MM_EDITAR" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonCommandButton UID="BT_ETAPAS" Text="Etapas" MacroID="MM_ETAPAS" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+          </RibbonRow>
+        </RibbonPanelSource>
+        <RibbonPanelSource UID="PS_CANT" Text="Cantidades" Id="cant_pnl_cant">
+          <RibbonRow>
+            <RibbonCommandButton UID="BT_QCUADRO" Text="Cuadro" MacroID="MM_QCUADRO" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonCommandButton UID="BT_QMEM" Text="Memoria" MacroID="MM_QMEM" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonCommandButton UID="BT_QVERIF" Text="Verificacion" MacroID="MM_QVERIF" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonRowPanel UID="RP_CANT2">
+              <RibbonRow>
+                <RibbonCommandButton UID="BT_QALC" Text="Incluir/excluir" MacroID="MM_QALC" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              </RibbonRow>
+              <RibbonRow>
+                <RibbonCommandButton UID="BT_QCSV" Text="CSV redes" MacroID="MM_QCSV" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              </RibbonRow>
+            </RibbonRowPanel>
+          </RibbonRow>
+        </RibbonPanelSource>
+        <RibbonPanelSource UID="PS_EXCEL" Text="Excel" Id="cant_pnl_excel">
+          <RibbonRow>
+            <RibbonCommandButton UID="BT_QEXCEL" Text="Exportar" MacroID="MM_QEXCEL" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonCommandButton UID="BT_QACT" Text="Actualizar" MacroID="MM_QACT" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonRowPanel UID="RP_EXCEL2">
+              <RibbonRow>
+                <RibbonCommandButton UID="BT_QVINC" Text="Vincular" MacroID="MM_QVINC" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              </RibbonRow>
+              <RibbonRow>
+                <RibbonCommandButton UID="BT_QDESV" Text="Desvincular" MacroID="MM_QDESV" ButtonStyle="SmallWithText" ShowText="true" ShowImage="false" />
+              </RibbonRow>
+            </RibbonRowPanel>
+          </RibbonRow>
+        </RibbonPanelSource>
+        <RibbonPanelSource UID="PS_CONF" Text="Configuracion" Id="cant_pnl_conf">
+          <RibbonRow>
+            <RibbonCommandButton UID="BT_PERF" Text="Perfiles" MacroID="MM_PERF" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+            <RibbonCommandButton UID="BT_AJUS" Text="Ajustes" MacroID="MM_AJUS" ButtonStyle="LargeWithText" ShowText="true" ShowImage="false" />
+          </RibbonRow>
+        </RibbonPanelSource>
+      </RibbonPanelSourceCollection>
+      <RibbonTabSourceCollection>
+        <RibbonTabSource UID="TAB_CANT" Text="CANTIDADES" Id="cant_tab" KeyTip="CT">
+          <RibbonPanelSourceReference UID="TR_CREAR" PanelId="cant_pnl_crear" />
+          <RibbonPanelSourceReference UID="TR_REDES" PanelId="cant_pnl_redes" />
+          <RibbonPanelSourceReference UID="TR_EDITAR" PanelId="cant_pnl_editar" />
+          <RibbonPanelSourceReference UID="TR_CANT" PanelId="cant_pnl_cant" />
+          <RibbonPanelSourceReference UID="TR_EXCEL" PanelId="cant_pnl_excel" />
+          <RibbonPanelSourceReference UID="TR_CONF" PanelId="cant_pnl_conf" />
+        </RibbonTabSource>
+      </RibbonTabSourceCollection>
+    </RibbonRoot>
+    <WorkspaceRoot>
+      <WorkspaceConfig UID="WS_CANT" Name="CANTIDADES" MenuGroupOverride="true">
+        <WSRibbonRoot>
+          <WSRibbonTabSourceReference UID="WSTAB_CANT" RibbonTabSourceUID="TAB_CANT" Display="1" MergeOrInsert="Merge" />
+        </WSRibbonRoot>
+      </WorkspaceConfig>
+    </WorkspaceRoot>
+  </MenuGroup>
+</CustSection>

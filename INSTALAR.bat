@@ -25,13 +25,15 @@ copy /y "%~dp0bundle\PackageContents.xml" "%DEST%\PackageContents.xml" >nul
 if errorlevel 1 goto :fallo
 copy /y "%~dp0urbanismo_cantidades.lsp" "%DEST%\Contents\urbanismo_cantidades.lsp" >nul
 if errorlevel 1 goto :fallo
+copy /y "%~dp0bundle\cantidades.cui" "%DEST%\Contents\cantidades.cui" >nul
+if errorlevel 1 goto :fallo
 
 echo.
 echo   Plugin instalado / actualizado en:
 echo     %DEST%
 echo.
-echo   Reinicie AutoCAD / Civil 3D y ya quedan los comandos
-echo   URBANISMO y EDITAR cargados automaticamente.
+echo   Reinicie AutoCAD / Civil 3D: quedan los comandos cargados
+echo   y la pestana CANTIDADES en la cinta superior.
 echo.
 pause
 exit /b 0

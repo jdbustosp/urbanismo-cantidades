@@ -17285,40 +17285,108 @@
 
 (defun urb:remove-legacy-commands (/ command-symbol)
   ;; Al recargar el LSP, AutoCAD conserva en memoria las funciones C: que
-  ;; desaparecieron del archivo. Se retiran expresamente para que la interfaz
-  ;; publica quede limitada a URBANISMO y EDITAR sin exigir reiniciar AutoCAD.
+  ;; desaparecieron del archivo. Se retiran expresamente. OJO (2026-08-11):
+  ;; varios nombres viejos (c:VIA, c:ANDEN, c:PREFABRICADO, c:SUMIDERO,
+  ;; c:LUMINARIA) SALIERON de esta lista porque volvieron a ser comandos
+  ;; publicos oficiales -- son los puntos de enlace del RIBBON (ver bloque
+  ;; "COMANDOS PUBLICOS DEL RIBBON" abajo).
   (foreach command-symbol
-    '(c:ANDEN
-      c:PREFABRICADO
-      c:CANTIDADES
+    '(c:CANTIDADES
       c:ACT_ETIQUETAS_CANTIDAD
       c:QREDES_CSV
       c:ACTUALIZAR
       c:MP_REPARAR_VISIBILIDAD
       c:MAIPORE_BLOQUES_REDES_ELECT
       c:PERFILES_BASE
-      c:VIA
       c:URBVERSION
-      c:QEXCEL
       c:QVINCULAREXCEL
       c:QACTUALIZAREXCEL
       c:QDESVINCULAREXCEL
       c:TRAMO
       c:POZO_SANITARIO
       c:POZO_PLUVIAL
-      c:SUMIDERO
       c:CAMARA_ELECTRICA
-      c:ACCESORIO_ACUEDUCTO
-      c:LUMINARIA)
+      c:ACCESORIO_ACUEDUCTO)
     (vl-acad-undefun command-symbol))
+  (princ))
+
+;;; ============================================================
+;;; COMANDOS PUBLICOS DEL RIBBON (2026-08-11)
+;;; Cada boton de la pestana CANTIDADES dispara uno de estos. Son
+;;; envoltorios de 1 linea: TODA la logica sigue en las funciones
+;;; internas de siempre -- el ribbon depende del lsp, nunca al reves.
+;;; Tambien sirven escritos a mano (VIA, ANDEN, QCUADRO...).
+;;; ============================================================
+;; Crear
+(defun c:VIA () (urb:create-road) (princ))
+(defun c:ANDEN () (urb:create-sidewalk-command) (princ))
+(defun c:RAMPA () (urb:create-ramp-command) (princ))
+(defun c:ZONAVERDE () (urb:create-green-zone-command) (princ))
+(defun c:PREFABRICADO () (urb:create-precast-command) (princ))
+;; Redes
+(defun c:TSANITARIO () (urb:create-network-segment-direct "segment_sanitary") (princ))
+(defun c:TPLUVIAL () (urb:create-network-segment-direct "segment_storm") (princ))
+(defun c:TACUEDUCTO () (urb:create-network-segment-direct "segment_water") (princ))
+(defun c:POZOSAN () (if (urb:confirm-meter-units) (urb:create-sanitary-manhole)) (princ))
+(defun c:POZOPLU () (if (urb:confirm-meter-units) (urb:create-storm-manhole)) (princ))
+(defun c:SUMIDERO () (if (urb:confirm-meter-units) (urb:create-inlet)) (princ))
+(defun c:CAMARA () (if (urb:confirm-meter-units) (urb:create-electrical-chamber)) (princ))
+(defun c:ACCESORIO () (if (urb:confirm-meter-units) (urb:create-water-accessory)) (princ))
+(defun c:LUMINARIA () (if (urb:confirm-meter-units) (urb:create-luminaire)) (princ))
+;; Editar
+(defun c:ETAPAS () (urb:batch-stage-command) (princ))
+;; Cantidades
+(defun c:QCUADRO () (urb:insert-quantities-table-command) (princ))
+(defun c:QMEMORIA () (urb:road-quantity-command) (princ))
+(defun c:QVERIFICACION () (urb:road-audit-table-command) (princ))
+(defun c:QALCANCE () (urb:quantity-scope-command) (princ))
+(defun c:QCSV () (urb:export-networks-csv-command) (princ))
+;; Excel
+(defun c:QEXCEL () (urb:excel-export-command) (princ))
+(defun c:QVINCULAR () (urb:excel-link-command) (princ))
+(defun c:QACTUALIZAR () (urb:excel-update-linked-command) (princ))
+(defun c:QDESVINCULAR () (urb:excel-unlink-command) (princ))
+;; Configuracion
+(defun c:PERFILES () (urb:manage-road-profiles) (princ))
+(defun c:AJUSTES () (urb:configuration-menu) (princ))
+
+;; Carga automatica de la pestana CANTIDADES del ribbon (cui parcial).
+;; Busca primero la copia instalada por el bundle (existe en cualquier
+;; maquina donde corrio INSTALAR.bat) y como respaldo el cui del repo via
+;; findfile. Se carga por COM (MenuGroups.Load), que no necesita contexto
+;; de comando -- funciona durante la carga automatica del autoloader.
+(defun urb:ensure-ribbon (/ candidates path found result)
+  (if (not (menugroup "CANTIDADES"))
+    (progn
+      (setq candidates
+        (list
+          (strcat (urb:safe-string (getenv "APPDATA") "")
+            "\\Autodesk\\ApplicationPlugins\\UrbanismoCantidades.bundle\\Contents\\cantidades.cui")
+          (findfile "cantidades.cui")))
+      (foreach path candidates
+        (if (and path
+                 (not (menugroup "CANTIDADES"))
+                 (setq found (findfile path)))
+          (progn
+            (setq result
+              (vl-catch-all-apply
+                '(lambda ()
+                   (vla-Load
+                     (vla-get-MenuGroups (vlax-get-acad-object))
+                     found))))
+            (if (vl-catch-all-error-p result)
+              (prompt
+                (strcat "\nAviso: no se pudo cargar el ribbon CANTIDADES: "
+                        (vl-catch-all-error-message result)))))))))
   (princ))
 
 (urb:remove-legacy-commands)
 (mp:install-network-erase-reactor)
 (vl-catch-all-apply 'urb:migrate-current-drawing nil)
+(vl-catch-all-apply 'urb:ensure-ribbon nil)
 
 (princ
   (strcat
     "\nUrbanismo " *urb-version* " listo."
-    " Comandos disponibles: URBANISMO y EDITAR."))
+    " Comandos: URBANISMO, EDITAR y la pestana CANTIDADES del ribbon."))
 (princ)
