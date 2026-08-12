@@ -47,7 +47,7 @@ $header = @"
 </CustSection>
 "@
 
-$contentTypes = '<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="cui" ContentType="text/xml" /><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" /><Default Extension="xml" ContentType="text/xml" /></Types>'
+$contentTypes = '<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="cui" ContentType="text/xml" /><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" /><Default Extension="xml" ContentType="text/xml" /><Default Extension="png" ContentType="image/png" /></Types>'
 $rels = '<?xml version="1.0" encoding="utf-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Type="CUI" Target="/Header.cui" Id="Rcant0000000001" /><Relationship Type="CUI" Target="/MenuGroup.cui" Id="Rcant0000000002" /><Relationship Type="CUI" Target="/RibbonRoot.cui" Id="Rcant0000000003" /></Relationships>'
 $pkgInfo = @"
 <?xml version="1.0" encoding="utf-8"?>
@@ -77,6 +77,18 @@ foreach ($part in $parts) {
   $bytes = $enc.GetBytes($part[1])
   $es.Write($bytes, 0, $bytes.Length)
   $es.Close()
+}
+# iconos PNG embebidos (referenciados por SmallImage/LargeImage en las macros)
+$iconDir = Join-Path $bundleDir "iconos"
+if (Test-Path $iconDir) {
+  Get-ChildItem $iconDir -Filter "*.png" | ForEach-Object {
+    $entry = $zip.CreateEntry($_.Name)
+    $es = $entry.Open()
+    $fs = [System.IO.File]::OpenRead($_.FullName)
+    $fs.CopyTo($es)
+    $fs.Close()
+    $es.Close()
+  }
 }
 $zip.Dispose()
 Write-Output "cantidades.cuix reempaquetado:"

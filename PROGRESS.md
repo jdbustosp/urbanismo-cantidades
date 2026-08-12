@@ -29,6 +29,14 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-11 (parte 13) — PESTAÑA FUNCIONANDO (confirmada por el usuario) + íconos de los 27 botones
+
+- **CONFIRMADO EN VIVO**: la pestaña CANTIDADES apareció con sus 6 grupos y 27 botones tras `CARGARCINTA` ("Customization file loaded successfully. Customization Group: CANTIDADES"). El camino ganador: cuix empaquetado a mano + CUILOAD por comando.
+- **Íconos**: `bundle/generar_iconos.ps1` dibuja los 27 íconos (PNG 32x32 + 16x16, transparentes, paleta legible en tema oscuro) con GDI+ — reproducible, sin binarios a mano. Los 54 PNG viven en `bundle/iconos/` y se EMBEBEN dentro del cuix (`armar_cuix.ps1` los agrega al zip + declara png en Content_Types). Cada macro del `.cui` los referencia con `<SmallImage Name="cant_x_16.png" />` / `<LargeImage Name="cant_x_32.png" />` (formato confirmado contra acetmain.cuix).
+- Trampa de PowerShell 5.1 anotada: `New-Object Tipo(args)` con expresiones dentro se parsea mal — usar `[Tipo]::new(...)`.
+- Flujo completo de edición de interfaz desde ahora: editar `cantidades.cui` (o `generar_iconos.ps1`) → `armar_cuix.ps1` → `INSTALAR.bat` → `CARGARCINTA` en la sesión abierta (o reiniciar).
+- Pendiente: confirmación visual de los íconos por el usuario (CARGARCINTA en su sesión).
+
 ### 2026-08-11 (parte 12) — Ribbon round 3: la pestaña la fusiona el AUTOLOADER y TRUSTEDPATHS se auto-repara
 
 El usuario reportó que seguían el diálogo de seguridad y la pestaña ausente. Dos causas de fondo encontradas:

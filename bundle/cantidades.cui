@@ -10,33 +10,33 @@
   </Header>
   <MenuGroup Name="CANTIDADES" DisplayName="CANTIDADES">
     <MacroGroup Name="CantidadesMacros">
-      <MenuMacro UID="MM_VIA"><Macro type="Any"><Name xlate="true">Via</Name><Command>^C^C_VIA </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_ANDEN"><Macro type="Any"><Name xlate="true">Anden</Name><Command>^C^C_ANDEN </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_RAMPA"><Macro type="Any"><Name xlate="true">Rampa</Name><Command>^C^C_RAMPA </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_ZVERDE"><Macro type="Any"><Name xlate="true">Zona verde</Name><Command>^C^C_ZONAVERDE </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_PREFAB"><Macro type="Any"><Name xlate="true">Prefabricado</Name><Command>^C^C_PREFABRICADO </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_TSAN"><Macro type="Any"><Name xlate="true">Tramo sanitario</Name><Command>^C^C_TSANITARIO </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_TPLU"><Macro type="Any"><Name xlate="true">Tramo pluvial</Name><Command>^C^C_TPLUVIAL </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_TACU"><Macro type="Any"><Name xlate="true">Tramo acueducto</Name><Command>^C^C_TACUEDUCTO </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_PSAN"><Macro type="Any"><Name xlate="true">Pozo sanitario</Name><Command>^C^C_POZOSAN </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_PPLU"><Macro type="Any"><Name xlate="true">Pozo pluvial</Name><Command>^C^C_POZOPLU </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_SUMID"><Macro type="Any"><Name xlate="true">Sumidero</Name><Command>^C^C_SUMIDERO </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_CAMARA"><Macro type="Any"><Name xlate="true">Camara electrica</Name><Command>^C^C_CAMARA </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_ACCES"><Macro type="Any"><Name xlate="true">Accesorio acueducto</Name><Command>^C^C_ACCESORIO </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_LUMIN"><Macro type="Any"><Name xlate="true">Luminaria</Name><Command>^C^C_LUMINARIA </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_EDITAR"><Macro type="Any"><Name xlate="true">Editar</Name><Command>^C^C_EDITAR </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_ETAPAS"><Macro type="Any"><Name xlate="true">Etapas en lote</Name><Command>^C^C_ETAPAS </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_QCUADRO"><Macro type="Any"><Name xlate="true">Cuadro de cantidades</Name><Command>^C^C_QCUADRO </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_QMEM"><Macro type="Any"><Name xlate="true">Memoria de via</Name><Command>^C^C_QMEMORIA </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_QVERIF"><Macro type="Any"><Name xlate="true">Tabla de verificacion</Name><Command>^C^C_QVERIFICACION </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_QALC"><Macro type="Any"><Name xlate="true">Incluir o excluir</Name><Command>^C^C_QALCANCE </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_QCSV"><Macro type="Any"><Name xlate="true">CSV de redes</Name><Command>^C^C_QCSV </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_QEXCEL"><Macro type="Any"><Name xlate="true">Exportar Excel</Name><Command>^C^C_QEXCEL </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_QVINC"><Macro type="Any"><Name xlate="true">Vincular Excel</Name><Command>^C^C_QVINCULAR </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_QACT"><Macro type="Any"><Name xlate="true">Actualizar Excel</Name><Command>^C^C_QACTUALIZAR </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_QDESV"><Macro type="Any"><Name xlate="true">Desvincular Excel</Name><Command>^C^C_QDESVINCULAR </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_PERF"><Macro type="Any"><Name xlate="true">Perfiles de via</Name><Command>^C^C_PERFILES </Command></Macro></MenuMacro>
-      <MenuMacro UID="MM_AJUS"><Macro type="Any"><Name xlate="true">Ajustes</Name><Command>^C^C_AJUSTES </Command></Macro></MenuMacro>
+      <MenuMacro UID="MM_VIA"><Macro type="Any"><Name xlate="true">Via</Name><Command>^C^C_VIA </Command><SmallImage Name="cant_via_16.png" /><LargeImage Name="cant_via_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_ANDEN"><Macro type="Any"><Name xlate="true">Anden</Name><Command>^C^C_ANDEN </Command><SmallImage Name="cant_anden_16.png" /><LargeImage Name="cant_anden_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_RAMPA"><Macro type="Any"><Name xlate="true">Rampa</Name><Command>^C^C_RAMPA </Command><SmallImage Name="cant_rampa_16.png" /><LargeImage Name="cant_rampa_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_ZVERDE"><Macro type="Any"><Name xlate="true">Zona verde</Name><Command>^C^C_ZONAVERDE </Command><SmallImage Name="cant_zonaverde_16.png" /><LargeImage Name="cant_zonaverde_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_PREFAB"><Macro type="Any"><Name xlate="true">Prefabricado</Name><Command>^C^C_PREFABRICADO </Command><SmallImage Name="cant_prefabricado_16.png" /><LargeImage Name="cant_prefabricado_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_TSAN"><Macro type="Any"><Name xlate="true">Tramo sanitario</Name><Command>^C^C_TSANITARIO </Command><SmallImage Name="cant_tsanitario_16.png" /><LargeImage Name="cant_tsanitario_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_TPLU"><Macro type="Any"><Name xlate="true">Tramo pluvial</Name><Command>^C^C_TPLUVIAL </Command><SmallImage Name="cant_tpluvial_16.png" /><LargeImage Name="cant_tpluvial_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_TACU"><Macro type="Any"><Name xlate="true">Tramo acueducto</Name><Command>^C^C_TACUEDUCTO </Command><SmallImage Name="cant_tacueducto_16.png" /><LargeImage Name="cant_tacueducto_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_PSAN"><Macro type="Any"><Name xlate="true">Pozo sanitario</Name><Command>^C^C_POZOSAN </Command><SmallImage Name="cant_pozosan_16.png" /><LargeImage Name="cant_pozosan_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_PPLU"><Macro type="Any"><Name xlate="true">Pozo pluvial</Name><Command>^C^C_POZOPLU </Command><SmallImage Name="cant_pozoplu_16.png" /><LargeImage Name="cant_pozoplu_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_SUMID"><Macro type="Any"><Name xlate="true">Sumidero</Name><Command>^C^C_SUMIDERO </Command><SmallImage Name="cant_sumidero_16.png" /><LargeImage Name="cant_sumidero_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_CAMARA"><Macro type="Any"><Name xlate="true">Camara electrica</Name><Command>^C^C_CAMARA </Command><SmallImage Name="cant_camara_16.png" /><LargeImage Name="cant_camara_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_ACCES"><Macro type="Any"><Name xlate="true">Accesorio acueducto</Name><Command>^C^C_ACCESORIO </Command><SmallImage Name="cant_accesorio_16.png" /><LargeImage Name="cant_accesorio_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_LUMIN"><Macro type="Any"><Name xlate="true">Luminaria</Name><Command>^C^C_LUMINARIA </Command><SmallImage Name="cant_luminaria_16.png" /><LargeImage Name="cant_luminaria_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_EDITAR"><Macro type="Any"><Name xlate="true">Editar</Name><Command>^C^C_EDITAR </Command><SmallImage Name="cant_editar_16.png" /><LargeImage Name="cant_editar_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_ETAPAS"><Macro type="Any"><Name xlate="true">Etapas en lote</Name><Command>^C^C_ETAPAS </Command><SmallImage Name="cant_etapas_16.png" /><LargeImage Name="cant_etapas_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_QCUADRO"><Macro type="Any"><Name xlate="true">Cuadro de cantidades</Name><Command>^C^C_QCUADRO </Command><SmallImage Name="cant_qcuadro_16.png" /><LargeImage Name="cant_qcuadro_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_QMEM"><Macro type="Any"><Name xlate="true">Memoria de via</Name><Command>^C^C_QMEMORIA </Command><SmallImage Name="cant_qmemoria_16.png" /><LargeImage Name="cant_qmemoria_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_QVERIF"><Macro type="Any"><Name xlate="true">Tabla de verificacion</Name><Command>^C^C_QVERIFICACION </Command><SmallImage Name="cant_qverificacion_16.png" /><LargeImage Name="cant_qverificacion_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_QALC"><Macro type="Any"><Name xlate="true">Incluir o excluir</Name><Command>^C^C_QALCANCE </Command><SmallImage Name="cant_qalcance_16.png" /><LargeImage Name="cant_qalcance_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_QCSV"><Macro type="Any"><Name xlate="true">CSV de redes</Name><Command>^C^C_QCSV </Command><SmallImage Name="cant_qcsv_16.png" /><LargeImage Name="cant_qcsv_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_QEXCEL"><Macro type="Any"><Name xlate="true">Exportar Excel</Name><Command>^C^C_QEXCEL </Command><SmallImage Name="cant_qexcel_16.png" /><LargeImage Name="cant_qexcel_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_QVINC"><Macro type="Any"><Name xlate="true">Vincular Excel</Name><Command>^C^C_QVINCULAR </Command><SmallImage Name="cant_qvincular_16.png" /><LargeImage Name="cant_qvincular_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_QACT"><Macro type="Any"><Name xlate="true">Actualizar Excel</Name><Command>^C^C_QACTUALIZAR </Command><SmallImage Name="cant_qactualizar_16.png" /><LargeImage Name="cant_qactualizar_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_QDESV"><Macro type="Any"><Name xlate="true">Desvincular Excel</Name><Command>^C^C_QDESVINCULAR </Command><SmallImage Name="cant_qdesvincular_16.png" /><LargeImage Name="cant_qdesvincular_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_PERF"><Macro type="Any"><Name xlate="true">Perfiles de via</Name><Command>^C^C_PERFILES </Command><SmallImage Name="cant_perfiles_16.png" /><LargeImage Name="cant_perfiles_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_AJUS"><Macro type="Any"><Name xlate="true">Ajustes</Name><Command>^C^C_AJUSTES </Command><SmallImage Name="cant_ajustes_16.png" /><LargeImage Name="cant_ajustes_32.png" /></Macro></MenuMacro>
     </MacroGroup>
     <RibbonRoot>
       <RibbonPanelSourceCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
