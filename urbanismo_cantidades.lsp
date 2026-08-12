@@ -17400,11 +17400,38 @@
       (if (= current "") target (strcat current ";" target))))
   (princ))
 
+;; Rescate manual de la pestana (2026-08-11 v3): CUILOAD por comando SI
+;; fusiona la pestana del parcial a la cinta (a diferencia de
+;; MenuGroups.Load por COM, que solo registra el menugroup). Se usa solo
+;; si la pestana no aparecio tras reiniciar: escribir CARGARCINTA.
+(defun c:CARGARCINTA (/ path old-filedia)
+  (setq path
+    (strcat (urb:safe-string (getenv "APPDATA") "")
+      "\\Autodesk\\ApplicationPlugins\\UrbanismoCantidades.bundle\\Contents\\cantidades.cuix"))
+  (if (not (findfile path))
+    (prompt "\nNo se encontro cantidades.cuix en el bundle instalado; corra INSTALAR.bat.")
+    (progn
+      (setq old-filedia (getvar "FILEDIA"))
+      (setvar "FILEDIA" 0)
+      (if (menugroup "CANTIDADES")
+        (command "_.CUIUNLOAD" "CANTIDADES"))
+      (command "_.CUILOAD" path)
+      (setvar "FILEDIA" old-filedia)
+      (prompt
+        (strcat "\nPestana CANTIDADES cargada."
+          " Si no se ve: clic derecho sobre la cinta > Show Tabs > CANTIDADES."))))
+  (princ))
+
 (urb:remove-legacy-commands)
 (mp:install-network-erase-reactor)
 (vl-catch-all-apply 'urb:ensure-trusted-path nil)
 (vl-catch-all-apply 'urb:migrate-current-drawing nil)
-(vl-catch-all-apply 'urb:ensure-ribbon nil)
+;; OJO (2026-08-11 v3): urb:ensure-ribbon YA NO se llama automaticamente.
+;; Si el lsp carga el cuix por COM ANTES que el Autoloader, el Autoloader
+;; encuentra el menugroup ya cargado, no lo procesa, y la pestana queda
+;; SIN fusionar a la cinta (auto-sabotaje detectado en la prueba en vivo).
+;; En sesiones frescas el Autoloader (PackageContents) carga el cuix y
+;; fusiona la pestana solo; si algo falla, el usuario tiene CARGARCINTA.
 
 (princ
   (strcat
