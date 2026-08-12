@@ -29,6 +29,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-12 (parte 21) — v4.20.0: andén curvo con dirección marcada por el usuario, vía-bloque reconocida en el picker y memoria blindada
+
+La rampa de la parte 20 quedó bien (confirmado por el usuario). Tres arreglos sobre lo que siguió fallando:
+
+1. **Andén curvo seguía diagonal** — la parte 20 evitó la partición en dos ejes, pero el eje único lo seguían eligiendo las cuerdas del arco (familia diagonal dominante). Solución definitiva con control del usuario: si el contorno tiene **arcos**, al crear el andén se piden **2 puntos PARALELOS a las bandas del andén/rampa vecino** (con osnap sobre una junta del módulo adyacente el paralelismo es exacto — lo que pidió: "paralelo a la modulación del vecino"). Enter = automático (bandas paralelas al lado recto más largo del contorno, típicamente la tapa compartida). El eje interno (perpendicular a las bandas) queda guardado en el contorno como xdata `URB_ANDEN_AXIS` y **sobrevive a EDITAR**; `urb:create-composite-loseta` lo respeta por encima de clusters y particiones. Andenes curvos viejos sin xdata: mismo automático (lado recto + 90°) vía `urb:anden-straight-edges-angle` (los arcos no votan).
+2. **El picker de cotas no reconocía la vía creada** — al clickear una vía EMPACADA, `nentsel` devuelve la geometría anidada del bloque (sin xdata); la xdata `URB_VIA` vive en el INSERT contenedor, que `nentsel` entrega en su 4º elemento. Nuevo `urb:cota-from-pick` prueba la entidad clickeada Y todos sus contenedores — usado por el picker N-cotas y por el auto-detect de "Textos por capa".
+3. **Aviso "memoria: areas-17 | data: nil" (el consp nil de siempre, ahora con rastro)** — tras empaquetar la vía en bloque, la relectura de `URB_VIA` sobre el bloque devolvió nil y la memoria se armaba con data vacía. Ahora la xdata se lee ANTES de empaquetar y se usa de respaldo si la relectura falla. (La vía en sí siempre quedó bien; solo fallaba el resumen.)
+- Respuesta operativa documentada: tras cada actualización del `.lsp` hay que **cerrar y reabrir** AutoCAD (o `APPLOAD` del archivo en Contents); la cinta (.dll) solo exige cerrar todo cuando se recompila, cosa que no pasó en las partes 19-21.
+
 ### 2026-08-12 (parte 20) — v4.19.0: rampa con fondo por clic al bordillo, auto-detect también en "Textos por capa" y curva de andén SIN diagonal
 
 Tres correcciones tras la prueba en vivo del usuario (pantallazos de rampa, log de vía y andén curvo):

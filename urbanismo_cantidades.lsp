@@ -37,7 +37,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.19.0")
+(setq *urb-version* "4.20.0")
 (setq *urb-schema-version* "22")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
@@ -1633,6 +1633,51 @@
   found
 )
 
+;; Angulo dominante usando SOLO los lados RECTOS reales del contorno
+;; (los segmentos con bulge -- arcos -- no votan). En un anden curvo las
+;; cuerdas del arco elegian un eje diagonal; el eje correcto es el del
+;; tramo recto (tapas / lado compartido con el modulo vecino). Devuelve
+;; nil si el contorno no tiene ningun lado recto apreciable.
+(defun urb:anden-straight-edges-angle
+  (ename / data item pts bulges n i p1 p2 b a len bins entry best)
+  (setq data (entget ename) pts nil bulges nil)
+  (foreach item data
+    (cond
+      ((= (car item) 10)
+        (setq pts (cons (cdr item) pts) bulges (cons 0.0 bulges)))
+      ((= (car item) 42)
+        (if bulges (setq bulges (cons (cdr item) (cdr bulges)))))))
+  (setq pts (reverse pts) bulges (reverse bulges))
+  (setq n (length pts) i 0 bins nil)
+  (while (< i n)
+    (setq p1 (nth i pts)
+          p2 (nth (rem (1+ i) n) pts)
+          b (nth i bulges))
+    (if (<= (abs b) 1e-6)
+      (progn
+        (setq len (distance p1 p2))
+        (if (> len 1e-6)
+          (progn
+            (setq a (angle p1 p2))
+            (if (>= a pi) (setq a (- a pi)))
+            (setq entry
+              (vl-some
+                '(lambda (x)
+                   (if (< (urb:axis-angle-distance a (car x))
+                          (* pi (/ 10.0 180.0)))
+                     x nil))
+                bins))
+            (if entry
+              (setq bins
+                (subst (list (car entry) (+ (cadr entry) len)) entry bins))
+              (setq bins (cons (list a len) bins)))))))
+    (setq i (1+ i)))
+  (setq best nil)
+  (foreach entry bins
+    (if (or (null best) (> (cadr entry) (cadr best))) (setq best entry)))
+  (if best (car best) nil)
+)
+
 (defun urb:lwpoly-points-with-arcs-fine (ename)
   ;; muestreo ADAPTATIVO (~1 por metro de arco): solo para la cadena de la
   ;; franja tactil, que necesita seguir el arco real (con 8 cuerdas por
@@ -2884,7 +2929,7 @@
 (defun urb:create-composite-loseta
   (ename format / obj copy base-region points parent-handle clusters
    split-data zones zone success angle-value pattern-mode reverse-pattern
-   driving-chain)
+   driving-chain forced-angle)
   (setq obj (vlax-ename->vla-object ename)
         parent-handle (vla-get-Handle obj)
         points (urb:lwpoly-points-with-arcs ename)
@@ -2893,6 +2938,20 @@
         clusters (urb:dominant-anden-axis-clusters points)
         copy (vla-Copy obj)
         base-region (urb:add-region-from-object copy))
+  ;; 2026-08-12: eje FORZADO de modulacion (URB_ANDEN_AXIS) -- lo marca
+  ;; el usuario al crear un anden con curva (2 puntos paralelos a las
+  ;; bandas del vecino). Si no hay eje guardado pero el contorno tiene
+  ;; arcos, se asume bandas paralelas al lado recto mas largo (la tapa
+  ;; compartida con el modulo vecino): eje = ese lado + 90.
+  (setq forced-angle
+    (urb:parse-real
+      (urb:safe-string
+        (car (urb:get-xdata-strings ename "URB_ANDEN_AXIS")) "")))
+  (if (and (null forced-angle) (urb:lwpoly-has-arcs-p ename))
+    (progn
+      (setq forced-angle (urb:anden-straight-edges-angle ename))
+      (if forced-angle
+        (setq forced-angle (+ forced-angle (* 0.5 pi))))))
   (urb:safe-delete copy)
   (if (vl-catch-all-error-p base-region)
     nil
@@ -2910,12 +2969,10 @@
       (progn
         (progn
           ;; 2026-08-12: la particion en dos ejes SOLO aplica a andenes en
-          ;; L con esquinas rectas. Si el contorno tiene arcos (curva
-          ;; dibujada con bulge), las cuerdas del arco inventaban un
-          ;; segundo eje y la zona curva salia con bandas DIAGONALES
-          ;; (pantallazo del usuario) -- en curvas se usa un solo eje (el
-          ;; del tramo recto dominante) y la curva solo recorta.
-          (if (and (> (length clusters) 1)
+          ;; L con esquinas rectas y sin eje forzado. Con eje forzado o
+          ;; arcos, UN solo eje y la curva solo recorta.
+          (if (and (null forced-angle)
+                   (> (length clusters) 1)
                    (not (urb:lwpoly-has-arcs-p ename)))
             (setq split-data
               (urb:two-axis-split-data
@@ -2942,9 +2999,10 @@
                   ;; Si la particion geometrica falla, se conserva un resultado
                   ;; util usando el eje principal en lugar de dejar el anden vacio.
                   (setq angle-value
-                    (if clusters
-                      (car (car clusters))
-                      (urb:anden-axis-angle points)))
+                    (cond
+                      (forced-angle forced-angle)
+                      (clusters (car (car clusters)))
+                      (T (urb:anden-axis-angle points))))
                   (setq angle-value
                     (urb:anden-pattern-angle
                       angle-value pattern-mode))
@@ -2953,9 +3011,10 @@
                     reverse-pattern 0.0))))
             (progn
               (setq angle-value
-                (if clusters
-                  (car (car clusters))
-                  (urb:anden-axis-angle points)))
+                (cond
+                  (forced-angle forced-angle)
+                  (clusters (car (car clusters)))
+                  (T (urb:anden-axis-angle points))))
               (setq angle-value
                 (urb:anden-pattern-angle
                   angle-value pattern-mode))
@@ -5224,7 +5283,7 @@
   (/ data material format etapa subetapa guia toperol calculate surface
    grade-source ename result block-ref anden-points anden-area
    earthworks-ok orientation-choice start-choice pattern-mode
-   old-fillmode doc undo-open undo-result *error*)
+   old-fillmode doc undo-open undo-result *error* mod-p1 mod-p2 mod-angle)
   (setq doc (urb:doc) old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
     (setq *urb-current-tactile-side-point* nil
@@ -5281,6 +5340,33 @@
       (if (or (urb:yes-p guia) (urb:yes-p toperol))
         (setq *urb-current-tactile-side-point*
           (urb:prompt-tactile-side-point)))
+      ;; 2026-08-12 curva v2 (pantallazo del usuario: seguia diagonal):
+      ;; si el contorno tiene ARCOS, la orientacion de la modulacion se
+      ;; marca con 2 puntos PARALELOS a las bandas del anden/rampa vecino
+      ;; -- osnap sobre una junta del modulo adyacente da el paralelismo
+      ;; exacto que pidio. Enter = automatica (paralela al lado RECTO mas
+      ;; largo del contorno, tipicamente la tapa compartida con el
+      ;; vecino). El eje interno es perpendicular a las bandas y queda
+      ;; guardado en el contorno (URB_ANDEN_AXIS): sobrevive a EDITAR.
+      (if (urb:lwpoly-has-arcs-p ename)
+        (progn
+          (setq mod-p1
+            (getpoint
+              (strcat "\nContorno con curva -- marque 2 puntos PARALELOS a"
+                      " las bandas del anden/rampa vecino (Enter = automatico): ")))
+          (if mod-p1
+            (setq mod-p2
+              (getpoint mod-p1 "\nSegundo punto de la direccion de las bandas: ")))
+          (setq mod-angle
+            (cond
+              ((and mod-p1 mod-p2 (> (distance mod-p1 mod-p2) 1e-6))
+                (+ (angle mod-p1 mod-p2) (* 0.5 pi)))
+              (T
+                (setq mod-angle (urb:anden-straight-edges-angle ename))
+                (if mod-angle (+ mod-angle (* 0.5 pi)) nil))))
+          (if mod-angle
+            (urb:set-xdata-strings ename "URB_ANDEN_AXIS"
+              (list (rtos mod-angle 2 8))))))
       (urb:set-anden-data
         ename material etapa subetapa guia toperol format calculate surface grade-source)
       (urb:set-anden-pattern-mode ename pattern-mode)
@@ -11699,6 +11785,23 @@
 ;; mas, cada cota se proyecta sobre el eje en el punto donde se clickeo
 ;; su etiqueta y la rasante queda por tramos. Enter tras 2 o mas cotas
 ;; termina; Enter antes de 2 cancela.
+;; Prueba la entidad clickeada Y sus bloques contenedores: cuando el clic
+;; cae dentro de un bloque o xref, nentsel devuelve la geometria ANIDADA
+;; como (car sel) y los INSERT contenedores en el 4to elemento. Las vias
+;; empacadas llevan la xdata URB_VIA en el INSERT -- por eso el picker no
+;; reconocia una via ya creada al clickearla (reporte 2026-08-12).
+(defun urb:cota-from-pick (sel / value cands item)
+  (setq cands (list (car sel)))
+  (if (> (length sel) 3)
+    (setq cands (append cands (nth 3 sel))))
+  (foreach item cands
+    (if (and (null value) item)
+      (progn
+        (setq value
+          (vl-catch-all-apply 'urb:cota-from-via (list item (cadr sel))))
+        (if (vl-catch-all-error-p value) (setq value nil)))))
+  value)
+
 (defun urb:pick-road-cotas (/)
   (urb:pick-road-cotas-loop nil))
 
@@ -11742,7 +11845,7 @@
         (if value
           (prompt (strcat "\nCota leida de la etiqueta: " (rtos value 2 3)))
           (progn
-            (setq value (urb:cota-from-via (car sel) (cadr sel)))
+            (setq value (urb:cota-from-pick sel))
             (if value
               (prompt
                 (strcat "\nCota tomada de la RASANTE de la via seleccionada: "
@@ -11821,7 +11924,7 @@
                 (prompt
                   (strcat "\nCota leida de la etiqueta: " (rtos via-cota 2 3)))
                 (progn
-                  (setq via-cota (urb:cota-from-via ename (cadr selected)))
+                  (setq via-cota (urb:cota-from-pick selected))
                   (if via-cota
                     (prompt
                       (strcat
@@ -12685,10 +12788,17 @@
                   ;; atributos invisibles: los datos calculados se ven en el
                   ;; panel Properties con solo seleccionar la via, sin correr
                   ;; ningun comando adicional (mismo patron que anden).
+                  ;; 2026-08-12: la xdata se lee ANTES de empaquetar y se
+                  ;; usa de respaldo -- en vivo el usuario recibio el aviso
+                  ;; "etapa areas-17 | data: nil": tras empaquetar, la
+                  ;; relectura sobre el bloque devolvio nil y la memoria
+                  ;; se armaba con data vacia.
+                  (setq data (urb:get-xdata-strings boundary "URB_VIA"))
                   (setq block-ref (urb:package-road boundary))
                   (setq boundary
                     (or (urb:as-ename block-ref) boundary))
-                  (setq data (urb:get-xdata-strings boundary "URB_VIA"))
+                  (setq data
+                    (or (urb:get-xdata-strings boundary "URB_VIA") data))
                   (vla-Regen (urb:doc) 1)
                   ;; blindado (2026-08-11 v2): un fallo al ARMAR la memoria
                   ;; no debe abortar la creacion (la via ya existe completa
