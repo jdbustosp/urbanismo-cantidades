@@ -26,6 +26,11 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows.Data;
 using Autodesk.Windows;
+#if URB_AEC_PROPERTY
+using AcDb = Autodesk.AutoCAD.DatabaseServices;
+using AecDb = Autodesk.Aec.DatabaseServices;
+using AecPropDb = Autodesk.Aec.PropertyData.DatabaseServices;
+#endif
 
 [assembly: ExtensionApplication(typeof(UrbanismoCantidades.RibbonApp))]
 
@@ -53,11 +58,13 @@ namespace UrbanismoCantidades
                     Log("Core Console: interfaz y desplegable omitidos");
                     return;
                 }
+#if URB_AEC_PROPERTY
+                NativeMemoryPropertyService.Initialize();
+#endif
                 if (ComponentManager.Ribbon == null)
                     ComponentManager.ItemInitialized += OnItemInitialized;
                 else
                     BuildTab();
-                Application.Idle += OnIdleRegisterMemoryProperty;
                 // el partial CUIX viejo (si sigue registrado en el perfil)
                 // duplicaria la pestana: se descarga solo, una vez, cuando
                 // haya documento activo
@@ -68,7 +75,9 @@ namespace UrbanismoCantidades
 
         public void Terminate()
         {
-            Application.Idle -= OnIdleRegisterMemoryProperty;
+#if URB_AEC_PROPERTY
+            NativeMemoryPropertyService.Terminate();
+#endif
             if (_memoryPropertyRegistered)
             {
                 ExtendedPropertyManager.RegisterExtendedProperty -=
@@ -110,6 +119,7 @@ namespace UrbanismoCantidades
                 if (identity.ToUpperInvariant().IndexOf("MEMORIAS") < 0)
                     return;
                 e.PropertyDesc = new MemoryPropertyDescriptor(e.PropertyDesc);
+                Log("Descriptor MEMORIAS convertido a lista: " + identity);
             }
             catch (System.Exception ex)
             {
@@ -534,5 +544,444 @@ namespace UrbanismoCantidades
             }
             catch { }
         }
+
+#if URB_AEC_PROPERTY
+        // Civil 3D incluye el motor Property Data de AutoCAD Architecture.
+        // Una PropertyDefinition de tipo List produce un combo NATIVO en
+        // Propiedades > Datos extendidos. Es el mecanismo Autodesk soportado;
+        // ExtendedPropertyManager no intercepta los atributos de bloques.
+        private static class NativeMemoryPropertyService
+        {
+            private const string ListName = "URB_ESTADOS_MEMORIA";
+            private const string SetName = "URB_MEMORIAS";
+            private static AcDb.Database _database;
+            private static readonly System.Collections.Generic.HashSet<AcDb.ObjectId>
+                PendingBlocks = new System.Collections.Generic.HashSet<AcDb.ObjectId>();
+            private static readonly System.Collections.Generic.HashSet<AcDb.ObjectId>
+                PendingSets = new System.Collections.Generic.HashSet<AcDb.ObjectId>();
+            private static readonly System.Collections.Generic.HashSet<AcDb.ObjectId>
+                TrackedBlocks = new System.Collections.Generic.HashSet<AcDb.ObjectId>();
+            private static readonly System.Collections.Generic.HashSet<AcDb.ObjectId>
+                TrackedSets = new System.Collections.Generic.HashSet<AcDb.ObjectId>();
+            private static readonly System.Collections.Generic.Dictionary<AcDb.ObjectId, string>
+                LastPropertyStates = new System.Collections.Generic.Dictionary<AcDb.ObjectId, string>();
+            private static readonly System.Collections.Generic.Dictionary<AcDb.ObjectId, string>
+                LastAttributeStates = new System.Collections.Generic.Dictionary<AcDb.ObjectId, string>();
+            private static bool _scanPending;
+            private static bool _busy;
+
+            public static void Initialize()
+            {
+                Application.Idle += OnIdle;
+                _scanPending = true;
+                Log("Propiedad nativa MEMORIAS programada");
+            }
+
+            public static void Terminate()
+            {
+                Application.Idle -= OnIdle;
+                DetachDatabase();
+            }
+
+            private static void DetachDatabase()
+            {
+                if (_database != null)
+                {
+                    _database.ObjectAppended -= OnObjectAppended;
+                    _database.ObjectModified -= OnObjectModified;
+                }
+                _database = null;
+                PendingBlocks.Clear();
+                PendingSets.Clear();
+                TrackedBlocks.Clear();
+                TrackedSets.Clear();
+                LastPropertyStates.Clear();
+                LastAttributeStates.Clear();
+            }
+
+            private static void AttachDatabase(AcDb.Database database)
+            {
+                // MdiActiveDocument.Database puede devolver otro wrapper .NET
+                // para la misma base nativa. Comparar ReferenceEquals reiniciaba
+                // el seguimiento en cada Idle y anulaba cambios del desplegable.
+                if (_database != null && database != null &&
+                    _database.UnmanagedObject == database.UnmanagedObject) return;
+                DetachDatabase();
+                _database = database;
+                if (_database != null)
+                {
+                    _database.ObjectAppended += OnObjectAppended;
+                    _database.ObjectModified += OnObjectModified;
+                    _scanPending = true;
+                }
+            }
+
+            private static void OnObjectAppended(object sender, AcDb.ObjectEventArgs e)
+            {
+                if (_busy || e == null || e.DBObject == null) return;
+                AcDb.BlockReference block = e.DBObject as AcDb.BlockReference;
+                if (block != null && !block.ObjectId.IsNull)
+                    PendingBlocks.Add(block.ObjectId);
+            }
+
+            private static void OnObjectModified(object sender, AcDb.ObjectEventArgs e)
+            {
+                if (_busy || e == null || e.DBObject == null) return;
+                AecPropDb.PropertySet set = e.DBObject as AecPropDb.PropertySet;
+                if (set != null && !set.ObjectId.IsNull)
+                {
+                    PendingSets.Add(set.ObjectId);
+                    return;
+                }
+                AcDb.AttributeReference attribute =
+                    e.DBObject as AcDb.AttributeReference;
+                if (attribute != null &&
+                    string.Equals(attribute.Tag, "MEMORIAS",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !attribute.OwnerId.IsNull)
+                    PendingBlocks.Add(attribute.OwnerId);
+            }
+
+            private static void OnIdle(object sender, EventArgs e)
+            {
+                if (_busy) return;
+                Autodesk.AutoCAD.ApplicationServices.Document doc =
+                    Application.DocumentManager.MdiActiveDocument;
+                if (doc == null) return;
+                AttachDatabase(doc.Database);
+                try
+                {
+                    object commandNames = Application.GetSystemVariable("CMDNAMES");
+                    if (commandNames != null && commandNames.ToString().Length > 0)
+                        return;
+                }
+                catch { }
+                try
+                {
+                    _busy = true;
+                    using (Autodesk.AutoCAD.ApplicationServices.DocumentLock
+                        documentLock = doc.LockDocument())
+                    {
+                        if (_scanPending)
+                        {
+                            QueueAllBlocks(doc.Database);
+                            _scanPending = false;
+                        }
+                        QueueTrackedChanges(doc.Database);
+                        QueueSelectedPropertySets(doc);
+                        ProcessPropertySets(doc);
+                        ProcessBlocks(doc.Database);
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Log("ERROR propiedad nativa MEMORIAS: " + ex.Message);
+                }
+                finally { _busy = false; }
+            }
+
+            private static void QueueTrackedChanges(AcDb.Database database)
+            {
+                using (AcDb.Transaction tr =
+                    database.TransactionManager.StartOpenCloseTransaction())
+                {
+                    foreach (AcDb.ObjectId blockId in TrackedBlocks)
+                    {
+                        if (!blockId.IsValid || blockId.IsErased) continue;
+                        AcDb.BlockReference block = tr.GetObject(
+                            blockId, AcDb.OpenMode.ForRead, false)
+                            as AcDb.BlockReference;
+                        AcDb.AttributeReference attribute;
+                        string current;
+                        string previous;
+                        if (block != null &&
+                            TryMemoryAttribute(block, tr, out attribute, out current) &&
+                            LastAttributeStates.TryGetValue(blockId, out previous) &&
+                            !string.Equals(previous, current,
+                                StringComparison.OrdinalIgnoreCase))
+                            PendingBlocks.Add(blockId);
+                    }
+                    foreach (AcDb.ObjectId setId in TrackedSets)
+                    {
+                        if (!setId.IsValid || setId.IsErased) continue;
+                        AecPropDb.PropertySet set = tr.GetObject(
+                            setId, AcDb.OpenMode.ForRead, false)
+                            as AecPropDb.PropertySet;
+                        if (set == null) continue;
+                        string current = Convert.ToString(
+                            set.GetAt(set.PropertyNameToId("MEMORIAS")));
+                        string previous;
+                        if (LastPropertyStates.TryGetValue(setId, out previous) &&
+                            !string.Equals(previous, current,
+                                StringComparison.OrdinalIgnoreCase))
+                            PendingSets.Add(setId);
+                    }
+                    tr.Commit();
+                }
+            }
+
+            private static void QueueAllBlocks(AcDb.Database database)
+            {
+                using (AcDb.Transaction tr =
+                    database.TransactionManager.StartOpenCloseTransaction())
+                {
+                    AcDb.BlockTable table = (AcDb.BlockTable)tr.GetObject(
+                        database.BlockTableId, AcDb.OpenMode.ForRead);
+                    foreach (AcDb.ObjectId recordId in table)
+                    {
+                        AcDb.BlockTableRecord record =
+                            (AcDb.BlockTableRecord)tr.GetObject(
+                                recordId, AcDb.OpenMode.ForRead);
+                        if (!record.IsLayout || record.IsFromExternalReference) continue;
+                        foreach (AcDb.ObjectId id in record)
+                            if (id.ObjectClass != null &&
+                                id.ObjectClass.IsDerivedFrom(
+                                    Autodesk.AutoCAD.Runtime.RXObject.GetClass(
+                                        typeof(AcDb.BlockReference))))
+                                PendingBlocks.Add(id);
+                    }
+                    tr.Commit();
+                }
+            }
+
+            private static void QueueSelectedPropertySets(
+                Autodesk.AutoCAD.ApplicationServices.Document doc)
+            {
+                Autodesk.AutoCAD.EditorInput.PromptSelectionResult selected =
+                    doc.Editor.SelectImplied();
+                if (selected.Status !=
+                        Autodesk.AutoCAD.EditorInput.PromptStatus.OK ||
+                    selected.Value == null) return;
+                using (AcDb.Transaction tr =
+                    doc.Database.TransactionManager.StartOpenCloseTransaction())
+                {
+                    foreach (Autodesk.AutoCAD.EditorInput.SelectedObject item in
+                        selected.Value)
+                    {
+                        if (item == null || item.ObjectId.IsNull) continue;
+                        AcDb.DBObject obj = tr.GetObject(
+                            item.ObjectId, AcDb.OpenMode.ForRead, false);
+                        AcDb.BlockReference selectedBlock = obj as AcDb.BlockReference;
+                        if (selectedBlock != null)
+                        {
+                            AcDb.AttributeReference selectedAttribute;
+                            string selectedState;
+                            if (TryMemoryAttribute(selectedBlock, tr,
+                                    out selectedAttribute, out selectedState))
+                            {
+                                string previousAttribute;
+                                if (LastAttributeStates.TryGetValue(
+                                        selectedBlock.ObjectId,
+                                        out previousAttribute) &&
+                                    !string.Equals(previousAttribute, selectedState,
+                                        StringComparison.OrdinalIgnoreCase))
+                                    PendingBlocks.Add(selectedBlock.ObjectId);
+                            }
+                        }
+                        AcDb.ObjectIdCollection sets =
+                            AecPropDb.PropertyDataServices.GetPropertySets(obj);
+                        foreach (AcDb.ObjectId setId in sets)
+                        {
+                            if (setId.IsNull) continue;
+                            AecPropDb.PropertySet set = tr.GetObject(
+                                setId, AcDb.OpenMode.ForRead, false)
+                                as AecPropDb.PropertySet;
+                            if (set == null || !string.Equals(
+                                set.PropertySetDefinitionName, SetName,
+                                StringComparison.OrdinalIgnoreCase)) continue;
+                            string current = Convert.ToString(
+                                set.GetAt(set.PropertyNameToId("MEMORIAS")));
+                            string previous;
+                            if (LastPropertyStates.TryGetValue(setId, out previous) &&
+                                !string.Equals(previous, current,
+                                    StringComparison.OrdinalIgnoreCase))
+                                PendingSets.Add(setId);
+                        }
+                    }
+                    tr.Commit();
+                }
+            }
+
+            private static bool TryMemoryAttribute(
+                AcDb.BlockReference block, AcDb.Transaction tr,
+                out AcDb.AttributeReference found, out string state)
+            {
+                found = null;
+                state = "OCULTAR";
+                foreach (AcDb.ObjectId id in block.AttributeCollection)
+                {
+                    AcDb.AttributeReference attribute = tr.GetObject(
+                        id, AcDb.OpenMode.ForRead, false) as AcDb.AttributeReference;
+                    if (attribute != null &&
+                        string.Equals(attribute.Tag, "MEMORIAS",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        found = attribute;
+                        string value = (attribute.TextString ?? "").ToUpperInvariant();
+                        state = (value.IndexOf("VISIB") >= 0 ||
+                                 value.IndexOf("MOSTRAR") >= 0)
+                            ? "MOSTRAR" : "OCULTAR";
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            private static AcDb.ObjectId EnsureDefinitions(
+                AcDb.Database database, AcDb.Transaction tr)
+            {
+                AecDb.DictionaryListDefinition listDictionary =
+                    new AecDb.DictionaryListDefinition(database);
+                AcDb.ObjectId listId = listDictionary.Has(ListName, tr)
+                    ? listDictionary.GetAt(ListName) : AcDb.ObjectId.Null;
+                if (listId.IsNull)
+                {
+                    AecDb.ListDefinition list = new AecDb.ListDefinition();
+                    list.SetToStandard(database);
+                    list.SubSetDatabaseDefaults(database);
+                    list.Description = "Estados permitidos para memorias Urbanismo";
+                    list.AllowToVary = false;
+                    listDictionary.AddNewRecord(ListName, list);
+                    tr.AddNewlyCreatedDBObject(list, true);
+                    list.AddListItem("MOSTRAR");
+                    list.AddListItem("OCULTAR");
+                    listId = list.ObjectId;
+                }
+
+                AecPropDb.DictionaryPropertySetDefinitions dictionary =
+                    new AecPropDb.DictionaryPropertySetDefinitions(database);
+                AcDb.ObjectId definitionId = dictionary.Has(SetName, tr)
+                    ? dictionary.GetAt(SetName) : AcDb.ObjectId.Null;
+                if (definitionId.IsNull)
+                {
+                    AecPropDb.PropertySetDefinition definition =
+                        new AecPropDb.PropertySetDefinition();
+                    definition.SetToStandard(database);
+                    definition.SubSetDatabaseDefaults(database);
+                    definition.Description = "Control de memorias Urbanismo";
+                    definition.IsVisible = true;
+                    definition.IsWriteable = true;
+                    System.Collections.Specialized.StringCollection appliesTo =
+                        new System.Collections.Specialized.StringCollection();
+                    appliesTo.Add("AcDbBlockReference");
+                    definition.SetAppliesToFilter(appliesTo, false);
+
+                    AecPropDb.PropertyDefinition property =
+                        new AecPropDb.PropertyDefinition();
+                    property.SetToStandard(database);
+                    property.SubSetDatabaseDefaults(database);
+                    property.Name = "MEMORIAS";
+                    property.Description = "Mostrar u ocultar la tabla de memorias";
+                    property.DataType = Autodesk.Aec.PropertyData.DataType.List;
+                    property.DefaultData = "OCULTAR";
+                    property.ListDefinitionId = listId;
+                    definition.Definitions.Add(property);
+                    dictionary.AddNewRecord(SetName, definition);
+                    tr.AddNewlyCreatedDBObject(definition, true);
+                    definitionId = definition.ObjectId;
+                }
+                return definitionId;
+            }
+
+            private static void ProcessBlocks(AcDb.Database database)
+            {
+                AcDb.ObjectId[] ids = new AcDb.ObjectId[PendingBlocks.Count];
+                PendingBlocks.CopyTo(ids);
+                PendingBlocks.Clear();
+                foreach (AcDb.ObjectId id in ids)
+                {
+                    if (!id.IsValid || id.IsErased) continue;
+                    using (AcDb.Transaction tr =
+                        database.TransactionManager.StartTransaction())
+                    {
+                        AcDb.BlockReference block = tr.GetObject(
+                            id, AcDb.OpenMode.ForRead, false) as AcDb.BlockReference;
+                        if (block == null) continue;
+                        AcDb.AttributeReference attribute;
+                        string state;
+                        if (!TryMemoryAttribute(block, tr, out attribute, out state))
+                            continue;
+                        AcDb.ObjectId definitionId = EnsureDefinitions(database, tr);
+                        AcDb.ObjectId setId = AcDb.ObjectId.Null;
+                        try
+                        {
+                            setId = AecPropDb.PropertyDataServices.GetPropertySet(
+                                block, definitionId);
+                        }
+                        catch (Autodesk.AutoCAD.Runtime.Exception ex)
+                        {
+                            if (ex.ErrorStatus != ErrorStatus.KeyNotFound) throw;
+                        }
+                        if (setId.IsNull)
+                        {
+                            block.UpgradeOpen();
+                            AecPropDb.PropertyDataServices.AddPropertySet(
+                                block, definitionId);
+                            setId = AecPropDb.PropertyDataServices.GetPropertySet(
+                                block, definitionId);
+                        }
+                        AecPropDb.PropertySet set = (AecPropDb.PropertySet)tr.GetObject(
+                            setId, AcDb.OpenMode.ForWrite);
+                        int propertyId = set.PropertyNameToId("MEMORIAS");
+                        object current = set.GetAt(propertyId);
+                        if (!string.Equals(Convert.ToString(current), state,
+                                StringComparison.OrdinalIgnoreCase))
+                            set.SetAt(propertyId, state);
+                        LastPropertyStates[setId] = state;
+                        LastAttributeStates[id] = state;
+                        TrackedBlocks.Add(id);
+                        TrackedSets.Add(setId);
+                        tr.Commit();
+                    }
+                }
+            }
+
+            private static void ProcessPropertySets(
+                Autodesk.AutoCAD.ApplicationServices.Document doc)
+            {
+                AcDb.ObjectId[] ids = new AcDb.ObjectId[PendingSets.Count];
+                PendingSets.CopyTo(ids);
+                PendingSets.Clear();
+                foreach (AcDb.ObjectId id in ids)
+                {
+                    if (!id.IsValid || id.IsErased) continue;
+                    using (AcDb.Transaction tr =
+                        doc.Database.TransactionManager.StartTransaction())
+                    {
+                        AecPropDb.PropertySet set = tr.GetObject(
+                            id, AcDb.OpenMode.ForRead, false) as AecPropDb.PropertySet;
+                        if (set == null || !string.Equals(
+                            set.PropertySetDefinitionName, SetName,
+                            StringComparison.OrdinalIgnoreCase)) continue;
+                        string state = Convert.ToString(
+                            set.GetAt(set.PropertyNameToId("MEMORIAS")));
+                        state = string.Equals(state, "MOSTRAR",
+                            StringComparison.OrdinalIgnoreCase)
+                            ? "MOSTRAR" : "OCULTAR";
+                        LastPropertyStates[id] = state;
+                        TrackedSets.Add(id);
+                        AcDb.BlockReference block = tr.GetObject(
+                            set.ObjectAttachedTo, AcDb.OpenMode.ForRead, false)
+                            as AcDb.BlockReference;
+                        if (block != null)
+                        {
+                            AcDb.AttributeReference attribute;
+                            string oldState;
+                            if (TryMemoryAttribute(block, tr, out attribute, out oldState) &&
+                                !string.Equals(oldState, state,
+                                    StringComparison.OrdinalIgnoreCase))
+                            {
+                                attribute.UpgradeOpen();
+                                attribute.TextString = state;
+                            }
+                            LastAttributeStates[block.ObjectId] = state;
+                            TrackedBlocks.Add(block.ObjectId);
+                        }
+                        tr.Commit();
+                    }
+                }
+            }
+        }
+#endif
     }
 }

@@ -8,7 +8,7 @@ $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $src = Join-Path $dir "UrbCantRibbon.cs"
 $outDir = Join-Path (Split-Path -Parent $dir) "bundle\net"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-$out = Join-Path $outDir "UrbCantRibbon2023.dll"
+$out = Join-Path $outDir "UrbCantRibbon2023_v4233.dll"
 
 $acad = "C:\Program Files\Autodesk\AutoCAD 2023"
 if (-not (Test-Path (Join-Path $acad "acmgd.dll"))) {
@@ -18,11 +18,13 @@ if (-not (Test-Path (Join-Path $acad "acmgd.dll"))) {
 $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 $wpf = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF"
 
-& $csc /nologo /target:library /platform:x64 /optimize+ ("/out:" + $out) `
+& $csc /nologo /target:library /platform:x64 /optimize+ /define:URB_AEC_PROPERTY ("/out:" + $out) `
   ("/r:" + (Join-Path $acad "acmgd.dll")) `
   ("/r:" + (Join-Path $acad "accoremgd.dll")) `
   ("/r:" + (Join-Path $acad "acdbmgd.dll")) `
   ("/r:" + (Join-Path $acad "AdWindows.dll")) `
+  ("/r:" + (Join-Path $acad "ACA\AecBaseMgd.dll")) `
+  ("/r:" + (Join-Path $acad "ACA\AecPropDataMgd.dll")) `
   ("/r:" + (Join-Path $wpf "PresentationCore.dll")) `
   ("/r:" + (Join-Path $wpf "PresentationFramework.dll")) `
   ("/r:" + (Join-Path $wpf "WindowsBase.dll")) `

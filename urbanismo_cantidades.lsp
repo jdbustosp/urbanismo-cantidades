@@ -39,7 +39,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.2")
+(setq *urb-version* "4.23.3")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -10137,8 +10137,7 @@
   (if (> (strlen (vl-string-trim "." buf)) 0) (setq best buf))
   best)
 
-(defun mp:number-from-selected-label (prompt-text / selected ename obj txt layer value)
-  (setq selected (nentsel prompt-text))
+(defun mp:number-from-label-selection (selected / ename obj txt layer value)
   (if selected
     (progn
       (setq ename (car selected)
@@ -10149,7 +10148,7 @@
       (if (vl-catch-all-error-p txt) (setq txt nil))
       (if (null txt) (setq txt (cdr (assoc 1 (entget ename)))))
       (setq value (mp:last-number-token txt))
-      (if layer
+      (if (and value layer)
         (progn
           (setq *mp-node-number-layer* layer)
           (urb:config-write "MP_NODE_NUMBER_LAYER" layer)))
@@ -10160,20 +10159,47 @@
         (prompt "\nEl objeto seleccionado no contiene un numero legible."))))
   value)
 
-(defun mp:prompt-new-endpoint-id (is-final / answer value label)
+(defun mp:number-from-selected-label (prompt-text / selected)
+  (setq selected (nentsel prompt-text))
+  (mp:number-from-label-selection selected))
+
+(defun mp:prompt-new-endpoint-id
+  (is-final / label event code buffer done selected value char)
+  ;; Entrada unica, sin palabras clave: el usuario puede hacer clic sobre un
+  ;; TEXT/MTEXT/ATRIBUTO (incluido XREF), escribir el numero o pulsar Enter.
+  ;; grread permite aceptar esas tres acciones dentro del mismo paso.
   (setq label (if is-final "final" "inicial"))
-  (setq answer
-    (getstring T
-      (strcat "\nNumero del extremo " label
-        " [S=seleccionar texto/capa] <Enter omite>: ")))
-  (cond
-    ((= (vl-string-trim " " (mp:safe-str answer)) "") "")
-    ((member (strcase answer) '("S" "SELECCIONAR"))
-      (setq value
-        (mp:number-from-selected-label
-          (strcat "\nSeleccione el numero del extremo " label ": ")))
-      (mp:safe-str value))
-    (T answer)))
+  (setq buffer "" done nil value nil)
+  (prompt
+    (strcat "\nNumero del extremo " label
+      ": seleccione el texto, escriba el numero o Enter para omitir: "))
+  (while (not done)
+    (setq event (grread T 2 0)
+          code (car event))
+    (cond
+      ;; Clic izquierdo: nentselp reconoce tambien objetos anidados/XREF.
+      ((= code 3)
+        (setq selected (nentselp (cadr event))
+              value (mp:number-from-label-selection selected))
+        (if value (setq buffer value done T)))
+      ;; Teclado: Enter confirma, retroceso edita y los caracteres imprimibles
+      ;; se acumulan igual que en getstring.
+      ((= code 2)
+        (setq char (cadr event))
+        (cond
+          ((= char 13) (setq done T))
+          ((= char 8)
+            (if (> (strlen buffer) 0)
+              (progn
+                (setq buffer (substr buffer 1 (1- (strlen buffer))))
+                (princ "\b \b"))))
+          ((and (>= char 32) (<= char 126))
+            (setq buffer (strcat buffer (chr char)))
+            (princ (chr char)))))
+      ;; Clic derecho se interpreta como Enter/omitir.
+      ((= code 25) (setq done T))))
+  (princ)
+  (vl-string-trim " " buffer))
 
 (defun mp:reuse-existing-endpoint-selection
   (tramo selection vals is-final / tipo base existing)
@@ -10282,7 +10308,7 @@
             "ORIGEN_CREACION" "AUTO_TRAMO"))))))
 
 (defun mp:merge-endpoint-data
-  (tramo vals ename is-final / atts base id tag type value terrain-value)
+  (tramo vals ename is-final / atts base id tag terrain-value)
   (if ename
     (progn
       (setq atts (mp:att-alist ename)
@@ -13453,8 +13479,25 @@
         nil))
     nil))
 
-;; Resalta una cadena (polilinea temporal) en pantalla con grdraw.
+;; Resalta una cadena temporal con entidad magenta gruesa y selection glow.
+;; A diferencia de grdraw solo, el resaltado persiste mientras getkword espera.
+(defun urb:set-chain-highlight (chain enabled / obj)
+  (if (and chain (entget chain))
+    (progn
+      (setq obj (vlax-ename->vla-object chain))
+      (if enabled
+        (progn
+          (vl-catch-all-apply 'vla-put-Color (list obj 6))
+          (vl-catch-all-apply 'vla-put-Lineweight (list obj 70))
+          (vl-catch-all-apply 'vla-put-ConstantWidth (list obj 0.04))
+          (vl-catch-all-apply 'vla-Highlight (list obj :vlax-true)))
+        (vl-catch-all-apply 'vla-Highlight (list obj :vlax-false)))
+      (vl-catch-all-apply 'vla-Update (list obj))
+      (redraw chain (if enabled 3 4))))
+  chain)
+
 (defun urb:highlight-chain (chain / len d step p1 p2)
+  (urb:set-chain-highlight chain T)
   (setq len (vlax-curve-getDistAtParam chain (vlax-curve-getEndParam chain)))
   (setq step (max 0.25 (/ len 80.0)))
   (setq d 0.0)
@@ -13590,6 +13633,7 @@
                             ename side-point "Sardinel" 0.20 etapa subetapa
                             "Exterior")
                         (setq count (1+ count))))))))
+            (urb:set-chain-highlight chain nil)
             (redraw))
           (foreach chain chains (if (entget chain) (entdel chain)))
           (prompt (strcat "\nSardineles creados: " (itoa count) " tramo(s)."))
