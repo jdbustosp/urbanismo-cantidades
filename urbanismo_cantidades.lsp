@@ -1,7 +1,7 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
-;;; 4.22.0: audita cantidades curvas, tierras, cotas XREF y pozos de red.
+;;; 4.22.1: simplifica rasantes/propiedades y configura apariencia de tramos.
 ;;; 4.17.7: evita unidades adicionales por residuos decimales de punto flotante.
 ;;; 4.17.6: separa giro de 90 grados y cambio del extremo inicial.
 ;;; 4.17.5: ancla la modulacion al contorno real y evita losetas iniciales cortadas.
@@ -38,7 +38,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.22.0")
+(setq *urb-version* "4.22.1")
 (setq *urb-schema-version* "22")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
@@ -7796,7 +7796,8 @@
 
 (setq *mp-vis-width* 2.00) ; ancho visual del tramo
 (setq *mp-vis-radius* 1.50) ; radio de circulos de inicio/fin
-(setq *mp-vis-text-height* 1.50) ; altura de etiqueta y pendiente
+(setq *mp-vis-text-height* 1.50) ; altura de datos de elementos puntuales
+(setq *mp-vis-tramo-text-height* 1.50) ; altura de etiqueta y pendiente del tramo
 
 ;; Separador del CSV: ";" abre en columnas en Excel con configuracion
 ;; regional de Colombia/Espana. Cambie a "," si su sistema usa la coma.
@@ -7969,10 +7970,10 @@
         col (mp:vis-color baseb)
         w   *mp-vis-width*
         r   *mp-vis-radius*
-        th  *mp-vis-text-height*)
-  (if (< w 0.50) (setq w 0.50))
+        th  *mp-vis-tramo-text-height*)
+  (if (< w 0.01) (setq w 0.01))
   (if (< r 2.00) (setq r 2.00))
-  (if (< th 0.50) (setq th 0.50))
+  (if (< th 0.10) (setq th 0.10))
   (setq lab (mp:label-tramo baseb vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
 
@@ -10712,7 +10713,7 @@
   ;; Ajusta definiciones existentes al borde de sus circulos.
   (setq span (mp:block-tramo-length blk))
   (setq cut (min (max 2.0 *mp-vis-radius*) (/ span 4.0)))
-  (setq width (max 0.50 *mp-vis-width*))
+  (setq width (max 0.01 *mp-vis-width*))
   ;; Los circulos de extremos de un tramo hidrosanitario no son pozos:
   ;; eran geometria duplicada. El pozo real es su INSERT puntual enlazado.
   (if (mp:hydro-tramo-p base)
@@ -10768,10 +10769,10 @@
                   (list
                     (/ span 2.0)
                     (if (= tag "ETIQUETA")
-                      (* *mp-vis-text-height* 1.35)
-                      (- (* *mp-vis-text-height* 1.35)))
+                      (* *mp-vis-tramo-text-height* 1.35)
+                      (- (* *mp-vis-tramo-text-height* 1.35)))
                     0.0))
-                (mp:center-visible-att item pos *mp-vis-text-height*)))))))
+                (mp:center-visible-att item pos *mp-vis-tramo-text-height*)))))))
     (if (member base '("POZO_SANITARIO" "POZO_PLUVIAL"))
       (vlax-for item blk
         (if (and
@@ -10779,7 +10780,7 @@
               (= (strcase (vla-get-TagString item)) "ETIQUETA"))
           (mp:center-visible-att item '(0.0 0.0 0.0) *mp-vis-text-height*))))))
 
-(defun mp:ensure-block-schema (bname base is-tramo / doc blks blk tags specs lay col y added spec tag invisible span pos height)
+(defun mp:ensure-block-schema (bname base is-tramo / doc blks blk tags specs lay col y added spec tag invisible span pos height display-height)
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
   (setq blks (vla-get-Blocks doc))
   (setq blk (vl-catch-all-apply 'vla-Item (list blks bname)))
@@ -10792,6 +10793,8 @@
       (setq specs (mp:desired-atts base is-tramo))
       (setq lay (if is-tramo (mp:vis-layer base) (mp:point-layer base)))
       (setq col (if is-tramo (mp:vis-color base) (mp:point-color base)))
+      (setq display-height
+        (if is-tramo *mp-vis-tramo-text-height* *mp-vis-text-height*))
       (setq span (if is-tramo (mp:block-tramo-length blk) 0.0))
       (setq y -100.0 added 0)
       (foreach spec specs
@@ -10801,10 +10804,10 @@
             (setq invisible (not (member tag '("ETIQUETA" "PENDIENTE_VIS"))))
             (setq pos
               (cond
-                ((= tag "ETIQUETA") (list (/ span 2.0) (* *mp-vis-text-height* 1.35) 0.0))
-                ((= tag "PENDIENTE_VIS") (list (/ span 2.0) (- (* *mp-vis-text-height* 1.35)) 0.0))
+                ((= tag "ETIQUETA") (list (/ span 2.0) (* display-height 1.35) 0.0))
+                ((= tag "PENDIENTE_VIS") (list (/ span 2.0) (- (* display-height 1.35)) 0.0))
                 (T (list 0.0 y 0.0))))
-            (setq height (if invisible 0.10 (max 0.50 *mp-vis-text-height*)))
+            (setq height (if invisible 0.10 (max 0.10 display-height)))
             (mp:vla-add-att
               blk
               tag
@@ -11052,8 +11055,7 @@
   '("Volumen" "Geotextil" "Geomalla" "Tratamiento"))
 (setq *urb-road-profile-scopes* '("Total" "Base"))
 (setq *urb-road-alignment-modes* '("Existente" "Nuevo"))
-(setq *urb-road-cota-modes*
-  '("Pendiente" "Textos por capa" "Perfil Civil 3D" "Ingresar cotas"))
+(setq *urb-road-cota-modes* '("Pendiente" "Textos por capa"))
 (setq *urb-road-overwidth-modes*
   '("Ninguno" "Izquierdo" "Derecho" "Ambos"))
 ;; Perfiles de diseno segun Figura 4.1 (estructuras de pavimento) y
@@ -11183,6 +11185,119 @@
       (if xrecord (dictadd dict key xrecord))
       (if xrecord value))))
 
+(defun mp:load-tramo-appearance-settings (/ value)
+  ;; Ajustes por DWG: al abrir otro proyecto se respetan sus escalas y el
+  ;; valor predeterminado sigue disponible en dibujos nuevos.
+  (setq value
+    (urb:parse-real
+      (urb:safe-string (urb:config-read "MP_TRAMO_LINE_WIDTH") "")))
+  (if (and value (>= value 0.01) (<= value 20.0))
+    (setq *mp-vis-width* value))
+  (setq value
+    (urb:parse-real
+      (urb:safe-string (urb:config-read "MP_TRAMO_TEXT_HEIGHT") "")))
+  (if (and value (>= value 0.10) (<= value 50.0))
+    (setq *mp-vis-tramo-text-height* value))
+  (list *mp-vis-width* *mp-vis-tramo-text-height*)
+)
+
+(defun mp:apply-tramo-appearance-to-drawing
+  (/ blocks blk bname base definitions ss index ename obj atts att tag refs)
+  ;; Las polilineas viven en la definicion compartida; los textos visibles
+  ;; son referencias de atributo y se actualizan tambien en cada INSERT.
+  (setq blocks (vla-get-Blocks (urb:doc)) definitions 0 refs 0)
+  (vlax-for blk blocks
+    (if (and (= (vla-get-IsLayout blk) :vlax-false)
+             (= (vla-get-IsXRef blk) :vlax-false))
+      (progn
+        (setq bname (vla-get-Name blk)
+              base (mp:infer-base bname nil))
+        (if (mp:base-is-tramo base)
+          (progn
+            (mp:normalize-tramo-graphics blk base)
+            (mp:normalize-visible-attdefs blk T base)
+            (setq definitions (1+ definitions)))))))
+  (setq ss (ssget "_X" '((0 . "INSERT"))) index 0)
+  (if ss
+    (while (< index (sslength ss))
+      (setq ename (ssname ss index)
+            obj (vlax-ename->vla-object ename)
+            base (mp:infer-base (vla-get-EffectiveName obj) (mp:att-alist ename)))
+      (if (and (mp:base-is-tramo base)
+               (= (vla-get-HasAttributes obj) :vlax-true))
+        (progn
+          (setq atts (vlax-invoke obj 'GetAttributes))
+          (foreach att atts
+            (setq tag (strcase (vla-get-TagString att)))
+            (if (member tag '("ETIQUETA" "PENDIENTE_VIS"))
+              (progn
+                (vl-catch-all-apply 'vla-put-Height
+                  (list att (float *mp-vis-tramo-text-height*)))
+                (vla-Update att))))
+          (setq refs (1+ refs))))
+      (setq index (1+ index))))
+  (vla-Regen (urb:doc) 1)
+  (list definitions refs)
+)
+
+(defun mp:write-tramo-appearance-dcl (/ filename)
+  (setq filename (urb:temp-file "urb_tramo_apariencia" ".dcl"))
+  (if
+    (urb:write-lines filename
+      '("urb_tramo_apariencia : dialog { label = \"Apariencia de tramos\";"
+        ": boxed_column { label = \"Geometria y datos visibles\";"
+        ": edit_box { label = \"Espesor de linea del tramo (m)\"; key = \"line_width\"; edit_width = 12; }"
+        ": edit_box { label = \"Altura de datos del tramo (m)\"; key = \"text_height\"; edit_width = 12; }"
+        ": text { label = \"Se aplica a tramos existentes y a los que se creen despues.\"; } }"
+        "ok_cancel; }"))
+    filename)
+)
+
+(defun mp:tramo-appearance-capture (/ line-width text-height updated)
+  (setq line-width (urb:parse-real (get_tile "line_width"))
+        text-height (urb:parse-real (get_tile "text_height")))
+  (cond
+    ((or (null line-width) (< line-width 0.01) (> line-width 20.0))
+      (alert "El espesor debe estar entre 0.01 m y 20.00 m.") nil)
+    ((or (null text-height) (< text-height 0.10) (> text-height 50.0))
+      (alert "La altura de los datos debe estar entre 0.10 m y 50.00 m.") nil)
+    (T
+      (setq *mp-vis-width* line-width
+            *mp-vis-tramo-text-height* text-height)
+      (urb:config-write "MP_TRAMO_LINE_WIDTH" (rtos line-width 2 6))
+      (urb:config-write "MP_TRAMO_TEXT_HEIGHT" (rtos text-height 2 6))
+      (setq *mp-tramo-appearance-result*
+        (mp:apply-tramo-appearance-to-drawing))
+      T))
+)
+
+(defun mp:tramo-appearance-command (/ filename dcl ok result)
+  (mp:load-tramo-appearance-settings)
+  (setq *mp-tramo-appearance-result* nil
+        filename (mp:write-tramo-appearance-dcl)
+        dcl (if filename (load_dialog filename) -1))
+  (if (and (> dcl 0) (new_dialog "urb_tramo_apariencia" dcl))
+    (progn
+      (set_tile "line_width" (rtos *mp-vis-width* 2 3))
+      (set_tile "text_height" (rtos *mp-vis-tramo-text-height* 2 3))
+      (action_tile "accept"
+        "(if (mp:tramo-appearance-capture) (done_dialog 1))")
+      (action_tile "cancel" "(done_dialog 0)")
+      (setq ok (= 1 (start_dialog)))))
+  (if (> dcl 0) (unload_dialog dcl))
+  (if filename (vl-catch-all-apply 'vl-file-delete (list filename)))
+  (if ok
+    (progn
+      (setq result *mp-tramo-appearance-result*)
+      (prompt
+        (strcat
+          "\nApariencia actualizada: espesor " (rtos *mp-vis-width* 2 3)
+          " m | datos " (rtos *mp-vis-tramo-text-height* 2 3)
+          " m | definiciones " (itoa (if result (car result) 0))
+          " | tramos insertados " (itoa (if result (cadr result) 0)) "."))))
+  (princ)
+)
+
 ;; vl-princ-to-string (lo que se usaba aqui antes) NO conserva las
 ;; comillas de los strings dentro de una lista -- un perfil como "MPD"
 ;; se guardaba como texto sin comillas y al leerlo de vuelta con
@@ -11224,25 +11339,40 @@
   ok
 )
 
-;; Convierte los nombres tecnicos usados por versiones anteriores a las
-;; descripciones contractuales del presupuesto. Solo transforma nombres
-;; conocidos; las capas personalizadas del usuario permanecen intactas.
+;; Normaliza las capas conocidas al nombre corto del MATERIAL. Las
+;; descripciones de actividad ("Suministro, extendida...") hacian ilegible
+;; la paleta Properties y no aportaban informacion adicional al metrado.
+;; Las capas personalizadas del usuario permanecen intactas.
 (defun urb:budget-road-layer-name (name)
   (cond
-    ((urb:string-equal-p name "Rodadura MDC-19")
-      "Suministro, extendida y compactacion de Rodadura Asfaltica MD-12")
-    ((urb:string-equal-p name "Intermedia MDC-25")
-      "Suministro, extendida y compactacion de Base Asfaltica MD-20")
-    ((urb:string-equal-p name "Base granular BG")
-      "Suministro e instalacion de base granular BG-A")
-    ((urb:string-equal-p name "Subbase granular SBG")
-      "Suministro e instalacion de subbase granular SBG-A")
-    ((urb:string-equal-p name "Geotextil tejido T2400")
-      "Suministro y colocacion de geotextil Tejido 2400")
-    ((urb:string-equal-p name "Subrasante mejorada SBG")
-      "Suministro e instalacion de sello en subbase granular SBG-C")
-    ((urb:string-equal-p name "Subrasante mejorada rajon")
-      "Suministro y colocacion de piedra rajon y/o media zonga")
+    ((or (urb:string-equal-p name "Rodadura MDC-19")
+         (urb:string-equal-p name
+           "Suministro, extendida y compactacion de Rodadura Asfaltica MD-12"))
+      "Rodadura Asfaltica MD-12")
+    ((or (urb:string-equal-p name "Intermedia MDC-25")
+         (urb:string-equal-p name
+           "Suministro, extendida y compactacion de Base Asfaltica MD-20"))
+      "Base Asfaltica MD-20")
+    ((or (urb:string-equal-p name "Base granular BG")
+         (urb:string-equal-p name
+           "Suministro e instalacion de base granular BG-A"))
+      "Base granular BG-A")
+    ((or (urb:string-equal-p name "Subbase granular SBG")
+         (urb:string-equal-p name
+           "Suministro e instalacion de subbase granular SBG-A"))
+      "Subbase granular SBG-A")
+    ((or (urb:string-equal-p name "Geotextil tejido T2400")
+         (urb:string-equal-p name
+           "Suministro y colocacion de geotextil Tejido 2400"))
+      "Geotextil tejido 2400")
+    ((or (urb:string-equal-p name "Subrasante mejorada SBG")
+         (urb:string-equal-p name
+           "Suministro e instalacion de sello en subbase granular SBG-C"))
+      "Sello subbase granular SBG-C")
+    ((or (urb:string-equal-p name "Subrasante mejorada rajon")
+         (urb:string-equal-p name
+           "Suministro y colocacion de piedra rajon y/o media zonga"))
+      "Piedra rajon y/o media zonga")
     (T name))
 )
 
@@ -11261,13 +11391,13 @@
         (if (> seal-thickness 1e-9)
           (list
             (list
-              "Suministro e instalacion de sello en subbase granular SBG-C"
+              "Sello subbase granular SBG-C"
               "Volumen" (rtos seal-thickness 2 4) "0" scope))
           nil)
         (if (> rajon-thickness 1e-9)
           (list
             (list
-              "Suministro y colocacion de piedra rajon y/o media zonga"
+              "Piedra rajon y/o media zonga"
               "Volumen" (rtos rajon-thickness 2 4) "0" scope))
           nil)))
     (list
@@ -11704,6 +11834,10 @@
   (setq sub (urb:road-default defaults "substage" stage))
   (setq profile (urb:road-default defaults "profile" (car *urb-road-dialog-profiles*)))
   (setq cota (urb:road-default defaults "cota" "Textos por capa"))
+  ;; Vias antiguas pueden guardar modos ya retirados del dialogo. Al
+  ;; editarlas se llevan a la opcion vigente sin dejar un indice nulo.
+  (if (not (member cota *urb-road-cota-modes*))
+    (setq cota "Textos por capa"))
   ;; Estudio AUS-10786-10: sobreancho minimo 1.0 m a cada lado en las
   ;; capas granulares, por eso el predeterminado es Ambos con 1.00 m.
   (setq over (urb:road-default defaults "overwidth" "Ambos"))
@@ -11976,7 +12110,9 @@
   (setq layers (if profile (cadr profile) nil))
   (setq index 1)
   (foreach layer layers
-    (setq layer-name (urb:safe-string (nth 0 layer) "Capa"))
+    (setq layer-name
+      (urb:budget-road-layer-name
+        (urb:safe-string (nth 0 layer) "Capa")))
     (setq layer-type (urb:safe-string (nth 1 layer) "Volumen"))
     (setq layer-scope (urb:safe-string (nth 4 layer) "Total"))
     (setq layer-area
@@ -11991,18 +12127,95 @@
         (setq unit "m2")))
     ;; La paleta Properties muestra el TAG, no el texto del prompt. Por eso
     ;; el tag debe contener el nombre real del material y no PAV_CAPA_1, 2...
-    (setq tag
-      (strcat "PAV_" (urb:attribute-tag-token layer-name)
-        "_" (strcase unit)))
+    (setq tag (urb:attribute-tag-token layer-name))
     (setq prompt-text
       (strcat "Pavimento - " layer-name " (" unit ")"))
     (urb:add-invisible-attribute
       block point tag prompt-text (rtos quantity 2 2))
     (setq index (1+ index)))
-  (urb:add-invisible-attribute block point
-    "PAV_ESPESOR_M" "Pavimento - espesor estructural (m)"
-    (rtos (urb:road-profile-depth (nth 4 data)) 2 3))
   index
+)
+
+(defun urb:road-property-hidden-tag-p (tag)
+  (member (strcase (urb:safe-string tag ""))
+    '("VIA_PERFIL" "VIA_SUPERFICIE" "VIA_ESTADO"
+      "VIA_ABSC_INICIAL" "VIA_MEMORIA" "PAV_ESPESOR_M"))
+)
+
+(defun urb:road-material-property-tags (data / profile layer result)
+  (setq profile (urb:road-profile-by-name (nth 4 data)))
+  (foreach layer (if profile (cadr profile) nil)
+    (setq result
+      (append result
+        (list
+          (urb:attribute-tag-token
+            (urb:budget-road-layer-name (nth 0 layer)))))))
+  result
+)
+
+(defun urb:clean-road-property-object-list
+  (objects material-tags / item tag victims material-index changed new-tag)
+  (setq material-index 0 changed 0)
+  (foreach item objects
+    (setq tag
+      (if (vlax-property-available-p item 'TagString)
+        (strcase (vla-get-TagString item)) ""))
+    (cond
+      ((urb:road-property-hidden-tag-p tag)
+        (setq victims (cons item victims)))
+      ((and (urb:starts-with tag "PAV_")
+            (< material-index (length material-tags)))
+        (setq new-tag (nth material-index material-tags)
+              material-index (1+ material-index))
+        (if (and (/= new-tag tag)
+                 (vlax-property-available-p item 'TagString T))
+          (progn
+            (vl-catch-all-apply 'vla-put-TagString (list item new-tag))
+            (setq changed (1+ changed)))))))
+  (foreach item victims
+    (if (urb:safe-delete item) (setq changed (1+ changed))))
+  changed
+)
+
+(defun urb:clean-existing-road-properties
+  (/ ss index ename data obj blocks block-definition items item
+   attributes material-tags changed block-result)
+  ;; Migra inmediatamente las vias ya empacadas: retira los campos
+  ;; administrativos marcados por el usuario y deja los tags de pavimento
+  ;; con solo el material. Cada via tiene una definicion de bloque propia.
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA"))))
+        blocks (vla-get-Blocks (urb:doc)) index 0 changed 0)
+  (if ss
+    (while (< index (sslength ss))
+      (setq ename (ssname ss index)
+            data (urb:get-xdata-strings ename "URB_VIA"))
+      (if (and data (urb:string-equal-p (car data) "VIA"))
+        (progn
+          (setq obj (vlax-ename->vla-object ename)
+                material-tags (urb:road-material-property-tags data)
+                attributes
+                  (if (= (vla-get-HasAttributes obj) :vlax-true)
+                    (vlax-invoke obj 'GetAttributes) nil))
+          (setq changed
+            (+ changed
+              (urb:clean-road-property-object-list
+                attributes material-tags)))
+          (setq block-result
+            (vl-catch-all-apply 'vla-Item
+              (list blocks (vla-get-EffectiveName obj))))
+          (if (not (vl-catch-all-error-p block-result))
+            (progn
+              (setq block-definition block-result items nil)
+              (vlax-for item block-definition
+                (if (= (vla-get-ObjectName item) "AcDbAttributeDefinition")
+                  (setq items (append items (list item)))))
+              (setq changed
+                (+ changed
+                  (urb:clean-road-property-object-list
+                    items material-tags)))))))
+      (setq index (1+ index))))
+  (if (> changed 0) (vla-Regen (urb:doc) 1))
+  changed
 )
 
 ;; Empaqueta el contorno + abscisado de una via en un BLOQUE con
@@ -12015,7 +12228,7 @@
 ;; que antes.
 (defun urb:package-road
   (ename / boundary data mov handle objects point block-name blocks
-   block-definition copy-result block-ref memoria obj insert-result block-ename
+   block-definition copy-result block-ref obj insert-result block-ename
    xdata-result)
   (setq boundary (vlax-ename->vla-object ename))
   (urb:ensure-layer "URB-VIA" 2 T)
@@ -12044,38 +12257,19 @@
           (vl-catch-all-error-message copy-result)))
       nil)
     (progn
-      ;; Properties muestra los valores de atributos en una sola celda. No
-      ;; se guarda aqui toda la memoria multilinea (quedaba concatenada e
-      ;; ilegible); el detalle completo permanece en el resumen amarillo.
-      (setq memoria
-        (if mov
-          (strcat
-            "Corte: " (urb:safe-string (nth 0 mov) "0") " m3 | "
-            "Relleno: " (urb:safe-string (nth 1 mov) "0") " m3 | "
-            "Metodo: " (urb:safe-string (nth 2 mov) ""))
-          "Movimiento de tierras pendiente"))
       (urb:add-invisible-attribute block-definition point
         "VIA_NOMBRE" "Nombre" (urb:safe-string (nth 1 data) ""))
       (urb:add-invisible-attribute block-definition point
         "VIA_ETAPA" "Etapa" (urb:safe-string (nth 2 data) ""))
       (urb:add-invisible-attribute block-definition point
         "VIA_SUBETAPA" "Subetapa" (urb:safe-string (nth 3 data) ""))
-      (urb:add-invisible-attribute block-definition point
-        "VIA_PERFIL" "Perfil" (urb:safe-string (nth 4 data) ""))
       (urb:add-road-pavement-attributes block-definition point data)
-      (urb:add-invisible-attribute block-definition point
-        "VIA_SUPERFICIE" "Superficie" (urb:safe-string (nth 6 data) ""))
-      (urb:add-invisible-attribute block-definition point
-        "VIA_ESTADO" "Estado" (urb:safe-string (nth 19 data) ""))
       (urb:add-invisible-attribute block-definition point
         "VIA_AREA_M2" "Area m2"
         (rtos (atof (urb:safe-string (nth 17 data) "0")) 2 2))
       (urb:add-invisible-attribute block-definition point
         "VIA_LONGITUD_M" "Longitud tramo m"
         (rtos (atof (urb:safe-string (nth 18 data) "0")) 2 2))
-      (urb:add-invisible-attribute block-definition point
-        "VIA_ABSC_INICIAL" "Abscisa inicial"
-        (urb:safe-string (nth 10 data) ""))
       (urb:add-invisible-attribute block-definition point
         "VIA_CORTE_M3" "Corte m3"
         (if mov (urb:safe-string (nth 0 mov) "0") "0"))
@@ -12085,8 +12279,6 @@
       (urb:add-invisible-attribute block-definition point
         "VIA_METODO_RASANTE" "Metodo rasante"
         (if mov (urb:safe-string (nth 2 mov) "") "sin calcular"))
-      (urb:add-invisible-attribute block-definition point
-        "VIA_MEMORIA" "Resumen de cantidades" memoria)
       (setq insert-result
         (vl-catch-all-apply
           'vla-InsertBlock
@@ -13110,7 +13302,8 @@
         (* layer-area (atof (nth 2 layer)))
         (* layer-area (+ 1.0 (/ (atof (nth 3 layer)) 100.0)))))
     (setq result
-      (strcat result "\n" (nth 0 layer) ": "
+      (strcat result "\n"
+        (urb:budget-road-layer-name (nth 0 layer)) ": "
         (rtos quantity 2 2)
         (if (urb:string-equal-p layer-type "Volumen") " m3" " m2"))))
   result)
@@ -13761,8 +13954,8 @@
 ;; MOVIMIENTO DE TIERRAS INTEGRADO (4.1.0)
 ;; Se calcula automaticamente al crear o editar la via y queda
 ;; guardado dentro de URB_VIA (la memoria de via lo muestra).
-;; Metodo de secciones promedio: terreno muestreado en 3 puntos
-;; por abscisa (eje y bordes) con FindElevationAtXY; rasante
+;; Metodo de areas extremas: terreno muestreado en 7 ordenadas
+;; por abscisa con FindElevationAtXY; rasante
 ;; tomada de los textos de cota de proyecto (el texto numerico
 ;; mas cercano a cada abscisa) o, si no alcanzan, cota inicial
 ;; + pendiente digitadas. Resultado aproximado para presupuesto;
@@ -15752,6 +15945,8 @@
         ": boxed_column { label = \"Movimiento de tierras\";"
         ": button { label = \"Referencia de relleno de tramos de red\"; key = \"network_fill_ref\"; height = 2; width = 40; }"
         ": button { label = \"Recalcular tramos existentes con la referencia actual\"; key = \"recalc_tramos\"; height = 2; width = 40; } }"
+        ": boxed_column { label = \"Apariencia de redes\";"
+        ": button { label = \"Espesor de linea y tamano de datos de tramos\"; key = \"tramo_appearance\"; height = 2; width = 40; } }"
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
         "urb_etapas : dialog { label = \"Etapas y subetapas\";"
         ": toggle { key = \"activo\"; label = \"Habilitadas (etapa/subetapa activas en los dialogos de creacion)\"; }"
@@ -18514,7 +18709,8 @@
       '(("road_profiles" "road_profiles")
         ("etapas_config" "etapas_config")
         ("network_fill_ref" "network_fill_ref")
-        ("recalc_tramos" "recalc_tramos"))))
+        ("recalc_tramos" "recalc_tramos")
+        ("tramo_appearance" "tramo_appearance"))))
   (cond
     ((or (null action) (= action "back")) "back")
     ((= action "road_profiles") (urb:manage-road-profiles))
@@ -18522,7 +18718,9 @@
     ((= action "network_fill_ref")
       (mp:network-fill-reference-command))
     ((= action "recalc_tramos")
-      (mp:recalc-tramos-earthworks-command)))
+      (mp:recalc-tramos-earthworks-command))
+    ((= action "tramo_appearance")
+      (mp:tramo-appearance-command)))
   (if (or (null action) (= action "back")) "back" nil))
 
 (defun c:URBANISMO (/ action done result)
@@ -18547,7 +18745,7 @@
           (setq done T)))))
   (princ))
 
-(defun urb:migrate-current-drawing (/ ss i count hydro-rings)
+(defun urb:migrate-current-drawing (/ ss i count hydro-rings road-properties)
   ;; MIGRACIONES AUTOMATICAS de dibujos hechos con versiones anteriores.
   ;; Corre al cargar el .lsp y al abrir el menu URBANISMO, y es idempotente
   ;; (si no hay nada que migrar, no toca nada). Patron establecido a
@@ -18617,6 +18815,16 @@
           "\nMigracion automatica: " (itoa hydro-rings)
           " circulo(s) de extremo duplicado retirado(s) de tramos"
           " hidrosanitarios; los pozos unicos se conservaron."))))
+  ;; 4) Propiedades compactas de vias existentes: conserva cantidades,
+  ;; geometria y corte/relleno; retira los campos administrativos pedidos
+  ;; y sustituye las frases contractuales por el nombre corto del material.
+  (setq road-properties
+    (vl-catch-all-apply 'urb:clean-existing-road-properties nil))
+  (if (and (numberp road-properties) (> road-properties 0))
+    (prompt
+      (strcat
+        "\nMigracion automatica: " (itoa road-properties)
+        " propiedad(es) de via simplificada(s).")))
   (princ))
 
 (defun urb:remove-legacy-commands (/ command-symbol)
@@ -18765,6 +18973,7 @@
 (mp:install-network-erase-reactor)
 (vl-catch-all-apply 'urb:ensure-trusted-path nil)
 (vl-catch-all-apply 'urb:refresh-etapas-catalog nil)
+(vl-catch-all-apply 'mp:load-tramo-appearance-settings nil)
 (vl-catch-all-apply 'urb:migrate-current-drawing nil)
 ;; OJO (2026-08-11 v3): urb:ensure-ribbon YA NO se llama automaticamente.
 ;; Si el lsp carga el cuix por COM ANTES que el Autoloader, el Autoloader
