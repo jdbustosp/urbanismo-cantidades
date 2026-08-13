@@ -1,6 +1,7 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
+;;; 4.23.4: estabiliza memorias de vias y evita recalcular superficies al mostrarlas.
 ;;; 4.23.0: interpola conexiones, incorpora bombeo y memorias con propiedades depuradas.
 ;;; 4.22.1: simplifica rasantes/propiedades y configura apariencia de tramos.
 ;;; 4.17.7: evita unidades adicionales por residuos decimales de punto flotante.
@@ -39,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.3")
+(setq *urb-version* "4.23.4")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8141,7 +8142,7 @@
     ("RELLENO_M3" "Relleno m3" "0")
     ("SOBRANTE_M3" "Retiro sobrante m3" "0")
     ("REPOSICION_M2" "Reposicion superficial m2" "0")
-    ("MEMORIAS" "Memorias - use QMEMORIATRAMO" "OCULTAS")
+    ("MEMORIAS" "Memorias - use QMEMORIATRAMO" "OCULTAR")
     ("METODO_CANTIDADES" "Metodo de cantidades" "PRELIMINAR_GEOMETRICO")
     ("CONTROL_ESTADO" "Estado de control" "PENDIENTE")
     ("CONTROL_MENSAJES" "Mensajes de control" "")))
@@ -9424,7 +9425,7 @@
 
 (defun mp:tramo-depth-profile
   (surface p1 p2 key-ini key-fin diameter-m bedding n road-ref
-   / i frac x y terrain reference subrasante key depth depths max-depth)
+   / i frac x y terrain reference subrasante key depth depths max-depth samples)
   ;; Muestrea la superficie a lo largo del tramo (no solo los 2 pozos) porque
   ;; el terreno entre pozos puede no ser perfectamente lineal; con esto el
   ;; ancho de zanja y el volumen de excavacion usan la profundidad real, no
@@ -9433,7 +9434,8 @@
   ;; en cada punto se usa min(terreno,subrasante) en vez de solo terreno --
   ;; asi el relleno del tramo no cuenta material que la via va a volver a
   ;; cortar por separado hasta su subrasante.
-  (setq depths nil max-depth nil i 0)
+  (setq *mp-last-tramo-memory-samples* nil
+        depths nil max-depth nil samples nil i 0)
   (if (and surface p1 p2 key-ini key-fin (> n 1))
     (repeat (1+ n)
       (setq frac (/ (float i) (float n))
@@ -9452,8 +9454,11 @@
                 (setq reference (min terrain subrasante)))))
           (setq depth (+ (- reference key) diameter-m bedding)
                 depths (cons depth depths)
+                samples
+                  (cons (list frac reference key depth) samples)
                 max-depth (if max-depth (max max-depth depth) depth))))
       (setq i (1+ i))))
+  (setq *mp-last-tramo-memory-samples* (reverse samples))
   (list (reverse depths) max-depth))
 
 ;; BUG (2026-08-03, mismo patron que distance/length/type/last ya
@@ -9475,6 +9480,27 @@
               (/ (+ (nth i depths) (nth (1+ i) depths)) 2.0))))
         (setq i (1+ i)))
       vol)))
+
+(defun mp:store-tramo-memory-samples (tramo samples / serialized item)
+  (if (and tramo (listp samples) (> (length samples) 1))
+    (progn
+      (foreach item samples
+        ;; Cada fila contiene solo numeros y cabe holgadamente en una
+        ;; cadena XDATA; vl-princ-to-string conserva un formato leible.
+        (setq serialized (append serialized (list (vl-princ-to-string item)))))
+      (urb:set-xdata-strings tramo "MP_TRAMO_MEMORIA" serialized))
+    nil))
+
+(defun mp:read-tramo-memory-samples (tramo / raw text item result valid)
+  (setq raw (urb:get-xdata-strings tramo "MP_TRAMO_MEMORIA"))
+  (foreach text raw
+    (setq item (urb:read-lisp-safe text)
+          valid
+            (and (listp item) (> (length item) 3)
+                 (numberp (nth 0 item)) (numberp (nth 1 item))
+                 (numberp (nth 2 item)) (numberp (nth 3 item))))
+    (if valid (setq result (append result (list item)))))
+  (if (> (length result) 1) result nil))
 
 (defun mp:default-trench-width
   (base vals depth / diameter ducts columns width minimum diameter-in table-width)
@@ -9692,6 +9718,7 @@
    entered-slope excavation bedding-volume element-volume fill surplus
    replacement duct-diameter surface depth-profile depths max-depth-sampled
    critical-depth sample-count)
+  (setq *mp-last-tramo-memory-samples* nil)
   (setq length-2d (if (and p1 p2) (mp:distance-2d p1 p2)
                     (mp:number-or (mp:getval "LONGITUD_2D" vals
                       (mp:getval "LONGITUD" vals "0")) 0.0))
@@ -9867,6 +9894,8 @@
       (setq lay (mp:vis-layer baseb))
       (if (tblsearch "LAYER" lay) (vla-put-Layer br lay))
       (mp:setatts en vals2)
+      (mp:store-tramo-memory-samples en *mp-last-tramo-memory-samples*)
+      (setq *mp-last-tramo-memory-samples* nil)
       (vl-catch-all-apply 'urb:attach-memory-reactor-to-block (list en))
       (princ
         (strcat
@@ -10638,7 +10667,7 @@
 (defun mp:sync-tramo-values
   (ename obj base vals
    / reference p1 p2 span handle-ini handle-fin endpoint-ini endpoint-fin
-   linked-p1 linked-p2 length-2d scale)
+   linked-p1 linked-p2 length-2d scale derived)
   (setq reference (mp:reference-plan-points obj))
   (if reference
     (progn
@@ -10670,8 +10699,12 @@
               (vla-put-InsertionPoint obj (mp:3d p1))
               (vla-put-Rotation obj (angle p1 p2))
               (vla-put-XScaleFactor obj (float scale))))))
-      (setq vals (mp:auto-terrain-values vals p1 p2))
-      (mp:derive-tramo-values base p1 p2 vals))
+      (setq vals (mp:auto-terrain-values vals p1 p2)
+            derived (mp:derive-tramo-values base p1 p2 vals))
+      (mp:store-tramo-memory-samples
+        ename *mp-last-tramo-memory-samples*)
+      (setq *mp-last-tramo-memory-samples* nil)
+      derived)
     (mp:validate-tramo-values base vals)))
 
 (defun mp:update-segments-for-endpoint (endpoint / handle ss index ename obj atts base merged)
@@ -12539,7 +12572,7 @@
             (list
               (list "VIA_AREA_SOBREANCHO_M2" "Area con sobreancho m2" (rtos area 2 2))
               (list "VIA_SOBREANCHO_M2" "Area exclusiva de sobreancho m2" (rtos overarea 2 2))
-              (list "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAS"))
+              (list "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAR"))
             (if (not (member (car spec) tags))
               (progn
                 (urb:add-invisible-attribute bdef '(0.0 0.0 0.0)
@@ -12551,7 +12584,7 @@
           (urb:set-block-attribute obj "VIA_SOBREANCHO_M2" (rtos overarea 2 2))
           (if (= (urb:safe-string
                     (cdr (assoc "MEMORIAS" (urb:block-attribute-values obj))) "") "")
-            (urb:set-block-attribute obj "MEMORIAS" "OCULTAS"))))
+            (urb:set-block-attribute obj "MEMORIAS" "OCULTAR"))))
       (setq i (1+ i))))
   added)
 
@@ -12624,7 +12657,7 @@
         "VIA_RELLENO_M3" "Relleno m3"
         (if mov (urb:safe-string (nth 1 mov) "0") "0"))
       (urb:add-invisible-attribute block-definition point
-        "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAS")
+        "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAR")
       (setq insert-result
         (vl-catch-all-apply
           'vla-InsertBlock
@@ -12983,7 +13016,8 @@
   axis
 )
 
-(defun urb:find-axis-in-road-block (road via-id / obj blocks bdef result item link)
+(defun urb:find-axis-in-road-block
+  (road via-id / obj blocks bdef result fallback item candidate link)
   (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list road)))
   (if (and (not (vl-catch-all-error-p obj))
            (= (vla-get-ObjectName obj) "AcDbBlockReference"))
@@ -12994,16 +13028,24 @@
                 (list blocks (vla-get-EffectiveName obj))))
       (if (not (vl-catch-all-error-p bdef))
         (vlax-for item bdef
-          (if (and (null result)
-                   (urb:curve-entity-p (vlax-vla-object->ename item)))
+          (setq candidate
+            (vl-catch-all-apply 'vlax-vla-object->ename (list item)))
+          (if (and (not (vl-catch-all-error-p candidate))
+                   (urb:curve-entity-p candidate))
             (progn
               (setq link
-                (urb:get-xdata-strings
-                  (vlax-vla-object->ename item) "URB_VIA_EJE"))
+                (urb:get-xdata-strings candidate "URB_VIA_EJE"))
+              ;; La copia grafica del eje dentro del bloque lleva el rol
+              ;; EJE_DENTRO_BLOQUE. Se acepta como respaldo aunque una via
+              ;; antigua haya perdido o cambiado su via-id.
+              (if (and link
+                       (or (member "EJE_DENTRO_BLOQUE" link)
+                           (> (length link) 1)))
+                (if (null fallback) (setq fallback candidate)))
               (if (and link (> (length link) 1)
                        (urb:string-equal-p (nth 1 link) via-id))
-                (setq result (vlax-vla-object->ename item))))))))
-  result))
+                (setq result candidate))))))))
+  (if result result fallback))
 
 ;; Resuelve el EJE de una via YA CREADA sin fabricar geometria nueva:
 ;; 1) handle guardado, 2) cache de sesion, 3) xdata URB_VIA_EJE/via-id.
@@ -13937,7 +13979,8 @@
 (defun urb:create-road
   (/ dialog axis auto-axis direction surface cota-info boundary obj area range
    axis-start axis-length handle label start interval data status picks
-   memoria-result via-id block-ref doc undo-open undo-result *error*)
+   memory-data packaged-data memoria-result via-id block-ref doc undo-open
+   undo-result *error*)
   (setq doc (urb:doc))
   (defun *error* (message)
     ;; limpiar TAMBIEN los globales del flujo: si un error corta la
@@ -14097,27 +14140,43 @@
                   ;; relectura sobre el bloque devolvio nil y la memoria
                   ;; se armaba con data vacia.
                   (setq data (urb:get-xdata-strings boundary "URB_VIA"))
+                  ;; Copia estable para la alerta final. AutoLISP usa
+                  ;; alcance dinamico y una llamada profunda puede reutilizar
+                  ;; el simbolo DATA; en vivo eso dejo DATA=T aunque la XDATA
+                  ;; del bloque si estaba bien guardada.
+                  (if (and (listp data) (> (length data) 18))
+                    (setq memory-data (mapcar '(lambda (item) item) data)))
                   (setq block-ref (urb:package-road boundary))
                   (setq boundary
                     (or (urb:as-ename block-ref) boundary))
-                  (setq data
-                    (or (urb:get-xdata-strings boundary "URB_VIA") data))
+                  (setq packaged-data
+                    (urb:get-xdata-strings boundary "URB_VIA"))
+                  (if (and (listp packaged-data)
+                           (> (length packaged-data) 18))
+                    (setq memory-data packaged-data))
                   (vla-Regen (urb:doc) 1)
                   ;; blindado (2026-08-11 v2): un fallo al ARMAR la memoria
                   ;; no debe abortar la creacion (la via ya existe completa
                   ;; en este punto) -- el usuario reporto "bad argument
                   ;; type: consp nil" justo aqui y perdia el cierre limpio.
                   (setq memoria-result
-                    (vl-catch-all-apply
-                      '(lambda ()
-                         (strcat (urb:road-memory-from-data boundary data)
-                           "\n\nEstado: " status))))
-                  (if (vl-catch-all-error-p memoria-result)
+                    (if (and (listp memory-data)
+                             (> (length memory-data) 18))
+                      (vl-catch-all-apply
+                        '(lambda ()
+                           (strcat
+                             (urb:road-memory-from-data boundary memory-data)
+                             "\n\nEstado: " status)))
+                      nil))
+                  (if (or (null memoria-result)
+                          (vl-catch-all-error-p memoria-result))
                     (progn
                       (prompt
                         (strcat
                           "\nAviso: la via quedo creada pero no se pudo armar la memoria: "
-                          (vl-catch-all-error-message memoria-result)
+                          (if (vl-catch-all-error-p memoria-result)
+                            (vl-catch-all-error-message memoria-result)
+                            "datos URB_VIA incompletos")
                           " | etapa memoria: "
                           (urb:safe-string
                             (if (boundp '*urb-memoria-stage*)
@@ -14126,7 +14185,9 @@
                           " | data: "
                           (urb:safe-string
                             (vl-catch-all-apply
-                              '(lambda () (substr (vl-princ-to-string data) 1 180)))
+                              '(lambda ()
+                                 (substr
+                                   (vl-princ-to-string memory-data) 1 180)))
                             "(ilegible)")))
                       (alert (strcat "Via creada.\n\nEstado: " status)))
                     (alert memoria-result))))))))))
@@ -15506,6 +15567,74 @@
       (setq textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE"))))
       (list (+ (car result) (* textheight 4.0)) (cadr result) 0.0))))
 
+;; La fila MEMORIAS muestra los resultados YA GUARDADOS; no debe volver a
+;; calcular el movimiento ni pedir eje/cotas. La verificacion detallada por
+;; secciones sigue disponible en el boton Verificacion. Esta tabla resumen
+;; es inmediata y tambien funciona en vias antiguas cuyo eje externo ya no
+;; pueda recuperarse.
+(defun urb:create-road-memory-summary
+  (road / data mov area length-value left right over-area base-area rows
+   point textheight rowheight colwidth table row item handle)
+  (setq data (urb:get-xdata-strings road "URB_VIA")
+        mov (urb:road-movement-data road))
+  (if (and (listp data) (> (length data) 18))
+    (progn
+      (setq area (atof (urb:safe-string (nth 17 data) "0"))
+            length-value (atof (urb:safe-string (nth 18 data) "0"))
+            left (atof (urb:safe-string (nth 14 data) "0"))
+            right (atof (urb:safe-string (nth 15 data) "0"))
+            over-area (min area (* length-value (+ left right)))
+            base-area (max 0.0 (- area over-area))
+            rows
+              (list
+                (list "Via" (urb:safe-string (nth 1 data) ""))
+                (list "Etapa / subetapa"
+                  (strcat (urb:safe-string (nth 2 data) "") " / "
+                    (urb:safe-string (nth 3 data) "")))
+                (list "Perfil" (urb:safe-string (nth 4 data) ""))
+                (list "Area total" (strcat (rtos area 2 2) " m2"))
+                (list "Area base" (strcat (rtos base-area 2 2) " m2"))
+                (list "Area sobreancho" (strcat (rtos over-area 2 2) " m2"))
+                (list "Longitud" (strcat (rtos length-value 2 2) " m"))
+                (list "Corte"
+                  (strcat (urb:safe-string (if mov (nth 0 mov) nil) "0") " m3"))
+                (list "Relleno"
+                  (strcat (urb:safe-string (if mov (nth 1 mov) nil) "0") " m3"))
+                (list "Metodo"
+                  (urb:safe-string (if mov (nth 2 mov) nil) "SIN CALCULAR"))
+                (list "Secciones / omitidas"
+                  (strcat (urb:safe-string (if mov (nth 3 mov) nil) "0")
+                    " / " (urb:safe-string (if mov (nth 4 mov) nil) "0")))
+                (list "Ancho / profundidad"
+                  (strcat (urb:safe-string (if mov (nth 5 mov) nil) "0")
+                    " m / " (urb:safe-string (if mov (nth 6 mov) nil) "0") " m"))))
+      (setq point (urb:road-memory-table-point road)
+            textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE")))
+            rowheight (* textheight 2.20)
+            colwidth (* textheight 18.0)
+            table
+              (vla-AddTable (urb:space) (vlax-3d-point point)
+                (1+ (length rows)) 2 rowheight colwidth))
+      (urb:ensure-layer "URB-VIA-TABLA" 4 T)
+      (vla-put-Layer table "URB-VIA-TABLA")
+      (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
+        (list table :vlax-true))
+      (vl-catch-all-apply 'vla-MergeCells (list table 0 0 0 1))
+      (urb:set-table-text-safe table 0 0 "MEMORIA DE CANTIDADES DE VIA")
+      (setq row 1)
+      (foreach item rows
+        (urb:set-table-text-safe table row 0 (car item))
+        (urb:set-table-text-safe table row 1 (cadr item))
+        (setq row (1+ row)))
+      (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
+        (list table :vlax-false))
+      (vl-catch-all-apply 'vla-RecomputeTableBlock (list table :vlax-true))
+      (setq handle (cdr (assoc 5 (entget road))))
+      (urb:set-xdata-strings (vlax-vla-object->ename table)
+        "URB_VIA_TABLA" (list handle))
+      table)
+    nil))
+
 (defun urb:road-memory-table-visible-p (parent-handle / ss index ename data found app)
   (foreach app '("URB_VIA_TABLA" "URB_VIA_GEN")
     (if (not found)
@@ -15521,7 +15650,7 @@
   found)
 
 (defun urb:set-road-memory-visibility
-  (road show / data via-id axis handle created old-busy)
+  (road show / data handle created visible old-busy)
   ;; El atributo MEMORIAS se comporta como un control de dos estados en
   ;; Properties: MOSTRAR/VISIBLE crea la tabla y OCULTAR/OCULTAS la borra.
   ;; La escritura del valor normalizado se silencia para no reactivar el
@@ -15530,30 +15659,33 @@
         handle (cdr (assoc 5 (entget road))))
   (if (and data handle)
     (if show
-      (progn
-        (if (urb:road-memory-table-visible-p handle)
-          (setq created T)
-          (progn
-            (setq via-id (urb:safe-string (nth 22 data) "")
-                  axis (urb:road-axis-recover road data via-id))
-            (if axis
-              (progn
-                (setq *urb-road-audit-point* (urb:road-memory-table-point road))
-                (vl-catch-all-apply 'urb:try-road-earthworks (list road axis))
-                (setq *urb-road-audit-point* nil)
-                (setq created (urb:road-memory-table-visible-p handle)))
-              (prompt
-                "\nNo se encontro el eje vinculado; edite la via una vez para restablecer el enlace."))))
+      (if (urb:road-memory-table-visible-p handle)
+        T
+        (progn
+        (setq created (urb:create-road-memory-summary road))
+        ;; Verifica el estado real despues de crear. No dependemos del valor
+        ;; devuelto por AddTable ni de escrituras anidadas de atributos.
+        (setq visible (urb:road-memory-table-visible-p handle))
         (setq old-busy *urb-memory-reactor-busy*
               *urb-memory-reactor-busy* T)
-        (mp:setatt-one road "MEMORIAS" (if created "VISIBLES" "OCULTAS"))
+        ;; No reescribir MOSTRAR si ya esta normalizado: AutoCAD dispara
+        ;; nuevamente el evento de Properties aun cuando el texto no cambia.
+        (if (/=
+              (strcase (urb:safe-string
+                (cdr (assoc "MEMORIAS" (urb:block-attribute-values road))) ""))
+              (if visible "MOSTRAR" "OCULTAR"))
+          (mp:setatt-one road "MEMORIAS" (if visible "MOSTRAR" "OCULTAR")))
         (setq *urb-memory-reactor-busy* old-busy)
-        created)
+        ;; Los reactores de propiedades se ejecutan con alcance dinamico y
+        ;; pueden reutilizar el simbolo local VISIBLE. Releer al retornar
+        ;; garantiza un booleano estable incluso ante ese evento anidado.
+        (if (urb:road-memory-table-visible-p
+              (cdr (assoc 5 (entget road)))) T nil)))
       (progn
         (urb:delete-road-audit-tables handle)
         (setq old-busy *urb-memory-reactor-busy*
               *urb-memory-reactor-busy* T)
-        (mp:setatt-one road "MEMORIAS" "OCULTAS")
+        (mp:setatt-one road "MEMORIAS" "OCULTAR")
         (setq *urb-memory-reactor-busy* old-busy)
         T))
     nil))
@@ -15592,100 +15724,130 @@
       (setq i (1+ i))))
   count)
 
+(defun mp:create-tramo-memory-summary
+  (tramo vals / rows point-table textheight rowheight colwidth table
+   row item handle)
+  (setq rows
+    (list
+      (list "Red" (mp:getval "RED" vals (mp:getval "TIPO_RED" vals "")))
+      (list "Tramo"
+        (strcat (mp:getval "POZO_INI" vals "?") " - "
+          (mp:getval "POZO_FIN" vals "?")))
+      (list "Longitud" (strcat (mp:getval "LONGITUD" vals "0") " m"))
+      (list "Metodo" (mp:getval "METODO_CANTIDADES" vals "SIN CALCULAR"))
+      (list "Excavacion" (strcat (mp:getval "EXCAVACION_M3" vals "0") " m3"))
+      (list "Cama" (strcat (mp:getval "CAMA_M3" vals "0") " m3"))
+      (list "Volumen elemento"
+        (strcat (mp:getval "VOLUMEN_ELEMENTO_M3" vals "0") " m3"))
+      (list "Relleno" (strcat (mp:getval "RELLENO_M3" vals "0") " m3"))
+      (list "Sobrante" (strcat (mp:getval "SOBRANTE_M3" vals "0") " m3"))
+      (list "Reposicion" (strcat (mp:getval "REPOSICION_M2" vals "0") " m2"))))
+  (setq point-table (urb:road-memory-table-point tramo)
+        textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE")))
+        rowheight (* textheight 2.20)
+        colwidth (* textheight 18.0)
+        table
+          (vla-AddTable (urb:space) (vlax-3d-point point-table)
+            (1+ (length rows)) 2 rowheight colwidth))
+  (urb:ensure-layer "PPTO-TABLAS-MEMORIA" 4 T)
+  (vla-put-Layer table "PPTO-TABLAS-MEMORIA")
+  (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
+    (list table :vlax-true))
+  (vl-catch-all-apply 'vla-MergeCells (list table 0 0 0 1))
+  (urb:set-table-text-safe table 0 0 "MEMORIA DE CANTIDADES DEL TRAMO")
+  (setq row 1)
+  (foreach item rows
+    (urb:set-table-text-safe table row 0 (car item))
+    (urb:set-table-text-safe table row 1 (cadr item))
+    (setq row (1+ row)))
+  (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
+    (list table :vlax-false))
+  (vl-catch-all-apply 'vla-RecomputeTableBlock (list table :vlax-true))
+  (setq handle (cdr (assoc 5 (entget tramo))))
+  (urb:set-xdata-strings (vlax-vla-object->ename table)
+    "MP_TRAMO_TABLA" (list handle))
+  table)
+
 (defun mp:create-tramo-memory-table
-  (tramo / obj vals base reference p1 p2 length-value surface key0 key1
-   diameter bedding width n i frac point tn key bottom depth area prev-area
+  (tramo / obj vals base cached length-value diameter bedding width sample
+   frac tn key bottom depth area distance-value previous-distance prev-area
    ds volume cumulative rows row table point-table textheight rowheight
    colwidth columns item col row-index handle)
   (setq obj (vlax-ename->vla-object tramo)
         vals (mp:att-alist tramo)
         base (mp:infer-base (vla-get-EffectiveName obj) vals)
-        reference (mp:reference-plan-points obj)
-        key0 (mp:numeric-real (mp:getval "COTA_CLAVE_INI" vals ""))
-        key1 (mp:numeric-real (mp:getval "COTA_CLAVE_FIN" vals ""))
-        surface (mp:current-terrain-surface))
-  (cond
-    ((not (mp:gravity-tramo-p base))
-      (prompt "\nLa tabla detallada de excavacion aplica a tramos hidrosanitarios por gravedad.") nil)
-    ((or (null key0) (null key1))
-      (prompt
-        "\nMemoria no disponible: faltan las cotas clave inicial y/o final; la excavacion mostrada como 0 no es confiable.") nil)
-    ((or (null surface) (null reference))
-      (prompt "\nMemoria no disponible: no se encontro SUP_TN o la geometria del tramo.") nil)
-    (T
-      (setq p1 (car reference) p2 (cadr reference)
-            length-value (mp:distance-2d p1 p2)
+        cached (mp:read-tramo-memory-samples tramo))
+  ;; Tramos creados/editados desde 4.23.4 conservan el perfil que ya se
+  ;; uso para calcular cantidades. Mostrar la tabla solo lo lee: no vuelve
+  ;; a consultar SUP_TN y no congela Civil 3D. Los tramos anteriores usan
+  ;; una memoria resumen honesta con sus cantidades guardadas.
+  (if (or (not (mp:gravity-tramo-p base)) (null cached))
+    (mp:create-tramo-memory-summary tramo vals)
+    (progn
+      (setq length-value
+              (mp:number-or (mp:getval "LONGITUD" vals "0") 0.0)
             diameter (* 0.0254
               (mp:number-or (mp:getval "DIAMETRO" vals "0") 0.0))
             bedding (mp:number-or (mp:getval "ESPESOR_CAMA" vals "0.10") 0.10)
             width (mp:number-or (mp:getval "ANCHO_ZANJA" vals "0") 0.0)
-            n (min 200 (max 2 (fix (+ 0.999999 (/ length-value 2.50)))))
-            ds (/ length-value (float n))
-            i 0 cumulative 0.0)
-      (repeat (1+ n)
-        (setq frac (/ (float i) (float n))
-              point
-                (list
-                  (+ (car p1) (* frac (- (car p2) (car p1))))
-                  (+ (cadr p1) (* frac (- (cadr p2) (cadr p1)))))
-              tn (mp:terrain-elevation-at-point surface point)
-              key (+ key0 (* frac (- key1 key0)))
+            cumulative 0.0)
+      (foreach sample cached
+        (setq frac (nth 0 sample)
+              tn (nth 1 sample)
+              key (nth 2 sample)
+              depth (max 0.0 (nth 3 sample))
               bottom (- key diameter bedding)
-              depth (if tn (max 0.0 (- tn bottom)) nil)
-              area (if depth (* width depth) nil)
+              area (* width depth)
+              distance-value (* frac length-value)
               volume 0.0)
-        (if (and area prev-area)
-          (setq volume (* 0.5 (+ prev-area area) ds)
+        (if (and prev-area previous-distance)
+          (setq ds (- distance-value previous-distance)
+                volume (* 0.5 (+ prev-area area) ds)
                 cumulative (+ cumulative volume)))
         (setq rows
           (append rows
-            (list (list (* frac length-value) tn key bottom depth area
+            (list (list distance-value tn key bottom depth area
                     volume cumulative))))
-        (setq prev-area area i (1+ i)))
-      (if (vl-some '(lambda (r) (null (nth 1 r))) rows)
-        (progn
-          (prompt "\nMemoria no creada: una o mas secciones estan fuera de la superficie TN.")
-          nil)
-        (progn
-          (setq point-table (urb:road-memory-table-point tramo)
-                textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE")))
-                rowheight (* textheight 2.20)
-                colwidth (* textheight 11.0)
-                table
-                  (vla-AddTable (urb:space) (vlax-3d-point point-table)
-                    (+ (length rows) 3) 8 rowheight colwidth))
-          (urb:ensure-layer "PPTO-TABLAS-MEMORIA" 4 T)
-          (vla-put-Layer table "PPTO-TABLAS-MEMORIA")
-          (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
-            (list table :vlax-true))
-          (vl-catch-all-apply 'vla-MergeCells (list table 0 0 0 7))
-          (urb:set-table-text-safe table 0 0
-            (strcat "MEMORIA MOVIMIENTO DE TIERRAS - "
-              (mp:getval "POZO_INI" vals "?") " - "
-              (mp:getval "POZO_FIN" vals "?")))
-          (setq columns
-            '("Distancia" "TN" "Cota clave" "Fondo zanja"
-              "Profundidad" "Area exc." "Vol. tramo" "Vol. acum."))
-          (setq col 0)
-          (foreach item columns
-            (urb:set-table-text-safe table 1 col item)
-            (setq col (1+ col)))
-          (setq row-index 2)
-          (foreach row rows
-            (setq col 0)
-            (foreach item row
-              (urb:set-table-text-safe table row-index col (rtos item 2 3))
-              (setq col (1+ col)))
-            (setq row-index (1+ row-index)))
-          (urb:set-table-text-safe table row-index 0 "TOTAL EXCAVACION")
-          (urb:set-table-text-safe table row-index 7 (rtos cumulative 2 3))
-          (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
-            (list table :vlax-false))
-          (vl-catch-all-apply 'vla-RecomputeTableBlock (list table :vlax-true))
-          (setq handle (cdr (assoc 5 (entget tramo))))
-          (urb:set-xdata-strings (vlax-vla-object->ename table)
-            "MP_TRAMO_TABLA" (list handle))
-          table)))))
+        (setq prev-area area previous-distance distance-value))
+      (setq point-table (urb:road-memory-table-point tramo)
+            textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE")))
+            rowheight (* textheight 2.20)
+            colwidth (* textheight 11.0)
+            table
+              (vla-AddTable (urb:space) (vlax-3d-point point-table)
+                (+ (length rows) 3) 8 rowheight colwidth))
+      (urb:ensure-layer "PPTO-TABLAS-MEMORIA" 4 T)
+      (vla-put-Layer table "PPTO-TABLAS-MEMORIA")
+      (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
+        (list table :vlax-true))
+      (vl-catch-all-apply 'vla-MergeCells (list table 0 0 0 7))
+      (urb:set-table-text-safe table 0 0
+        (strcat "MEMORIA MOVIMIENTO DE TIERRAS - "
+          (mp:getval "POZO_INI" vals "?") " - "
+          (mp:getval "POZO_FIN" vals "?")))
+      (setq columns
+        '("Distancia" "TN/ref." "Cota clave" "Fondo zanja"
+          "Profundidad" "Area exc." "Vol. tramo" "Vol. acum."))
+      (setq col 0)
+      (foreach item columns
+        (urb:set-table-text-safe table 1 col item)
+        (setq col (1+ col)))
+      (setq row-index 2)
+      (foreach row rows
+        (setq col 0)
+        (foreach item row
+          (urb:set-table-text-safe table row-index col (rtos item 2 3))
+          (setq col (1+ col)))
+        (setq row-index (1+ row-index)))
+      (urb:set-table-text-safe table row-index 0 "TOTAL EXCAVACION")
+      (urb:set-table-text-safe table row-index 7 (rtos cumulative 2 3))
+      (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
+        (list table :vlax-false))
+      (vl-catch-all-apply 'vla-RecomputeTableBlock (list table :vlax-true))
+      (setq handle (cdr (assoc 5 (entget tramo))))
+      (urb:set-xdata-strings (vlax-vla-object->ename table)
+        "MP_TRAMO_TABLA" (list handle))
+      table)))
 
 (defun mp:tramo-memory-table-visible-p (parent-handle / ss i en data found)
   (setq ss (ssget "_X" '((0 . "ACAD_TABLE") (-3 ("MP_TRAMO_TABLA"))))
@@ -15699,26 +15861,31 @@
   found)
 
 (defun mp:set-tramo-memory-visibility
-  (tramo show / handle table created old-busy)
+  (tramo show / handle table created visible old-busy)
   (setq handle (cdr (assoc 5 (entget tramo))))
   (if handle
     (if show
-      (progn
-        (if (mp:tramo-memory-table-visible-p handle)
-          (setq created T)
-          (progn
-            (setq table (mp:create-tramo-memory-table tramo)
-                  created (if table T nil))))
+      (if (mp:tramo-memory-table-visible-p handle)
+        T
+        (progn
+        (setq table (mp:create-tramo-memory-table tramo)
+              created (if table T nil))
+        (setq visible (mp:tramo-memory-table-visible-p handle))
         (setq old-busy *urb-memory-reactor-busy*
               *urb-memory-reactor-busy* T)
-        (mp:setatt-one tramo "MEMORIAS" (if created "VISIBLES" "OCULTAS"))
+        (if (/=
+              (strcase (urb:safe-string
+                (cdr (assoc "MEMORIAS" (urb:block-attribute-values tramo))) ""))
+              (if visible "MOSTRAR" "OCULTAR"))
+          (mp:setatt-one tramo "MEMORIAS" (if visible "MOSTRAR" "OCULTAR")))
         (setq *urb-memory-reactor-busy* old-busy)
-        created)
+        (if (mp:tramo-memory-table-visible-p
+              (cdr (assoc 5 (entget tramo)))) T nil)))
       (progn
         (mp:delete-tramo-memory-tables handle)
         (setq old-busy *urb-memory-reactor-busy*
               *urb-memory-reactor-busy* T)
-        (mp:setatt-one tramo "MEMORIAS" "OCULTAS")
+        (mp:setatt-one tramo "MEMORIAS" "OCULTAR")
         (setq *urb-memory-reactor-busy* old-busy)
         T))
     nil))
@@ -15793,7 +15960,8 @@
               (urb:queue-memory-command)))))))
   (princ))
 
-(defun urb:process-memory-requests (/ pending entry ename shown hidden failed result)
+(defun urb:process-memory-requests
+  (/ pending entry ename shown hidden failed result visible requested-show)
   (setq pending *urb-memory-pending*
         *urb-memory-pending* nil
         *urb-memory-command-scheduled* nil)
@@ -15804,12 +15972,21 @@
         (setq ename (handent (cadr entry)))
         (if ename
           (progn
+            (setq requested-show (= (caddr entry) 1)
+                  visible
+                    (if (= (car entry) "VIA")
+                      (urb:road-memory-table-visible-p (cadr entry))
+                      (mp:tramo-memory-table-visible-p (cadr entry))))
+            ;; Un segundo evento con el mismo estado no vuelve a construir
+            ;; ni borrar la tabla. Esto corta reentradas de Properties/.NET.
             (setq result
-              (vl-catch-all-apply
-                (if (= (car entry) "VIA")
-                  'urb:set-road-memory-visibility
-                  'mp:set-tramo-memory-visibility)
-                (list ename (= (caddr entry) 1))))
+              (if (eq requested-show (if visible T nil))
+                T
+                (vl-catch-all-apply
+                  (if (= (car entry) "VIA")
+                    'urb:set-road-memory-visibility
+                    'mp:set-tramo-memory-visibility)
+                  (list ename requested-show))))
             (if (or (vl-catch-all-error-p result) (not result))
               (setq failed (1+ (if failed failed 0)))
               (if (= (caddr entry) 1)
