@@ -1,6 +1,7 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
+;;; 4.23.0: interpola conexiones, incorpora bombeo y memorias con propiedades depuradas.
 ;;; 4.22.1: simplifica rasantes/propiedades y configura apariencia de tramos.
 ;;; 4.17.7: evita unidades adicionales por residuos decimales de punto flotante.
 ;;; 4.17.6: separa giro de 90 grados y cambio del extremo inicial.
@@ -38,8 +39,8 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.22.1")
-(setq *urb-schema-version* "22")
+(setq *urb-version* "4.23.0")
+(setq *urb-schema-version* "23")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
 (setq *urb-excel-table-schema* "2")
@@ -4903,17 +4904,6 @@
         block-definition point "AREA_M2" "Area m2"
         (rtos area 2 2))
       (urb:add-invisible-attribute
-        block-definition point "PERIMETRO_M" "Perimetro m"
-        (rtos perimeter 2 2))
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_ELEVACION"
-        "Elevacion del contorno" (rtos elevation 2 3))
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_SENTIDO"
-        "Sentido de modulacion" pattern-mode)
-      (urb:add-invisible-attribute
-        block-definition point "MATERIAL" "Material" material)
-      (urb:add-invisible-attribute
         block-definition point "ETAPA" "Etapa" etapa)
       (urb:add-invisible-attribute
         block-definition point "SUBETAPA" "Subetapa" subetapa)
@@ -4921,8 +4911,6 @@
         block-definition point "LOSETA_GUIA" "Loseta guia" guia)
       (urb:add-invisible-attribute
         block-definition point "LOSETA_TOPEROL" "Loseta toperol" toperol)
-      (urb:add-invisible-attribute
-        block-definition point "FORMATO_LOSETA" "Formato de loseta" format)
       (urb:add-invisible-attribute
         block-definition point "LOSETA_LISA_M2" "Area loseta lisa m2"
         (rtos (nth 0 finish-qty) 2 2))
@@ -4942,32 +4930,9 @@
         block-definition point "ADOQUIN_20X10_UND" "Adoquin blanco 20x10 unidades"
         (itoa (nth 5 finish-qty)))
       (urb:add-invisible-attribute
-        block-definition point "ANDEN_SUPERFICIE" "Superficie TN" surface)
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_RASANTE" "Origen de rasante" grade-source)
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_PEND_LONG"
-        "Pendiente longitudinal automatica" "sin calcular")
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_PEND_TRANS"
-        "Pendiente transversal de diseno" "sin calcular")
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_PEND_TOTAL"
-        "Pendiente resultante automatica" "sin calcular")
-      (urb:add-invisible-attribute
         block-definition point "ANDEN_CORTE_M3" "Corte m3" "0")
       (urb:add-invisible-attribute
         block-definition point "ANDEN_RELLENO_M3" "Relleno m3" "0")
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_METODO" "Metodo de rasante" "sin calcular")
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_MUESTRAS" "Muestras validas" "0")
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_COBERTURA" "Cobertura superficie" "0%")
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_VIA_ID" "Via vinculada - ID" "")
-      (urb:add-invisible-attribute
-        block-definition point "ANDEN_VIA_NOMBRE" "Via vinculada - nombre" "")
       (setq insert-result
         (vl-catch-all-apply
           'vla-InsertBlock
@@ -5316,8 +5281,6 @@
       ;; El eje se identifica SOLO entre entidades existentes: handle,
       ;; cache o vinculo via-id. Nunca se reconstruye uno nuevo del bloque.
       (setq axis (urb:road-axis-recover road data via-id))
-      (if (not axis)
-        (setq axis (urb:select-or-draw-road-axis "Existente")))
       (if axis
         (urb:remember-road-axis road data via-id axis))
       (setq mov (urb:road-movement-data road))
@@ -5358,7 +5321,11 @@
           (urb:safe-string via-id "")
           (urb:safe-string (if (> (length data) 1) (nth 1 data) nil) ""))
         (progn
-          (prompt "\nLa via seleccionada no tiene rasante calculada.") nil)))
+          (prompt
+            (if axis
+              "\nLa via seleccionada no tiene rasante calculada."
+              "\nLa via no conserva un eje vinculado. Edite esa via una vez; no se creara ni se pedira un eje duplicado."))
+          nil)))
     (progn (prompt "\nEl objeto seleccionado no es una via cuantificable.") nil))
 )
 
@@ -7858,6 +7825,20 @@
   (vla-put-Color lay color)
   lay)
 
+(defun mp:store-cant-data (ename alist / serialized)
+  (if (and ename alist)
+    (progn
+      (setq serialized (urb:serialize-lisp alist))
+      (urb:set-xdata-strings ename "MP_CANT_DATA"
+        (urb:string-chunks serialized 240)))))
+
+(defun mp:read-cant-data (ename / chunks value)
+  (setq chunks (urb:get-xdata-strings ename "MP_CANT_DATA"))
+  (if chunks
+    (progn
+      (setq value (urb:read-lisp-safe (apply 'strcat chunks)))
+      (if (listp value) value nil))))
+
 (defun mp:setatts (ename alist / obj a tag pair changed)
   ;; Guarda y actualiza cada atributo; devuelve cuantos fueron modificados.
   (setq obj (vlax-ename->vla-object ename) changed 0)
@@ -7870,6 +7851,9 @@
           (vla-Update a)
           (setq changed (1+ changed))))))
   (vla-Update obj)
+  ;; La copia completa en XDATA permite mostrar en Propiedades solo los
+  ;; campos utiles sin perder controles internos, exportacion ni edicion.
+  (mp:store-cant-data ename alist)
   changed)
 
 (defun mp:getval (tag vals def / a)
@@ -7927,7 +7911,19 @@
     (progn (mp:fill-popup "diam" *mp-diam-alc-list* 5) (mp:fill-popup "mat" *mp-material-red-list* 0))))
 
 (defun mp:csv-safe (s / out i ch) (if (not s) (setq s "")) (setq out "" i 1) (while (<= i (strlen s)) (setq ch (substr s i 1)) (if (= ch "\"") (setq out (strcat out "\"\"")) (setq out (strcat out ch))) (setq i (1+ i))) (strcat "\"" out "\""))
-(defun mp:att-alist (ename / obj atts res a) (setq obj (vlax-ename->vla-object ename) res nil) (if (= (vla-get-HasAttributes obj) :vlax-true) (foreach a (vlax-invoke obj 'GetAttributes) (setq res (cons (cons (strcase (vla-get-TagString a)) (vla-get-TextString a)) res)))) res)
+(defun mp:att-alist (ename / obj atts res a stored pair)
+  (setq obj (vlax-ename->vla-object ename) res nil)
+  (if (= (vla-get-HasAttributes obj) :vlax-true)
+    (foreach a (vlax-invoke obj 'GetAttributes)
+      (setq res
+        (cons
+          (cons (strcase (vla-get-TagString a)) (vla-get-TextString a))
+          res))))
+  (setq stored (mp:read-cant-data ename))
+  (foreach pair stored
+    (if (not (assoc (strcase (car pair)) res))
+      (setq res (cons (cons (strcase (car pair)) (cdr pair)) res))))
+  res)
 
 (setq *mp-cant-counter* 0)
 
@@ -8028,8 +8024,6 @@
 
   ;; Atributos invisibles de datos.
   (setq y (- (* th 1.25)))
-  (mp:vla-add-att blk "BLOQUE_BASE" "Bloque base" baseb (list 0 y 0.0) 0.10 T lay col)
-  (setq y (- y 0.20))
   (foreach a (mp:base-atts-for baseb)
     (mp:vla-add-att blk (car a) (cadr a) (if (caddr a) (caddr a) "") (list 0 y 0.0) 0.10 T lay col)
     (setq y (- y 0.20)))
@@ -8046,7 +8040,8 @@
       (setq b (vla-get-EffectiveName obj))
       (mp:is-cant-blockname b))))
 
-(defun mp:setatt-one (ename tag val / obj a)
+(defun mp:setatt-one (ename tag val / obj a vals)
+  (setq vals (mp:att-alist ename))
   (setq obj (vlax-ename->vla-object ename))
   (if (= (vla-get-HasAttributes obj) :vlax-true)
     (foreach a (vlax-invoke obj 'GetAttributes)
@@ -8054,7 +8049,8 @@
         (progn
           (vla-put-TextString a (mp:safe-str val))
           (vla-Update a)))))
-  (vla-Update obj))
+  (vla-Update obj)
+  (mp:store-cant-data ename (mp:alist-set vals (strcase tag) (mp:safe-str val))))
 
 
 ;; Unificado 4.1.0: una sola lista de etapas para todo el archivo.
@@ -8142,11 +8138,23 @@
     ("RELLENO_M3" "Relleno m3" "0")
     ("SOBRANTE_M3" "Retiro sobrante m3" "0")
     ("REPOSICION_M2" "Reposicion superficial m2" "0")
+    ("MEMORIAS" "Memorias - use QMEMORIATRAMO" "OCULTAS")
     ("METODO_CANTIDADES" "Metodo de cantidades" "PRELIMINAR_GEOMETRICO")
     ("CONTROL_ESTADO" "Estado de control" "PENDIENTE")
     ("CONTROL_MENSAJES" "Mensajes de control" "")))
 
-(defun mp:base-atts-for (bname / specific)
+(defun mp:tramo-public-property-p (tag)
+  (member (strcase (mp:safe-str tag))
+    '("ETAPA" "SUBETAPA" "RED" "TIPO_RED" "SERIE" "CIRCUITO"
+      "CIRCUITO_AP" "DESDE" "HASTA" "POZO_INI" "POZO_FIN"
+      "DIAMETRO" "MATERIAL" "PENDIENTE" "CONDUCTORES" "CONDUCTOR"
+      "DUCTOS" "DIAM_DUCTO" "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD"
+      "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
+      "LONGITUD" "ANCHO_ZANJA" "EXCAVACION_M3" "CAMA_M3"
+      "VOLUMEN_ELEMENTO_M3" "RELLENO_M3" "SOBRANTE_M3"
+      "REPOSICION_M2" "MEMORIAS")))
+
+(defun mp:base-atts-for (bname / specific all)
   (setq specific
     (cond
       ((= bname "TRAMO_E_MT")
@@ -8193,11 +8201,14 @@
           ("COTA_TN_FIN" "Cota terreno fin" "")
           ("COTA_CLAVE_INI" "Cota clave ini" "")
           ("COTA_CLAVE_FIN" "Cota clave fin" "")))))
-  (append
-    specific
-    '(("SUPERFICIE_TN" "Superficie de terreno" "SUP_TN")
-      ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE"))
-    (mp:tramo-common-atts)))
+  (setq all
+    (append
+      specific
+      '(("SUPERFICIE_TN" "Superficie de terreno" "SUP_TN")
+        ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE"))
+      (mp:tramo-common-atts)))
+  (vl-remove-if-not
+    '(lambda (item) (mp:tramo-public-property-p (car item))) all))
 
 (defun mp:write-dcl (/ fn f)
   (mp:reset-dialog-capture)
@@ -8211,8 +8222,6 @@
   (write-line ": boxed_column { label = \"Datos de presupuesto\";" f)
   (write-line ": popup_list { label = \"Red\"; key = \"red\"; }" f)
   (write-line (mp:dcl-etapa-str) f)
-  (write-line ": edit_box { label = \"Nodo/pozo inicial\"; key = \"pini\"; edit_width = 20; }" f)
-  (write-line ": edit_box { label = \"Nodo/pozo final\"; key = \"pfin\"; edit_width = 20; }" f)
   (write-line ": popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
   (write-line ": popup_list { label = \"Material\"; key = \"mat\"; } }" f)
@@ -8227,14 +8236,14 @@
   (write-line "maipore_tramo_mt : dialog { label = \"Maipore - Tramo MT PPTO\"; : boxed_column {" f)
   (write-line ": edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; }" f)
   (write-line (mp:dcl-etapa-str) f)
-  (write-line ": edit_box { label = \"Circuito\"; key = \"circuito\"; edit_width = 26; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
+  (write-line ": edit_box { label = \"Circuito\"; key = \"circuito\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; }" f)
   (write-line ": edit_box { label = \"Ductos libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad de zanja m\"; key = \"prof\"; edit_width = 12; } : text { label = \"Cotas TN: automaticas desde SUP_TN al marcar los extremos.\"; } : text { label = \"Cantidades de construccion: pendientes de parametros.\"; } } ok_cancel; }" f)
 
   (write-line "maipore_tramo_bt : dialog { label = \"Maipore - Tramo BT/AP PPTO\"; : boxed_column {" f)
   (write-line ": edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; }" f)
   (write-line (mp:dcl-etapa-str) f)
-  (write-line ": edit_box { label = \"Circuito AP/BT\"; key = \"circuito\"; edit_width = 26; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
+  (write-line ": edit_box { label = \"Circuito AP/BT\"; key = \"circuito\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : edit_box { label = \"Ductos libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad de zanja m\"; key = \"prof\"; edit_width = 12; } : text { label = \"Cotas TN: automaticas desde SUP_TN al marcar los extremos.\"; } : text { label = \"Cantidades de construccion: pendientes de parametros.\"; } } ok_cancel; }" f)
 
   ;; Se mantienen los formularios de puntos/accesorios para compatibilidad con los comandos existentes.
@@ -8281,8 +8290,8 @@
           (cons "REDOPT" (mp:item *mp-red-list* "red"))
           (cons "ETAPA" etapa)
           (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-          (cons "POZO_INI" (mp:gettile "pini"))
-          (cons "POZO_FIN" (mp:gettile "pfin"))
+          (cons "POZO_INI" "")
+          (cons "POZO_FIN" "")
           (cons "TIPO_EXTREMO_INI" (mp:item *mp-extremo-hidro-list* "tipo_ini"))
           (cons "TIPO_EXTREMO_FIN" (mp:item *mp-extremo-hidro-list* "tipo_fin"))
           (cons "DIAMETRO" (if (= (mp:gettile "red") "2") (mp:item *mp-diam-acu-list* "diam") (mp:item *mp-diam-alc-list* "diam")))
@@ -8321,7 +8330,7 @@
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
       (setq res
         (list (cons "SERIE" (mp:gettile "serie")) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-              (cons "CIRCUITO" (mp:gettile "circuito")) (cons "DESDE" (mp:gettile "desde")) (cons "HASTA" (mp:gettile "hasta"))
+              (cons "CIRCUITO" (mp:gettile "circuito")) (cons "DESDE" "") (cons "HASTA" "")
               (cons "CONDUCTORES" (mp:item *mp-cond-mt-list* "cond")) (cons "CONDUCTOR" (mp:item *mp-cond-mt-list* "cond"))
               (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos")) (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto"))
               (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto")) (cons "LIBRES" (mp:gettile "libres"))
@@ -8353,7 +8362,7 @@
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
       (setq res
         (list (cons "SERIE" (mp:gettile "serie")) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-              (cons "CIRCUITO_AP" (mp:gettile "circuito")) (cons "DESDE" (mp:gettile "desde")) (cons "HASTA" (mp:gettile "hasta"))
+              (cons "CIRCUITO_AP" (mp:gettile "circuito")) (cons "DESDE" "") (cons "HASTA" "")
               (cons "CONDUCTOR" (mp:item *mp-cond-bt-list* "cond")) (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos"))
               (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto")) (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto"))
               (cons "LIBRES" (mp:gettile "libres"))
@@ -9679,7 +9688,7 @@
    cover-ini cover-fin depth-ini depth-fin depth-mean slope-calculated
    entered-slope excavation bedding-volume element-volume fill surplus
    replacement duct-diameter surface depth-profile depths max-depth-sampled
-   critical-depth)
+   critical-depth sample-count)
   (setq length-2d (if (and p1 p2) (mp:distance-2d p1 p2)
                     (mp:number-or (mp:getval "LONGITUD_2D" vals
                       (mp:getval "LONGITUD" vals "0")) 0.0))
@@ -9728,10 +9737,13 @@
       (if (mp:gravity-tramo-p base)
         (progn
           (setq surface (mp:current-terrain-surface))
+          (setq sample-count
+            (min 200
+              (max 2 (fix (+ 0.999999 (/ length-2d 2.50))))))
           (setq depth-profile
             (if (and surface p1 p2 key-ini key-fin)
               (mp:tramo-depth-profile surface p1 p2 key-ini key-fin
-                diameter-m bedding 10
+                diameter-m bedding sample-count
                 (if (boundp '*mp-tramo-road-ref*) *mp-tramo-road-ref* nil))
               (list nil nil)))
           (setq depths (car depth-profile)
@@ -10103,6 +10115,95 @@
         (setq done T))))
   (if point (list point ename) nil))
 
+(defun mp:last-number-token (text / i n c buf best)
+  ;; Numeros de pozo suelen ser enteros (32, 33...), a diferencia de las
+  ;; cotas. Devuelve el ultimo token numerico del texto seleccionado.
+  (setq text (mp:safe-str text) i 1 n (strlen (mp:safe-str text))
+        buf "" best nil)
+  (while (<= i n)
+    (setq c (substr text i 1))
+    (if (or (wcmatch c "#")
+            (and (= c ".") (> (strlen buf) 0)
+                 (not (vl-string-search "." buf))))
+      (setq buf (strcat buf c))
+      (progn
+        (if (> (strlen (vl-string-trim "." buf)) 0) (setq best buf))
+        (setq buf "")))
+    (setq i (1+ i)))
+  (if (> (strlen (vl-string-trim "." buf)) 0) (setq best buf))
+  best)
+
+(defun mp:number-from-selected-label (prompt-text / selected ename obj txt layer value)
+  (setq selected (nentsel prompt-text))
+  (if selected
+    (progn
+      (setq ename (car selected)
+            obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename))
+            layer (cdr (assoc 8 (entget ename))))
+      (if (and obj (not (vl-catch-all-error-p obj)))
+        (setq txt (vl-catch-all-apply 'vla-get-TextString (list obj))))
+      (if (vl-catch-all-error-p txt) (setq txt nil))
+      (if (null txt) (setq txt (cdr (assoc 1 (entget ename)))))
+      (setq value (mp:last-number-token txt))
+      (if layer
+        (progn
+          (setq *mp-node-number-layer* layer)
+          (urb:config-write "MP_NODE_NUMBER_LAYER" layer)))
+      (if value
+        (prompt
+          (strcat "\nNumero " value " reconocido en la capa "
+            (urb:safe-string layer "sin nombre") "."))
+        (prompt "\nEl objeto seleccionado no contiene un numero legible."))))
+  value)
+
+(defun mp:prompt-new-endpoint-id (is-final / answer value label)
+  (setq label (if is-final "final" "inicial"))
+  (setq answer
+    (getstring T
+      (strcat "\nNumero del extremo " label
+        " [S=seleccionar texto/capa] <Enter omite>: ")))
+  (cond
+    ((= (vl-string-trim " " (mp:safe-str answer "")) "") "")
+    ((member (strcase answer) '("S" "SELECCIONAR"))
+      (setq value
+        (mp:number-from-selected-label
+          (strcat "\nSeleccione el numero del extremo " label ": ")))
+      (mp:safe-str value ""))
+    (T answer)))
+
+(defun mp:reuse-existing-endpoint-selection
+  (tramo selection vals is-final / tipo base existing)
+  (if (and selection (null (cadr selection)))
+    (progn
+      (setq tipo
+        (mp:getval
+          (if is-final "TIPO_EXTREMO_FIN" "TIPO_EXTREMO_INI") vals "NINGUNO")
+            base (mp:endpoint-base tramo tipo))
+      (if base
+        (setq existing (mp:find-point-reference base (car selection) "")))
+      (if existing (list (car selection) existing) selection))
+    selection))
+
+(defun mp:resolve-new-endpoint-ids
+  (tramo vals selection-ini selection-fin / tag)
+  ;; Un extremo existente conserva su ID. Solo se solicita el de los
+  ;; extremos nuevos y despues de haber definido la geometria.
+  (if (cadr selection-ini)
+    (setq vals (mp:merge-endpoint-data tramo vals (cadr selection-ini) nil))
+    (progn
+      (setq tag
+        (if (member tramo '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
+          "DESDE" "POZO_INI"))
+      (setq vals (mp:alist-set vals tag (mp:prompt-new-endpoint-id nil)))))
+  (if (cadr selection-fin)
+    (setq vals (mp:merge-endpoint-data tramo vals (cadr selection-fin) T))
+    (progn
+      (setq tag
+        (if (member tramo '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
+          "HASTA" "POZO_FIN"))
+      (setq vals (mp:alist-set vals tag (mp:prompt-new-endpoint-id T)))))
+  vals)
+
 (defun mp:endpoint-values (tramo vals is-final base / id result)
   (setq id
     (if is-final
@@ -10276,6 +10377,16 @@
       (if (<= (mp:distance-2d p1 p2) 1e-9)
         (prompt "\nNo se creo el tramo: los extremos coinciden en planta.")
         (progn
+          ;; Si el usuario marco exactamente un pozo/camara existente sin
+          ;; seleccionarlo, se reconoce espacialmente (5 cm) antes de pedir
+          ;; numeros. Asi 32-33 seguido de 33-34 hereda 33 automaticamente.
+          (setq selection-ini
+            (mp:reuse-existing-endpoint-selection base selection-ini vals nil)
+                selection-fin
+            (mp:reuse-existing-endpoint-selection base selection-fin vals T)
+                vals
+            (mp:resolve-new-endpoint-ids
+              base vals selection-ini selection-fin))
           (vla-StartUndoMark doc)
           (setq undo-open T
                 prepared
@@ -10675,7 +10786,9 @@
         (list "ETIQUETA" "Etiqueta visible" "")
         (list "PENDIENTE_VIS" "Pendiente visible" ""))
       (list (list "ETIQUETA" "Etiqueta visible" ""))))
-  (append visible (list (list "BLOQUE_BASE" "Bloque base" base)) specs))
+  (if is-tramo
+    (append visible specs)
+    (append visible (list (list "BLOQUE_BASE" "Bloque base" base)) specs)))
 
 (defun mp:block-tramo-circle-span (blk / item center x minx maxx)
   ;; Los centros de los circulos definen la longitud geometrica completa.
@@ -11056,8 +11169,15 @@
 (setq *urb-road-profile-scopes* '("Total" "Base"))
 (setq *urb-road-alignment-modes* '("Existente" "Nuevo"))
 (setq *urb-road-cota-modes* '("Pendiente" "Textos por capa"))
-(setq *urb-road-overwidth-modes*
-  '("Ninguno" "Izquierdo" "Derecho" "Ambos"))
+(setq *urb-road-overwidth-modes* '("Ambos" "Derecho" "Izquierdo"))
+;; Parametros geometricos editables por dibujo. El dialogo de via solo
+;; decide el COSTADO; las magnitudes se administran en Ajustes para que no
+;; cambien accidentalmente de una via a otra.
+(setq *urb-road-overwidth-left* 1.00)
+(setq *urb-road-overwidth-right* 1.00)
+(setq *urb-road-crossfall* 0.02)
+(setq *urb-road-earthwork-interval* 2.50)
+(setq *urb-anden-default-width* 3.50)
 ;; Perfiles de diseno segun Figura 4.1 (estructuras de pavimento) y
 ;; estudio de suelos AUS-10786-10 (Alfonso Uribe S.).
 ;; Capas de arriba hacia abajo, espesores en metros.
@@ -11184,6 +11304,93 @@
       (setq xrecord (entmakex data))
       (if xrecord (dictadd dict key xrecord))
       (if xrecord value))))
+
+(defun urb:load-geometric-settings (/ value pair)
+  (foreach pair
+    '(("URB_ROAD_OVERWIDTH_LEFT" *urb-road-overwidth-left* 0.0 20.0)
+      ("URB_ROAD_OVERWIDTH_RIGHT" *urb-road-overwidth-right* 0.0 20.0)
+      ("URB_ROAD_CROSSFALL" *urb-road-crossfall* 0.0 0.20)
+      ("URB_ROAD_EARTHWORK_INTERVAL" *urb-road-earthwork-interval* 0.25 20.0)
+      ("URB_ANDEN_DEFAULT_WIDTH" *urb-anden-default-width* 0.20 20.0))
+    (setq value
+      (urb:parse-real
+        (urb:safe-string (urb:config-read (car pair)) "")))
+    (if (and value (>= value (nth 2 pair)) (<= value (nth 3 pair)))
+      (set (cadr pair) value)))
+  (list *urb-road-overwidth-left* *urb-road-overwidth-right*
+    *urb-road-crossfall* *urb-road-earthwork-interval*
+    *urb-anden-default-width*)
+  (setq *urb-anden-road-crossfall* *urb-road-crossfall*)
+  (list *urb-road-overwidth-left* *urb-road-overwidth-right*
+    *urb-road-crossfall* *urb-road-earthwork-interval*
+    *urb-anden-default-width*))
+
+(defun urb:write-geometric-settings-dcl (/ filename)
+  (setq filename (urb:temp-file "urb_geometria" ".dcl"))
+  (if
+    (urb:write-lines filename
+      '("urb_geometria : dialog { label = \"Tabla de anchos y calculo\";"
+        ": boxed_column { label = \"Parametro | valor por dibujo\";"
+        ": row { : text { label = \"Sobreancho izquierdo de via (m)\"; width = 38; } : edit_box { key = \"road_left\"; edit_width = 12; } }"
+        ": row { : text { label = \"Sobreancho derecho de via (m)\"; width = 38; } : edit_box { key = \"road_right\"; edit_width = 12; } }"
+        ": row { : text { label = \"Bombeo de la calzada (%)\"; width = 38; } : edit_box { key = \"road_cross\"; edit_width = 12; } }"
+        ": row { : text { label = \"Intervalo secciones movimiento (m)\"; width = 38; } : edit_box { key = \"road_interval\"; edit_width = 12; } }"
+        ": row { : text { label = \"Ancho predeterminado de anden (m)\"; width = 38; } : edit_box { key = \"anden_width\"; edit_width = 12; } }"
+        ": text { label = \"El desplegable de la via solo define Ambos, Derecho o Izquierdo.\"; }"
+        "} ok_cancel; }"))
+    filename))
+
+(defun urb:geometric-settings-capture (/ left right cross interval anden)
+  (setq left (urb:parse-real (get_tile "road_left"))
+        right (urb:parse-real (get_tile "road_right"))
+        cross (urb:parse-real (get_tile "road_cross"))
+        interval (urb:parse-real (get_tile "road_interval"))
+        anden (urb:parse-real (get_tile "anden_width")))
+  (cond
+    ((or (null left) (< left 0.0) (> left 20.0))
+      (alert "El sobreancho izquierdo debe estar entre 0 y 20 m.") nil)
+    ((or (null right) (< right 0.0) (> right 20.0))
+      (alert "El sobreancho derecho debe estar entre 0 y 20 m.") nil)
+    ((or (null cross) (< cross 0.0) (> cross 20.0))
+      (alert "El bombeo debe estar entre 0% y 20%.") nil)
+    ((or (null interval) (< interval 0.25) (> interval 20.0))
+      (alert "El intervalo debe estar entre 0.25 m y 20 m.") nil)
+    ((or (null anden) (< anden 0.20) (> anden 20.0))
+      (alert "El ancho del anden debe estar entre 0.20 m y 20 m.") nil)
+    (T
+      (setq *urb-road-overwidth-left* left
+            *urb-road-overwidth-right* right
+            *urb-road-crossfall* (/ cross 100.0)
+            *urb-anden-road-crossfall* (/ cross 100.0)
+            *urb-road-earthwork-interval* interval
+            *urb-anden-default-width* anden)
+      (urb:config-write "URB_ROAD_OVERWIDTH_LEFT" (rtos left 2 6))
+      (urb:config-write "URB_ROAD_OVERWIDTH_RIGHT" (rtos right 2 6))
+      (urb:config-write "URB_ROAD_CROSSFALL" (rtos (/ cross 100.0) 2 8))
+      (urb:config-write "URB_ROAD_EARTHWORK_INTERVAL" (rtos interval 2 6))
+      (urb:config-write "URB_ANDEN_DEFAULT_WIDTH" (rtos anden 2 6))
+      T)))
+
+(defun urb:geometric-settings-command (/ filename dcl ok)
+  (urb:load-geometric-settings)
+  (setq filename (urb:write-geometric-settings-dcl)
+        dcl (if filename (load_dialog filename) -1))
+  (if (and (> dcl 0) (new_dialog "urb_geometria" dcl))
+    (progn
+      (set_tile "road_left" (rtos *urb-road-overwidth-left* 2 3))
+      (set_tile "road_right" (rtos *urb-road-overwidth-right* 2 3))
+      (set_tile "road_cross" (rtos (* 100.0 *urb-road-crossfall*) 2 2))
+      (set_tile "road_interval" (rtos *urb-road-earthwork-interval* 2 2))
+      (set_tile "anden_width" (rtos *urb-anden-default-width* 2 2))
+      (action_tile "accept"
+        "(if (urb:geometric-settings-capture) (done_dialog 1))")
+      (action_tile "cancel" "(done_dialog 0)")
+      (setq ok (= 1 (start_dialog)))))
+  (if (> dcl 0) (unload_dialog dcl))
+  (if filename (vl-catch-all-apply 'vl-file-delete (list filename)))
+  (if ok
+    (prompt "\nTabla de anchos, bombeo e intervalo guardada para este dibujo."))
+  (princ))
 
 (defun mp:load-tramo-appearance-settings (/ value)
   ;; Ajustes por DWG: al abrir otro proyecto se respetan sus escalas y el
@@ -11753,8 +11960,7 @@
         ": boxed_column { label = \"Geometria\";"
         ": text { label = \"El contorno cerrado define el area y el ancho real de la via.\"; }"
         ": popup_list { label = \"Sobreancho\"; key = \"overwidth\"; }"
-        ": edit_box { label = \"Sobreancho izquierdo (m)\"; key = \"left_over\"; edit_width = 14; }"
-        ": edit_box { label = \"Sobreancho derecho (m)\"; key = \"right_over\"; edit_width = 14; } }"
+        ": text { label = \"Las magnitudes se modifican en Ajustes > Tabla de anchos.\"; } }"
         "ok_cancel; }"))
     filename))
 
@@ -11768,29 +11974,18 @@
   (urb:fill-popup "subetapa"
     (urb:subetapas-for *urb-road-dialog-etapa*) 0))
 
-(defun urb:road-dialog-update-overwidth (/ mode)
-  (setq mode (nth (atoi (get_tile "overwidth")) *urb-road-overwidth-modes*))
-  (mode_tile "left_over"
-    (if (member mode '("Izquierdo" "Ambos")) 0 1))
-  (mode_tile "right_over"
-    (if (member mode '("Derecho" "Ambos")) 0 1)))
+(defun urb:road-dialog-update-overwidth () nil)
 
 (defun urb:road-dialog-capture
-  (/ name interval stage subetapas mode left right left-input right-input)
+  (/ name interval stage subetapas mode left right)
   (setq name (vl-string-trim " " (get_tile "name")))
   (setq interval (urb:parse-real (get_tile "station_interval")))
   (setq mode
     (nth (atoi (get_tile "overwidth")) *urb-road-overwidth-modes*))
-  (setq left-input (urb:parse-real (get_tile "left_over")))
-  (setq right-input (urb:parse-real (get_tile "right_over")))
   (cond
     ((= name "") (alert "Escriba el nombre de la via.") nil)
     ((null interval) (alert "El intervalo no es un numero valido.") nil)
     ((<= interval 0.0) (alert "El intervalo debe ser mayor que cero.") nil)
-    ((and (member mode '("Izquierdo" "Ambos")) (null left-input))
-      (alert "El sobreancho izquierdo no es un numero valido.") nil)
-    ((and (member mode '("Derecho" "Ambos")) (null right-input))
-      (alert "El sobreancho derecho no es un numero valido.") nil)
     (T
       (setq stage
         (if (urb:etapas-enabled-p)
@@ -11799,10 +11994,10 @@
       (setq subetapas (urb:subetapas-for stage))
       (setq left
         (if (member mode '("Izquierdo" "Ambos"))
-          (max 0.0 left-input) 0.0))
+          *urb-road-overwidth-left* 0.0))
       (setq right
         (if (member mode '("Derecho" "Ambos"))
-          (max 0.0 right-input) 0.0))
+          *urb-road-overwidth-right* 0.0))
       (setq *urb-road-dialog-result*
         (list
           name
@@ -11841,6 +12036,7 @@
   ;; Estudio AUS-10786-10: sobreancho minimo 1.0 m a cada lado en las
   ;; capas granulares, por eso el predeterminado es Ambos con 1.00 m.
   (setq over (urb:road-default defaults "overwidth" "Ambos"))
+  (if (not (member over *urb-road-overwidth-modes*)) (setq over "Ambos"))
   (setq *urb-road-dialog-result* nil)
   (setq dcl (load_dialog (urb:write-road-dcl)))
   (if (and (> dcl 0) (new_dialog "urb_road" dcl))
@@ -11865,8 +12061,6 @@
       (urb:fill-popup "overwidth" *urb-road-overwidth-modes*
         (urb:index-of over *urb-road-overwidth-modes*))
       (set_tile "station_interval" (urb:road-default defaults "station_interval" "5.00"))
-      (set_tile "left_over" (urb:road-default defaults "left_over" "1.00"))
-      (set_tile "right_over" (urb:road-default defaults "right_over" "1.00"))
       (urb:road-dialog-update-overwidth)
       (action_tile "overwidth" "(urb:road-dialog-update-overwidth)")
       (action_tile "accept" "(if (urb:road-dialog-capture) (done_dialog 1))")
@@ -12060,6 +12254,70 @@
   (reverse objects)
 )
 
+(defun urb:create-road-axis-display
+  (boundary axis / data start span finish d step point coords poly handle via-id)
+  ;; Copia grafica del tramo de eje dentro del bloque. El eje fuente se
+  ;; conserva como referencia de calculo (puede pertenecer a un XREF),
+  ;; mientras esta polilinea queda seleccionable junto con la via.
+  (setq data (urb:get-xdata-strings boundary "URB_VIA")
+        start (atof (urb:safe-string (nth 21 data) "0"))
+        span (atof (urb:safe-string (nth 18 data) "0"))
+        finish (+ start span)
+        step (max 0.25 (min 2.0 (/ (max span 0.25) 40.0)))
+        d start)
+  (while (< d (- finish 1e-7))
+    (setq point
+      (vl-catch-all-apply 'vlax-curve-getPointAtDist (list axis d)))
+    (if (and point (not (vl-catch-all-error-p point)))
+      (setq coords (append coords (list (car point) (cadr point)))))
+    (setq d (+ d step)))
+  (setq point
+    (vl-catch-all-apply 'vlax-curve-getPointAtDist (list axis finish)))
+  (if (and point (not (vl-catch-all-error-p point)))
+    (setq coords (append coords (list (car point) (cadr point)))))
+  (if (>= (length coords) 4)
+    (progn
+      (setq poly
+        (vla-AddLightWeightPolyline
+          (urb:space) (urb:double-array-variant coords)))
+      (vla-put-Layer poly "URB-VIA")
+      (vla-put-Color poly 256)
+      (if (vlax-property-available-p poly 'ConstantWidth T)
+        (vla-put-ConstantWidth poly 0.04))
+      (setq handle
+        (vla-get-Handle (vlax-ename->vla-object boundary)))
+      (urb:tag-road-generated poly handle)
+      (setq via-id (urb:safe-string (nth 22 data) ""))
+      (urb:set-xdata-strings
+        (vlax-vla-object->ename poly) "URB_VIA_EJE"
+        (list handle via-id "EJE_DENTRO_BLOQUE"))
+      poly)))
+
+(defun urb:create-road-display-hatch (boundary / obj hatch handle)
+  (setq obj (vlax-ename->vla-object boundary))
+  (setq hatch
+    (vl-catch-all-apply
+      'vla-AddHatch (list (urb:space) 1 "SOLID" :vlax-true)))
+  (if (not (vl-catch-all-error-p hatch))
+    (progn
+      (if (vl-catch-all-error-p
+            (vl-catch-all-apply 'vla-AppendOuterLoop
+              (list hatch (urb:make-loop-array obj))))
+        (progn (urb:safe-delete hatch) (setq hatch nil))
+        (progn
+          (vla-put-Layer hatch "URB-VIA")
+          (vla-put-Color hatch 256)
+          ;; COM acepta 0..90 como texto en versiones recientes; si una
+          ;; version no expone la propiedad, el hatch sigue siendo valido.
+          (if (vlax-property-available-p hatch 'EntityTransparency T)
+            (vl-catch-all-apply 'vlax-put-property
+              (list hatch 'EntityTransparency "75")))
+          (vla-Evaluate hatch)
+          (setq handle
+            (vla-get-Handle (vlax-ename->vla-object boundary)))
+          (urb:tag-road-generated hatch handle)))))
+  hatch)
+
 ;; ename es un bloque de via ya empacado (mismo criterio que
 ;; urb:anden-block-p): referencia de bloque de primer nivel con xdata
 ;; URB_VIA valida.
@@ -12139,7 +12397,8 @@
 (defun urb:road-property-hidden-tag-p (tag)
   (member (strcase (urb:safe-string tag ""))
     '("VIA_PERFIL" "VIA_SUPERFICIE" "VIA_ESTADO"
-      "VIA_ABSC_INICIAL" "VIA_MEMORIA" "PAV_ESPESOR_M"))
+      "VIA_ABSC_INICIAL" "VIA_MEMORIA" "PAV_ESPESOR_M"
+      "VIA_METODO_RASANTE"))
 )
 
 (defun urb:road-material-property-tags (data / profile layer result)
@@ -12218,6 +12477,54 @@
   changed
 )
 
+(defun urb:upgrade-existing-road-properties
+  (/ ss i road data mov obj blocks bdef bname tags item victims length-value
+   left right area overarea added sync-result spec)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA"))))
+        i 0 blocks (vla-get-Blocks (urb:doc)) added 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq road (ssname ss i) data (urb:get-xdata-strings road "URB_VIA")
+            mov (urb:road-movement-data road)
+            obj (vlax-ename->vla-object road)
+            bname (vla-get-EffectiveName obj)
+            bdef (vl-catch-all-apply 'vla-Item (list blocks bname))
+            tags nil victims nil)
+      (if (and data (not (vl-catch-all-error-p bdef)))
+        (progn
+          (vlax-for item bdef
+            (cond
+              ((= (vla-get-ObjectName item) "AcDbAttributeDefinition")
+                (setq tags (cons (strcase (vla-get-TagString item)) tags)))
+              ;; El antiguo cuadro MTEXT sobre la calzada ya no se usa.
+              ((= (vla-get-ObjectName item) "AcDbMText")
+                (setq victims (cons item victims)))))
+          (foreach item victims (if (urb:safe-delete item) (setq added (1+ added))))
+          (setq area (atof (urb:safe-string (nth 17 data) "0"))
+                length-value (atof (urb:safe-string (nth 18 data) "0"))
+                left (atof (urb:safe-string (nth 14 data) "0"))
+                right (atof (urb:safe-string (nth 15 data) "0"))
+                overarea (* length-value (+ left right)))
+          (foreach spec
+            (list
+              (list "VIA_AREA_SOBREANCHO_M2" "Area con sobreancho m2" (rtos area 2 2))
+              (list "VIA_SOBREANCHO_M2" "Area exclusiva de sobreancho m2" (rtos overarea 2 2))
+              (list "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAS"))
+            (if (not (member (car spec) tags))
+              (progn
+                (urb:add-invisible-attribute bdef '(0.0 0.0 0.0)
+                  (car spec) (cadr spec) (caddr spec))
+                (setq added (1+ added)))))
+          (setq sync-result
+            (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bname)))
+          (urb:set-block-attribute obj "VIA_AREA_SOBREANCHO_M2" (rtos area 2 2))
+          (urb:set-block-attribute obj "VIA_SOBREANCHO_M2" (rtos overarea 2 2))
+          (if (= (urb:safe-string
+                    (cdr (assoc "MEMORIAS" (urb:block-attribute-values obj))) "") "")
+            (urb:set-block-attribute obj "MEMORIAS" "OCULTAS"))))
+      (setq i (1+ i))))
+  added)
+
 ;; Empaqueta el contorno + abscisado de una via en un BLOQUE con
 ;; atributos invisibles (mismo patron que urb:package-anden, linea
 ;; ~1403): la xdata URB_VIA nunca aparece en el panel
@@ -12229,7 +12536,7 @@
 (defun urb:package-road
   (ename / boundary data mov handle objects point block-name blocks
    block-definition copy-result block-ref obj insert-result block-ename
-   xdata-result)
+   xdata-result road-length left right overwidth-area)
   (setq boundary (vlax-ename->vla-object ename))
   (urb:ensure-layer "URB-VIA" 2 T)
   (setq data (urb:get-xdata-strings ename "URB_VIA"))
@@ -12267,6 +12574,16 @@
       (urb:add-invisible-attribute block-definition point
         "VIA_AREA_M2" "Area m2"
         (rtos (atof (urb:safe-string (nth 17 data) "0")) 2 2))
+      (setq road-length (atof (urb:safe-string (nth 18 data) "0"))
+            left (atof (urb:safe-string (nth 14 data) "0"))
+            right (atof (urb:safe-string (nth 15 data) "0"))
+            overwidth-area (* road-length (+ left right)))
+      (urb:add-invisible-attribute block-definition point
+        "VIA_AREA_SOBREANCHO_M2" "Area con sobreancho m2"
+        (rtos (atof (urb:safe-string (nth 17 data) "0")) 2 2))
+      (urb:add-invisible-attribute block-definition point
+        "VIA_SOBREANCHO_M2" "Area exclusiva de sobreancho m2"
+        (rtos overwidth-area 2 2))
       (urb:add-invisible-attribute block-definition point
         "VIA_LONGITUD_M" "Longitud tramo m"
         (rtos (atof (urb:safe-string (nth 18 data) "0")) 2 2))
@@ -12277,8 +12594,7 @@
         "VIA_RELLENO_M3" "Relleno m3"
         (if mov (urb:safe-string (nth 1 mov) "0") "0"))
       (urb:add-invisible-attribute block-definition point
-        "VIA_METODO_RASANTE" "Metodo rasante"
-        (if mov (urb:safe-string (nth 2 mov) "") "sin calcular"))
+        "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAS")
       (setq insert-result
         (vl-catch-all-apply
           'vla-InsertBlock
@@ -12635,6 +12951,28 @@
   axis
 )
 
+(defun urb:find-axis-in-road-block (road via-id / obj blocks bdef result item link)
+  (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list road)))
+  (if (and (not (vl-catch-all-error-p obj))
+           (= (vla-get-ObjectName obj) "AcDbBlockReference"))
+    (progn
+      (setq blocks (vla-get-Blocks (urb:doc))
+            bdef
+              (vl-catch-all-apply 'vla-Item
+                (list blocks (vla-get-EffectiveName obj))))
+      (if (not (vl-catch-all-error-p bdef))
+        (vlax-for item bdef
+          (if (and (null result)
+                   (urb:curve-entity-p (vlax-vla-object->ename item)))
+            (progn
+              (setq link
+                (urb:get-xdata-strings
+                  (vlax-vla-object->ename item) "URB_VIA_EJE"))
+              (if (and link (> (length link) 1)
+                       (urb:string-equal-p (nth 1 link) via-id))
+                (setq result (vlax-vla-object->ename item))))))))
+  result))
+
 ;; Resuelve el EJE de una via YA CREADA sin fabricar geometria nueva:
 ;; 1) handle guardado, 2) cache de sesion, 3) xdata URB_VIA_EJE/via-id.
 ;; Si los tres fallan, el flujo superior pide seleccionar el eje existente
@@ -12653,7 +12991,8 @@
   (setq axis
     (or (if (/= axis-handle "") (handent axis-handle) nil)
         (if cache-key (urb:cached-road-axis cache-key) nil)
-        (urb:find-linked-road-axis via-id)))
+        (urb:find-linked-road-axis via-id)
+        (urb:find-axis-in-road-block road via-id)))
   (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
   (if (and axis cache-key) (urb:cache-road-axis cache-key axis))
   axis)
@@ -12705,16 +13044,15 @@
         ;; TEXTO/etiqueta de cota de cualquier XREF. Se prueba primero la
         ;; via para que un atributo numerico anidado en su bloque no se
         ;; confunda con la cota de rasante.
-        (setq value
-          (if (= n 0)
-            (urb:cota-start-from-pick sel)
-            (urb:cota-from-pick sel)))
+        ;; La primera cota tambien se toma EN EL PUNTO DEL CLIC. Antes se
+        ;; forzaba la abscisa local 0+000 de la via fuente; por eso una
+        ;; conexion cerca de 0+210 heredaba 2560.96 en vez de interpolar
+        ;; aproximadamente 2556.89 entre las cotas vecinas.
+        (setq value (urb:cota-from-pick sel))
         (if value
           (prompt
             (strcat
-              (if (= n 0)
-                "\nCota tomada del INICIO de la rasante de la via: "
-                "\nCota tomada de la RASANTE de la via seleccionada: ")
+              "\nCota interpolada de la RASANTE en el punto seleccionado: "
               (rtos value 2 3)))
           (progn
             (setq value (urb:selected-cota-number sel))
@@ -12786,12 +13124,12 @@
             (progn
               ;; Una via puede contener atributos numericos; su rasante
               ;; tiene prioridad sobre cualquier texto anidado.
-              (setq via-cota (urb:cota-start-from-pick selected))
+              (setq via-cota (urb:cota-from-pick selected))
               (if via-cota
                 (prompt
                   (strcat
-                    "\nCota INICIAL tomada de la RASANTE de la via"
-                    " seleccionada: " (rtos via-cota 2 3)))
+                    "\nCota tomada de la RASANTE interpolada en el clic: "
+                    (rtos via-cota 2 3)))
                 (progn
                   (setq via-cota (urb:selected-cota-number selected))
                   (if via-cota
@@ -13690,8 +14028,11 @@
                   ;; una sola escritura de URB_VIA.
                   (if (urb:try-road-earthworks boundary axis)
                     (setq status "MOVIMIENTO DE TIERRAS CALCULADO"))
-                  ;; Resumen visible: perfil, areas, capas, corte y relleno.
-                  (urb:create-road-summary boundary axis)
+                  ;; Representacion grafica ligera: eje dentro del bloque y
+                  ;; hatch amarillo transparente. Los datos quedan solo en
+                  ;; Propiedades, sin texto superpuesto a la calzada.
+                  (urb:create-road-axis-display boundary axis)
+                  (urb:create-road-display-hatch boundary)
                   ;; Sardineles a los costados (2026-08-11): antes de
                   ;; empaquetar, con el contorno todavia como polilinea.
                   (urb:create-road-sardineles
@@ -13891,7 +14232,8 @@
                       ;; El calculo guarda estado y movimiento juntos.
                       (urb:try-road-earthworks boundary axis)
                       ;; Regenera el resumen visible con los datos editados.
-                      (urb:create-road-summary boundary axis)
+                      (urb:create-road-axis-display boundary axis)
+                      (urb:create-road-display-hatch boundary)
                       ;; Empaqueta de nuevo en un bloque con atributos: los
                       ;; datos recalculados quedan visibles en Properties
                       ;; con solo seleccionar la via, sin correr comandos.
@@ -14875,7 +15217,7 @@
 
 (defun urb:road-section-earthwork-areas
   (profile terrain rasante width-total depth
-   / rest first second delta1 delta2 segment dx cut fill delta)
+   / rest first second design1 design2 delta1 delta2 segment dx cut fill delta)
   ;; Areas transversales separadas de corte/relleno. Cada intervalo entre
   ;; ordenadas se parte exactamente en el cruce por cero, evitando que el
   ;; corte de un costado cancele el relleno del otro.
@@ -14886,8 +15228,15 @@
       (while (cadr rest)
         (setq first (car rest)
               second (cadr rest)
-              delta1 (- (cadr first) (- rasante depth))
-              delta2 (- (cadr second) (- rasante depth))
+              ;; Corona simetrica: la rasante almacenada corresponde al
+              ;; eje; hacia cada borde baja abs(offset)*bombeo. El fondo
+              ;; estructural conserva la misma pendiente transversal.
+              design1 (- rasante
+                         (* (abs (car first)) *urb-road-crossfall*) depth)
+              design2 (- rasante
+                         (* (abs (car second)) *urb-road-crossfall*) depth)
+              delta1 (- (cadr first) design1)
+              delta2 (- (cadr second) design2)
               dx (- (car second) (car first))
               segment
                 (urb:road-earthwork-segment delta1 delta2 1.0 dx)
@@ -14898,7 +15247,12 @@
     (if (and (numberp terrain) (numberp rasante))
       (progn
         ;; Compatibilidad con pruebas/muestras antiguas sin perfil.
-        (setq delta (- terrain (- rasante depth)))
+        ;; Respaldo para registros antiguos sin siete ordenadas: compara
+        ;; contra el fondo medio de la seccion coronada.
+        (setq delta
+          (- terrain
+             (- rasante depth
+                (* 0.25 width-total *urb-road-crossfall*))))
         (list
           (if (> delta 0.0) (* delta width-total) 0.0)
           (if (< delta 0.0) (* (- delta) width-total) 0.0)))
@@ -15088,6 +15442,186 @@
           (setq index (1+ index))))))
   count)
 
+(defun urb:road-memory-table-point (road / obj minpt maxpt result textheight)
+  (setq obj (vlax-ename->vla-object road)
+        result
+          (vl-catch-all-apply
+            '(lambda ()
+               (vla-GetBoundingBox obj 'minpt 'maxpt)
+               (setq maxpt (vlax-safearray->list maxpt))
+               maxpt)))
+  (if (vl-catch-all-error-p result)
+    '(0.0 0.0 0.0)
+    (progn
+      (setq textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE"))))
+      (list (+ (car result) (* textheight 4.0)) (cadr result) 0.0))))
+
+(defun urb:toggle-road-memory-command
+  (/ selected road data via-id axis handle removed)
+  (setq selected (entsel "\nSeleccione la via para mostrar/ocultar sus memorias: "))
+  (setq road (if selected (urb:road-parent-from-entity (car selected)) nil))
+  (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
+    (progn
+      (setq handle (cdr (assoc 5 (entget road)))
+            removed (urb:delete-road-audit-tables handle))
+      (if (> removed 0)
+        (progn
+          (mp:setatt-one road "MEMORIAS" "OCULTAS")
+          (prompt "\nMemorias de la via ocultas."))
+        (progn
+          (setq via-id (urb:safe-string (nth 22 data) "")
+                axis (urb:road-axis-recover road data via-id))
+          (if axis
+            (progn
+              (setq *urb-road-audit-point*
+                (urb:road-memory-table-point road))
+              (urb:try-road-earthworks road axis)
+              (setq *urb-road-audit-point* nil)
+              (mp:setatt-one road "MEMORIAS" "VISIBLES")
+              (prompt "\nMemorias de la via desplegadas."))
+            (prompt
+              "\nNo se encontro el eje vinculado; edite la via una vez para restablecer el enlace.")))))
+    (prompt "\nEl objeto seleccionado no es una via creada por el programa."))
+  (princ))
+
+(defun c:QMEMORIAVIA () (urb:toggle-road-memory-command))
+
+(defun mp:delete-tramo-memory-tables (parent-handle / ss i en data count)
+  (setq count 0
+        ss (ssget "_X" '((0 . "ACAD_TABLE") (-3 ("MP_TRAMO_TABLA"))))
+        i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq en (ssname ss i)
+            data (urb:get-xdata-strings en "MP_TRAMO_TABLA"))
+      (if (and data (= (car data) parent-handle))
+        (if (urb:safe-delete (vlax-ename->vla-object en))
+          (setq count (1+ count))))
+      (setq i (1+ i))))
+  count)
+
+(defun mp:create-tramo-memory-table
+  (tramo / obj vals base reference p1 p2 length-value surface key0 key1
+   diameter bedding width n i frac point tn key bottom depth area prev-area
+   ds volume cumulative rows row table point-table textheight rowheight
+   colwidth columns item col row-index handle)
+  (setq obj (vlax-ename->vla-object tramo)
+        vals (mp:att-alist tramo)
+        base (mp:infer-base (vla-get-EffectiveName obj) vals)
+        reference (mp:reference-plan-points obj)
+        key0 (mp:numeric-real (mp:getval "COTA_CLAVE_INI" vals ""))
+        key1 (mp:numeric-real (mp:getval "COTA_CLAVE_FIN" vals ""))
+        surface (mp:current-terrain-surface))
+  (cond
+    ((not (mp:gravity-tramo-p base))
+      (prompt "\nLa tabla detallada de excavacion aplica a tramos hidrosanitarios por gravedad.") nil)
+    ((or (null key0) (null key1))
+      (prompt
+        "\nMemoria no disponible: faltan las cotas clave inicial y/o final; la excavacion mostrada como 0 no es confiable.") nil)
+    ((or (null surface) (null reference))
+      (prompt "\nMemoria no disponible: no se encontro SUP_TN o la geometria del tramo.") nil)
+    (T
+      (setq p1 (car reference) p2 (cadr reference)
+            length-value (mp:distance-2d p1 p2)
+            diameter (* 0.0254
+              (mp:number-or (mp:getval "DIAMETRO" vals "0") 0.0))
+            bedding (mp:number-or (mp:getval "ESPESOR_CAMA" vals "0.10") 0.10)
+            width (mp:number-or (mp:getval "ANCHO_ZANJA" vals "0") 0.0)
+            n (min 200 (max 2 (fix (+ 0.999999 (/ length-value 2.50)))))
+            ds (/ length-value (float n))
+            i 0 cumulative 0.0)
+      (repeat (1+ n)
+        (setq frac (/ (float i) (float n))
+              point
+                (list
+                  (+ (car p1) (* frac (- (car p2) (car p1))))
+                  (+ (cadr p1) (* frac (- (cadr p2) (cadr p1)))))
+              tn (mp:terrain-elevation-at-point surface point)
+              key (+ key0 (* frac (- key1 key0)))
+              bottom (- key diameter bedding)
+              depth (if tn (max 0.0 (- tn bottom)) nil)
+              area (if depth (* width depth) nil)
+              volume 0.0)
+        (if (and area prev-area)
+          (setq volume (* 0.5 (+ prev-area area) ds)
+                cumulative (+ cumulative volume)))
+        (setq rows
+          (append rows
+            (list (list (* frac length-value) tn key bottom depth area
+                    volume cumulative))))
+        (setq prev-area area i (1+ i)))
+      (if (vl-some '(lambda (r) (null (nth 1 r))) rows)
+        (progn
+          (prompt "\nMemoria no creada: una o mas secciones estan fuera de la superficie TN.")
+          nil)
+        (progn
+          (setq point-table (urb:road-memory-table-point tramo)
+                textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE")))
+                rowheight (* textheight 2.20)
+                colwidth (* textheight 11.0)
+                table
+                  (vla-AddTable (urb:space) (vlax-3d-point point-table)
+                    (+ (length rows) 3) 8 rowheight colwidth))
+          (urb:ensure-layer "PPTO-TABLAS-MEMORIA" 4 T)
+          (vla-put-Layer table "PPTO-TABLAS-MEMORIA")
+          (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
+            (list table :vlax-true))
+          (vl-catch-all-apply 'vla-MergeCells (list table 0 0 0 7))
+          (urb:set-table-text-safe table 0 0
+            (strcat "MEMORIA MOVIMIENTO DE TIERRAS - "
+              (mp:getval "POZO_INI" vals "?") " - "
+              (mp:getval "POZO_FIN" vals "?")))
+          (setq columns
+            '("Distancia" "TN" "Cota clave" "Fondo zanja"
+              "Profundidad" "Area exc." "Vol. tramo" "Vol. acum."))
+          (setq col 0)
+          (foreach item columns
+            (urb:set-table-text-safe table 1 col item)
+            (setq col (1+ col)))
+          (setq row-index 2)
+          (foreach row rows
+            (setq col 0)
+            (foreach item row
+              (urb:set-table-text-safe table row-index col (rtos item 2 3))
+              (setq col (1+ col)))
+            (setq row-index (1+ row-index)))
+          (urb:set-table-text-safe table row-index 0 "TOTAL EXCAVACION")
+          (urb:set-table-text-safe table row-index 7 (rtos cumulative 2 3))
+          (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed
+            (list table :vlax-false))
+          (vl-catch-all-apply 'vla-RecomputeTableBlock (list table :vlax-true))
+          (setq handle (cdr (assoc 5 (entget tramo))))
+          (urb:set-xdata-strings (vlax-vla-object->ename table)
+            "MP_TRAMO_TABLA" (list handle))
+          table)))))
+
+(defun mp:toggle-tramo-memory-command (/ pick tramo obj vals base handle removed table)
+  (setq pick (entsel "\nSeleccione el tramo para mostrar/ocultar sus memorias: ")
+        tramo (if pick (car pick) nil))
+  (if tramo
+    (progn
+      (setq obj (vlax-ename->vla-object tramo)
+            vals (mp:att-alist tramo)
+            base (mp:infer-base (vla-get-EffectiveName obj) vals))
+      (if (mp:base-is-tramo base)
+        (progn
+          (setq handle (cdr (assoc 5 (entget tramo)))
+                removed (mp:delete-tramo-memory-tables handle))
+          (if (> removed 0)
+            (progn
+              (mp:setatt-one tramo "MEMORIAS" "OCULTAS")
+              (prompt "\nMemorias del tramo ocultas."))
+            (progn
+              (setq table (mp:create-tramo-memory-table tramo))
+              (if table
+                (progn
+                  (mp:setatt-one tramo "MEMORIAS" "VISIBLES")
+                  (prompt "\nMemorias del tramo desplegadas."))))))
+        (prompt "\nEl objeto seleccionado no es un tramo de red."))))
+  (princ))
+
+(defun c:QMEMORIATRAMO () (mp:toggle-tramo-memory-command))
+
 ;; 2026-08-11 v2: las tablas de verificacion viejas NO estan sueltas en el
 ;; dibujo -- quedaron EMPACADAS dentro del bloque de cada via
 ;; (urb:package-road recoge todo lo etiquetado URB_VIA_GEN, tabla
@@ -15151,7 +15685,7 @@
 
 (defun urb:compute-road-earthworks
   (boundary data axis / surface depth area axis-length axis-start nominal
-   left right width-total design-width geometry-width interval direction texts radius span stations raw-stations
+   left right width-total design-width geometry-width interval sample-interval direction texts radius span stations raw-stations
    station-start-number coverage
    samples old-mov old-cota0 old-cota-final grade-result totals metodo
    cota0 cota-final cut fill skipped audit-result)
@@ -15216,6 +15750,8 @@
             " m. El movimiento usa el ancho geometrico.")))
       (setq interval (atof (nth 11 data)))
       (if (<= interval 0.01) (setq interval 10.0))
+      (setq sample-interval
+        (min interval (max 0.25 *urb-road-earthwork-interval*)))
       (setq direction (urb:safe-string (nth 12 data) "Inicio"))
       (setq station-start-number
         (urb:station-number (urb:safe-string (nth 10 data) "0+000")))
@@ -15280,7 +15816,7 @@
           (setq *urb-earthwork-stage* "muestreo de la superficie")
           (setq samples
             (urb:road-section-samples
-              surface axis axis-start span interval direction width-total
+              surface axis axis-start span sample-interval direction width-total
               stations coverage station-start-number))
           (setq *urb-earthwork-stage* "construccion de la rasante")
           (setq grade-result
@@ -15294,7 +15830,8 @@
             (progn
               (setq samples (nth 0 grade-result))
               (setq metodo
-                (strcat "AREAS_EXTREMAS_7_ORDENADAS - "
+                (strcat "AREAS_EXTREMAS_7_ORDENADAS_BOMBEO_"
+                  (rtos (* 100.0 *urb-road-crossfall*) 2 2) "% - "
                   (urb:safe-string (nth 1 grade-result) "rasante")))
               (setq cota0 (nth 2 grade-result))
               (setq cota-final (nth 3 grade-result))
@@ -15428,7 +15965,8 @@
   ;; del lado hacia donde va la rampa (igual que el lado del toperol).
   ;; El fondo (3.50 default) es opcion del mismo prompt del ancho.
   ;; Etapa/subetapa arrancan en 1/1 (cambiables en lote).
-  (setq depth 3.50 side-sign 1.0 width 2.00 etapa "1" subetapa "1" ext 0.0)
+  (setq depth *urb-anden-default-width*
+        side-sign 1.0 width 2.00 etapa "1" subetapa "1" ext 0.0)
   ;; 2026-08-12 v6: FLUJO MANUAL DIRECTO (pedido del usuario -- el
   ;; selector de bordillo se elimino porque no reconocia el fondo hasta
   ;; el bordillo y tocaba digitarlo igual): punto inicial sobre el borde
@@ -15450,8 +15988,12 @@
                     " (fondo " (rtos depth 2 2) ") <2.00>: ")))
         (cond
           ((= kw "Fondo")
-            (setq depth (getreal "\nFondo (ancho del anden) en metros <3.50>: "))
-            (if (or (null depth) (< depth 0.5)) (setq depth 3.50)))
+            (setq depth
+              (getreal
+                (strcat "\nFondo (ancho del anden) en metros <"
+                  (rtos *urb-anden-default-width* 2 2) ">: ")))
+            (if (or (null depth) (< depth 0.5))
+              (setq depth *urb-anden-default-width*)))
           ((= kw "3.00") (setq width 3.00) (setq done T))
           (T (setq width 2.00) (setq done T))))
       ;; 2026-08-12 v7 (pedido del usuario): el MISMO clic define el lado
@@ -15941,6 +16483,7 @@
         "urb_config : dialog { label = \"Configuracion de urbanismo\";"
         ": boxed_column { label = \"Bibliotecas\";"
         ": button { label = \"Perfiles estratigraficos de vias\"; key = \"road_profiles\"; height = 2; width = 40; }"
+        ": button { label = \"Tabla de anchos, bombeo e intervalo\"; key = \"geometry_table\"; height = 2; width = 40; }"
         ": button { label = \"Etapas y subetapas\"; key = \"etapas_config\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Movimiento de tierras\";"
         ": button { label = \"Referencia de relleno de tramos de red\"; key = \"network_fill_ref\"; height = 2; width = 40; }"
@@ -18707,6 +19250,7 @@
   (setq action
     (urb:simple-menu-dialog "urb_config"
       '(("road_profiles" "road_profiles")
+        ("geometry_table" "geometry_table")
         ("etapas_config" "etapas_config")
         ("network_fill_ref" "network_fill_ref")
         ("recalc_tramos" "recalc_tramos")
@@ -18714,6 +19258,7 @@
   (cond
     ((or (null action) (= action "back")) "back")
     ((= action "road_profiles") (urb:manage-road-profiles))
+    ((= action "geometry_table") (urb:geometric-settings-command))
     ((= action "etapas_config") (urb:etapas-manager-command))
     ((= action "network_fill_ref")
       (mp:network-fill-reference-command))
@@ -18745,7 +19290,103 @@
           (setq done T)))))
   (princ))
 
-(defun urb:migrate-current-drawing (/ ss i count hydro-rings road-properties)
+(defun urb:prune-properties-v4230
+  (/ ss i en obj atts base bname blocks bdef item victims defs rec allowed
+   changed sync-result refs doc)
+  (setq *urb-prune-stage* "inicio")
+  (setq allowed
+    '("ETIQUETA" "PENDIENTE_VIS" "ETAPA" "SUBETAPA" "RED" "TIPO_RED"
+      "SERIE" "CIRCUITO" "CIRCUITO_AP" "DESDE" "HASTA" "POZO_INI"
+      "POZO_FIN" "DIAMETRO" "MATERIAL" "PENDIENTE" "CONDUCTORES"
+      "CONDUCTOR" "DUCTOS" "DIAM_DUCTO" "MATERIAL_DUCTO" "LIBRES"
+      "PROFUNDIDAD" "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI"
+      "COTA_CLAVE_FIN" "LONGITUD" "ANCHO_ZANJA" "EXCAVACION_M3"
+      "CAMA_M3" "VOLUMEN_ELEMENTO_M3" "RELLENO_M3" "SOBRANTE_M3"
+      "REPOSICION_M2" "MEMORIAS"))
+  (setq doc (vl-catch-all-apply 'urb:doc nil))
+  (if (or (vl-catch-all-error-p doc) (/= (type doc) 'VLA-OBJECT))
+    (setq doc nil blocks nil ss nil)
+    (setq blocks (vla-get-Blocks doc)
+          ss (ssget "_X" '((0 . "INSERT")))))
+  (setq i 0)
+  ;; Respaldar primero la totalidad de datos de cada tramo en XDATA.
+  (if ss
+    (repeat (sslength ss)
+      (setq *urb-prune-stage* (strcat "lectura tramo indice " (itoa i)))
+      (setq en (ssname ss i)
+            obj (vl-catch-all-apply 'vlax-ename->vla-object (list en)))
+      (if (and obj (not (vl-catch-all-error-p obj))
+               (urb:valid-vla-object-p obj))
+        (progn
+          (setq atts (vl-catch-all-apply 'mp:att-alist (list en))
+                bname (vl-catch-all-apply 'vla-get-EffectiveName (list obj)))
+          (if (or (vl-catch-all-error-p atts)
+                  (vl-catch-all-error-p bname))
+            (setq atts nil bname nil base nil)
+            (setq base (mp:infer-base bname atts)))
+          (if (and bname (mp:base-is-tramo base))
+            (progn
+              (setq *urb-prune-stage* (strcat "respaldo " bname))
+              (mp:store-cant-data en atts)
+              (setq refs (cons (list en bname base atts) refs))
+              (if (not (assoc (strcase bname) defs))
+                (setq defs
+                  (cons (cons (strcase bname) (list bname base)) defs)))))))
+      (setq i (1+ i))))
+  ;; Limpiar definiciones compartidas y agregar solo el esquema publico.
+  (foreach rec defs
+    (setq bname (car (cdr rec)) base (cadr (cdr rec))
+          bdef (vl-catch-all-apply 'vla-Item (list blocks bname))
+          victims nil)
+    (if (not (vl-catch-all-error-p bdef))
+      (progn
+        (setq *urb-prune-stage* (strcat "definicion " bname))
+        (vlax-for item bdef
+          (if (and (= (vla-get-ObjectName item) "AcDbAttributeDefinition")
+                   (not (member (strcase (vla-get-TagString item)) allowed)))
+            (setq victims (cons item victims))))
+        (foreach item victims
+          (if (urb:safe-delete item) (setq changed (1+ (if changed changed 0)))))
+        (vl-catch-all-apply 'mp:ensure-block-schema (list bname base T))
+        (setq sync-result
+          (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bname))))))
+  ;; Restaurar valores publicos y mantener la copia tecnica completa.
+  (foreach rec refs
+    (setq en (car rec) atts (nth 3 rec))
+    (setq *urb-prune-stage* "restauracion referencias")
+    (if (entget en)
+      (progn (mp:setatts en atts) (mp:store-cant-data en atts))))
+  ;; Andenes: sus datos tecnicos ya estan en URB_ANDEN_BLOCK/MOV.
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq *urb-prune-stage* (strcat "anden indice " (itoa i)))
+      (setq en (ssname ss i)
+            obj (vl-catch-all-apply 'vlax-ename->vla-object (list en))
+            victims nil bdef nil)
+      (if (and obj (not (vl-catch-all-error-p obj))
+               (urb:valid-vla-object-p obj))
+        (setq bdef (vl-catch-all-apply 'vla-Item
+          (list blocks (vla-get-EffectiveName obj)))))
+      (if (and bdef (not (vl-catch-all-error-p bdef)))
+        (progn
+          (vlax-for item bdef
+            (if (and (= (vla-get-ObjectName item) "AcDbAttributeDefinition")
+                     (member (strcase (vla-get-TagString item))
+                       '("PERIMETRO_M" "ANDEN_ELEVACION" "ANDEN_SENTIDO"
+                         "MATERIAL" "FORMATO_LOSETA" "ANDEN_SUPERFICIE"
+                         "ANDEN_RASANTE" "ANDEN_PEND_LONG" "ANDEN_PEND_TRANS"
+                         "ANDEN_PEND_TOTAL" "ANDEN_METODO" "ANDEN_MUESTRAS"
+                         "ANDEN_COBERTURA" "ANDEN_VIA_ID" "ANDEN_VIA_NOMBRE")))
+              (setq victims (cons item victims))))
+          (foreach item victims
+            (if (urb:safe-delete item) (setq changed (1+ (if changed changed 0)))))
+          (vl-catch-all-apply 'vl-cmdf
+            (list "_.ATTSYNC" "_N" (vla-get-EffectiveName obj)))))
+      (setq i (1+ i))))
+  (if changed changed 0))
+
+(defun urb:migrate-current-drawing (/ ss i count hydro-rings road-properties road-upgrade pruned)
   ;; MIGRACIONES AUTOMATICAS de dibujos hechos con versiones anteriores.
   ;; Corre al cargar el .lsp y al abrir el menu URBANISMO, y es idempotente
   ;; (si no hay nada que migrar, no toca nada). Patron establecido a
@@ -18777,14 +19418,13 @@
   ;;    URB_VIA_* (ahi es donde realmente quedaron; las hechas a mano no
   ;;    se tocan).
   (setq count
-    (+ (urb:delete-road-audit-tables nil)
-       (urb:purge-road-block-tables)))
+    (urb:purge-road-block-tables))
   ;; barrido extra por CAPA (2026-08-11 v2): las tablas mas viejas no
   ;; tienen xdata (se creaban sin etiquetar); la capa URB-VIA-TABLA solo
   ;; la usan las tablas de verificacion generadas, asi que todo ACAD_TABLE
   ;; suelto en esa capa tambien se retira. Reporte del usuario: la
   ;; migracion anterior solo borro 1 de varias.
-  (if (setq ss (ssget "_X" '((0 . "ACAD_TABLE") (8 . "URB-VIA-TABLA"))))
+  (if (and nil (setq ss (ssget "_X" '((0 . "ACAD_TABLE") (8 . "URB-VIA-TABLA")))))
     (progn
       (setq i 0)
       (repeat (sslength ss)
@@ -18825,6 +19465,24 @@
       (strcat
         "\nMigracion automatica: " (itoa road-properties)
         " propiedad(es) de via simplificada(s).")))
+  (setq road-upgrade
+    (vl-catch-all-apply 'urb:upgrade-existing-road-properties nil))
+  (if (and (numberp road-upgrade) (> road-upgrade 0))
+    (prompt
+      (strcat "\nMigracion automatica: " (itoa road-upgrade)
+        " ajuste(s) visual(es/de propiedades) aplicado(s) a vias.")))
+  ;; 5) Una sola vez por dibujo: propiedades tecnicas de tramos/andenes se
+  ;; respaldan en XDATA y se retiran de la paleta, conservando cantidades.
+  (if (/= (urb:safe-string (urb:config-read "URB_MIGRATE_4230_PROPS") "") "OK")
+    (progn
+      (setq pruned (vl-catch-all-apply 'urb:prune-properties-v4230 nil))
+      (if (not (vl-catch-all-error-p pruned))
+        (progn
+          (urb:config-write "URB_MIGRATE_4230_PROPS" "OK")
+          (if (> pruned 0)
+            (prompt
+              (strcat "\nMigracion automatica: " (itoa pruned)
+                " propiedad(es) tecnica(s) ocultada(s); datos respaldados.")))))))
   (princ))
 
 (defun urb:remove-legacy-commands (/ command-symbol)
@@ -18974,6 +19632,7 @@
 (vl-catch-all-apply 'urb:ensure-trusted-path nil)
 (vl-catch-all-apply 'urb:refresh-etapas-catalog nil)
 (vl-catch-all-apply 'mp:load-tramo-appearance-settings nil)
+(vl-catch-all-apply 'urb:load-geometric-settings nil)
 (vl-catch-all-apply 'urb:migrate-current-drawing nil)
 ;; OJO (2026-08-11 v3): urb:ensure-ribbon YA NO se llama automaticamente.
 ;; Si el lsp carga el cuix por COM ANTES que el Autoloader, el Autoloader
