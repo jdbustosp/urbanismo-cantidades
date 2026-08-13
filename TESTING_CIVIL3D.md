@@ -87,6 +87,18 @@ Notas:
 
 La verificación debe ser NUMÉRICA primero (conteos de entidades, censos de hatches por color/patrón, atributos, coordenadas, matemática a mano) — eso no genera archivos. El ploteo a PDF se reserva SOLO para cuando hay que VER una textura o composición, y esos PDFs van SIEMPRE a la carpeta temporal de la sesión de Claude (scratchpad), NUNCA a la carpeta del repo ni a Drive. Los `_tmp_*.pdf` que sesiones anteriores dejaron en BLOQUES PPTOS se borraron el 2026-08-11 — no repetir ese patrón.
 
+## 3c. Metodología v2 — absorbida de las sesiones Codex del 2026-08-12/13 (v4.21.1 → v4.23.4)
+
+El usuario trabajó estas versiones con Codex (OpenAI) y pidió expresamente adoptar su metodología, que resultó más precisa. Reglas que se suman a las anteriores (y las refinan):
+
+1. **Laboratorio persistente por tema**: cada verificación vive en `C:\Users\juanbusper\Documents\URBANISMO\work\<tema>\` (carpeta LOCAL, fuera de Drive, sobrevive entre sesiones) con exactamente: `verify_<tema>.lsp` (el harness), `verify_<tema>.scr` (2 líneas: load + QUIT), y `verify_<tema>_result.txt` (el resultado, escrito por el harness en la MISMA carpeta). Ver ejemplo real completo: `work\curved_gap_fix\verify_gap_v4211.lsp`.
+2. **Asserts por INVARIANTES, nunca por inspección visual**: el harness afirma condiciones exactas y escribe `ok T/nil` por caso — conteos por rol (`urb:generated-role`) y por clase VLA (`AcDbRegion`/`AcDbHatch`), igualdad de conteos región=hatch (cada región DEBE tener su relleno), e **igualdad exacta de áreas** (`(equal source-area base-area 1e-6)`: el área del contorno de entrada contra el área realmente cubierta). Un booleano que "no lanza excepción" NO es éxito — la 4.21.0 falló justo por contar como válida una banda con región degenerada o hatch fallido.
+3. **Caso de peor escenario deliberado**: el dato de prueba se construye para forzar el bug — p.ej. un anillo con radio interior 5.40 que coincide EXACTO con una junta del patrón 0.80/1.00, forzando la tangencia que originaba el hueco. No probar solo el caso feliz.
+4. **Operaciones geométricas transaccionales**: si un paso de una cadena (booleano → región → hatch) falla, se borra TODO lo parcial y se reintenta con parámetro más agresivo (solapes progresivos 0/0.5/1.5/4/10 mm); y una capa base de cobertura total (`BASE_FILL`) garantiza que ningún fallo residual sea visible.
+5. **DLLs con nombre versionado** (`UrbCantRibbon2023_v4234.dll` + `PackageContents.xml` apuntando al nombre nuevo): esquiva el bloqueo de archivo de la sesión abierta — la DLL vieja sigue cargada, la nueva carga en el próximo arranque sin exigir cerrar todo para copiar.
+6. **Al INICIO de cada sesión de trabajo**: `git status` + `git log origin/main..HEAD` — las sesiones de Codex dejaron 9 commits sin push (se subieron el 2026-08-13); con el flujo multi-computador un commit local sin push es una pérdida esperando pasar.
+7. Sin PDFs (refuerza la política 3b): todo lo anterior es numérico. Codex no generó ni un PDF en ~2.900 líneas cambiadas.
+
 ## 4. Lanzar y esperar el resultado
 
 **ADVERTENCIA (2026-08-11): lanzar SIEMPRE desde PowerShell, jamás desde Git Bash.** Bash/MSYS convierte el argumento `/b` en una ruta (`C:/Program Files/Git/b`); AutoCAD lo toma como un dibujo a abrir, muestra un diálogo modal "Cannot find the specified drawing file" (que Claude no puede ver ni cerrar) y la instancia queda eterna en la pantalla [Start]. Este fue el verdadero origen de los "cuelgues" del 2026-08-04 y 2026-08-11 — no era contención de licencia con la sesión abierta del usuario, como se creyó al principio.

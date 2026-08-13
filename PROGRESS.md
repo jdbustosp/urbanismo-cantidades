@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-13 (parte 24) — v4.21.2 → v4.23.4 (sesiones Codex) + consolidación de vuelta a Claude Code
+
+El usuario trabajó el 2026-08-12/13 con Codex (OpenAI) sobre este mismo repo (8 commits después de la parte 23, todos ya en `main`) y al agotarse sus créditos pidió que Claude Code absorbiera la metodología y el estado. Resumen de lo que dejaron esas versiones (detalle en cada mensaje de commit):
+
+- `v4.21.2` corrigió franjas curvas, toperol y eje de vía; `v4.22.0` auditoría de curvas, tierras, rasantes y pozos; `v4.22.1` simplificó vías y configuración de tramos; `v4.23.0` corrigió rasantes y **memorias de cálculo**; `v4.23.1` pozos y control de memorias; `v4.23.2` agregó el **desplegable de memorias en la cinta** (UrbCantRibbon.cs +143 líneas, DLL 2023 y 2025 recompiladas); `v4.23.3` y `v4.23.4` corrigieron tramos y estabilizaron las tablas de memorias (UrbCantRibbon.cs +453 líneas más, ~600 líneas nuevas de lsp).
+- **DLL con nombre versionado** (`UrbCantRibbon2023_v4232/3/4.dll` + `PackageContents.xml` apuntando al nombre nuevo): así se actualiza la cinta sin cerrar la sesión abierta (la DLL vieja queda cargada; la nueva entra al reiniciar). Adoptado como práctica estándar.
+- Su laboratorio de verificación vive en `C:\Users\juanbusper\Documents\URBANISMO\work\<tema>\` (harness `.lsp` + `.scr` + resultado `.txt` por tema). Metodología completa documentada en [TESTING_CIVIL3D.md](TESTING_CIVIL3D.md) §3c.
+- **PENDIENTE que Codex dejó a medias** (su último mensaje, 2026-08-13 14:26, ya sin créditos): el comando diferido del desplegable de memorias **no se ejecuta cuando se lanza desde el evento `Idle`** — Civil 3D descarta el `SendStringToExecute`. Ejecutado directamente, la tabla se crea bien. Su plan era sustituir ese mecanismo por la interfaz directa .NET–AutoLISP registrada expresamente. Nada de ese plan quedó en un commit (árbol limpio), así que es el primer trabajo de la próxima ronda.
+- Consolidación 2026-08-13 (Claude Code): los 9 commits de Codex estaban SOLO locales — se hizo `git push` (`efb234e..894167f` → GitHub). Bundle instalado verificado en v4.23.4 (idéntico al repo). Regla nueva: `git log origin/main..HEAD` al iniciar cada sesión.
+
 ### 2026-08-12 (parte 23) — v4.21.1: cobertura garantizada en la modulación curva
 
 El usuario volvió a reproducir el hueco negro con la versión 4.21.0 realmente instalada y cargada. La copia del repositorio y la de `ApplicationPlugins` tenían el mismo SHA-256; Civil 3D había iniciado después de la instalación y la captura era posterior, por lo que el reintento de la parte 22 no cubría todos los casos.
