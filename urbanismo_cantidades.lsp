@@ -39,7 +39,10 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.0")
+(setq *urb-version* "4.23.1")
+(setq *urb-memory-reactor-busy* nil)
+(setq *urb-memory-pending* nil)
+(setq *urb-memory-command-scheduled* nil)
 (setq *urb-schema-version* "23")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
@@ -9864,6 +9867,7 @@
       (setq lay (mp:vis-layer baseb))
       (if (tblsearch "LAYER" lay) (vla-put-Layer br lay))
       (mp:setatts en vals2)
+      (vl-catch-all-apply 'urb:attach-memory-reactor-to-block (list en))
       (princ
         (strcat
           "\nTramo PPTO creado en " lay ": " blk
@@ -10163,12 +10167,12 @@
       (strcat "\nNumero del extremo " label
         " [S=seleccionar texto/capa] <Enter omite>: ")))
   (cond
-    ((= (vl-string-trim " " (mp:safe-str answer "")) "") "")
+    ((= (vl-string-trim " " (mp:safe-str answer)) "") "")
     ((member (strcase answer) '("S" "SELECCIONAR"))
       (setq value
         (mp:number-from-selected-label
           (strcat "\nSeleccione el numero del extremo " label ": ")))
-      (mp:safe-str value ""))
+      (mp:safe-str value))
     (T answer)))
 
 (defun mp:reuse-existing-endpoint-selection
@@ -12623,6 +12627,8 @@
               (if xdata-result
                 (progn
                   (foreach obj objects (urb:safe-delete obj))
+                  (vl-catch-all-apply
+                    'urb:attach-memory-reactor-to-block (list block-ename))
                   block-ref)
                 (progn
                   (urb:safe-delete block-ref)
@@ -15456,31 +15462,73 @@
       (setq textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE"))))
       (list (+ (car result) (* textheight 4.0)) (cadr result) 0.0))))
 
+(defun urb:road-memory-table-visible-p (parent-handle / ss index ename data found app)
+  (foreach app '("URB_VIA_TABLA" "URB_VIA_GEN")
+    (if (not found)
+      (progn
+        (setq ss (ssget "_X" (list '(0 . "ACAD_TABLE") (list -3 (list app))))
+              index 0)
+        (if ss
+          (repeat (sslength ss)
+            (setq ename (ssname ss index)
+                  data (urb:get-xdata-strings ename app))
+            (if (and data (= (car data) parent-handle)) (setq found T))
+            (setq index (1+ index)))))))
+  found)
+
+(defun urb:set-road-memory-visibility
+  (road show / data via-id axis handle created old-busy)
+  ;; El atributo MEMORIAS se comporta como un control de dos estados en
+  ;; Properties: MOSTRAR/VISIBLE crea la tabla y OCULTAR/OCULTAS la borra.
+  ;; La escritura del valor normalizado se silencia para no reactivar el
+  ;; reactor del propio atributo.
+  (setq data (urb:get-xdata-strings road "URB_VIA")
+        handle (cdr (assoc 5 (entget road))))
+  (if (and data handle)
+    (if show
+      (progn
+        (if (urb:road-memory-table-visible-p handle)
+          (setq created T)
+          (progn
+            (setq via-id (urb:safe-string (nth 22 data) "")
+                  axis (urb:road-axis-recover road data via-id))
+            (if axis
+              (progn
+                (setq *urb-road-audit-point* (urb:road-memory-table-point road))
+                (vl-catch-all-apply 'urb:try-road-earthworks (list road axis))
+                (setq *urb-road-audit-point* nil)
+                (setq created (urb:road-memory-table-visible-p handle)))
+              (prompt
+                "\nNo se encontro el eje vinculado; edite la via una vez para restablecer el enlace."))))
+        (setq old-busy *urb-memory-reactor-busy*
+              *urb-memory-reactor-busy* T)
+        (mp:setatt-one road "MEMORIAS" (if created "VISIBLES" "OCULTAS"))
+        (setq *urb-memory-reactor-busy* old-busy)
+        created)
+      (progn
+        (urb:delete-road-audit-tables handle)
+        (setq old-busy *urb-memory-reactor-busy*
+              *urb-memory-reactor-busy* T)
+        (mp:setatt-one road "MEMORIAS" "OCULTAS")
+        (setq *urb-memory-reactor-busy* old-busy)
+        T))
+    nil))
+
 (defun urb:toggle-road-memory-command
-  (/ selected road data via-id axis handle removed)
+  (/ selected road data handle visible)
   (setq selected (entsel "\nSeleccione la via para mostrar/ocultar sus memorias: "))
   (setq road (if selected (urb:road-parent-from-entity (car selected)) nil))
   (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
     (progn
       (setq handle (cdr (assoc 5 (entget road)))
-            removed (urb:delete-road-audit-tables handle))
-      (if (> removed 0)
+            visible (urb:road-memory-table-visible-p handle))
+      (if visible
         (progn
-          (mp:setatt-one road "MEMORIAS" "OCULTAS")
+          (urb:set-road-memory-visibility road nil)
           (prompt "\nMemorias de la via ocultas."))
         (progn
-          (setq via-id (urb:safe-string (nth 22 data) "")
-                axis (urb:road-axis-recover road data via-id))
-          (if axis
-            (progn
-              (setq *urb-road-audit-point*
-                (urb:road-memory-table-point road))
-              (urb:try-road-earthworks road axis)
-              (setq *urb-road-audit-point* nil)
-              (mp:setatt-one road "MEMORIAS" "VISIBLES")
-              (prompt "\nMemorias de la via desplegadas."))
-            (prompt
-              "\nNo se encontro el eje vinculado; edite la via una vez para restablecer el enlace.")))))
+          (if (urb:set-road-memory-visibility road T)
+            (prompt "\nMemorias de la via desplegadas.")))))
     (prompt "\nEl objeto seleccionado no es una via creada por el programa."))
   (princ))
 
@@ -15595,7 +15643,43 @@
             "MP_TRAMO_TABLA" (list handle))
           table)))))
 
-(defun mp:toggle-tramo-memory-command (/ pick tramo obj vals base handle removed table)
+(defun mp:tramo-memory-table-visible-p (parent-handle / ss i en data found)
+  (setq ss (ssget "_X" '((0 . "ACAD_TABLE") (-3 ("MP_TRAMO_TABLA"))))
+        i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq en (ssname ss i)
+            data (urb:get-xdata-strings en "MP_TRAMO_TABLA"))
+      (if (and data (= (car data) parent-handle)) (setq found T))
+      (setq i (1+ i))))
+  found)
+
+(defun mp:set-tramo-memory-visibility
+  (tramo show / handle table created old-busy)
+  (setq handle (cdr (assoc 5 (entget tramo))))
+  (if handle
+    (if show
+      (progn
+        (if (mp:tramo-memory-table-visible-p handle)
+          (setq created T)
+          (progn
+            (setq table (mp:create-tramo-memory-table tramo)
+                  created (if table T nil))))
+        (setq old-busy *urb-memory-reactor-busy*
+              *urb-memory-reactor-busy* T)
+        (mp:setatt-one tramo "MEMORIAS" (if created "VISIBLES" "OCULTAS"))
+        (setq *urb-memory-reactor-busy* old-busy)
+        created)
+      (progn
+        (mp:delete-tramo-memory-tables handle)
+        (setq old-busy *urb-memory-reactor-busy*
+              *urb-memory-reactor-busy* T)
+        (mp:setatt-one tramo "MEMORIAS" "OCULTAS")
+        (setq *urb-memory-reactor-busy* old-busy)
+        T))
+    nil))
+
+(defun mp:toggle-tramo-memory-command (/ pick tramo obj vals base handle visible)
   (setq pick (entsel "\nSeleccione el tramo para mostrar/ocultar sus memorias: ")
         tramo (if pick (car pick) nil))
   (if tramo
@@ -15606,21 +15690,172 @@
       (if (mp:base-is-tramo base)
         (progn
           (setq handle (cdr (assoc 5 (entget tramo)))
-                removed (mp:delete-tramo-memory-tables handle))
-          (if (> removed 0)
+                visible (mp:tramo-memory-table-visible-p handle))
+          (if visible
             (progn
-              (mp:setatt-one tramo "MEMORIAS" "OCULTAS")
+              (mp:set-tramo-memory-visibility tramo nil)
               (prompt "\nMemorias del tramo ocultas."))
             (progn
-              (setq table (mp:create-tramo-memory-table tramo))
-              (if table
-                (progn
-                  (mp:setatt-one tramo "MEMORIAS" "VISIBLES")
-                  (prompt "\nMemorias del tramo desplegadas."))))))
+              (if (mp:set-tramo-memory-visibility tramo T)
+                (prompt "\nMemorias del tramo desplegadas.")))))
         (prompt "\nEl objeto seleccionado no es un tramo de red."))))
   (princ))
 
 (defun c:QMEMORIATRAMO () (mp:toggle-tramo-memory-command))
+
+;; AutoCAD no permite crear un combo personalizado dentro de la paleta
+;; Properties desde AutoLISP. Este reactor convierte el atributo editable
+;; MEMORIAS en un control funcional: al escribir MOSTRAR/VISIBLE genera la
+;; tabla y al escribir OCULTAR/OCULTAS la retira. SendCommand solo difiere
+;; el trabajo; nunca se modifica la base de datos dentro de :vlr-modified.
+(defun urb:memory-request-value (value / upper)
+  (setq upper (strcase (vl-string-trim " " (mp:safe-str value))))
+  (cond
+    ((member upper '("MOSTRAR" "MOSTRARLAS" "VISIBLE" "VISIBLES" "SI" "S")) 1)
+    ((member upper '("OCULTAR" "OCULTARLAS" "OCULTA" "OCULTAS" "NO" "N")) 0)
+    (T nil)))
+
+(defun urb:queue-memory-command (/ result)
+  (if (and *urb-memory-pending* (not *urb-memory-command-scheduled*))
+    (progn
+      (setq *urb-memory-command-scheduled* T
+            result
+              (vl-catch-all-apply
+                'vla-SendCommand
+                (list (urb:doc) "ACTUALIZARMEMORIAS ")))
+      (if (vl-catch-all-error-p result)
+        (setq *urb-memory-command-scheduled* nil))))
+  (princ))
+
+(defun urb:on-memory-attribute-modified
+  (notifier reactor parameters / data value request entry)
+  (if (not *urb-memory-reactor-busy*)
+    (progn
+      (setq data (vlr-data reactor)
+            value (vl-catch-all-apply 'vla-get-TextString (list notifier)))
+      (if (not (vl-catch-all-error-p value))
+        (progn
+          (setq request (urb:memory-request-value value))
+          (if (numberp request)
+            (progn
+              (setq entry (list (car data) (cadr data) request))
+              (setq *urb-memory-pending*
+                (cons entry
+                  (vl-remove-if
+                    '(lambda (item)
+                       (and (= (car item) (car data))
+                            (= (cadr item) (cadr data))))
+                    *urb-memory-pending*)))
+              (urb:queue-memory-command)))))))
+  (princ))
+
+(defun urb:process-memory-requests (/ pending entry ename shown hidden failed result)
+  (setq pending *urb-memory-pending*
+        *urb-memory-pending* nil
+        *urb-memory-command-scheduled* nil)
+  (if pending
+    (progn
+      (setq *urb-memory-reactor-busy* T)
+      (foreach entry pending
+        (setq ename (handent (cadr entry)))
+        (if ename
+          (progn
+            (setq result
+              (vl-catch-all-apply
+                (if (= (car entry) "VIA")
+                  'urb:set-road-memory-visibility
+                  'mp:set-tramo-memory-visibility)
+                (list ename (= (caddr entry) 1))))
+            (if (or (vl-catch-all-error-p result) (not result))
+              (setq failed (1+ (if failed failed 0)))
+              (if (= (caddr entry) 1)
+                (setq shown (1+ (if shown shown 0)))
+                (setq hidden (1+ (if hidden hidden 0))))))))
+      (setq *urb-memory-reactor-busy* nil)
+      (if (or shown hidden failed)
+        (prompt
+          (strcat "\nMemorias actualizadas: "
+            (itoa (if shown shown 0)) " visibles, "
+            (itoa (if hidden hidden 0)) " ocultas"
+            (if failed (strcat ", " (itoa failed) " sin datos suficientes") "")
+            ".")))))
+  (princ))
+
+(defun urb:on-memory-command-finished (reactor command-data)
+  (if (and *urb-memory-pending* (not *urb-memory-reactor-busy*))
+    (urb:process-memory-requests))
+  (princ))
+
+(defun urb:attach-memory-reactor-to-block
+  (ename / obj attrs attribute kind base handle reactor result bname callbacks)
+  (if (and ename (= (cdr (assoc 0 (entget ename))) "INSERT"))
+    (progn
+      (setq obj (vlax-ename->vla-object ename)
+            handle (cdr (assoc 5 (entget ename))))
+      (if (urb:get-xdata-strings ename "URB_VIA")
+        (setq kind "VIA")
+        (progn
+          (setq result
+            (vl-catch-all-apply 'vla-get-EffectiveName (list obj)))
+          (if (not (vl-catch-all-error-p result))
+            (progn
+              (setq bname result
+                    base (mp:infer-base bname (mp:att-alist ename)))
+              (if (mp:base-is-tramo base) (setq kind "TRAMO"))))))
+      (if (and kind handle (= (vla-get-HasAttributes obj) :vlax-true))
+        (progn
+          (setq result
+            (vl-catch-all-apply 'vlax-invoke (list obj 'GetAttributes)))
+          (if (not (vl-catch-all-error-p result))
+            (progn
+              (setq attrs result
+                    callbacks
+                      (list
+                        (cons :vlr-modified
+                          'urb:on-memory-attribute-modified)))
+              (foreach attribute attrs
+                (if (= (strcase (vla-get-TagString attribute)) "MEMORIAS")
+                  (progn
+                    (setq result
+                      (vl-catch-all-apply
+                        'vlr-object-reactor
+                        (list (list attribute) (list kind handle) callbacks)))
+                    (if (not (vl-catch-all-error-p result))
+                      (progn
+                        (setq reactor result)
+                        (setq *urb-memory-attribute-reactors*
+                          (cons reactor *urb-memory-attribute-reactors*))))))))))))
+  reactor))
+
+(defun urb:install-memory-property-reactors (/ reactor ss i)
+  (if (and (boundp '*urb-memory-attribute-reactors*)
+           *urb-memory-attribute-reactors*)
+    (foreach reactor *urb-memory-attribute-reactors*
+      (vl-catch-all-apply 'vlr-remove (list reactor))))
+  (if (and (boundp '*urb-memory-command-reactor*)
+           *urb-memory-command-reactor*)
+    (vl-catch-all-apply 'vlr-remove (list *urb-memory-command-reactor*)))
+  (setq *urb-memory-attribute-reactors* nil
+        *urb-memory-pending* nil
+        *urb-memory-command-scheduled* nil
+        ss (ssget "_X" '((0 . "INSERT") (66 . 1)))
+        i 0)
+  (if ss
+    (repeat (sslength ss)
+      (vl-catch-all-apply 'urb:attach-memory-reactor-to-block
+        (list (ssname ss i)))
+      (setq i (1+ i))))
+  (setq *urb-memory-command-reactor*
+    (vlr-command-reactor
+      nil
+      '((:vlr-commandEnded . urb:on-memory-command-finished)
+        (:vlr-commandCancelled . urb:on-memory-command-finished)
+        (:vlr-commandFailed . urb:on-memory-command-finished))))
+  (length *urb-memory-attribute-reactors*))
+
+(defun c:ACTUALIZARMEMORIAS ()
+  (urb:process-memory-requests)
+  (princ))
 
 ;; 2026-08-11 v2: las tablas de verificacion viejas NO estan sueltas en el
 ;; dibujo -- quedaron EMPACADAS dentro del bloque de cada via
@@ -19634,6 +19869,7 @@
 (vl-catch-all-apply 'mp:load-tramo-appearance-settings nil)
 (vl-catch-all-apply 'urb:load-geometric-settings nil)
 (vl-catch-all-apply 'urb:migrate-current-drawing nil)
+(vl-catch-all-apply 'urb:install-memory-property-reactors nil)
 ;; OJO (2026-08-11 v3): urb:ensure-ribbon YA NO se llama automaticamente.
 ;; Si el lsp carga el cuix por COM ANTES que el Autoloader, el Autoloader
 ;; encuentra el menugroup ya cargado, no lo procesa, y la pestana queda
