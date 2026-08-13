@@ -29,7 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
-### 2026-08-13 (parte 25) — v4.23.5: Protocolo v3 de verificación — y en su estreno cazó DOS bugs latentes de núcleo
+### 2026-08-13 (parte 26) — v4.23.6: el desplegable de MEMORIAS en Propiedades ya dispara su comando (cerrado el pendiente de Codex)
+
+Retomado el pendiente que Codex dejó al agotar créditos: el desplegable nativo `MEMORIAS` (Propiedades → Datos extendidos, MOSTRAR/OCULTAR — tabla de verificación en vías, tabla de movimiento de tierras en tramos) no ejecutaba nada al cambiarlo.
+
+- **Causa (diagnóstico de Codex, confirmado en su código)**: el servicio .NET sincroniza propiedad→atributo DENTRO del evento `Idle` con el documento bloqueado; el reactor LISP encola el pedido y difiere `vla-SendCommand "ACTUALIZARMEMORIAS"`, pero Civil 3D **descarta** ese envío en ese contexto.
+- **Arreglo (`UrbCantRibbon2023_v4236.dll`)**: el servicio marca `_commandPending` al escribir el atributo y, al salir del `using` del bloqueo (y de `_busy`), dispara `ACTUALIZARMEMORIAS` vía **`ExecuteInCommandContextAsync`** (el mecanismo soportado para correr comandos desde contexto de aplicación), con respaldo `SendStringToExecute` si fallara. Marca en el log: "ACTUALIZARMEMORIAS disparado en contexto de comando" (`%TEMP%\urbcant_ribbon.log`).
+- **Validación (protocolo v3)**: la mitad LISP completa en headless — vía sintética empacada → MOSTRAR → tabla visible → OCULTAR → retirada → MOSTRAR → reconstruida (**7 checks TODO-OK**, harness en `work\memorias_dropdown\`). La mitad .NET compila e instala (DLL con nombre versionado: entra sin cerrar la sesión abierta). El clic real del desplegable solo se valida en vivo; criterio de falsación: si la tabla no aparece, mirar el log — si la línea del disparo está, el problema es del comando LISP; si no está, del evento .NET.
+- Nota: función solo-2023 por ahora (el proyecto 2025 no compila `URB_AEC_PROPERTY` — NuGet sin AecPropDataMgd); en 2025 siguen los comandos QMEMORIAVIA/QMEMORIATRAMO y el atributo editado a mano.
+
+### 2026-08-13 (parte 25) — v4.23.5: Protocolo v3 de verificación — y en su estreno cazó TRES bugs latentes de núcleo
 
 A pedido del usuario ("cuando me des una respuesta, que esté validada; perfecciona tu autoevaluación"), se formalizó el **Protocolo v3** en [TESTING_CIVIL3D.md](TESTING_CIVIL3D.md) §3d — 5 pasos vinculantes antes de decir "arreglado": (1) confirmar la versión que produjo la evidencia, (2) reproducir el flujo EXACTO del usuario y comprobar que el harness falla contra el código viejo, (3) arreglar la clase (síntoma imposible por diseño; fallas silenciosas → mensajes que se explican), (4) validar con invariantes + peor caso en UNA corrida headless, (5) entregar con números y criterio de falsación.
 

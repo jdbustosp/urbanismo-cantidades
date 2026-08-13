@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.5")
+(setq *urb-version* "4.23.6")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)

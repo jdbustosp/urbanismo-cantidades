@@ -569,6 +569,13 @@ namespace UrbanismoCantidades
                 LastAttributeStates = new System.Collections.Generic.Dictionary<AcDb.ObjectId, string>();
             private static bool _scanPending;
             private static bool _busy;
+            // 2026-08-13: cuando el cambio de estado nace en el desplegable
+            // de Propiedades, el atributo se escribe DENTRO del Idle con el
+            // documento bloqueado; el vla-SendCommand que difiere el reactor
+            // LISP se descarta en ese contexto (hallazgo de la sesion Codex).
+            // El propio servicio dispara ACTUALIZARMEMORIAS al salir del
+            // bloqueo, en contexto de comando (mecanismo soportado).
+            private static bool _commandPending;
 
             public static void Initialize()
             {
@@ -678,6 +685,40 @@ namespace UrbanismoCantidades
                     Log("ERROR propiedad nativa MEMORIAS: " + ex.Message);
                 }
                 finally { _busy = false; }
+                // Fuera del using (bloqueo ya liberado) y fuera de _busy:
+                // aqui si se puede encolar el comando sin que se descarte.
+                if (_commandPending) FireMemoryCommand(doc);
+            }
+
+            private static void FireMemoryCommand(
+                Autodesk.AutoCAD.ApplicationServices.Document doc)
+            {
+                _commandPending = false;
+                try
+                {
+                    Application.DocumentManager.ExecuteInCommandContextAsync(
+                        delegate(object unused)
+                        {
+                            Autodesk.AutoCAD.ApplicationServices.Document active =
+                                Application.DocumentManager.MdiActiveDocument;
+                            if (active != null)
+                                active.Editor.Command(
+                                    new object[] { "ACTUALIZARMEMORIAS" });
+                            return System.Threading.Tasks.Task.FromResult(0);
+                        }, null);
+                    Log("ACTUALIZARMEMORIAS disparado en contexto de comando");
+                }
+                catch (System.Exception ex)
+                {
+                    Log("ERROR disparando ACTUALIZARMEMORIAS: " + ex.Message);
+                    try
+                    {
+                        // respaldo clasico por linea de comandos
+                        doc.SendStringToExecute(
+                            "ACTUALIZARMEMORIAS ", true, false, true);
+                    }
+                    catch { }
+                }
             }
 
             private static void QueueTrackedChanges(AcDb.Database database)
@@ -973,6 +1014,10 @@ namespace UrbanismoCantidades
                             {
                                 attribute.UpgradeOpen();
                                 attribute.TextString = state;
+                                // el reactor LISP encola el pedido pero su
+                                // SendCommand se pierde en este contexto:
+                                // el servicio dispara el comando al salir
+                                _commandPending = true;
                             }
                             LastAttributeStates[block.ObjectId] = state;
                             TrackedBlocks.Add(block.ObjectId);
