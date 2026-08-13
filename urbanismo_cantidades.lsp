@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.4")
+(setq *urb-version* "4.23.5")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -873,7 +873,8 @@
 )
 
 (defun urb:set-xdata-strings
-  (ename app values / edata records modified update-result)
+  (ename app values / edata records modified update-result
+   kept-sections plain item)
   (setq ename (urb:as-ename ename))
   (if (and ename (= (type app) 'STR) (/= app ""))
     (progn
@@ -885,12 +886,31 @@
           '(lambda (value)
             (cons 1000 (urb:safe-string value "")))
           values))
+      ;; 2026-08-13 (cazado por la sonda del protocolo v3): agregar la
+      ;; app nueva como un SEGUNDO grupo -3 nunca funciono -- en
+      ;; entidades planas entmod se quedaba solo con el grupo agregado
+      ;; (BORRABA la xdata de las demas apps devolviendo "exito") y en
+      ;; entidades creadas por ActiveX el entmod fallaba y la escritura
+      ;; se perdia (por eso el eje-display quedaba sin URB_VIA_EJE y la
+      ;; recuperacion del eje dentro del bloque no encontraba nada).
+      ;; Misma familia del bug de julio ("actualizar URB_VIA borraba
+      ;; URB_VIA_MOV"), que solo se corrigio del lado de LECTURA.
+      ;; Correcto: UN solo grupo -3 con las secciones conservadas de las
+      ;; otras apps + la seccion nueva.
+      (setq kept-sections nil plain nil)
+      (foreach item edata
+        (if (= (car item) -3)
+          (setq kept-sections (append kept-sections (cdr item)))
+          (setq plain (cons item plain))))
       (setq modified
         (vl-catch-all-apply
           'entmod
           (list
-            (append edata
-              (list (list -3 (append (list app) records)))))))
+            (append (reverse plain)
+              (list
+                (cons -3
+                  (append kept-sections
+                    (list (append (list app) records)))))))))
       (if (or (vl-catch-all-error-p modified) (null modified))
         nil
         (progn
@@ -5926,10 +5946,10 @@
   (if (urb:get-xdata-strings ename "URB_PREFAB_BLOCK") T nil)
 )
 
-(defun urb:prefab-data (ename)
-  (or
-    (urb:get-xdata-strings ename "URB_PREFAB_BLOCK")
-    (urb:get-xdata-strings ename "URB_PREFAB"))
+(defun urb:prefab-data (ename / data)
+  ;; or de AutoLISP devuelve T, no el valor -- cadena if explicita
+  (setq data (urb:get-xdata-strings ename "URB_PREFAB_BLOCK"))
+  (if data data (urb:get-xdata-strings ename "URB_PREFAB"))
 )
 
 (defun urb:selected-prefabs (selection / index ename data result)
@@ -9299,10 +9319,11 @@
       (setq via-id (if (> (length data) 22) (nth 22 data) ""))
       (setq axis-handle
         (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
-      (setq axis
-        (or
-          (if (/= axis-handle "") (handent axis-handle) nil)
-          (if (/= via-id "") (urb:cached-road-axis via-id) nil)))
+      ;; or de AutoLISP devuelve T, no el valor -- cadena if explicita
+      (setq axis (if (/= axis-handle "") (handent axis-handle) nil))
+      (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+      (if (and (null axis) (/= via-id ""))
+        (setq axis (urb:cached-road-axis via-id)))
       (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
       (if (not axis) (setq axis (urb:select-or-draw-road-axis "Existente")))
       (setq mov (urb:road-movement-data road))
@@ -12860,16 +12881,19 @@
     (atof (urb:safe-string (if (> (length data) 18) (nth 18 data) nil) "0")))
   (if (null records)
     (progn
+      ;; or de AutoLISP devuelve T, no el valor -- cadena if explicita
       (setq c0
-        (or
-          (urb:parse-real
-            (if (and mov (> (length mov) 7)) (nth 7 mov) ""))
+        (urb:parse-real
+          (if (and mov (> (length mov) 7)) (nth 7 mov) "")))
+      (if (null c0)
+        (setq c0
           (urb:parse-real
             (if (> (length data) 30) (nth 30 data) ""))))
       (setq c1
-        (or
-          (urb:parse-real
-            (if (and mov (> (length mov) 8)) (nth 8 mov) ""))
+        (urb:parse-real
+          (if (and mov (> (length mov) 8)) (nth 8 mov) "")))
+      (if (null c1)
+        (setq c1
           (urb:parse-real
             (if (> (length data) 31) (nth 31 data) ""))))
       (if (and c0 c1 (> span 1e-6))
@@ -13062,14 +13086,30 @@
       (vl-catch-all-apply
         '(lambda () (vla-get-Handle (vlax-ename->vla-object road))))))
   (if (vl-catch-all-error-p cache-key) (setq cache-key nil))
+  ;; 2026-08-13: cada candidato se valida POR SEPARADO y en CADENA DE
+  ;; IF, no con or -- el or de AutoLISP devuelve T, NO el valor (probado
+  ;; empiricamente: (or nil "abc") -> T), asi que un or "selector de
+  ;; valores" entregaba el simbolo T como eje. Ademas handent de un
+  ;; handle BORRADO devuelve el ename muerto (no nil), por eso cada
+  ;; candidato pasa por urb:usable-axis-or-nil. Cazado por la autoprueba
+  ;; de verify_lib con el eje borrado a proposito.
   (setq axis
-    (or (if (/= axis-handle "") (handent axis-handle) nil)
-        (if cache-key (urb:cached-road-axis cache-key) nil)
-        (urb:find-linked-road-axis via-id)
-        (urb:find-axis-in-road-block road via-id)))
-  (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+    (urb:usable-axis-or-nil
+      (if (/= axis-handle "") (handent axis-handle) nil)))
+  (if (null axis)
+    (setq axis
+      (urb:usable-axis-or-nil
+        (if cache-key (urb:cached-road-axis cache-key) nil))))
+  (if (null axis)
+    (setq axis (urb:usable-axis-or-nil (urb:find-linked-road-axis via-id))))
+  (if (null axis)
+    (setq axis
+      (urb:usable-axis-or-nil (urb:find-axis-in-road-block road via-id))))
   (if (and axis cache-key) (urb:cache-road-axis cache-key axis))
   axis)
+
+(defun urb:usable-axis-or-nil (e)
+  (if (and e (urb:curve-entity-p e)) e nil))
 
 ;; Prueba la entidad clickeada Y sus bloques contenedores: cuando el clic
 ;; cae dentro de un bloque o xref, nentsel devuelve la geometria ANIDADA
@@ -14147,8 +14187,11 @@
                   (if (and (listp data) (> (length data) 18))
                     (setq memory-data (mapcar '(lambda (item) item) data)))
                   (setq block-ref (urb:package-road boundary))
-                  (setq boundary
-                    (or (urb:as-ename block-ref) boundary))
+                  ;; or de AutoLISP devuelve T, no el valor -- con or,
+                  ;; boundary quedaba en T y la memoria se armaba con
+                  ;; data ilegible (el famoso aviso "areas-17 | data: nil")
+                  (if (urb:as-ename block-ref)
+                    (setq boundary (urb:as-ename block-ref)))
                   (setq packaged-data
                     (urb:get-xdata-strings boundary "URB_VIA"))
                   (if (and (listp packaged-data)
@@ -16122,10 +16165,11 @@
       (setq via-id (if (> (length data) 22) (nth 22 data) ""))
       (setq axis-handle
         (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
-      (setq axis
-        (or
-          (if (/= axis-handle "") (handent axis-handle) nil)
-          (if (/= via-id "") (urb:cached-road-axis via-id) nil)))
+      ;; or de AutoLISP devuelve T, no el valor -- cadena if explicita
+      (setq axis (if (/= axis-handle "") (handent axis-handle) nil))
+      (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+      (if (and (null axis) (/= via-id ""))
+        (setq axis (urb:cached-road-axis via-id)))
       (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
       (if (not axis) (setq axis (urb:select-or-draw-road-axis "Existente")))
       (setq point (getpoint "\nPunto de insercion de la tabla de verificacion: "))
@@ -19022,14 +19066,15 @@
           (urb:list-set-nth schema-index *urb-excel-table-schema* adjusted)
           preserved (append preserved (list adjusted))))))
   (foreach row new-rows
+    ;; or de AutoLISP devuelve T, no el valor: (cdr found) tronaba
     (setq row-id (urb:safe-string (nth id-index row) "")
-          found
-            (or
-              (assoc (strcat "ID:" row-id) current-map)
-              (assoc
-                (strcat "SIG:" (urb:excel-row-signature row headers))
-                current-map))
+          found (assoc (strcat "ID:" row-id) current-map)
           adjusted row)
+    (if (null found)
+      (setq found
+        (assoc
+          (strcat "SIG:" (urb:excel-row-signature row headers))
+          current-map)))
     (if (and found
              (urb:string-equal-p (nth type-index row) "CANTIDAD"))
       (progn
@@ -19057,13 +19102,14 @@
           template (nth 2 state)
           values nil)
     (foreach row rows
+      ;; or de AutoLISP devuelve T, no el valor: (cdr found) tronaba
       (setq id (urb:safe-string (nth id-index row) "")
-            found
-              (or
-                (assoc (strcat "ID:" id) mapping)
-                (assoc
-                  (strcat "SIG:" (urb:excel-row-signature row headers))
-                  mapping)))
+            found (assoc (strcat "ID:" id) mapping))
+      (if (null found)
+        (setq found
+          (assoc
+            (strcat "SIG:" (urb:excel-row-signature row headers))
+            mapping)))
       (setq values
         (append values
           (list
@@ -20051,14 +20097,24 @@
 ;; ADENTRO de AutoCAD, se agrega la carpeta del bundle a la variable viva
 ;; (persiste al cerrar). Tras el primer "Always Load"/"Load Once" del
 ;; usuario, ninguna sesion futura vuelve a preguntar.
-(defun urb:ensure-trusted-path (/ target current)
-  (setq target
-    (strcat (urb:safe-string (getenv "APPDATA") "")
-      "\\Autodesk\\ApplicationPlugins\\UrbanismoCantidades.bundle\\Contents"))
+(defun urb:ensure-trusted-path (/ targets current target)
+  ;; 2026-08-13: ademas del bundle, se confia el LABORATORIO de
+  ;; verificacion (Documents\URBANISMO\work, con "..." = subcarpetas)
+  ;; para que los harnesses headless (TESTING_CIVIL3D.md 3c/3d) carguen
+  ;; sin el dialogo de seguridad. Auto-reparado en cada carga porque
+  ;; AutoCAD reescribe TRUSTEDPATHS al salir.
+  (setq targets
+    (list
+      (strcat (urb:safe-string (getenv "APPDATA") "")
+        "\\Autodesk\\ApplicationPlugins\\UrbanismoCantidades.bundle\\Contents")
+      (strcat (urb:safe-string (getenv "USERPROFILE") "")
+        "\\Documents\\URBANISMO\\work\\...")))
   (setq current (urb:safe-string (getvar "TRUSTEDPATHS") ""))
-  (if (not (vl-string-search (strcase target) (strcase current)))
-    (setvar "TRUSTEDPATHS"
-      (if (= current "") target (strcat current ";" target))))
+  (foreach target targets
+    (if (not (vl-string-search (strcase target) (strcase current)))
+      (setq current
+        (if (= current "") target (strcat current ";" target)))))
+  (setvar "TRUSTEDPATHS" current)
   (princ))
 
 ;; Rescate manual de la pestana (2026-08-11 v3): CUILOAD por comando SI
