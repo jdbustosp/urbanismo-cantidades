@@ -17,11 +17,14 @@
 //   Todo aparece EN EL MISMO ESPACIO del panel (swap en vivo), con "<"
 //   para volver un nivel.
 using System;
+using System.Collections;
+using System.ComponentModel;
 using System.IO;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Windows.Data;
 using Autodesk.Windows;
 
 [assembly: ExtensionApplication(typeof(UrbanismoCantidades.RibbonApp))]
@@ -35,6 +38,7 @@ namespace UrbanismoCantidades
         private static bool _legacyChecked;
         private static RibbonPanelSource _crearSource;
         private static string _dir;
+        private static bool _memoryPropertyRegistered;
 
         public void Initialize()
         {
@@ -43,10 +47,17 @@ namespace UrbanismoCantidades
                 _dir = Path.GetDirectoryName(
                     System.Reflection.Assembly.GetExecutingAssembly().Location);
                 Log("Initialize");
+                if (System.Diagnostics.Process.GetCurrentProcess().ProcessName
+                        .Equals("accoreconsole", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log("Core Console: interfaz y desplegable omitidos");
+                    return;
+                }
                 if (ComponentManager.Ribbon == null)
                     ComponentManager.ItemInitialized += OnItemInitialized;
                 else
                     BuildTab();
+                Application.Idle += OnIdleRegisterMemoryProperty;
                 // el partial CUIX viejo (si sigue registrado en el perfil)
                 // duplicaria la pestana: se descarga solo, una vez, cuando
                 // haya documento activo
@@ -55,7 +66,137 @@ namespace UrbanismoCantidades
             catch (System.Exception ex) { Log("ERROR Initialize: " + ex.Message); }
         }
 
-        public void Terminate() { }
+        public void Terminate()
+        {
+            Application.Idle -= OnIdleRegisterMemoryProperty;
+            if (_memoryPropertyRegistered)
+            {
+                ExtendedPropertyManager.RegisterExtendedProperty -=
+                    OnRegisterExtendedProperty;
+                _memoryPropertyRegistered = false;
+            }
+        }
+
+        private static void OnIdleRegisterMemoryProperty(object sender, EventArgs e)
+        {
+            Application.Idle -= OnIdleRegisterMemoryProperty;
+            try { RegisterMemoryPropertyDropdown(); }
+            catch (System.Exception ex)
+            {
+                Log("ERROR registro desplegable MEMORIAS: " + ex.Message);
+            }
+        }
+
+        private static void RegisterMemoryPropertyDropdown()
+        {
+            if (_memoryPropertyRegistered) return;
+            ExtendedPropertyManager.RegisterExtendedProperty +=
+                OnRegisterExtendedProperty;
+            _memoryPropertyRegistered = true;
+            Log("Desplegable MEMORIAS registrado");
+        }
+
+        private static void OnRegisterExtendedProperty(
+            object sender, ExtendedPropertyEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.PropertyDesc == null) return;
+                if (e.PropertyDesc is MemoryPropertyDescriptor) return;
+                string identity =
+                    (e.PropertyName ?? "") + " " +
+                    (e.PropertyDesc.Name ?? "") + " " +
+                    (e.PropertyDesc.DisplayName ?? "");
+                if (identity.ToUpperInvariant().IndexOf("MEMORIAS") < 0)
+                    return;
+                e.PropertyDesc = new MemoryPropertyDescriptor(e.PropertyDesc);
+            }
+            catch (System.Exception ex)
+            {
+                Log("ERROR desplegable MEMORIAS: " + ex.Message);
+            }
+        }
+
+        private sealed class MemoryVisibilityConverter : TypeConverter
+        {
+            private static readonly StandardValuesCollection Values =
+                new StandardValuesCollection(
+                    new string[] { "MOSTRAR", "OCULTAR" });
+
+            public override bool GetStandardValuesSupported(
+                ITypeDescriptorContext context)
+            {
+                return true;
+            }
+
+            public override bool GetStandardValuesExclusive(
+                ITypeDescriptorContext context)
+            {
+                return true;
+            }
+
+            public override StandardValuesCollection GetStandardValues(
+                ITypeDescriptorContext context)
+            {
+                return Values;
+            }
+        }
+
+        private sealed class MemoryPropertyDescriptor : PropertyDescriptor
+        {
+            private readonly PropertyDescriptor _inner;
+            private static readonly TypeConverter Dropdown =
+                new MemoryVisibilityConverter();
+
+            public MemoryPropertyDescriptor(PropertyDescriptor inner)
+                : base(inner)
+            {
+                _inner = inner;
+            }
+
+            public override Type ComponentType { get { return _inner.ComponentType; } }
+            public override bool IsReadOnly { get { return _inner.IsReadOnly; } }
+            public override Type PropertyType { get { return typeof(string); } }
+            public override TypeConverter Converter { get { return Dropdown; } }
+            public override bool SupportsChangeEvents
+            {
+                get { return _inner.SupportsChangeEvents; }
+            }
+
+            public override bool CanResetValue(object component)
+            {
+                return _inner.CanResetValue(component);
+            }
+
+            public override object GetValue(object component)
+            {
+                object value = _inner.GetValue(component);
+                string text = value == null ? "" : value.ToString().ToUpperInvariant();
+                return (text.IndexOf("VISIB") >= 0 ||
+                        text.IndexOf("MOSTRAR") >= 0)
+                    ? "MOSTRAR" : "OCULTAR";
+            }
+
+            public override void ResetValue(object component)
+            {
+                _inner.ResetValue(component);
+            }
+
+            public override void SetValue(object component, object value)
+            {
+                string selected = value == null ? "" : value.ToString();
+                _inner.SetValue(
+                    component,
+                    selected.ToUpperInvariant() == "MOSTRAR"
+                        ? "MOSTRAR" : "OCULTAR");
+                OnValueChanged(component, EventArgs.Empty);
+            }
+
+            public override bool ShouldSerializeValue(object component)
+            {
+                return _inner.ShouldSerializeValue(component);
+            }
+        }
 
         private static void OnItemInitialized(object sender, RibbonItemEventArgs e)
         {
