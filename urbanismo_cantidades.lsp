@@ -1,7 +1,7 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
-;;; 4.21.2: recupera bandas curvas por piezas y conserva toperol/ejes existentes.
+;;; 4.22.0: audita cantidades curvas, tierras, cotas XREF y pozos de red.
 ;;; 4.17.7: evita unidades adicionales por residuos decimales de punto flotante.
 ;;; 4.17.6: separa giro de 90 grados y cambio del extremo inicial.
 ;;; 4.17.5: ancla la modulacion al contorno real y evita losetas iniciales cortadas.
@@ -38,7 +38,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.21.2")
+(setq *urb-version* "4.22.0")
 (setq *urb-schema-version* "22")
 (setq *urb-prefab-schema-version* "1")
 (setq *urb-green-schema-version* "1")
@@ -959,17 +959,103 @@
 
 ;; Devuelve: area lisa, unidades lisas, guia ML, toperol ML,
 ;; area de adoquin blanco 20x10 y unidades de adoquin.
+(defun urb:polygon-band-area
+  (triangles umin umax angle-value / triangle piece result)
+  (setq result 0.0)
+  (foreach triangle triangles
+    (setq piece
+      (urb:clip-polygon-to-band triangle umin umax angle-value))
+    (if piece
+      (setq result
+        (+ result (abs (urb:polygon-signed-area piece))))))
+  result
+)
+
+(defun urb:composite-exact-band-areas
+  (points angle-value reverse-pattern
+   / triangles bounds umin umax cursor next gray phase-state first-band
+   band-width gray-area white-area guard band-area)
+  ;; Mide las MISMAS franjas 0.80/1.00 que se dibujan. El recorte se hace
+  ;; sobre triangulos internos del contorno, por lo que una banda que
+  ;; atraviesa dos islas de un anden concavo suma ambas sin aproximarla
+  ;; mediante largo x ancho.
+  (setq triangles (urb:triangulate-polygon points))
+  (if triangles
+    (progn
+      (setq bounds (urb:project-bounds points angle-value)
+            umin (nth 0 bounds)
+            umax (nth 1 bounds)
+            cursor (if reverse-pattern umax umin)
+            phase-state (urb:composite-phase-state 0.0)
+            gray (car phase-state)
+            first-band T
+            gray-area 0.0
+            white-area 0.0
+            guard 0)
+      (while
+        (and
+          (if reverse-pattern
+            (> cursor (+ umin 0.000001))
+            (< cursor (- umax 0.000001)))
+          (< guard 20000))
+        (setq guard (1+ guard)
+              band-width
+                (if first-band
+                  (cdr phase-state)
+                  (if gray 0.80 1.00))
+              next
+                (if reverse-pattern
+                  (max umin (- cursor band-width))
+                  (min umax (+ cursor band-width)))
+              band-area
+                (urb:polygon-band-area triangles
+                  (if reverse-pattern next cursor)
+                  (if reverse-pattern cursor next)
+                  angle-value))
+        (if gray
+          (setq gray-area (+ gray-area band-area))
+          (setq white-area (+ white-area band-area)))
+        (setq cursor next gray (not gray) first-band nil))
+      (list gray-area white-area))
+    nil)
+)
+
+(defun urb:anden-quantity-pattern-angle
+  (ename points pattern-mode / forced-angle clusters result)
+  ;; Repite la misma eleccion de eje usada por create-composite-loseta.
+  ;; Antes las cantidades ignoraban URB_ANDEN_AXIS y podian repartir las
+  ;; bandas con otra orientacion distinta a la que se veia en planta.
+  (setq forced-angle
+    (urb:parse-real
+      (urb:safe-string
+        (car (urb:get-xdata-strings ename "URB_ANDEN_AXIS")) "")))
+  (if (and (null forced-angle) (urb:lwpoly-has-arcs-p ename))
+    (progn
+      (setq forced-angle (urb:anden-straight-edges-angle ename))
+      (if forced-angle
+        (setq forced-angle (+ forced-angle (* 0.5 pi))))))
+  (setq clusters (urb:dominant-anden-axis-clusters points))
+  (setq result
+    (cond
+      (forced-angle forced-angle)
+      (clusters (car (car clusters)))
+      (T (urb:anden-axis-angle points))))
+  (urb:anden-pattern-angle result pattern-mode)
+)
+
 (defun urb:anden-finish-quantities
-  (points area format guia toperol pattern-mode
-   / module corridor-angle pattern-angle bounds length-value
+  (points area format guia toperol pattern-mode pattern-angle
+   / module corridor-angle bounds length-value
    corridor-bounds corridor-length width-value driving-chain
    guide-ml toperol-ml guide-area toperol-area finish-area
    smooth-area smooth-count adoquin-area adoquin-count cursor next gray
-   gray-length white-length ratio)
+   gray-length white-length ratio exact-areas raw-total area-scale)
   (setq module (urb:loseta-module format))
   (setq corridor-angle (urb:anden-axis-angle points)
         pattern-angle
-          (urb:anden-pattern-angle corridor-angle pattern-mode)
+          (if (numberp pattern-angle)
+            pattern-angle
+            (urb:anden-pattern-angle corridor-angle pattern-mode))
         corridor-bounds
           (urb:project-bounds points corridor-angle)
         bounds (urb:project-bounds points pattern-angle))
@@ -995,18 +1081,20 @@
   (setq finish-area (max 0.0 (- area guide-area toperol-area)))
   (if (< module 0.30)
     (progn
-      ;; Modulacion 20x20 del detalle: 0.80 m de loseta gris y
-      ;; 1.00 m de adoquin blanco 20x10, repetidos longitudinalmente.
-      (setq cursor 0.0 gray T gray-length 0.0 white-length 0.0)
-      (while (< cursor (- length-value 1e-8))
-        (setq next (min length-value (+ cursor (if gray 0.80 1.00))))
-        (if gray
-          (setq gray-length (+ gray-length (- next cursor)))
-          (setq white-length (+ white-length (- next cursor))))
-        (setq cursor next gray (not gray)))
+      ;; En curvas/codos el ancho interceptado por cada banda cambia. Se
+      ;; mide el area real recortada de gris y blanco; luego se normaliza
+      ;; contra el area ACIS exacta del contorno y se descuentan las
+      ;; franjas tactiles contractuales.
+      (setq exact-areas
+        (urb:composite-exact-band-areas
+          points pattern-angle
+          (urb:anden-pattern-reversed-p pattern-mode)))
+      (setq raw-total
+        (if exact-areas (+ (car exact-areas) (cadr exact-areas)) 0.0))
       (setq ratio
-        (if (> (+ gray-length white-length) 1e-9)
-          (/ gray-length (+ gray-length white-length)) 1.0))
+        (if (> raw-total 1e-9)
+          (/ (car exact-areas) raw-total)
+          (/ 0.80 1.80)))
       (setq smooth-area (* finish-area ratio))
       (setq adoquin-area (- finish-area smooth-area)))
     (setq smooth-area finish-area adoquin-area 0.0))
@@ -1026,7 +1114,7 @@
    adoquin-area adoquin-count)
   (setq tactile
     (urb:anden-finish-quantities
-      points area format guia toperol "AUTOMATICO")
+      points area format guia toperol "AUTOMATICO" nil)
         module (urb:loseta-module format)
         guide-ml (nth 2 tactile)
         toperol-ml (nth 3 tactile)
@@ -4673,6 +4761,7 @@
 (defun urb:package-anden
   (ename / boundary metadata material etapa subetapa guia toperol format
    calculate surface grade-source elevation pattern-mode area perimeter points finish-qty
+   quantity-pattern-angle
    handle objects filtered obj block-name blocks block-definition
    copy-result point block-ref insert-result block-ename xdata-result
    fast-ok ss en cmd-result old-attreq)
@@ -4718,12 +4807,15 @@
   ;; Con arcos reales (PLINE opcion Arc) hay que usar la version que sigue
   ;; el arco, no la cuerda recta: corridor-length (y por lo tanto los
   ;; metros lineales de guia/toperol) salen cortos en un anden curvo si no.
-  (setq points (urb:lwpoly-points-with-arcs ename))
+  (setq points (urb:lwpoly-points-with-arcs-fine ename))
+  (setq quantity-pattern-angle
+    (urb:anden-quantity-pattern-angle ename points pattern-mode))
   (setq finish-qty
     (cond
       ((urb:string-equal-p material "Loseta")
         (urb:anden-finish-quantities
-          points area format guia toperol pattern-mode))
+          points area format guia toperol pattern-mode
+          quantity-pattern-angle))
       ((urb:string-equal-p material "Adoquin")
         (urb:adoquin-finish-quantities points area format guia toperol))
       (T
@@ -5211,7 +5303,8 @@
 
 ;; Referencia: (eje registros inicio-eje longitud sentido modo metodo).
 ;; En una via nueva, registros contiene las muestras de rasante guardadas.
-;; Las vias antiguas reconstruyen la rasante desde su capa de cotas.
+;; Las vias antiguas sin muestras pueden releerlas desde su capa de cotas;
+;; el eje siempre se recupera o selecciona entre entidades ya existentes.
 (defun urb:select-anden-road-grade
   (/ selected road data mov axis axis-handle via-id records c0 c1 span
    record-mode method axis-start)
@@ -7889,18 +7982,25 @@
   (setq pl
     (vla-AddLightWeightPolyline
       blk
-      (mp:var-dbls (list cut 0.0 (- dist cut) 0.0))))
+      (mp:var-dbls
+        (if (mp:hydro-tramo-p baseb)
+          (list 0.0 0.0 dist 0.0)
+          (list cut 0.0 (- dist cut) 0.0)))))
   (vla-put-Layer pl lay)
   (vla-put-Color pl col)
   (vla-put-ConstantWidth pl (float w))
 
-  ;; Circulos en extremos.
-  (setq c1 (vla-AddCircle blk (mp:3d '(0 0 0)) (float r)))
-  (vla-put-Layer c1 lay)
-  (vla-put-Color c1 col)
-  (setq c2 (vla-AddCircle blk (mp:3d (list dist 0.0 0.0)) (float r)))
-  (vla-put-Layer c2 lay)
-  (vla-put-Color c2 col)
+  ;; En redes hidrosanitarias los pozos/accesorios son bloques puntuales
+  ;; independientes y compartibles. Dibujar ademas circulos dentro de
+  ;; CADA tramo producia dos o tres anillos superpuestos en una union.
+  (if (not (mp:hydro-tramo-p baseb))
+    (progn
+      (setq c1 (vla-AddCircle blk (mp:3d '(0 0 0)) (float r)))
+      (vla-put-Layer c1 lay)
+      (vla-put-Color c1 col)
+      (setq c2 (vla-AddCircle blk (mp:3d (list dist 0.0 0.0)) (float r)))
+      (vla-put-Layer c2 lay)
+      (vla-put-Color c2 col)))
 
   ;; Etiqueta y pendiente centradas respecto al punto medio del tramo.
   (setq mid (list (/ dist 2.0) (* th 1.35) 0.0))
@@ -9920,14 +10020,15 @@
       (mp:getval "ID" atts (mp:getval "CODIGO" atts "")))
     ""))
 
-(defun mp:find-point-reference (base point id / ss index ename found ip candidate-id)
+(defun mp:find-point-reference
+  (base point id / ss index ename found ip candidate-id positional positional-count)
   ;; Coincidencia estricta: tipo, identificador y posicion 3D dentro de 5 cm.
   ;; Evita confundir redes superpuestas a distintas cotas o nodos cercanos.
   (setq id (strcase (vl-string-trim " " (mp:safe-str id)))
         ss (ssget "_X" '((0 . "INSERT")))
         index 0)
   (if ss
-    (while (and (< index (sslength ss)) (null found))
+    (while (< index (sslength ss))
         (setq ename (ssname ss index)
               ip (cdr (assoc 10 (entget ename))))
         (if (and ip
@@ -9937,10 +10038,19 @@
             (setq candidate-id
               (strcase
                 (vl-string-trim " " (mp:entity-point-id ename))))
-            (if (or (= id "") (= id candidate-id))
-              (setq found ename))))
+            (cond
+              ((or (= id "") (= id candidate-id))
+                (if (null found) (setq found ename)))
+              (T
+                ;; Respaldo espacial: si existe UN solo pozo compatible en
+                ;; la misma coordenada se reutiliza aunque el segundo tramo
+                ;; haya escrito otro ID o lo haya dejado vacio. El merge
+                ;; posterior adopta el ID real del bloque conservado.
+                (setq positional ename
+                      positional-count (1+ (if positional-count positional-count 0)))))))
         (setq index (1+ index))))
-  found)
+  (if found found
+    (if (= positional-count 1) positional nil)))
 
 (defun mp:point-exists-p (base point)
   (if (mp:find-point-reference base point "") T nil))
@@ -10598,21 +10708,51 @@
             (if (> value best) (setq best value)))))
       best)))
 
-(defun mp:normalize-tramo-graphics (blk / item span cut width)
+(defun mp:normalize-tramo-graphics (blk base / item span cut width victims removed)
   ;; Ajusta definiciones existentes al borde de sus circulos.
   (setq span (mp:block-tramo-length blk))
   (setq cut (min (max 2.0 *mp-vis-radius*) (/ span 4.0)))
   (setq width (max 0.50 *mp-vis-width*))
+  ;; Los circulos de extremos de un tramo hidrosanitario no son pozos:
+  ;; eran geometria duplicada. El pozo real es su INSERT puntual enlazado.
+  (if (mp:hydro-tramo-p base)
+    (progn
+      (vlax-for item blk
+        (if (= (vla-get-ObjectName item) "AcDbCircle")
+          (setq victims (cons item victims))))
+      (foreach item victims
+        (if (urb:safe-delete item) (setq removed (1+ (if removed removed 0)))))))
   (if (> span 1e-9)
     (vlax-for item blk
       (if (= (vla-get-ObjectName item) "AcDbPolyline")
         (progn
           (vla-put-Coordinates
             item
-            (mp:var-dbls (list cut 0.0 (- span cut) 0.0)))
+            (mp:var-dbls
+              (if (mp:hydro-tramo-p base)
+                (list 0.0 0.0 span 0.0)
+                (list cut 0.0 (- span cut) 0.0))))
           (vla-put-ConstantWidth item (float width))
           (vla-Update item)))))
-  span)
+  (list span (if removed removed 0)))
+
+(defun mp:repair-hydro-tramo-definitions
+  (/ blocks blk bname base result removed)
+  ;; Migra definiciones compartidas ya existentes. No borra ningun INSERT
+  ;; de pozo ni modifica sus atributos; solo retira los anillos falsos de
+  ;; los bloques lineales CANT_TRAMO/MP_TRAMO hidrosanitarios.
+  (setq blocks (vla-get-Blocks (urb:doc)) removed 0)
+  (vlax-for blk blocks
+    (if (and (= (vla-get-IsLayout blk) :vlax-false)
+             (= (vla-get-IsXRef blk) :vlax-false))
+      (progn
+        (setq bname (vla-get-Name blk)
+              base (mp:infer-base bname nil))
+        (if (and (mp:base-is-tramo base) (mp:hydro-tramo-p base))
+          (progn
+            (setq result (mp:normalize-tramo-graphics blk base))
+            (setq removed (+ removed (cadr result))))))))
+  removed)
 
 (defun mp:normalize-visible-attdefs (blk is-tramo base / item tag span pos)
   (if is-tramo
@@ -10646,7 +10786,7 @@
   (if (vl-catch-all-error-p blk)
     0
     (progn
-      (if is-tramo (mp:normalize-tramo-graphics blk))
+      (if is-tramo (mp:normalize-tramo-graphics blk base))
       (mp:normalize-visible-attdefs blk is-tramo base)
       (setq tags (mp:block-attdef-tags blk))
       (setq specs (mp:desired-atts base is-tramo))
@@ -12114,6 +12254,81 @@
   value
 )
 
+(defun urb:selected-cota-number (selected / ename edata obj txt value)
+  ;; Lee TEXT/MTEXT, etiquetas Civil y proxies seleccionados con NENTSEL,
+  ;; incluidos los que viven dentro de un XREF. Se prueban tanto ActiveX
+  ;; como DXF porque cada tipo de etiqueta expone el contenido distinto.
+  (setq ename (if selected (car selected) nil)
+        edata (if ename (entget ename) nil)
+        obj
+          (if ename
+            (vl-catch-all-apply 'vlax-ename->vla-object (list ename))))
+  (if (and obj (not (vl-catch-all-error-p obj)))
+    (progn
+      (setq txt (vl-catch-all-apply 'vla-get-TextString (list obj)))
+      (if (vl-catch-all-error-p txt) (setq txt nil))))
+  (if (or (null txt) (= (urb:safe-string txt "") ""))
+    (setq txt (cdr (assoc 1 edata))))
+  (if txt (setq value (mp:last-decimal-number txt)))
+  (if value (atof value) nil)
+)
+
+(defun urb:road-design-grade-records (road data / mov records span c0 c1)
+  ;; La rasante de diseno se puede consultar aunque no exista superficie
+  ;; TN y, por tanto, aun no se haya calculado movimiento de tierras.
+  (setq mov (urb:road-movement-data road))
+  (if (and mov (> (length mov) 9))
+    (setq records (urb:read-lisp-safe (nth 9 mov))))
+  (if (not (urb:grade-records-valid-p records)) (setq records nil))
+  (if (and (null records) (> (length data) 32))
+    (setq records (urb:read-lisp-safe (nth 32 data))))
+  (if (not (urb:grade-records-valid-p records)) (setq records nil))
+  (setq span
+    (atof (urb:safe-string (if (> (length data) 18) (nth 18 data) nil) "0")))
+  (if (null records)
+    (progn
+      (setq c0
+        (or
+          (urb:parse-real
+            (if (and mov (> (length mov) 7)) (nth 7 mov) ""))
+          (urb:parse-real
+            (if (> (length data) 30) (nth 30 data) ""))))
+      (setq c1
+        (or
+          (urb:parse-real
+            (if (and mov (> (length mov) 8)) (nth 8 mov) ""))
+          (urb:parse-real
+            (if (> (length data) 31) (nth 31 data) ""))))
+      (if (and c0 c1 (> span 1e-6))
+        (setq records (list (list 0.0 c0) (list span c1))))))
+  records
+)
+
+(defun urb:cota-start-from-via (ename / road data records)
+  ;; Para la PRIMERA cota del metodo Pendiente importa el inicio del tramo
+  ;; de via, no el lugar accidental donde se hizo clic sobre su bloque.
+  (setq road (urb:road-parent-from-entity ename))
+  (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
+    (progn
+      (setq records (urb:road-design-grade-records road data))
+      (if records (urb:cota-at-axis-distance 0.0 records) nil))
+    nil)
+)
+
+(defun urb:cota-start-from-pick (selected / cands item value attempt)
+  (setq cands (list (car selected)))
+  (if (> (length selected) 3)
+    (setq cands (append cands (nth 3 selected))))
+  (foreach item cands
+    (if (null value)
+      (progn
+        (setq attempt
+          (vl-catch-all-apply 'urb:cota-start-from-via (list item)))
+        (if (not (vl-catch-all-error-p attempt))
+          (setq value attempt)))))
+  value
+)
+
 ;; Si lo seleccionado pertenece a una VIA ya creada por el plugin,
 ;; devuelve la cota de RASANTE de esa via en el punto del click
 ;; (proyectado a su eje, con los records de rasante guardados); nil si no
@@ -12125,14 +12340,10 @@
   (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
     (progn
       (setq mov (urb:road-movement-data road))
-      (setq records
-        (if (and mov (> (length mov) 9))
-          (urb:read-lisp-safe (nth 9 mov))
-          nil))
-      (if (not (urb:grade-records-valid-p records)) (setq records nil))
+      (setq records (urb:road-design-grade-records road data))
       (setq via-id (if (> (length data) 22) (nth 22 data) ""))
-      ;; 2026-08-12: si el handle del eje ya no existe, se reconstruye
-      ;; solo desde el contorno del bloque (sin pedirle nada al usuario)
+      ;; Si el handle del eje ya no existe, se busca por via-id/cache.
+      ;; Nunca se fabrica un alineamiento nuevo al consultar una cota.
       (setq axis (urb:road-axis-recover road data via-id))
       (setq span
         (atof (urb:safe-string (if (> (length data) 18) (nth 18 data) nil) "0")))
@@ -12140,12 +12351,6 @@
         (atof (urb:safe-string (if (> (length data) 21) (nth 21 data) nil) "0")))
       (setq direction
         (urb:safe-string (if (> (length data) 12) (nth 12 data) nil) "Inicio"))
-      (if (and (null records) mov (> (length mov) 8))
-        (progn
-          (setq c0 (urb:parse-real (nth 7 mov)))
-          (setq c1 (urb:parse-real (nth 8 mov)))
-          (if (and c0 c1 (> span 1e-6))
-            (setq records (list (list 0.0 c0) (list span c1))))))
       (if (and axis records)
         (progn
           (setq closest
@@ -12304,28 +12509,27 @@
             (prompt "\nSe necesitan al menos 2 cotas; seleccion cancelada.")
             (setq done T picks nil))))
       (T
-        ;; AUTO-DETECCION (2026-08-12, pedido del usuario): el mismo click
-        ;; reconoce solo que se selecciono -- 1) un TEXTO/etiqueta de cota
-        ;; (cualquier capa, cualquier xref), o 2) una VIA ya creada (toma
-        ;; su rasante en ese punto). Sin preseleccionar el tipo.
-        (setq txt nil)
-        (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list (car sel))))
-        (if (and obj (not (vl-catch-all-error-p obj)))
-          (progn
-            (setq txt (vl-catch-all-apply 'vla-get-TextString (list obj)))
-            (if (vl-catch-all-error-p txt) (setq txt nil))))
-        (if (null txt)
-          (setq txt (cdr (assoc 1 (entget (car sel))))))
-        (setq value (if txt (mp:last-decimal-number txt) nil))
-        (if value (setq value (atof value)))
+        ;; AUTO-DETECCION: el mismo click reconoce una VIA creada o un
+        ;; TEXTO/etiqueta de cota de cualquier XREF. Se prueba primero la
+        ;; via para que un atributo numerico anidado en su bloque no se
+        ;; confunda con la cota de rasante.
+        (setq value
+          (if (= n 0)
+            (urb:cota-start-from-pick sel)
+            (urb:cota-from-pick sel)))
         (if value
-          (prompt (strcat "\nCota leida de la etiqueta: " (rtos value 2 3)))
+          (prompt
+            (strcat
+              (if (= n 0)
+                "\nCota tomada del INICIO de la rasante de la via: "
+                "\nCota tomada de la RASANTE de la via seleccionada: ")
+              (rtos value 2 3)))
           (progn
-            (setq value (urb:cota-from-pick sel))
+            (setq value (urb:selected-cota-number sel))
             (if value
               (prompt
-                (strcat "\nCota tomada de la RASANTE de la via seleccionada: "
-                        (rtos value 2 3))))))
+                (strcat "\nCota leida de la etiqueta: "
+                  (rtos value 2 3))))))
         (if (null value)
           (setq value
             (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
@@ -12388,24 +12592,20 @@
             ;; cambia a cotas seleccionadas (mismo picker del modo
             ;; Pendiente) y sigue pidiendo la cota final y las intermedias.
             (progn
-              (setq via-cota nil)
-              (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
-              (if (and obj (not (vl-catch-all-error-p obj)))
-                (progn
-                  (setq txt (vl-catch-all-apply 'vla-get-TextString (list obj)))
-                  (if (vl-catch-all-error-p txt) (setq txt nil))))
-              (if txt (setq via-cota (mp:last-decimal-number txt)))
-              (if via-cota (setq via-cota (atof via-cota)))
+              ;; Una via puede contener atributos numericos; su rasante
+              ;; tiene prioridad sobre cualquier texto anidado.
+              (setq via-cota (urb:cota-start-from-pick selected))
               (if via-cota
                 (prompt
-                  (strcat "\nCota leida de la etiqueta: " (rtos via-cota 2 3)))
+                  (strcat
+                    "\nCota INICIAL tomada de la RASANTE de la via"
+                    " seleccionada: " (rtos via-cota 2 3)))
                 (progn
-                  (setq via-cota (urb:cota-from-pick selected))
+                  (setq via-cota (urb:selected-cota-number selected))
                   (if via-cota
                     (prompt
-                      (strcat
-                        "\nCota INICIAL tomada de la RASANTE de la via"
-                        " seleccionada: " (rtos via-cota 2 3))))))
+                      (strcat "\nCota leida de la etiqueta: "
+                        (rtos via-cota 2 3))))))
               (if via-cota
                 (progn
                   (setq picks
@@ -12457,11 +12657,17 @@
 (defun urb:set-road-data
   (boundary name stage substage profile axis surface cota cota-reference cota-count
    station-start interval direction overwidth left-over right-over nominal-width
-   area axis-length status alignment-mode axis-start via-id)
-  (urb:set-xdata-strings boundary "URB_VIA"
+   area axis-length status alignment-mode axis-start via-id / old base extras)
+  (setq old (urb:get-xdata-strings boundary "URB_VIA"))
+  (setq base
     (list "VIA" name stage substage profile axis surface cota cota-reference
       cota-count station-start interval direction overwidth left-over right-over
-      nominal-width area axis-length status alignment-mode axis-start via-id)))
+      nominal-width area axis-length status alignment-mode axis-start via-id))
+  ;; Editar una via no debe borrar su rasante/movimiento ya calculados.
+  (if (> (length old) 23)
+    (setq extras (nthcdr 23 old)))
+  (urb:set-xdata-strings boundary "URB_VIA"
+    (append base extras)))
 
 (defun urb:road-data-defaults (data)
   (list
@@ -13104,6 +13310,41 @@
     nil)
 )
 
+(defun urb:store-selected-road-grade
+  (boundary axis-start span direction
+   / data records item local c0 c1)
+  ;; Persiste la rasante escogida por el usuario ANTES de intentar leer la
+  ;; superficie. Asi una via sin TN calculada sigue sirviendo como fuente
+  ;; de cota inicial para otra via.
+  (cond
+    ((and *urb-road-picked-stations*
+          (> (length *urb-road-picked-stations*) 1))
+      (foreach item *urb-road-picked-stations*
+        (setq local
+          (if (urb:string-equal-p direction "Final")
+            (- (+ axis-start span) (car item))
+            (- (car item) axis-start)))
+        (setq records (cons (list local (cadr item)) records)))
+      (setq records
+        (vl-sort records '(lambda (a b) (< (car a) (car b)))))
+      (setq c0 (urb:cota-at-axis-distance 0.0 records)
+            c1 (urb:cota-at-axis-distance span records)))
+    ((and *urb-road-picked-cotas* (= (length *urb-road-picked-cotas*) 2))
+      (setq c0 (car *urb-road-picked-cotas*)
+            c1 (cadr *urb-road-picked-cotas*)
+            records (list (list 0.0 c0) (list span c1)))))
+  (if records
+    (progn
+      (setq data (urb:get-xdata-strings boundary "URB_VIA"))
+      (while (< (length data) 33)
+        (setq data (append data (list ""))))
+      (setq data (urb:replace-nth 30 (rtos c0 2 8) data)
+            data (urb:replace-nth 31 (rtos c1 2 8) data)
+            data (urb:replace-nth 32 (urb:serialize-lisp records) data))
+      (urb:set-xdata-strings boundary "URB_VIA" data)))
+  records
+)
+
 (defun urb:set-road-status (boundary status / data)
   (setq data (urb:get-xdata-strings boundary "URB_VIA"))
   (if (and data (> (length data) 19))
@@ -13245,6 +13486,8 @@
                     (nth 10 dialog) (nth 11 dialog) (nth 12 dialog)
                     (rtos area 2 6) (rtos axis-length 2 6) status (nth 4 dialog)
                     (rtos axis-start 2 6) via-id)
+                  (urb:store-selected-road-grade
+                    boundary axis-start axis-length direction)
                   (urb:generate-road-stations
                     axis handle start interval direction axis-start axis-length)
                   ;; Calculo automatico e integrado: si hay superficie y cotas
@@ -13443,6 +13686,8 @@
                         (nth 10 dialog) (nth 11 dialog) (nth 12 dialog)
                         (rtos area 2 6) (rtos axis-length 2 6) (nth 19 old)
                         (nth 4 dialog) (rtos axis-start 2 6) via-id)
+                      (urb:store-selected-road-grade
+                        boundary axis-start axis-length (nth 12 old))
                       (setq interval (atof (nth 8 dialog)))
                       (urb:generate-road-stations
                         axis handle start interval (nth 12 old)
@@ -14236,8 +14481,13 @@
 )
 
 (defun urb:terrain-at-section
-  (surface axis d half-width / point param deriv len normal samples total count z p)
-  ;; Promedia el terreno en eje y bordes de la seccion. Devuelve (cota punto).
+  (surface axis d half-width
+   / point param deriv len normal fractions fraction offset z p profile
+   rest first second integral width)
+  ;; Siete ordenadas transversales, incluidas ambas orillas y el eje.
+  ;; Devuelve (cota-media punto perfil), donde perfil contiene pares
+  ;; (desfase cota). La cota media se integra por trapecios, no por el
+  ;; promedio simple de tres puntos que usaban las versiones anteriores.
   (setq point
     (vl-catch-all-apply 'vlax-curve-getPointAtDist (list axis d)))
   (if (vl-catch-all-error-p point) (setq point nil))
@@ -14250,20 +14500,30 @@
         (if (> len 1e-9)
           (list (- (/ (cadr deriv) len)) (/ (car deriv) len) 0.0)
           '(0.0 0.0 0.0)))
-      (setq samples
-        (list
-          point
-          (mapcar '+ point
-            (mapcar '(lambda (v) (* v half-width)) normal))
-          (mapcar '- point
-            (mapcar '(lambda (v) (* v half-width)) normal))))
-      (setq total 0.0 count 0)
-      (foreach p samples
+      (setq fractions '(-1.0 -0.6666666667 -0.3333333333 0.0
+                         0.3333333333 0.6666666667 1.0))
+      (foreach fraction fractions
+        (setq offset (* fraction half-width)
+              p (mapcar '+ point
+                  (mapcar '(lambda (v) (* v offset)) normal)))
         (setq z (urb:surface-elevation surface (car p) (cadr p)))
-        (if z
-          (setq total (+ total z) count (1+ count))))
-      (if (> count 0)
-        (list (/ total count) point)
+        (if (numberp z)
+          (setq profile (append profile (list (list offset z))))))
+      ;; Una seccion parcial no se extrapola: se marca omitida para no
+      ;; fabricar volumen fuera de la cobertura real de la superficie.
+      (if (= (length profile) (length fractions))
+        (progn
+          (setq rest profile integral 0.0)
+          (while (cadr rest)
+            (setq first (car rest) second (cadr rest)
+                  integral
+                    (+ integral
+                      (* 0.5 (+ (cadr first) (cadr second))
+                        (- (car second) (car first))))
+                  rest (cdr rest)))
+          (setq width (* 2.0 half-width))
+          (list (if (> width 1e-9) (/ integral width) (cadr (nth 3 profile)))
+                point profile))
         nil))
     nil)
 )
@@ -14279,7 +14539,7 @@
 (defun urb:road-section-samples
   (surface axis axis-start span interval direction width-total
    cota-stations cota-coverage station-start
-   / s d section terrain rasante result positions end-station next-grid)
+   / s d section terrain rasante profile result positions end-station next-grid)
   ;; Secciones en inicio/final reales y en las abscisas redondas de proyecto.
   ;; Para inicio 0+015.33: 15.33, 20, 25... 50, 54.12.
   (setq positions (list 0.0))
@@ -14301,11 +14561,12 @@
     (setq section
       (urb:terrain-at-section surface axis d (/ width-total 2.0)))
     (setq terrain (if section (car section) nil))
+    (setq profile (if section (nth 2 section) nil))
     (setq rasante
       (if cota-coverage
         (urb:cota-at-axis-distance d cota-stations)
         nil))
-    (setq result (cons (list s terrain rasante) result)))
+    (setq result (cons (list s terrain rasante profile) result)))
   (reverse result)
 )
 
@@ -14321,7 +14582,8 @@
         (list
           (nth 0 item)
           (nth 1 item)
-          (+ cota0 (* (/ slope 100.0) (nth 0 item))))
+          (+ cota0 (* (/ slope 100.0) (nth 0 item)))
+          (nth 3 item))
         result)))
   (list (reverse result) slope)
 )
@@ -14389,49 +14651,6 @@
         nil)))
 )
 
-(defun urb:road-integrate-earthworks
-  (samples width-total depth / item prev-delta prev-s delta ds davg
-   cut fill skipped cross-ratio ds-first ds-second)
-  (setq cut 0.0 fill 0.0 skipped 0 prev-delta nil prev-s nil)
-  (foreach item samples
-    (if (and (nth 1 item) (nth 2 item))
-      (progn
-        (setq delta (- (nth 1 item) (- (nth 2 item) depth)))
-        (if (and prev-delta prev-s)
-          (progn
-            (setq ds (- (nth 0 item) prev-s))
-            (cond
-              ((and (>= prev-delta 0.0) (>= delta 0.0))
-                (setq davg (/ (+ prev-delta delta) 2.0))
-                (setq cut (+ cut (* davg width-total ds))))
-              ((and (<= prev-delta 0.0) (<= delta 0.0))
-                (setq davg (/ (+ (- prev-delta) (- delta)) 2.0))
-                (setq fill (+ fill (* davg width-total ds))))
-              (T
-                (setq cross-ratio
-                  (/ (abs prev-delta)
-                     (+ (abs prev-delta) (abs delta))))
-                (setq ds-first (* ds cross-ratio))
-                (setq ds-second (- ds ds-first))
-                (if (> prev-delta 0.0)
-                  (progn
-                    (setq cut
-                      (+ cut (* 0.5 prev-delta width-total ds-first)))
-                    (setq fill
-                      (+ fill (* 0.5 (- delta) width-total ds-second))))
-                  (progn
-                    (setq fill
-                      (+ fill (* 0.5 (- prev-delta) width-total ds-first)))
-                    (setq cut
-                      (+ cut (* 0.5 delta width-total ds-second)))))))))
-        (setq prev-delta delta)
-        (setq prev-s (nth 0 item)))
-      (progn
-        (setq skipped (1+ skipped))
-        (setq prev-delta nil prev-s nil))))
-  (list cut fill skipped)
-)
-
 ;; Calcula el aporte de UN intervalo con la misma regla usada por
 ;; urb:road-integrate-earthworks. Se separa para construir una tabla de
 ;; auditoria cuyos subtotales reproducen exactamente el total de la via.
@@ -14461,37 +14680,97 @@
   (list cut fill)
 )
 
+(defun urb:road-section-earthwork-areas
+  (profile terrain rasante width-total depth
+   / rest first second delta1 delta2 segment dx cut fill delta)
+  ;; Areas transversales separadas de corte/relleno. Cada intervalo entre
+  ;; ordenadas se parte exactamente en el cruce por cero, evitando que el
+  ;; corte de un costado cancele el relleno del otro.
+  (setq cut 0.0 fill 0.0)
+  (if (and profile (> (length profile) 1) (numberp rasante))
+    (progn
+      (setq rest profile)
+      (while (cadr rest)
+        (setq first (car rest)
+              second (cadr rest)
+              delta1 (- (cadr first) (- rasante depth))
+              delta2 (- (cadr second) (- rasante depth))
+              dx (- (car second) (car first))
+              segment
+                (urb:road-earthwork-segment delta1 delta2 1.0 dx)
+              cut (+ cut (car segment))
+              fill (+ fill (cadr segment))
+              rest (cdr rest)))
+      (list cut fill))
+    (if (and (numberp terrain) (numberp rasante))
+      (progn
+        ;; Compatibilidad con pruebas/muestras antiguas sin perfil.
+        (setq delta (- terrain (- rasante depth)))
+        (list
+          (if (> delta 0.0) (* delta width-total) 0.0)
+          (if (< delta 0.0) (* (- delta) width-total) 0.0)))
+      nil))
+)
+
+(defun urb:road-integrate-earthworks
+  (samples width-total depth / item prev-areas prev-s areas ds
+   cut fill skipped)
+  ;; Metodo de areas extremas sobre secciones de siete ordenadas.
+  (setq cut 0.0 fill 0.0 skipped 0 prev-areas nil prev-s nil)
+  (foreach item samples
+    (setq areas
+      (urb:road-section-earthwork-areas
+        (nth 3 item) (nth 1 item) (nth 2 item) width-total depth))
+    (if areas
+      (progn
+        (if (and prev-areas prev-s)
+          (progn
+            (setq ds (- (nth 0 item) prev-s))
+            (setq cut
+              (+ cut (* 0.5 (+ (car prev-areas) (car areas)) ds)))
+            (setq fill
+              (+ fill (* 0.5 (+ (cadr prev-areas) (cadr areas)) ds)))))
+        (setq prev-areas areas
+              prev-s (nth 0 item)))
+      (progn
+        (setq skipped (1+ skipped))
+        (setq prev-areas nil prev-s nil))))
+  (list cut fill skipped)
+)
+
 ;; Cada registro:
 ;; (distancia TN rasante fondo delta area-corte area-relleno vol-corte vol-relleno)
 (defun urb:road-earthwork-audit-rows
   (samples width-total depth / item terrain rasante fondo delta area-cut area-fill
-   prev-delta prev-s ds segment vol-cut vol-fill result)
-  (setq prev-delta nil prev-s nil result nil)
+   prev-areas prev-s ds areas vol-cut vol-fill result)
+  (setq prev-areas nil prev-s nil result nil)
   (foreach item samples
     (setq terrain (nth 1 item))
     (setq rasante (nth 2 item))
-    (if (and terrain rasante)
+    (setq areas
+      (urb:road-section-earthwork-areas
+        (nth 3 item) terrain rasante width-total depth))
+    (if areas
       (progn
         (setq fondo (- rasante depth))
         (setq delta (- terrain fondo))
-        (setq area-cut (if (> delta 0.0) (* delta width-total) 0.0))
-        (setq area-fill (if (< delta 0.0) (* (- delta) width-total) 0.0))
+        (setq area-cut (car areas))
+        (setq area-fill (cadr areas))
         (setq vol-cut 0.0 vol-fill 0.0)
-        (if (and prev-delta prev-s)
+        (if (and prev-areas prev-s)
           (progn
             (setq ds (- (nth 0 item) prev-s))
-            (setq segment
-              (urb:road-earthwork-segment
-                prev-delta delta width-total ds))
-            (setq vol-cut (car segment))
-            (setq vol-fill (cadr segment))))
+            (setq vol-cut
+              (* 0.5 (+ (car prev-areas) area-cut) ds))
+            (setq vol-fill
+              (* 0.5 (+ (cadr prev-areas) area-fill) ds))))
         (setq result
           (cons
             (list (nth 0 item) terrain rasante fondo delta
               area-cut area-fill vol-cut vol-fill)
             result))
-        (setq prev-delta delta prev-s (nth 0 item)))
-      (setq prev-delta nil prev-s nil)))
+        (setq prev-areas areas prev-s (nth 0 item)))
+      (setq prev-areas nil prev-s nil)))
   (reverse result)
 )
 
@@ -14679,7 +14958,7 @@
 
 (defun urb:compute-road-earthworks
   (boundary data axis / surface depth area axis-length axis-start nominal
-   left right width-total interval direction texts radius span stations raw-stations
+   left right width-total design-width geometry-width interval direction texts radius span stations raw-stations
    station-start-number coverage
    samples old-mov old-cota0 old-cota-final grade-result totals metodo
    cota0 cota-final cut fill skipped audit-result)
@@ -14693,9 +14972,15 @@
     (if (and old-mov (> (length old-mov) 8) (/= (nth 8 old-mov) ""))
       (atof (nth 8 old-mov))
       nil))
+  (if (and (null old-cota0) (> (length data) 30)
+           (/= (urb:safe-string (nth 30 data) "") ""))
+    (setq old-cota0 (atof (nth 30 data))))
+  (if (and (null old-cota-final) (> (length data) 31)
+           (/= (urb:safe-string (nth 31 data) "") ""))
+    (setq old-cota-final (atof (nth 31 data))))
   ;; cotas seleccionadas en el flujo Pendiente (una por costado): tienen
   ;; prioridad como par inicial/final para la pendiente lineal
-  (if (and *urb-road-picked-cotas* (null old-cota0))
+  (if *urb-road-picked-cotas*
     (setq old-cota0 (car *urb-road-picked-cotas*)
           old-cota-final (cadr *urb-road-picked-cotas*)))
   (setq surface (urb:select-surface-object (nth 6 data)))
@@ -14721,10 +15006,21 @@
       (setq nominal (atof (nth 16 data)))
       (setq left (atof (nth 14 data)))
       (setq right (atof (nth 15 data)))
-      (if (> nominal 0.01)
-        (setq width-total (+ nominal left right))
-        (setq width-total
-          (if (> axis-length 0.01) (/ area axis-length) 0.0)))
+      (setq design-width (+ nominal left right)
+            geometry-width
+              (if (> axis-length 0.01) (/ area axis-length) 0.0))
+      ;; El ancho medio geometrico hace que ancho x longitud reproduzca el
+      ;; area real del contorno, incluso en curvas y sobreanchos variables.
+      ;; El ancho nominal queda como respaldo y control de discrepancia.
+      (setq width-total
+        (if (> geometry-width 0.01) geometry-width design-width))
+      (if (and (> design-width 0.01) (> geometry-width 0.01)
+               (> (/ (abs (- geometry-width design-width)) design-width) 0.02))
+        (prompt
+          (strcat
+            "\nControl de ancho: geometria " (rtos geometry-width 2 2)
+            " m vs. diseno " (rtos design-width 2 2)
+            " m. El movimiento usa el ancho geometrico.")))
       (setq interval (atof (nth 11 data)))
       (if (<= interval 0.01) (setq interval 10.0))
       (setq direction (urb:safe-string (nth 12 data) "Inicio"))
@@ -14805,7 +15101,7 @@
             (progn
               (setq samples (nth 0 grade-result))
               (setq metodo
-                (strcat "PRELIMINAR_SECCIONES - "
+                (strcat "AREAS_EXTREMAS_7_ORDENADAS - "
                   (urb:safe-string (nth 1 grade-result) "rasante")))
               (setq cota0 (nth 2 grade-result))
               (setq cota-final (nth 3 grade-result))
@@ -18251,7 +18547,7 @@
           (setq done T)))))
   (princ))
 
-(defun urb:migrate-current-drawing (/ ss i count)
+(defun urb:migrate-current-drawing (/ ss i count hydro-rings)
   ;; MIGRACIONES AUTOMATICAS de dibujos hechos con versiones anteriores.
   ;; Corre al cargar el .lsp y al abrir el menu URBANISMO, y es idempotente
   ;; (si no hay nada que migrar, no toca nada). Patron establecido a
@@ -18308,6 +18604,19 @@
         (strcat "\nMigracion automatica: " (itoa count)
                 " tabla(s) de verificacion retirada(s);"
                 " despliegalas desde Cantidades cuando las necesites."))))
+  ;; 3) Los pozos reales permanecen como bloques puntuales unicos y
+  ;; compartibles. Se retiran de los bloques de tramo los circulos de
+  ;; extremo que los hacian parecer duplicados.
+  (setq hydro-rings
+    (vl-catch-all-apply 'mp:repair-hydro-tramo-definitions nil))
+  (if (and (numberp hydro-rings) (> hydro-rings 0))
+    (progn
+      (vla-Regen (urb:doc) 1)
+      (prompt
+        (strcat
+          "\nMigracion automatica: " (itoa hydro-rings)
+          " circulo(s) de extremo duplicado retirado(s) de tramos"
+          " hidrosanitarios; los pozos unicos se conservaron."))))
   (princ))
 
 (defun urb:remove-legacy-commands (/ command-symbol)
