@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.10")
+(setq *urb-version* "4.23.12")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -15495,11 +15495,27 @@
 
 ;; Tabla visible de comprobacion manual. Se etiqueta como objeto generado
 ;; para que se regenere al EDITAR y quede empacada junto con la via.
+;; 2026-08-13: las filas se PERSISTEN (ldata URB_VIA_AUDIT) al calcular,
+;; para que MOSTRAR/OCULTAR pueda repintar la tabla al instante SIN
+;; recalcular (sin superficie, sin eje, sin efectos secundarios).
 (defun urb:create-road-earthwork-audit
-  (boundary axis samples width-total depth data cut fill metodo
-   / audit point textheight rowheight colwidth rows-count table headers
-   row item station-start row-index column handle rotation)
+  (boundary axis samples width-total depth data cut fill metodo / audit)
   (setq audit (urb:road-earthwork-audit-rows samples width-total depth))
+  (if audit
+    (progn
+      (vl-catch-all-apply 'vlax-ldata-put
+        (list boundary "URB_VIA_AUDIT" (list audit metodo cut fill)))
+      (urb:draw-road-audit-table boundary axis audit data cut fill metodo)))
+)
+
+;; Dibujador PURO de la tabla ancha de verificacion: recibe las filas ya
+;; calculadas (o recien leidas de URB_VIA_AUDIT). axis solo se usa para
+;; la rotacion (nil = sin rotar). El punto: el elegido por el usuario, o
+;; la esquina del contorno, o la caja del bloque como respaldo.
+(defun urb:draw-road-audit-table
+  (boundary axis audit data cut fill metodo
+   / point textheight rowheight colwidth rows-count table headers
+   row item station-start row-index column handle rotation)
   (if audit
     (progn
       ;; Capa PROPIA para la tabla de verificacion: permite apagarla o
@@ -15512,6 +15528,10 @@
         (if (and (boundp '*urb-road-audit-point*) *urb-road-audit-point*)
           *urb-road-audit-point*
           (urb:road-audit-table-point boundary)))
+      ;; boundary puede ser el BLOQUE de la via (sin lwpoly-points):
+      ;; respaldo con su caja envolvente
+      (if (equal point '(0.0 0.0 0.0))
+        (setq point (urb:road-memory-table-point boundary)))
       (setq textheight (* 0.60 (max 0.20 (getvar "TEXTSIZE"))))
       (setq rowheight (* textheight 2.20))
       (setq colwidth (* textheight 11.0))
@@ -15692,6 +15712,47 @@
             (setq index (1+ index)))))))
   found)
 
+;; Lee las filas de verificacion GUARDADAS (ldata URB_VIA_AUDIT): primero
+;; sobre el propio bloque/contorno, y como respaldo sobre la copia del
+;; contorno DENTRO de la definicion del bloque empacado (el diccionario
+;; de extension viaja con la copia).
+(defun urb:road-audit-stored (road / v bname ent)
+  (setq v (vl-catch-all-apply 'vlax-ldata-get (list road "URB_VIA_AUDIT")))
+  (if (vl-catch-all-error-p v) (setq v nil))
+  (if (null v)
+    (progn
+      (setq bname
+        (vl-catch-all-apply
+          '(lambda () (vla-get-Name (vlax-ename->vla-object road)))))
+      (if (not (vl-catch-all-error-p bname))
+        (progn
+          (setq ent (cdr (assoc -2 (tblsearch "BLOCK" bname))))
+          (while (and ent (null v))
+            (setq v
+              (vl-catch-all-apply 'vlax-ldata-get
+                (list ent "URB_VIA_AUDIT")))
+            (if (vl-catch-all-error-p v) (setq v nil))
+            (setq ent (entnext ent)))))))
+  (if (and v (listp v) (>= (length v) 4) (listp (car v))) v nil))
+
+;; 2026-08-13 v2: MOSTRAR despliega la tabla ANCHA de verificacion (por
+;; abscisas) SOLO desde datos guardados -- NUNCA recalcula (la primera
+;; version llamaba al recalculo y, sin superficie, ademas de fallar
+;; danaba el movimiento guardado; cazado por el harness verify_wide).
+;; Las filas quedan guardadas cada vez que el calculo real corre (crear,
+;; EDITAR o boton Verificacion).
+(defun urb:show-road-audit-table (road data / stored axis)
+  (setq stored (urb:road-audit-stored road))
+  (if stored
+    (progn
+      (setq axis
+        (urb:road-axis-recover road data
+          (if (> (length data) 22) (nth 22 data) "")))
+      (setq *urb-road-audit-point* nil)
+      (urb:draw-road-audit-table road axis
+        (nth 0 stored) data (nth 2 stored) (nth 3 stored) (nth 1 stored)))
+    nil))
+
 (defun urb:set-road-memory-visibility
   (road show / data handle created visible old-busy)
   ;; El atributo MEMORIAS se comporta como un control de dos estados en
@@ -15705,7 +15766,15 @@
       (if (urb:road-memory-table-visible-p handle)
         T
         (progn
-        (setq created (urb:create-road-memory-summary road))
+        (setq created (urb:show-road-audit-table road data))
+        (if (not created)
+          (progn
+            (prompt
+              (strcat "\nEsta via aun no tiene guardada su tabla de"
+                      " verificacion: corra una vez el boton Verificacion"
+                      " (o EDITAR); mientras tanto se muestra la memoria"
+                      " resumida."))
+            (setq created (urb:create-road-memory-summary road))))
         ;; Verifica el estado real despues de crear. No dependemos del valor
         ;; devuelto por AddTable ni de escrituras anidadas de atributos.
         (setq visible (urb:road-memory-table-visible-p handle))

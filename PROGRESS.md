@@ -29,6 +29,17 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-13 (parte 27) — v4.23.7 → v4.23.12: la saga completa del MOSTRAR (crash de la paleta resuelto por diseño + tabla ancha persistida)
+
+Iteración en vivo con el usuario tras la parte 26. Resumen de las 6 versiones:
+
+- **v4.23.7**: freno al servicio Idle (sondeaba en CADA evento) + telemetría en ambas mitades hacia `%TEMP%\urbcant_ribbon.log`. La telemetría demostró que la mitad LISP no era el problema (MOSTRAR = 31 ms sobre la VIA-01 real).
+- **v4.23.8**: la telemetría ubicó el crash DENTRO de `ExecuteInCommandContextAsync` (fatal nativo, sin excepción capturable) → **ese API queda VETADO en Civil 3D 2023**; disparo por `SendStringToExecute` tras soltar el bloqueo.
+- **v4.23.9**: seguía crasheando → causa real: el **sondeo periódico de PropertySets choca con la paleta de Propiedades activa** (carrera nativa). Sondeo eliminado (solo eventos) + aviso "Bloque sin atributo MEMORIAS (esquema viejo): pase EDITAR".
+- **v4.23.10**: segunda reincidencia con la paleta → regla del protocolo: **cambiar el diseño, no seguir parchando**. El desplegable AEC nativo en Propiedades queda DESHABILITADO por defecto (reactivable con `URBCANT_MEMORIAS_PROP=1`); el control queda en `QMEMORIAVIA`/`QMEMORIATRAMO` y el campo de texto MEMORIAS de la sección Atributos de Propiedades (MOSTRAR/OCULTAR escritos a mano — la vía del reactor LISP, estable).
+- **v4.23.11** (fallida, cazada por el harness): MOSTRAR intentaba RECALCULAR la tabla ancha; sin superficie fallaba **y dañaba el movimiento guardado**.
+- **v4.23.12 (final)**: arquitectura correcta — las filas de la tabla ancha (VERIFICACION MOVIMIENTO DE TIERRAS, la que el usuario identifica como SU tabla) se **persisten en `ldata URB_VIA_AUDIT`** cada vez que el cálculo real corre (crear/EDITAR/botón Verificación); `urb:draw-road-audit-table` es un dibujador puro; MOSTRAR pinta desde lo guardado al instante (sin superficie, sin eje obligatorio, sin efectos secundarios) y OCULTAR la retira. Vía sin datos guardados → memoria resumida + aviso de correr Verificación una vez. Validado sobre copia del maestro real: **10 checks TODO-OK** (persistir → 9 columnas → ocultar → mismo ciclo a través del bloque empacado → VIA-01 sin datos cae a 2 columnas con la rasante intacta).
+
 ### 2026-08-13 (parte 26) — v4.23.6: el desplegable de MEMORIAS en Propiedades ya dispara su comando (cerrado el pendiente de Codex)
 
 Retomado el pendiente que Codex dejó al agotar créditos: el desplegable nativo `MEMORIAS` (Propiedades → Datos extendidos, MOSTRAR/OCULTAR — tabla de verificación en vías, tabla de movimiento de tierras en tramos) no ejecutaba nada al cambiarlo.
