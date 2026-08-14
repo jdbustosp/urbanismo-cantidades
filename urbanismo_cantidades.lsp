@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.24.0")
+(setq *urb-version* "4.24.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -10741,7 +10741,9 @@
       (if (/= value "") (mp:setatt-one en "LONGITUD" value))))
   value)
 
-(defun mp:reference-plan-points (obj / doc blocks block span scale length-value angle p1 p2)
+;; 2026-08-14 v4.24.0: local ANGLE renombrado (tapaba la funcion nativa;
+;; preventivo, mismo patron que el TYPE de mp:auto-link-endpoint-value).
+(defun mp:reference-plan-points (obj / doc blocks block span scale length-value rot-angle p1 p2)
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object))
         blocks (vla-get-Blocks doc)
         block
@@ -10753,21 +10755,25 @@
       (setq span (mp:block-tramo-length block)
             scale (abs (vla-get-XScaleFactor obj))
             length-value (* span scale)
-            angle (vla-get-Rotation obj)
+            rot-angle (vla-get-Rotation obj)
             p1 (vlax-get obj 'InsertionPoint)
             p2
               (list
-                (+ (car p1) (* length-value (cos angle)))
-                (+ (cadr p1) (* length-value (sin angle)))
+                (+ (car p1) (* length-value (cos rot-angle)))
+                (+ (cadr p1) (* length-value (sin rot-angle)))
                 (mp:point-z p1)))
       (list p1 p2 span))))
 
-(defun mp:auto-link-endpoint-value (base point vals is-final / type endpoint-base id found)
-  (setq type
+;; 2026-08-14 v4.24.0: el local se llamaba TYPE y tapaba la funcion nativa
+;; (type ...) que urb:safe-string usa por debajo -> "bad function: POZO" al
+;; editar cualquier tramo hidrosanitario (5o caso del patron documentado:
+;; distance, length, type x2, last). Renombrado a endpoint-tipo.
+(defun mp:auto-link-endpoint-value (base point vals is-final / endpoint-tipo endpoint-base id found)
+  (setq endpoint-tipo
     (mp:getval
       (if is-final "TIPO_EXTREMO_FIN" "TIPO_EXTREMO_INI")
       vals "NINGUNO")
-        endpoint-base (mp:endpoint-base base type)
+        endpoint-base (mp:endpoint-base base endpoint-tipo)
         id
           (mp:getval
             (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
@@ -10857,6 +10863,12 @@
       (if (tblsearch "LAYER" lay) (vla-put-Layer obj lay))
       (cond
         ((mp:base-is-tramo base)
+          ;; 2026-08-14 v4.24.0: tramos creados antes de esta version no
+          ;; tienen los ATTDEF de triturado/recebo/entibado; editarlos los
+          ;; agrega aqui mismo (mismo patron que la creacion) para que los
+          ;; valores recalculados tengan donde guardarse.
+          (if (> (mp:ensure-block-schema bname base T) 0)
+            (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bname)))
           (setq merged (mp:sync-tramo-values en obj base merged)
                 saved (mp:setatts en merged))
           (setq lab (mp:label-tramo base merged))
