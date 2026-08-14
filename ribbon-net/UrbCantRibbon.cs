@@ -74,6 +74,12 @@ namespace UrbanismoCantidades
                         " (crashea con la paleta en 2023);" +
                         " use QMEMORIAVIA / QMEMORIATRAMO");
 #endif
+                // 2026-08-13: control por CLIC DERECHO (pedido del usuario:
+                // sin escribir comandos). Con una via/tramo seleccionado,
+                // clic derecho -> "Mostrar/ocultar memorias" dispara
+                // QMEMORIASEL sobre la seleccion. API estable
+                // (ContextMenuExtension), sin relacion con la paleta.
+                AddMemoriasContextMenu();
                 if (ComponentManager.Ribbon == null)
                     ComponentManager.ItemInitialized += OnItemInitialized;
                 else
@@ -96,6 +102,47 @@ namespace UrbanismoCantidades
                 ExtendedPropertyManager.RegisterExtendedProperty -=
                     OnRegisterExtendedProperty;
                 _memoryPropertyRegistered = false;
+            }
+        }
+
+        private static Autodesk.AutoCAD.Windows.ContextMenuExtension _memoriasMenu;
+
+        private static void AddMemoriasContextMenu()
+        {
+            try
+            {
+                _memoriasMenu = new Autodesk.AutoCAD.Windows.ContextMenuExtension();
+                _memoriasMenu.Title = "CANTIDADES";
+                Autodesk.AutoCAD.Windows.MenuItem item =
+                    new Autodesk.AutoCAD.Windows.MenuItem(
+                        "Mostrar/ocultar memorias");
+                item.Click += OnContextMemorias;
+                _memoriasMenu.MenuItems.Add(item);
+                Autodesk.AutoCAD.ApplicationServices.Application
+                    .AddObjectContextMenuExtension(
+                        Autodesk.AutoCAD.Runtime.RXObject.GetClass(
+                            typeof(AcDb.BlockReference)),
+                        _memoriasMenu);
+                Log("Menu contextual de memorias registrado");
+            }
+            catch (System.Exception ex)
+            {
+                Log("ERROR menu contextual: " + ex.Message);
+            }
+        }
+
+        private static void OnContextMemorias(object sender, EventArgs e)
+        {
+            try
+            {
+                Autodesk.AutoCAD.ApplicationServices.Document doc =
+                    Application.DocumentManager.MdiActiveDocument;
+                if (doc != null)
+                    doc.SendStringToExecute("QMEMORIASEL ", true, false, true);
+            }
+            catch (System.Exception ex)
+            {
+                Log("ERROR clic memorias: " + ex.Message);
             }
         }
 

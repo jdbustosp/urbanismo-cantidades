@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.12")
+(setq *urb-version* "4.23.13")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -15821,6 +15821,60 @@
   (princ))
 
 (defun c:QMEMORIAVIA () (urb:toggle-road-memory-command))
+
+;; 2026-08-13: toggle sobre la SELECCION ACTUAL, sin preguntar nada --
+;; lo dispara el menu contextual de clic derecho ("Mostrar/ocultar
+;; memorias") que agrega la cinta .NET. Acepta vias y tramos mezclados.
+(defun c:QMEMORIASEL (/ ss i en road base atts done shown hidden)
+  (setq ss (ssget "_I"))
+  (if (null ss)
+    (progn
+      (prompt "\nSeleccione vias o tramos: ")
+      (setq ss (ssget))))
+  (if ss
+    (progn
+      (setq i 0 shown 0 hidden 0)
+      (repeat (sslength ss)
+        (setq en (ssname ss i) done nil)
+        ;; via del programa?
+        (setq road (urb:road-parent-from-entity en))
+        (if road
+          (progn
+            (setq done T)
+            (if (urb:road-memory-table-visible-p
+                  (cdr (assoc 5 (entget road))))
+              (progn
+                (urb:set-road-memory-visibility road nil)
+                (setq hidden (1+ hidden)))
+              (if (urb:set-road-memory-visibility road T)
+                (setq shown (1+ shown))))))
+        ;; tramo de red?
+        (if (not done)
+          (progn
+            (setq atts
+              (vl-catch-all-apply 'mp:att-alist (list en)))
+            (if (vl-catch-all-error-p atts) (setq atts nil))
+            (setq base
+              (vl-catch-all-apply 'mp:infer-base
+                (list (cdr (assoc 2 (entget en))) atts)))
+            (if (vl-catch-all-error-p base) (setq base nil))
+            (if (and base (mp:base-is-tramo base))
+              (progn
+                (setq done T)
+                (if (mp:tramo-memory-table-visible-p
+                      (cdr (assoc 5 (entget en))))
+                  (progn
+                    (mp:set-tramo-memory-visibility en nil)
+                    (setq hidden (1+ hidden)))
+                  (if (mp:set-tramo-memory-visibility en T)
+                    (setq shown (1+ shown))))))))
+        (setq i (1+ i)))
+      (sssetfirst nil nil)
+      (prompt
+        (strcat "\nMemorias: " (itoa shown) " mostrada(s), "
+                (itoa hidden) " oculta(s).")))
+    (prompt "\nNada seleccionado."))
+  (princ))
 
 (defun mp:delete-tramo-memory-tables (parent-handle / ss i en data count)
   (setq count 0
