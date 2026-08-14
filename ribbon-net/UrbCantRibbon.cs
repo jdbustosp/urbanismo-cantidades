@@ -719,31 +719,24 @@ namespace UrbanismoCantidades
             private static void FireMemoryCommand(
                 Autodesk.AutoCAD.ApplicationServices.Document doc)
             {
+                // 2026-08-13 v3: ExecuteInCommandContextAsync REVIENTA Civil
+                // 3D 2023 (crash fatal en la transicion nativa, confirmado
+                // con la telemetria: "Idle memorias ... sets 1" y ninguna
+                // linea despues). El encolado clasico por linea de comandos
+                // -- el MISMO camino de todos los botones de la cinta --
+                // aqui se llama DESPUES de soltar el bloqueo del documento,
+                // que era lo que hacia que el envio del reactor LISP se
+                // descartara (aquel se emitia DURANTE la transaccion).
                 _commandPending = false;
                 try
                 {
-                    Application.DocumentManager.ExecuteInCommandContextAsync(
-                        delegate(object unused)
-                        {
-                            Autodesk.AutoCAD.ApplicationServices.Document active =
-                                Application.DocumentManager.MdiActiveDocument;
-                            if (active != null)
-                                active.Editor.Command(
-                                    new object[] { "ACTUALIZARMEMORIAS" });
-                            return System.Threading.Tasks.Task.FromResult(0);
-                        }, null);
-                    Log("ACTUALIZARMEMORIAS disparado en contexto de comando");
+                    doc.SendStringToExecute(
+                        "ACTUALIZARMEMORIAS ", true, false, true);
+                    Log("ACTUALIZARMEMORIAS encolado por linea de comandos");
                 }
                 catch (System.Exception ex)
                 {
-                    Log("ERROR disparando ACTUALIZARMEMORIAS: " + ex.Message);
-                    try
-                    {
-                        // respaldo clasico por linea de comandos
-                        doc.SendStringToExecute(
-                            "ACTUALIZARMEMORIAS ", true, false, true);
-                    }
-                    catch { }
+                    Log("ERROR encolando ACTUALIZARMEMORIAS: " + ex.Message);
                 }
             }
 
