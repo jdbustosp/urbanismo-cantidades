@@ -59,7 +59,20 @@ namespace UrbanismoCantidades
                     return;
                 }
 #if URB_AEC_PROPERTY
-                NativeMemoryPropertyService.Initialize();
+                // 2026-08-13: DESHABILITADO por defecto. El desplegable
+                // nativo en Propiedades crashea Civil 3D 2023 (carrera de
+                // la paleta con los PropertySets, telemetria de 3 sesiones)
+                // y toco tres mecanismos de disparo sin exito. La tabla se
+                // maneja con QMEMORIAVIA/QMEMORIATRAMO y el boton
+                // Verificacion. Para re-experimentar: variable de entorno
+                // URBCANT_MEMORIAS_PROP=1 y reiniciar.
+                if (Environment.GetEnvironmentVariable(
+                        "URBCANT_MEMORIAS_PROP") == "1")
+                    NativeMemoryPropertyService.Initialize();
+                else
+                    Log("Desplegable MEMORIAS en Propiedades DESHABILITADO" +
+                        " (crashea con la paleta en 2023);" +
+                        " use QMEMORIAVIA / QMEMORIATRAMO");
 #endif
                 if (ComponentManager.Ribbon == null)
                     ComponentManager.ItemInitialized += OnItemInitialized;
