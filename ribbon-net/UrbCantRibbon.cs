@@ -576,6 +576,11 @@ namespace UrbanismoCantidades
             // El propio servicio dispara ACTUALIZARMEMORIAS al salir del
             // bloqueo, en contexto de comando (mecanismo soportado).
             private static bool _commandPending;
+            // 2026-08-13 v2: freno + telemetria. Antes el servicio corria
+            // transacciones en CADA evento Idle (que en sesion viva dispara
+            // constantemente); ahora el sondeo de cambios externos corre a
+            // lo sumo cada 500 ms y solo se procesa cuando hay pendientes.
+            private static DateTime _lastPollRun = DateTime.MinValue;
 
             public static void Initialize()
             {
@@ -663,6 +668,18 @@ namespace UrbanismoCantidades
                         return;
                 }
                 catch { }
+                // freno: sin pendientes, el sondeo de cambios externos corre
+                // a lo sumo cada 500 ms (antes: transacciones en cada Idle)
+                bool hasPending = _scanPending ||
+                    PendingBlocks.Count > 0 || PendingSets.Count > 0;
+                if (!hasPending &&
+                    (DateTime.Now - _lastPollRun).TotalMilliseconds < 500)
+                    return;
+                _lastPollRun = DateTime.Now;
+                System.Diagnostics.Stopwatch watch =
+                    System.Diagnostics.Stopwatch.StartNew();
+                int blockCount = 0;
+                int setCount = 0;
                 try
                 {
                     _busy = true;
@@ -676,6 +693,8 @@ namespace UrbanismoCantidades
                         }
                         QueueTrackedChanges(doc.Database);
                         QueueSelectedPropertySets(doc);
+                        setCount = PendingSets.Count;
+                        blockCount = PendingBlocks.Count;
                         ProcessPropertySets(doc);
                         ProcessBlocks(doc.Database);
                     }
@@ -685,6 +704,13 @@ namespace UrbanismoCantidades
                     Log("ERROR propiedad nativa MEMORIAS: " + ex.Message);
                 }
                 finally { _busy = false; }
+                watch.Stop();
+                // telemetria: solo cuando hubo trabajo o tardo de verdad
+                if (blockCount > 0 || setCount > 0 ||
+                    watch.ElapsedMilliseconds > 100)
+                    Log("Idle memorias: " + watch.ElapsedMilliseconds +
+                        " ms (bloques " + blockCount +
+                        ", sets " + setCount + ")");
                 // Fuera del using (bloqueo ya liberado) y fuera de _busy:
                 // aqui si se puede encolar el comando sin que se descarte.
                 if (_commandPending) FireMemoryCommand(doc);

@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.6")
+(setq *urb-version* "4.23.7")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -16117,8 +16117,24 @@
         (:vlr-commandFailed . urb:on-memory-command-finished))))
   (length *urb-memory-attribute-reactors*))
 
-(defun c:ACTUALIZARMEMORIAS ()
+(defun c:ACTUALIZARMEMORIAS (/ t0 n f)
+  ;; telemetria (2026-08-13): el usuario reporto congelamiento al dar
+  ;; MOSTRAR en vivo; el cronometro headless dio 31 ms, asi que cada
+  ;; corrida real deja su tiempo en el mismo log de la cinta para
+  ;; ubicar donde se pierde el tiempo en la sesion viva.
+  (setq t0 (getvar "MILLISECS")
+        n (length *urb-memory-pending*))
   (urb:process-memory-requests)
+  (setq f
+    (vl-catch-all-apply 'open
+      (list (strcat (urb:safe-string (getenv "TEMP") ".")
+                    "\\urbcant_ribbon.log") "a")))
+  (if (and f (not (vl-catch-all-error-p f)))
+    (progn
+      (write-line
+        (strcat "LISP ACTUALIZARMEMORIAS: " (itoa n) " pedido(s) en "
+                (itoa (- (getvar "MILLISECS") t0)) " ms") f)
+      (close f)))
   (princ))
 
 ;; 2026-08-11 v2: las tablas de verificacion viejas NO estan sueltas en el
