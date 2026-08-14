@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.18")
+(setq *urb-version* "4.24.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8091,7 +8091,8 @@
     "MODO_LONGITUD" "PENDIENTE_CALCULADA" "PROFUNDIDAD_INI"
     "PROFUNDIDAD_FIN" "PROFUNDIDAD_MEDIA" "ANCHO_ZANJA" "ESPESOR_CAMA"
     "ANCHO_REPOSICION" "EXCAVACION_M3" "CAMA_M3" "VOLUMEN_ELEMENTO_M3"
-    "RELLENO_M3" "SOBRANTE_M3" "REPOSICION_M2" "METODO_CANTIDADES"
+    "RELLENO_M3" "TRITURADO_M3" "RECEBO_M3" "ENTIBADO_LE3_M2"
+    "ENTIBADO_GT3_M2" "SOBRANTE_M3" "REPOSICION_M2" "METODO_CANTIDADES"
     "SUPERFICIE_TN" "ESTADO_COTA_TN" "ORIGEN_CREACION"
     "CONTROL_ESTADO" "CONTROL_MENSAJES"))
 
@@ -8160,6 +8161,10 @@
     ("CAMA_M3" "Cama de apoyo m3" "0")
     ("VOLUMEN_ELEMENTO_M3" "Volumen desplazado m3" "0")
     ("RELLENO_M3" "Relleno m3" "0")
+    ("TRITURADO_M3" "Cimentacion triturado m3" "")
+    ("RECEBO_M3" "Relleno recebo m3" "")
+    ("ENTIBADO_LE3_M2" "Entibado hasta 3m m2" "")
+    ("ENTIBADO_GT3_M2" "Entibado mayor 3m m2" "")
     ("SOBRANTE_M3" "Retiro sobrante m3" "0")
     ("REPOSICION_M2" "Reposicion superficial m2" "0")
     ("MEMORIAS" "Memorias - use QMEMORIATRAMO" "OCULTAR")
@@ -8175,7 +8180,8 @@
       "DUCTOS" "DIAM_DUCTO" "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD"
       "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
       "LONGITUD" "ANCHO_ZANJA" "EXCAVACION_M3" "CAMA_M3"
-      "VOLUMEN_ELEMENTO_M3" "RELLENO_M3" "SOBRANTE_M3"
+      "VOLUMEN_ELEMENTO_M3" "RELLENO_M3" "TRITURADO_M3" "RECEBO_M3"
+      "ENTIBADO_LE3_M2" "ENTIBADO_GT3_M2" "SOBRANTE_M3"
       "REPOSICION_M2" "MEMORIAS")))
 
 (defun mp:base-atts-for (bname / specific all)
@@ -9731,6 +9737,21 @@
   (min 0.15 (max 0.10 (/ diameter-m 4.0)))
 )
 
+;; 2026-08-14 v4.24.0 -- Modelo de cimentacion 2 (tuberias flexibles) del
+;; APU de alcantarillado: la zanja NO se rellena con un solo material.
+;; De abajo hacia arriba: cama + atraque del tubo + relleno inicial hasta
+;; *mp-triturado-sobre-clave* sobre la clave en MATERIAL TRITURADO tamano
+;; grava; de ahi hasta la rasante, RECEBO compactado (o material de la
+;; excavacion si no pasan vias sobre el corredor -- decision de
+;; presupuesto, aqui se reporta el volumen como recebo). El RELLENO_M3
+;; historico (exc - cama - tubo) se conserva intacto por compatibilidad:
+;; TRITURADO_M3 + RECEBO_M3 + CAMA_M3 = RELLENO_M3 + CAMA_M3 = exc - tubo.
+;; Entibado del APU por tipologia: <=3 m y >3 m de profundidad, medido en
+;; m2 de pared de zanja (2 caras x longitud x profundidad), repartido por
+;; el perfil muestreado cuando existe.
+(setq *mp-triturado-sobre-clave* 0.30)
+(setq *mp-entibado-umbral* 3.0)
+
 (defun mp:derive-tramo-values
   (base p1 p2 vals
    / length-2d length-3d length-value mode diameter-m diameter-in ducts width
@@ -9738,7 +9759,8 @@
    cover-ini cover-fin depth-ini depth-fin depth-mean slope-calculated
    entered-slope excavation bedding-volume element-volume fill surplus
    replacement duct-diameter surface depth-profile depths max-depth-sampled
-   critical-depth sample-count)
+   critical-depth sample-count env-height env-vol triturado recebo
+   ent-le3 ent-gt3 seg-len seg-index d1 d2 dmid)
   (setq *mp-last-tramo-memory-samples* nil)
   (setq length-2d (if (and p1 p2) (mp:distance-2d p1 p2)
                     (mp:number-or (mp:getval "LONGITUD_2D" vals
@@ -9849,33 +9871,80 @@
         vals (mp:alist-set vals "ESPESOR_CAMA" (rtos bedding 2 2))
         vals (mp:alist-set vals "ANCHO_REPOSICION" (rtos replacement-width 2 2)))
   (if *mp-network-construction-enabled*
-    (setq excavation
-            (cond
-              ((and depths (> (length depths) 1))
-                (mp:integrate-trench-volume depths length-value width))
-              ((> depth-mean 0.0) (* length-value width depth-mean))
-              (T 0.0))
-          bedding-volume (* length-value width bedding)
-          fill (max 0.0 (- excavation bedding-volume element-volume))
-          surplus (max 0.0 (- excavation fill))
-          replacement (* length-value replacement-width)
-          vals (mp:alist-set vals "EXCAVACION_M3" (rtos excavation 2 3))
-          vals (mp:alist-set vals "CAMA_M3" (rtos bedding-volume 2 3))
-          vals (mp:alist-set vals "VOLUMEN_ELEMENTO_M3" (rtos element-volume 2 3))
-          vals (mp:alist-set vals "RELLENO_M3" (rtos fill 2 3))
-          vals (mp:alist-set vals "SOBRANTE_M3" (rtos surplus 2 3))
-          vals (mp:alist-set vals "REPOSICION_M2" (rtos replacement 2 3))
-          vals (mp:alist-set vals "METODO_CANTIDADES"
-                 (strcat
-                   (if depths "PERFIL_MUESTREADO" "PRELIMINAR_GEOMETRICO")
-                   (if (and (boundp '*mp-tramo-road-ref*) *mp-tramo-road-ref*)
-                     " (ref. subrasante via)" ""))))
+    (progn
+      (setq excavation
+              (cond
+                ((and depths (> (length depths) 1))
+                  (mp:integrate-trench-volume depths length-value width))
+                ((> depth-mean 0.0) (* length-value width depth-mean))
+                (T 0.0))
+            bedding-volume (* length-value width bedding)
+            fill (max 0.0 (- excavation bedding-volume element-volume))
+            surplus (max 0.0 (- excavation fill))
+            replacement (* length-value replacement-width)
+            vals (mp:alist-set vals "EXCAVACION_M3" (rtos excavation 2 3))
+            vals (mp:alist-set vals "CAMA_M3" (rtos bedding-volume 2 3))
+            vals (mp:alist-set vals "VOLUMEN_ELEMENTO_M3" (rtos element-volume 2 3))
+            vals (mp:alist-set vals "RELLENO_M3" (rtos fill 2 3))
+            vals (mp:alist-set vals "SOBRANTE_M3" (rtos surplus 2 3))
+            vals (mp:alist-set vals "REPOSICION_M2" (rtos replacement 2 3))
+            vals (mp:alist-set vals "METODO_CANTIDADES"
+                   (strcat
+                     (if depths "PERFIL_MUESTREADO" "PRELIMINAR_GEOMETRICO")
+                     (if (and (boundp '*mp-tramo-road-ref*) *mp-tramo-road-ref*)
+                       " (ref. subrasante via)" ""))))
+      ;; Cimentacion (modelo 2) y entibado: solo tramos a gravedad
+      ;; (alcantarillado sanitario/pluvial), que es donde aplica el APU.
+      (if (and (mp:gravity-tramo-p base) (> excavation 1e-9)
+               diameter-m (> diameter-m 0.0))
+        (progn
+          ;; envolvente de triturado: cama + tubo + colchon sobre la clave,
+          ;; recortada a la excavacion real (zanjas muy someras no pueden
+          ;; contener la envolvente completa)
+          (setq env-height (+ bedding diameter-m *mp-triturado-sobre-clave*)
+                env-vol (min excavation
+                          (* length-value width env-height))
+                triturado (max 0.0 (- env-vol element-volume))
+                recebo (max 0.0 (- excavation env-vol)))
+          ;; entibado por tipologia: reparte 2 caras x ds x profundidad
+          ;; segmento a segmento del perfil muestreado; sin perfil, toda la
+          ;; pared va a la tipologia de la profundidad media.
+          (setq ent-le3 0.0 ent-gt3 0.0)
+          (if (and depths (> (length depths) 1))
+            (progn
+              (setq seg-len
+                      (/ length-value (float (1- (length depths))))
+                    seg-index 0)
+              (repeat (1- (length depths))
+                (setq d1 (max 0.0 (nth seg-index depths))
+                      d2 (max 0.0 (nth (1+ seg-index) depths))
+                      dmid (* 0.5 (+ d1 d2)))
+                (if (<= dmid *mp-entibado-umbral*)
+                  (setq ent-le3 (+ ent-le3 (* 2.0 seg-len dmid)))
+                  (setq ent-gt3 (+ ent-gt3 (* 2.0 seg-len dmid))))
+                (setq seg-index (1+ seg-index))))
+            (if (> depth-mean 0.0)
+              (if (<= depth-mean *mp-entibado-umbral*)
+                (setq ent-le3 (* 2.0 length-value depth-mean))
+                (setq ent-gt3 (* 2.0 length-value depth-mean)))))
+          (setq vals (mp:alist-set vals "TRITURADO_M3" (rtos triturado 2 3))
+                vals (mp:alist-set vals "RECEBO_M3" (rtos recebo 2 3))
+                vals (mp:alist-set vals "ENTIBADO_LE3_M2" (rtos ent-le3 2 3))
+                vals (mp:alist-set vals "ENTIBADO_GT3_M2" (rtos ent-gt3 2 3))))
+        (setq vals (mp:alist-set vals "TRITURADO_M3" "")
+              vals (mp:alist-set vals "RECEBO_M3" "")
+              vals (mp:alist-set vals "ENTIBADO_LE3_M2" "")
+              vals (mp:alist-set vals "ENTIBADO_GT3_M2" ""))))
     (setq vals (mp:alist-set vals "EXCAVACION_M3" "")
           vals (mp:alist-set vals "CAMA_M3" "")
           vals (mp:alist-set vals "VOLUMEN_ELEMENTO_M3" "")
           vals (mp:alist-set vals "RELLENO_M3" "")
           vals (mp:alist-set vals "SOBRANTE_M3" "")
           vals (mp:alist-set vals "REPOSICION_M2" "")
+          vals (mp:alist-set vals "TRITURADO_M3" "")
+          vals (mp:alist-set vals "RECEBO_M3" "")
+          vals (mp:alist-set vals "ENTIBADO_LE3_M2" "")
+          vals (mp:alist-set vals "ENTIBADO_GT3_M2" "")
           vals
             (mp:alist-set vals "METODO_CANTIDADES"
               "PENDIENTE_PARAMETROS")))
@@ -10148,26 +10217,52 @@
       (getpoint prompt-text)))
   (if raw-point (trans raw-point 1 0) nil))
 
+;; 2026-08-14 v4.24.0 (pedido del usuario): UN solo paso por extremo. Se
+;; marca el PUNTO del extremo (con osnap) y el programa detecta solo si ya
+;; existe un pozo/elemento compatible en ese lugar; antes habia doble
+;; opcion (seleccionar el pozo, o Enter y luego el punto). El radio de
+;; reconocimiento es generoso porque el simbolo del pozo mide ~1 m y el
+;; clic puede caer en su borde; los pozos reales estan separados varios
+;; metros, asi que no hay riesgo de agarrar el pozo equivocado.
+(setq *mp-endpoint-snap-radius* 0.50)
+
+(defun mp:find-endpoint-near
+  (tramo point radius / ss index ename ip base d best best-d)
+  ;; extremo compatible ya existente mas cercano al punto (2D) dentro de
+  ;; radius; nil si no hay ninguno.
+  (setq ss (ssget "_X" '((0 . "INSERT"))) index 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq ename (ssname ss index)
+            ip (cdr (assoc 10 (entget ename))))
+      (if ip
+        (progn
+          (setq d (mp:distance-2d point ip))
+          (if (and (<= d radius)
+                   (or (null best-d) (< d best-d))
+                   (setq base (mp:point-reference-base ename))
+                   (mp:endpoint-compatible-p tramo base))
+            (setq best ename best-d d))))
+      (setq index (1+ index))))
+  best)
+
 (defun mp:select-network-endpoint
-  (tramo prompt-text base-point / pick ename base point done)
-  (while (not done)
-    (setq pick
-      (entsel
-        (strcat prompt-text
-          " Seleccione un extremo existente o Enter para indicar un punto: ")))
-    (if pick
-      (progn
-        (setq ename (car pick)
-              base (mp:point-reference-base ename))
-        (if (mp:endpoint-compatible-p tramo base)
-          (setq point (mp:entity-insertion-point ename) done T)
+  (tramo prompt-text base-point / point found base)
+  (setq point (mp:getpoint-wcs base-point prompt-text))
+  (if point
+    (progn
+      (setq found
+        (mp:find-endpoint-near tramo point *mp-endpoint-snap-radius*))
+      (if found
+        (progn
+          (setq base (mp:point-reference-base found))
           (prompt
-            (strcat "\nEl elemento seleccionado (" (mp:safe-str base)
-              ") no es compatible con este tramo."))))
-      (progn
-        (setq point (mp:getpoint-wcs base-point prompt-text))
-        (setq done T))))
-  (if point (list point ename) nil))
+            (strcat "\nExtremo sobre " (mp:safe-str base) " existente "
+              (mp:safe-str (mp:entity-point-id found))
+              ": se reutiliza automaticamente."))
+          (list (mp:entity-insertion-point found) found))
+        (list point nil)))
+    nil))
 
 (defun mp:last-number-token (text / i n c buf best)
   ;; Numeros de pozo suelen ser enteros (32, 33...), a diferencia de las
@@ -12103,6 +12198,38 @@
           "0.0000"))
       T)))
 
+;; 2026-08-14 v4.24.0: nombres de via unicos. Con 5 vias llamadas "VIA-01"
+;; en el maestro real, las memorias y el enlace al presupuesto se vuelven
+;; ambiguos; el dialogo ahora sugiere el siguiente "VIA-NN" libre y la
+;; creacion avisa si el nombre ya existe (aviso, no bloqueo: el usuario
+;; puede repetir nombre a proposito entre etapas).
+(defun urb:road-names (/ filters ss i d names)
+  (setq names nil)
+  (foreach filters
+    '(((0 . "INSERT") (-3 ("URB_VIA"))) ((0 . "LWPOLYLINE") (-3 ("URB_VIA"))))
+    (setq ss (ssget "_X" filters) i 0)
+    (if ss
+      (repeat (sslength ss)
+        (setq d (urb:get-xdata-strings (ssname ss i) "URB_VIA"))
+        (if (and d (> (length d) 1))
+          (setq names
+            (cons (strcase (urb:safe-string (nth 1 d) "")) names)))
+        (setq i (1+ i)))))
+  names)
+
+(defun urb:road-name-exists-p (name)
+  (if (member (strcase (urb:safe-string name "")) (urb:road-names)) T nil))
+
+(defun urb:next-road-name (/ names item best num)
+  (setq names (urb:road-names) best 0)
+  (foreach item names
+    (if (wcmatch item "VIA-*")
+      (progn
+        (setq num (atoi (substr item 5)))
+        (if (> num best) (setq best num)))))
+  (setq num (1+ best))
+  (strcat "VIA-" (if (< num 10) (strcat "0" (itoa num)) (itoa num))))
+
 (defun urb:dialog-road (defaults / dcl ok stage sub profile surface cota over)
   (setq *urb-road-dialog-profiles* (urb:road-profile-names))
   (setq *urb-road-dialog-surfaces* (urb:civil-surface-names))
@@ -12125,7 +12252,7 @@
   (setq dcl (load_dialog (urb:write-road-dcl)))
   (if (and (> dcl 0) (new_dialog "urb_road" dcl))
     (progn
-      (set_tile "name" (urb:road-default defaults "name" "VIA-01"))
+      (set_tile "name" (urb:road-default defaults "name" (urb:next-road-name)))
       (if (urb:etapas-enabled-p)
         (progn
           (urb:fill-popup "etapa" *urb-etapa-list*
@@ -14051,6 +14178,12 @@
       nil))
   (if dialog
     (progn
+      (if (urb:road-name-exists-p (nth 0 dialog))
+        (prompt
+          (strcat "\nAVISO: ya existe una via llamada "
+            (urb:safe-string (nth 0 dialog) "")
+            " en este dibujo. Considere un nombre distinto para no"
+            " confundir memorias y presupuesto.")))
       ;; 2026-08-11: con alineamiento "Nuevo" ya NO se dibuja el eje antes
       ;; del contorno -- se dibuja el contorno primero y el eje central se
       ;; calcula solo (urb:road-axis-from-boundary); si el contorno no lo
@@ -15967,6 +16100,13 @@
       (list "Volumen elemento"
         (strcat (mp:getval "VOLUMEN_ELEMENTO_M3" vals "0") " m3"))
       (list "Relleno" (strcat (mp:getval "RELLENO_M3" vals "0") " m3"))
+      (list "Cimentacion triturado"
+        (strcat (mp:getval "TRITURADO_M3" vals "-") " m3"))
+      (list "Relleno recebo" (strcat (mp:getval "RECEBO_M3" vals "-") " m3"))
+      (list "Entibado <=3m"
+        (strcat (mp:getval "ENTIBADO_LE3_M2" vals "-") " m2"))
+      (list "Entibado >3m"
+        (strcat (mp:getval "ENTIBADO_GT3_M2" vals "-") " m2"))
       (list "Sobrante" (strcat (mp:getval "SOBRANTE_M3" vals "0") " m3"))
       (list "Reposicion" (strcat (mp:getval "REPOSICION_M2" vals "0") " m2"))))
   (setq point-table (urb:road-memory-table-point tramo)
@@ -18179,6 +18319,10 @@
     '(("EXCAVACION_M3" "Excavacion de zanja" "M3")
       ("CAMA_M3" "Cama de apoyo" "M3")
       ("RELLENO_M3" "Relleno de zanja" "M3")
+      ("TRITURADO_M3" "Cimentacion en triturado tamano grava" "M3")
+      ("RECEBO_M3" "Suministro y colocacion de recebo" "M3")
+      ("ENTIBADO_LE3_M2" "Entibado para excavaciones <=3m" "M2")
+      ("ENTIBADO_GT3_M2" "Entibado para excavaciones >3m" "M2")
       ("SOBRANTE_M3" "Retiro de sobrantes" "M3")
       ("REPOSICION_M2" "Reposicion superficial" "M2"))
     (setq quantity (urb:q-number (mp:getval (car item) atts "0")))
@@ -19823,7 +19967,8 @@
     "DIAM_DUCTO" "MATERIAL_DUCTO" "TIPO_CAJA" "TIPO_LUMINARIA"
     "FUENTE_LED" "CIRCUITO" "CIRCUITO_AP" "PROFUNDIDAD" "ANCHO_ZANJA"
     "ESPESOR_CAMA" "ANCHO_REPOSICION" "EXCAVACION_M3" "CAMA_M3"
-    "VOLUMEN_ELEMENTO_M3" "RELLENO_M3" "SOBRANTE_M3" "REPOSICION_M2"
+    "VOLUMEN_ELEMENTO_M3" "RELLENO_M3" "TRITURADO_M3" "RECEBO_M3"
+    "ENTIBADO_LE3_M2" "ENTIBADO_GT3_M2" "SOBRANTE_M3" "REPOSICION_M2"
     "METODO_CANTIDADES" "CONTROL_ESTADO" "CONTROL_MENSAJES"
     "TIPO_ACCESORIO" "SERIE" "CD" "PF"))
 
