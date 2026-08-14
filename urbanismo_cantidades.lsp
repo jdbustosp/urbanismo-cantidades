@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.14")
+(setq *urb-version* "4.23.15")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -15740,19 +15740,42 @@
             (setq ent (entnext ent)))))))
   (if (and v (listp v) (>= (length v) 4) (listp (car v))) v nil))
 
-;; 2026-08-13 v2: MOSTRAR despliega la tabla ANCHA de verificacion (por
-;; abscisas) SOLO desde datos guardados -- NUNCA recalcula (la primera
-;; version llamaba al recalculo y, sin superficie, ademas de fallar
-;; danaba el movimiento guardado; cazado por el harness verify_wide).
-;; Las filas quedan guardadas cada vez que el calculo real corre (crear,
-;; EDITAR o boton Verificacion).
+;; T si la superficie guardada de la via existe en el dibujo por NOMBRE
+;; (sin abrir ningun prompt).
+(defun urb:surface-available-p (name / found)
+  (setq name (urb:safe-string name ""))
+  (if (or (= name "") (urb:string-equal-p name "Seleccionar en dibujo")
+          (urb:string-equal-p name "NO SELECCIONADA"))
+    nil
+    (progn
+      (foreach item (urb:civil-surface-names)
+        (if (urb:string-equal-p item name) (setq found T)))
+      found)))
+
+;; 2026-08-13 v3: MOSTRAR despliega la tabla ANCHA desde datos guardados;
+;; si la via aun no los tiene, los CALCULA aqui mismo UNA vez -- pero
+;; SOLO cuando es 100% seguro sin prompts: eje recuperable + rasante
+;; guardada + superficie presente por nombre (pedido del usuario: que el
+;; clic derecho no dependa de pasar antes por Verificacion). Sin esas
+;; condiciones cae a la memoria resumida (la leccion de la v4.23.11:
+;; jamas un recalculo que pueda preguntar o fallar a medias).
 (defun urb:show-road-audit-table (road data / stored axis)
   (setq stored (urb:road-audit-stored road))
+  (setq axis
+    (urb:road-axis-recover road data
+      (if (> (length data) 22) (nth 22 data) "")))
+  (if (and (null stored)
+           axis
+           (urb:road-design-grade-records road data)
+           (urb:surface-available-p
+             (if (> (length data) 6) (nth 6 data) "")))
+    (progn
+      (prompt "\nCalculando la tabla de verificacion por primera vez...")
+      (setq *urb-road-audit-point* nil)
+      (vl-catch-all-apply 'urb:try-road-earthworks (list road axis))
+      (setq stored (urb:road-audit-stored road))))
   (if stored
     (progn
-      (setq axis
-        (urb:road-axis-recover road data
-          (if (> (length data) 22) (nth 22 data) "")))
       (setq *urb-road-audit-point* nil)
       (urb:draw-road-audit-table road axis
         (nth 0 stored) data (nth 2 stored) (nth 3 stored) (nth 1 stored)))
