@@ -1,4 +1,4 @@
-# Progress — urbanismo_cantidades.lsp
+﻿# Progress — urbanismo_cantidades.lsp
 
 Bitácora de trabajo con Claude Code sobre este repositorio. Úsala para retomar el hilo en otra máquina o en una sesión nueva.
 
@@ -203,6 +203,16 @@ El usuario aprobó el esquema (mockup en sesión) y pidió la pestaña llamada C
 - **`urb:ensure-ribbon`** (corre al cargar el lsp): si el menugroup CANTIDADES no está, carga el .cui vía COM (`MenuGroups.Load` — no necesita contexto de comando, funciona durante el autoload del bundle). Busca primero la copia instalada del bundle (`%AppData%...\Contents\cantidades.cui`) y de respaldo `findfile`.
 - **Verificado headless de punta a punta**: AutoCAD limpio sin cargas manuales → lsp autocargado, todos los comandos definidos, y `(menugroup "CANTIDADES")` registrado (el XML pasó el cargador). **Pendiente de verificación visual del usuario**: que la PESTAÑA aparezca en la cinta (el merge al workspace no se puede ver headless). Si no aparece sola: CUI → Partial Customization Files → CANTIDADES → arrastrar la pestaña al workspace actual, una sola vez.
 - Botones sin íconos propios en esta v1 (texto solo); diseñar íconos BMP/PNG queda como pulido posterior.
+
+### 2026-08-14 — Migración al esquema CLAUDE: el proyecto vive en `CLAUDE\proyectos\URBANISMO EXTERNO\`
+
+Parte de la reorganización general del usuario (centro de control `VARIOS\CLAUDE\` en Drive, compartido entre sus 2 PCs):
+
+- **Nueva ruta**: `VARIOS\CLAUDE\proyectos\URBANISMO EXTERNO\` — se movió TODO el contenido de `BLOQUES PPTOS\CANTIDADES\` sin excepción. En `BLOQUES PPTOS\` solo queda el `.lsp` viejo de MAIPORE (fuera del repo, igual que antes).
+- **Git consolidado**: el `.git` que vivía aparte en `REPOSITORIO CODIGOS\urbanismo-cantidades\` ahora está DENTRO del proyecto como repo normal (se eliminó el puntero `gitdir:` y el `core.worktree`). Verificado: historial intacto (HEAD v4.23.18), árbol limpio, remoto GitHub OK. La carpeta de REPOSITORIO CODIGOS quedó eliminada.
+- **Memoria de Claude propia**: banco en `CLAUDE\memoria\URBANISMO EXTERNO\` (junction por PC). Las memorias de urbanismo que vivían en el banco de SINCO se movieron aquí.
+- **Civil 3D no se tocó**: el bundle instalado en `%AppData%` sigue igual. Tras el próximo cambio de código, correr `INSTALAR.bat` desde la ruta nueva.
+- **OJO en el otro computador**: (1) correr el bloque de junctions de `CLAUDE\README.md`, (2) correr `INSTALAR.bat` desde la ruta nueva, (3) si el Startup Suite referenciaba `BLOQUES PPTOS\CANTIDADES\urbanismo_cantidades.lsp`, quitar esa entrada y depender solo del bundle.
 
 ### 2026-08-11 (parte 9) — Reorganización: todo el proyecto vive en `BLOQUES PPTOS\CANTIDADES\`
 
