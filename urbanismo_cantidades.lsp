@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.15")
+(setq *urb-version* "4.23.18")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -15481,8 +15481,41 @@
 )
 
 (defun urb:road-audit-table-point
-  (boundary / points point maxx maxy textheight)
-  (setq points (urb:lwpoly-points boundary))
+  (boundary / points point maxx maxy textheight bname ent ed it)
+  ;; OJO v2: lwpoly-points agarra TODOS los grupos 10 sin mirar el tipo
+  ;; de entidad -- sobre un INSERT devuelve su punto de insercion
+  ;; ((0,0,0) en las vias empacadas), NO nil, y la guarda de abajo nunca
+  ;; disparaba. Solo aplica a polilineas reales.
+  (setq points
+    (if (= (cdr (assoc 0 (entget boundary))) "LWPOLYLINE")
+      (urb:lwpoly-points boundary)
+      nil))
+  ;; 2026-08-13: con la via EMPACADA el contorno vive dentro del bloque
+  ;; y lwpoly-points del INSERT devuelve nil -- la tabla terminaba en el
+  ;; origen del plano, a millones de metros de la via (reproducido:
+  ;; distancia 2401698 m). Se busca el contorno cerrado en la definicion
+  ;; del bloque. OJO: urb:lwpoly-points usa (trans ... ename 0) y trans
+  ;; devuelve NIL para entidades dentro de definiciones de bloque
+  ;; (radiografiado: entget da las coordenadas reales y lwpoly-points da
+  ;; nils) -- extraccion CRUDA de los grupos 10, que aqui ya son WCS
+  ;; (bloque con base 0,0 insertado en 0,0 escala 1).
+  (if (null points)
+    (progn
+      (setq bname
+        (vl-catch-all-apply
+          '(lambda () (vla-get-Name (vlax-ename->vla-object boundary)))))
+      (if (not (vl-catch-all-error-p bname))
+        (progn
+          (setq ent (cdr (assoc -2 (tblsearch "BLOCK" bname))))
+          (while (and ent (null points))
+            (setq ed (entget ent))
+            (if (and (= (cdr (assoc 0 ed)) "LWPOLYLINE")
+                     (= 1 (logand 1 (cdr (assoc 70 ed)))))
+              (foreach it ed
+                (if (= (car it) 10)
+                  (setq points
+                    (cons (list (cadr it) (caddr it) 0.0) points)))))
+            (setq ent (entnext ent)))))))
   (foreach point points
     (if (or (null maxx) (> (car point) maxx)) (setq maxx (car point)))
     (if (or (null maxy) (> (cadr point) maxy)) (setq maxy (cadr point))))
