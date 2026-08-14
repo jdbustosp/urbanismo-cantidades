@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.23.13")
+(setq *urb-version* "4.23.14")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -13308,8 +13308,13 @@
       cota-count station-start interval direction overwidth left-over right-over
       nominal-width area axis-length status alignment-mode axis-start via-id))
   ;; Editar una via no debe borrar su rasante/movimiento ya calculados.
+  ;; 2026-08-13: nthcdr NO existe en AutoLISP (es de Common Lisp) --
+  ;; reventaba TODOS los EDITAR de vias con movimiento guardado con
+  ;; "no function definition: NTHCDR".
   (if (> (length old) 23)
-    (setq extras (nthcdr 23 old)))
+    (progn
+      (setq extras old)
+      (repeat 23 (setq extras (cdr extras)))))
   (urb:set-xdata-strings boundary "URB_VIA"
     (append base extras)))
 
@@ -16302,14 +16307,10 @@
   (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
     (progn
       (setq via-id (if (> (length data) 22) (nth 22 data) ""))
-      (setq axis-handle
-        (if (> (length data) 5) (urb:safe-string (nth 5 data) "") ""))
-      ;; or de AutoLISP devuelve T, no el valor -- cadena if explicita
-      (setq axis (if (/= axis-handle "") (handent axis-handle) nil))
-      (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
-      (if (and (null axis) (/= via-id ""))
-        (setq axis (urb:cached-road-axis via-id)))
-      (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
+      ;; 2026-08-13: eje resuelto SOLO (handle -> cache -> enlazado ->
+      ;; copia dentro del bloque); seleccionar a mano queda de ultimo
+      ;; recurso -- antes siempre lo pedia en vias con eje perdido
+      (setq axis (urb:road-axis-recover road data via-id))
       (if (not axis) (setq axis (urb:select-or-draw-road-axis "Existente")))
       (setq point (getpoint "\nPunto de insercion de la tabla de verificacion: "))
       (if (and axis point)
@@ -16431,6 +16432,35 @@
             (progn
               (setq stations *urb-road-picked-stations*)
               (setq coverage T)))
+          ;; 2026-08-13: si la capa de textos no cubre el tramo pero la
+          ;; via YA tiene su rasante guardada (records del calculo
+          ;; anterior), esa rasante es la fuente -- las vias existentes
+          ;; no deben pedir cotas de nuevo ni cancelar la verificacion
+          ;; (reporte del usuario: 7785 textos leidos, 0 cercanos,
+          ;; "Function cancelled" en la construccion de la rasante).
+          (if (not coverage)
+            (progn
+              (setq *urb-earthwork-stage* "rasante guardada")
+              (setq raw-stations
+                (urb:road-design-grade-records boundary data))
+              (if raw-stations
+                (progn
+                  ;; records en coordenada LOCAL (0..span) -> distancia
+                  ;; RAW sobre el eje, respetando el sentido
+                  (setq stations
+                    (mapcar
+                      '(lambda (r)
+                         (list
+                           (if (urb:string-equal-p direction "Final")
+                             (- (+ axis-start span) (car r))
+                             (+ axis-start (car r)))
+                           (cadr r)))
+                      raw-stations))
+                  (setq coverage T)
+                  (prompt
+                    (strcat
+                      "\nRasante tomada de la guardada en la via ("
+                      (itoa (length stations)) " puntos)."))))))
           (if texts
             (prompt
               (strcat
@@ -16495,6 +16525,17 @@
                   (if cota-final (rtos cota-final 2 4) "")
                   (urb:serialize-lisp
                     (urb:compact-road-grade-samples samples))))
+              ;; 2026-08-13: las FILAS de la tabla de verificacion se
+              ;; persisten en TODO calculo (ldata URB_VIA_AUDIT), se
+              ;; dibuje o no la tabla -- asi el clic derecho
+              ;; (Mostrar/ocultar memorias) funciona apenas la via tiene
+              ;; movimiento calculado, sin pasar por Verificacion.
+              (setq *urb-earthwork-stage* "guardado de filas de verificacion")
+              (vl-catch-all-apply 'vlax-ldata-put
+                (list boundary "URB_VIA_AUDIT"
+                  (list
+                    (urb:road-earthwork-audit-rows samples width-total depth)
+                    metodo cut fill)))
               ;; 2026-08-11: la tabla de verificacion YA NO se crea sola al
               ;; crear/editar la via (aparecia lejos del contorno y estorbaba).
               ;; Solo se crea cuando se pide desde Cantidades
