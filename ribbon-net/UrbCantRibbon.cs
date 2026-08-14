@@ -581,6 +581,8 @@ namespace UrbanismoCantidades
             // constantemente); ahora el sondeo de cambios externos corre a
             // lo sumo cada 500 ms y solo se procesa cuando hay pendientes.
             private static DateTime _lastPollRun = DateTime.MinValue;
+            private static readonly System.Collections.Generic.HashSet<AcDb.ObjectId>
+                WarnedOldSchema = new System.Collections.Generic.HashSet<AcDb.ObjectId>();
 
             public static void Initialize()
             {
@@ -691,8 +693,13 @@ namespace UrbanismoCantidades
                             QueueAllBlocks(doc.Database);
                             _scanPending = false;
                         }
-                        QueueTrackedChanges(doc.Database);
-                        QueueSelectedPropertySets(doc);
+                        // 2026-08-13 v4: SIN sondeo periodico. Releer los
+                        // PropertySets en cada pasada (QueueTrackedChanges /
+                        // QueueSelectedPropertySets) chocaba con la paleta de
+                        // Propiedades con el desplegable activo -> crash
+                        // fatal nativo (Error Report), consistente en todas
+                        // las sesiones. Los eventos ObjectModified ya
+                        // encolan solos el set/bloque que cambio.
                         setCount = PendingSets.Count;
                         blockCount = PendingBlocks.Count;
                         ProcessPropertySets(doc);
@@ -1027,16 +1034,28 @@ namespace UrbanismoCantidades
                         {
                             AcDb.AttributeReference attribute;
                             string oldState;
-                            if (TryMemoryAttribute(block, tr, out attribute, out oldState) &&
-                                !string.Equals(oldState, state,
-                                    StringComparison.OrdinalIgnoreCase))
+                            if (TryMemoryAttribute(block, tr, out attribute, out oldState))
                             {
-                                attribute.UpgradeOpen();
-                                attribute.TextString = state;
-                                // el reactor LISP encola el pedido pero su
-                                // SendCommand se pierde en este contexto:
-                                // el servicio dispara el comando al salir
-                                _commandPending = true;
+                                if (!string.Equals(oldState, state,
+                                        StringComparison.OrdinalIgnoreCase))
+                                {
+                                    attribute.UpgradeOpen();
+                                    attribute.TextString = state;
+                                    // el reactor LISP encola el pedido pero
+                                    // su SendCommand se pierde en este
+                                    // contexto: el servicio dispara el
+                                    // comando al salir del bloqueo
+                                    _commandPending = true;
+                                }
+                            }
+                            else if (WarnedOldSchema.Add(block.ObjectId))
+                            {
+                                // via/tramo de esquema viejo: el bloque no
+                                // tiene el atributo MEMORIAS y el cambio del
+                                // desplegable no tiene donde aterrizar
+                                Log("Bloque sin atributo MEMORIAS (esquema " +
+                                    "viejo): pase EDITAR a esa via/tramo " +
+                                    "para actualizarla");
                             }
                             LastAttributeStates[block.ObjectId] = state;
                             TrackedBlocks.Add(block.ObjectId);
