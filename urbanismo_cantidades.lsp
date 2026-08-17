@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.24.1")
+(setq *urb-version* "4.25.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20071,6 +20071,923 @@
         (prompt "\nEl vinculo se conservo."))))
   (princ)
 )
+
+;; ============================================================
+;; EXPORTACION AL PRESUPUESTO (PPTOEXPORTAR) - 2026-08-17
+;; Contrato del handoff urbanismo-externo.md (chat de Excel):
+;; un solo comando que valida el libro por TM_MEMORIAS + firma de
+;; encabezados, relee el vocabulario vivo de POR EJECUTAR, matchea
+;; cada actividad CAD contra la descripcion VIGENTE (cascada
+;; capitulo -> keywords -> UM con UNICIDAD obligatoria), escribe
+;; DENTRO de TablaMemorias con reemplazo transaccional por DWG y
+;; reporta huerfanas. La agregacion queda en los SUMIFS del libro.
+;; El plugin jamas exporta precios ni totales.
+;; ============================================================
+
+(setq *urb-ppto-headers*
+  '("RED" "CONCEPTO" "ESPECIFICACION" "ID" "DESDE" "HASTA"
+    "ETAPA" "SUBETAPA" "UM" "CANTIDAD" "DWG" "HANDLE"))
+
+;; RED (subarbol destino) -> nombre de capitulo del ppto (normalizado)
+(setq *urb-ppto-red-capitulo*
+  '(("VIA" . "via")
+    ("ANDEN" . "andenes")
+    ("CICLORRUTA" . "ciclorruta")
+    ("RAMPA-PEATONAL" . "rampa peatonal")
+    ("RAMPA-VEHICULAR" . "rampa vehicular")
+    ("PASO-PEATONAL" . "paso peatonal seguro")
+    ("ACUEDUCTO" . "red de acueducto")
+    ("ALC-SANITARIO" . "red de alcantarillado sanitario")
+    ("ALC-PLUVIAL" . "red de alcantarillado pluvial")
+    ("RED-GAS" . "red de gas")
+    ("ELECTRICA-MT" . "red de media tension")
+    ("ELECTRICA-BT-AP" . "red de baja tension")))
+
+(setq *urb-ppto-stopwords*
+  '("de" "del" "la" "el" "los" "las" "y" "e" "o" "u" "a" "en"
+    "con" "para" "por" "un" "una" "al" "incluye" "tipo"))
+
+;; ---------- configuracion por maquina ----------
+(defun urb:ppto-config-file (/ folder)
+  (setq folder (strcat (getenv "APPDATA") "\\UrbanismoCantidades"))
+  (if (not (vl-file-directory-p folder)) (vl-mkdir folder))
+  (strcat folder "\\ppto_libro.txt"))
+
+(defun urb:ppto-config-read (/ f line)
+  (if (setq f (open (urb:ppto-config-file) "r"))
+    (progn
+      (setq line (read-line f))
+      (close f)
+      (urb:safe-string line ""))
+    ""))
+
+(defun urb:ppto-config-write (path / f)
+  (if (setq f (open (urb:ppto-config-file) "w"))
+    (progn (write-line path f) (close f))))
+
+;; ---------- normalizacion y match ----------
+(defun urb:ppto-plain-char (code)
+  ;; acentos/enie/simbolos ANSI -> ascii; lo demas no alfanumerico -> espacio
+  (cond
+    ((member code '(225 193)) "a") ((member code '(233 201)) "e")
+    ((member code '(237 205)) "i") ((member code '(243 211)) "o")
+    ((member code '(250 218 252 220)) "u") ((member code '(241 209)) "n")
+    ((and (>= code 48) (<= code 57)) (chr code))
+    ((and (>= code 97) (<= code 122)) (chr code))
+    ((and (>= code 65) (<= code 90)) (chr (+ code 32)))
+    ((= code 45) "-")
+    (T " ")))
+
+(defun urb:ppto-normalize (text / i n out)
+  (setq text (urb:safe-string text "") i 1 n (strlen text) out "")
+  (while (<= i n)
+    (setq out (strcat out (urb:ppto-plain-char (ascii (substr text i 1)))))
+    (setq i (1+ i)))
+  ;; colapsar espacios
+  (while (vl-string-search "  " out)
+    (setq out (vl-string-subst " " "  " out)))
+  (vl-string-trim " -" out))
+
+(defun urb:ppto-words (text / raw result token)
+  (setq raw (urb:split-string (urb:ppto-normalize text) " ") result nil)
+  (foreach token raw
+    (setq token (vl-string-trim "-" token))
+    (if (and (> (strlen token) 0)
+             (not (member token *urb-ppto-stopwords*)))
+      (setq result (cons token result))))
+  (reverse result))
+
+(defun urb:ppto-digits (token / i c out)
+  (setq i 1 out "")
+  (repeat (strlen token)
+    (setq c (substr token i 1))
+    (if (wcmatch c "#") (setq out (strcat out c)))
+    (setq i (1+ i)))
+  out)
+
+(defun urb:ppto-word-match-p (a b / la lb da db)
+  (setq la (strlen a) lb (strlen b))
+  (cond
+    ((= a b) T)
+    ;; raiz: prefijo >= 3 letras en cualquiera de los dos sentidos,
+    ;; solo para tokens SIN digitos (exc ~ excavacion, no 8 ~ 18)
+    ((and (= (urb:ppto-digits a) "") (= (urb:ppto-digits b) "")
+          (>= (min la lb) 3)
+          (or (= a (substr b 1 la)) (= b (substr a 1 lb)))) T)
+    ;; t2400 ~ 2400: mismos digitos y a lo sumo 1 letra de prefijo
+    ((and (/= (setq da (urb:ppto-digits a)) "")
+          (= da (setq db (urb:ppto-digits b)))
+          (<= (- la (strlen da)) 1)
+          (<= (- lb (strlen db)) 1)) T)
+    (T nil)))
+
+(defun urb:ppto-score (term-words cand-words / hits w)
+  (setq hits 0)
+  (foreach w term-words
+    (if (vl-some '(lambda (c) (urb:ppto-word-match-p w c)) cand-words)
+      (setq hits (1+ hits))))
+  (if (> (length term-words) 0)
+    (/ (float hits) (float (length term-words)))
+    0.0))
+
+;; vocab: lista de (capitulo-norm um-mayuscula desc-original palabras fila)
+;; devuelve (desc-original . fila) si hay UNA mejor candidata con score>=0.5;
+;; si no, (list 'HUERFANA candidatas-con-score>=0.5)
+(defun urb:ppto-match (red um concepto vocab / capitulo words best best-n
+                       second item score)
+  (setq capitulo (cdr (assoc red *urb-ppto-red-capitulo*)))
+  (setq words (urb:ppto-words concepto))
+  (setq best nil best-n 0 second 0.0)
+  (foreach item vocab
+    (if (and capitulo
+             (= (nth 0 item) capitulo)
+             (= (nth 1 item) (strcase um)))
+      (progn
+        (setq score (urb:ppto-score words (nth 3 item)))
+        (if (>= score 0.5)
+          (progn
+            (setq best-n (1+ best-n))
+            (cond
+              ((or (null best) (> score (cadr best)))
+                (setq second (if best (cadr best) 0.0))
+                (setq best (list item score)))
+              ((> score second) (setq second score))))))))
+  (cond
+    ((and best (> (cadr best) second))
+      (cons (nth 2 (car best)) (nth 4 (car best))))
+    (T (list 'HUERFANA best-n))))
+
+;; ---------- Excel: enganche, validacion, vocabulario ----------
+(defun urb:ppto-variant (value / out)
+  (setq out value)
+  (while (= (type out) 'variant) (setq out (vlax-variant-value out)))
+  out)
+
+;; desenvuelve un objeto COM que Item/Add pueden devolver como VARIANT
+(defun urb:ppto-obj (value)
+  (if (= (type value) 'variant) (vlax-variant-value value) value))
+
+;; ListObjects.Item por CADENA da "type mismatch" via vlax (2026-08-17):
+;; iterar por indice y comparar Name.
+(defun urb:ppto-find-listobject (ws nombre / los count i lo nm found)
+  (setq los (vlax-get-property ws 'ListObjects))
+  (setq count
+    (vl-catch-all-apply '(lambda () (vlax-get-property los 'Count))))
+  (if (vl-catch-all-error-p count) (setq count 0))
+  (setq i 1 found nil)
+  (while (and (<= i count) (null found))
+    ;; OJO: en ListObjects, Item es PROPIEDAD (get-property); via
+    ;; invoke-method da "type mismatch" incluso con indice entero.
+    (setq lo (vl-catch-all-apply
+      '(lambda () (vlax-get-property los 'Item i))))
+    (if (not (vl-catch-all-error-p lo))
+      (progn
+        (setq lo (urb:ppto-obj lo))
+        (setq nm (vl-catch-all-apply
+          '(lambda () (vlax-get-property lo 'Name))))
+        (if (and (not (vl-catch-all-error-p nm))
+                 (= (strcase nm) (strcase nombre)))
+          (setq found lo))))
+    (setq i (1+ i)))
+  found)
+
+(defun urb:ppto-cell (rng row col / cell v)
+  ;; Range.Item llega como VARIANT (VT_DISPATCH): hay que desenvolverlo
+  ;; antes de usarlo como objeto ("bad argument type: VLA-OBJECT" 2026-08-17)
+  (setq cell (vlax-get-property rng 'Item row col))
+  (if (= (type cell) 'variant) (setq cell (vlax-variant-value cell)))
+  (setq v (urb:ppto-variant (vlax-get-property cell 'Value2)))
+  (vlax-release-object cell)
+  v)
+
+(defun urb:ppto-cell-text (rng row col / v)
+  (setq v (urb:ppto-cell rng row col))
+  (cond
+    ((= (type v) 'STR) v)
+    ((numberp v) (rtos v 2 8))
+    (T "")))
+
+(defun urb:ppto-put-cell (rng row col value / cell)
+  (setq cell (vlax-get-property rng 'Item row col))
+  (if (= (type cell) 'variant) (setq cell (vlax-variant-value cell)))
+  (vlax-put-property cell 'Value2 value)
+  (vlax-release-object cell))
+
+;; Devuelve (app wb propia-p) o (nil nil mensaje).
+(defun urb:ppto-attach-excel (path / lock app wbs count i wb name result)
+  (setq lock
+    (strcat (vl-filename-directory path) "\\~$"
+      (strcat (vl-filename-base path) (vl-filename-extension path))))
+  ;; 1) instancia ya corriendo con el libro abierto?
+  (setq app (vl-catch-all-apply 'vlax-get-object (list "Excel.Application")))
+  (if (vl-catch-all-error-p app) (setq app nil))
+  (setq wb nil)
+  (if app
+    (progn
+      (setq wbs (vlax-get-property app 'Workbooks))
+      (setq count (vlax-get-property wbs 'Count) i 1)
+      (while (and (<= i count) (null wb))
+        (setq name
+          (vl-catch-all-apply
+            '(lambda ()
+              (vlax-get-property
+                (urb:ppto-obj (vlax-get-property wbs 'Item i)) 'FullName))))
+        (if (and (not (vl-catch-all-error-p name))
+                 (= (strcase name) (strcase path)))
+          (setq wb (urb:ppto-obj (vlax-get-property wbs 'Item i))))
+        (setq i (1+ i)))
+      (vlax-release-object wbs)))
+  (cond
+    (wb (list app wb nil))
+    ;; 2) lock de OTRA sesion/PC -> abortar (nunca escritura parcial)
+    ((findfile lock)
+      (list nil nil
+        (strcat "El libro esta abierto en otra sesion/PC (lock "
+          lock "). Cierre el libro alla y reintente.")))
+    ;; 3) instancia propia oculta (con UN reintento: create-object puede
+    ;; fallar transitoriamente justo despues de cerrarse otra instancia)
+    (T
+      (setq app (vl-catch-all-apply 'vlax-create-object
+        (list "Excel.Application")))
+      (if (vl-catch-all-error-p app)
+        (progn
+          (setq app (vl-catch-all-apply 'vlax-create-object
+            (list "Excel.Application")))))
+      (if (vl-catch-all-error-p app)
+        (list nil nil "No fue posible iniciar Excel (COM, 2 intentos).")
+        (progn
+          (vlax-put-property app 'DisplayAlerts :vlax-false)
+          (setq result
+            (vl-catch-all-apply
+              '(lambda ()
+                (vlax-invoke-method
+                  (vlax-get-property app 'Workbooks) 'Open path))))
+          (if (vl-catch-all-error-p result)
+            (progn
+              (vl-catch-all-apply 'vlax-invoke-method (list app 'Quit))
+              (vlax-release-object app)
+              (list nil nil
+                (strcat "No fue posible abrir el libro: "
+                  (vl-catch-all-error-message result))))
+            (list app result T)))))))
+
+;; Valida TM_MEMORIAS + firma de 12 encabezados; en libro nuevo crea la
+;; hoja MEMORIAS, la tabla y el nombre definido. Devuelve el ListObject
+;; TablaMemorias o nil (con mensaje por prompt).
+(defun urb:ppto-find-name (wb tag / nm)
+  ;; Item por CADENA via invoke-method (Names.Item es metodo). NO iterar la
+  ;; coleccion: los nombres rotos (#REF!) del libro real crashean acad
+  ;; (access violation, no atrapable) -- visto 2026-08-17.
+  (setq nm
+    (vl-catch-all-apply
+      '(lambda ()
+        (vlax-invoke-method (vlax-get-property wb 'Names) 'Item tag))))
+  (if (vl-catch-all-error-p nm) nil nm))
+
+(defun urb:ppto-memorias-table (wb / names nm refrange ws headers i ok lo
+                                sheets result)
+  (setq nm (urb:ppto-find-name wb "TM_MEMORIAS"))
+  (if (null nm)
+    (progn
+      ;; libro nuevo: crear hoja + encabezados + tabla + nombre (defensivo:
+      ;; reutiliza la hoja MEMORIAS si ya existe)
+      (setq sheets (vlax-get-property wb 'Worksheets))
+      (setq ws (vl-catch-all-apply
+        '(lambda () (vlax-get-property sheets 'Item "MEMORIAS"))))
+      (if (vl-catch-all-error-p ws)
+        (progn
+          (setq ws (vlax-invoke-method sheets 'Add))
+          (vl-catch-all-apply
+            '(lambda () (vlax-put-property ws 'Name "MEMORIAS")))))
+      (setq refrange (vlax-get-property ws 'Range "A1:L1"))
+      (setq i 1)
+      (foreach h *urb-ppto-headers*
+        (urb:ppto-put-cell refrange 1 i h)
+        (setq i (1+ i)))
+      (setq result
+        (vl-catch-all-apply
+          '(lambda ()
+            (vlax-invoke-method
+              (vlax-get-property ws 'ListObjects) 'Add
+              1 refrange nil 1))))
+      (if (not (vl-catch-all-error-p result))
+        (vl-catch-all-apply
+          '(lambda () (vlax-put-property result 'Name "TablaMemorias"))))
+      (setq names (vlax-get-property wb 'Names))
+      (vl-catch-all-apply
+        '(lambda ()
+          (vlax-invoke-method names 'Add "TM_MEMORIAS"
+            "=MEMORIAS!$A$1:$L$1")))
+      (prompt "\nLibro nuevo: hoja MEMORIAS + TablaMemorias creadas.")
+      (setq nm (urb:ppto-find-name wb "TM_MEMORIAS"))))
+  (if nm
+    (setq refrange
+      (vl-catch-all-apply
+        '(lambda () (vlax-get-property nm 'RefersToRange))))
+    (progn
+      ;; fallback sin Names (el libro real tiene nombres rotos #REF!):
+      ;; hoja MEMORIAS directa; la firma de encabezados sigue validando.
+      (prompt "\nTM_MEMORIAS no accesible; validando la hoja MEMORIAS directo.")
+      (setq refrange
+        (vl-catch-all-apply
+          '(lambda ()
+            (vlax-get-property
+              (vlax-get-property
+                (vlax-get-property wb 'Worksheets) 'Item "MEMORIAS")
+              'Range "A1:L1"))))))
+  (if (vl-catch-all-error-p refrange)
+    (progn (prompt "\nNi TM_MEMORIAS ni la hoja MEMORIAS son accesibles.") nil)
+    (progn
+      (setq ws (vlax-get-property refrange 'Worksheet))
+      (setq ok T i 1)
+      (foreach h *urb-ppto-headers*
+        (if (/= (strcase (urb:ppto-cell-text refrange 1 i)) h)
+          (setq ok nil))
+        (setq i (1+ i)))
+      (if (not ok)
+        (progn
+          (prompt
+            "\nFirma de encabezados de MEMORIAS no coincide. ABORTADO.")
+          nil)
+        (progn
+          (setq lo (urb:ppto-find-listobject ws "TablaMemorias"))
+          (if (null lo)
+            (progn (prompt "\nNo existe la tabla TablaMemorias.") nil)
+            lo))))))
+
+;; Vocabulario vivo: hoja con encabezados NIVEL/DESCRIPCION/UM.
+(defun urb:ppto-read-vocab (wb / sheets count i ws a1 d1 e1 target rng rows
+                            r nivel desc um capitulo vocab lastrow empties)
+  (setq sheets (vlax-get-property wb 'Worksheets))
+  (setq count (vlax-get-property sheets 'Count) i 1 target nil)
+  (while (and (<= i count) (null target))
+    (setq ws (urb:ppto-obj (vlax-get-property sheets 'Item i)))
+    (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:E1")))
+    (if (and (= (strcase (urb:ppto-cell-text rng 1 1)) "NIVEL")
+             (wcmatch (strcase (urb:ppto-cell-text rng 1 4)) "DESCRIPCION*")
+             (= (strcase (urb:ppto-cell-text rng 1 5)) "UM"))
+      (setq target ws))
+    (vlax-release-object rng)
+    (setq i (1+ i)))
+  (if (null target)
+    (progn
+      (prompt "\nNo se encontro la hoja de presupuesto (NIVEL/DESCRIPCION/UM).")
+      nil)
+    (progn
+      (setq rng (vlax-get-property target 'Range "A1:E4000"))
+      (setq capitulo "" vocab nil empties 0 r 3)
+      (while (and (<= r 4000) (< empties 80))
+        (setq nivel (urb:ppto-cell rng r 1)
+              desc (urb:ppto-cell-text rng r 4)
+              um (urb:ppto-cell-text rng r 5))
+        (if (and (or (null nivel) (= nivel "")) (= desc ""))
+          (setq empties (1+ empties))
+          (progn
+            (setq empties 0)
+            (if (numberp nivel)
+              (cond
+                ((= (fix nivel) 3)
+                  (setq capitulo (urb:ppto-normalize desc)))
+                ((and (= (fix nivel) 5) (/= desc "") (/= um ""))
+                  (setq vocab
+                    (cons
+                      (list capitulo (strcase um) desc
+                            (urb:ppto-words desc) r)
+                      vocab)))))))
+        (setq r (1+ r)))
+      (vlax-release-object rng)
+      (prompt (strcat "\nVocabulario del presupuesto: "
+        (itoa (length vocab)) " actividades leidas."))
+      (reverse vocab))))
+
+;; ---------- generacion de filas CAD (formato largo) ----------
+;; fila cruda: (red concepto id desde hasta etapa subetapa um cantidad handle)
+(defun urb:ppto-row (red concepto id desde hasta etapa subetapa um qty handle)
+  ;; devuelve UNA fila (lista plana de 10) o nil -- OJO: una envoltura
+  ;; doble aqui rompia el match de TODAS las filas (2026-08-17)
+  (if (> qty 0.0005)
+    (list red concepto id desde hasta
+      (urb:safe-string etapa "")
+      (if (= (urb:safe-string subetapa "") "") "GEN"
+        (urb:safe-string subetapa ""))
+      um (atof (rtos qty 2 3)) handle)
+    nil))
+
+(defun urb:ppto-rows-vias (/ ss i be d atts nombre etapa sub perfil handle
+                           area sobre base-area corte relleno prof layers
+                           layer tipo espesor traslapo scope um qty aused
+                           rows out)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA")))) out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq be (ssname ss i)
+            d (urb:get-xdata-strings be "URB_VIA")
+            atts (urb:block-attribute-values (vlax-ename->vla-object be))
+            nombre (urb:safe-string (nth 1 d) "VIA")
+            etapa (urb:safe-string (nth 2 d) "")
+            sub (urb:safe-string (nth 3 d) "")
+            perfil (urb:safe-string (nth 4 d) "")
+            handle (cdr (assoc 5 (entget be)))
+            area (atof (urb:safe-string (nth 17 d) "0"))
+            sobre (atof (urb:safe-string
+              (cdr (assoc "VIA_SOBREANCHO_M2" atts)) "0"))
+            base-area (max 0.0 (- area sobre))
+            corte (atof (urb:safe-string
+              (cdr (assoc "VIA_CORTE_M3" atts)) "0"))
+            relleno (atof (urb:safe-string
+              (cdr (assoc "VIA_RELLENO_M3" atts)) "0")))
+      (if (<= base-area 0.0) (setq base-area area))
+      (setq rows
+        (list
+          (urb:ppto-row "VIA" "Descapote mecanico de material vegetal"
+            nombre "" "" etapa sub "M2" area handle)
+          (urb:ppto-row "VIA" "Compactacion de subrasante"
+            nombre "" "" etapa sub "M2" area handle)
+          (urb:ppto-row "VIA" "Excavacion mecanica en material comun"
+            nombre "" "" etapa sub "M3" corte handle)
+          (urb:ppto-row "VIA" "Suministro y colocacion de recebo"
+            nombre "" "" etapa sub "M3" relleno handle)
+          (urb:ppto-row "VIA" "Emulsion asfaltica CRL-1 imprimacion"
+            nombre "" "" etapa sub "M2" base-area handle)
+          (urb:ppto-row "VIA" "Emulsion asfaltica CRR-2 riego de liga"
+            nombre "" "" etapa sub "M2" base-area handle)))
+      ;; capas del perfil de pavimento de ESTA via
+      (setq prof
+        (vl-some
+          '(lambda (p) (if (urb:string-equal-p (car p) perfil) p))
+          (urb:road-profiles)))
+      (foreach layer (if prof (cadr prof) nil)
+        (setq tipo (urb:safe-string (nth 1 layer) "")
+              espesor (atof (urb:safe-string (nth 2 layer) "0"))
+              traslapo (atof (urb:safe-string (nth 3 layer) "0"))
+              scope (if (> (length layer) 4)
+                      (urb:safe-string (nth 4 layer) "") "")
+              aused (if (urb:string-equal-p scope "Base") base-area area))
+        (cond
+          ((urb:string-equal-p tipo "Volumen")
+            (setq um "M3" qty (* aused espesor)))
+          ((urb:string-equal-p tipo "Geotextil")
+            (setq um "M2" qty (* area (+ 1.0 (/ traslapo 100.0)))))
+          (T (setq um "" qty 0.0)))
+        (if (/= um "")
+          (setq rows
+            (cons
+              (urb:ppto-row "VIA" (nth 0 layer)
+                nombre "" "" etapa sub um qty handle)
+              rows))))
+      (foreach r rows (if r (setq out (cons r out))))
+      (setq i (1+ i))))
+  out)
+
+(defun urb:ppto-rows-andenes (/ ss i be d atts area material etapa sub handle
+                              corte relleno rows out r)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq be (ssname ss i)
+            d (urb:get-xdata-strings be "URB_ANDEN_BLOCK")
+            atts (urb:block-attribute-values (vlax-ename->vla-object be))
+            area (atof (urb:safe-string (cdr (assoc "AREA_M2" atts)) "0"))
+            material (strcase (urb:safe-string (nth 1 d) ""))
+            etapa (urb:safe-string (nth 2 d) "")
+            sub (urb:safe-string (nth 3 d) "")
+            handle (cdr (assoc 5 (entget be)))
+            corte (atof (urb:safe-string
+              (cdr (assoc "ANDEN_CORTE_M3" atts)) "0"))
+            relleno (atof (urb:safe-string
+              (cdr (assoc "ANDEN_RELLENO_M3" atts)) "0")))
+      (if (<= corte 0.0) (setq corte (* area *urb-anden-depth*)))
+      (setq rows
+        (list
+          (urb:ppto-row "ANDEN" "Descapote mecanico de material vegetal"
+            "" "" "" etapa sub "M2" area handle)
+          (urb:ppto-row "ANDEN" "Compactacion de subrasante"
+            "" "" "" etapa sub "M2" area handle)
+          (urb:ppto-row "ANDEN" "Excavacion mecanica en material comun"
+            "" "" "" etapa sub "M3" corte handle)
+          (urb:ppto-row "ANDEN" "Relleno con material seleccionado"
+            "" "" "" etapa sub "M3" relleno handle)
+          (urb:ppto-row "ANDEN" "Subbase granular SBG"
+            "" "" "" etapa sub "M3" (* area 0.50) handle)
+          (urb:ppto-row "ANDEN" "Geotextil tejido 2100"
+            "" "" "" etapa sub "M2" (* area 1.15) handle)
+          (urb:ppto-row "ANDEN" "Arena de nivelacion"
+            "" "" "" etapa sub "M3" (* area 0.04) handle)
+          (urb:ppto-row "ANDEN" "M.O. localizacion y replanteo"
+            "" "" "" etapa sub "M2" area handle)
+          (urb:ppto-row "ANDEN" "M.O. nivelacion con arena"
+            "" "" "" etapa sub "M2" area handle)
+          (urb:ppto-row "ANDEN" "M.O. instalacion de adoquin y tabletas"
+            "" "" "" etapa sub "M2" area handle)))
+      (cond
+        ((wcmatch material "*ADOQUIN*")
+          (setq rows
+            (cons (urb:ppto-row "ANDEN" "Adoquin gris 10x20x6"
+              "" "" "" etapa sub "UN" (* area 50.0) handle) rows)))
+        ((wcmatch material "*LOSETA*")
+          (setq rows
+            (cons (urb:ppto-row "ANDEN" "Loseta lisa 20x20x6"
+              "" "" "" etapa sub "UN" (* area 25.0) handle) rows))))
+      (foreach r rows (if r (setq out (cons r out))))
+      (setq i (1+ i))))
+  out)
+
+(defun urb:ppto-rows-prefabs (/ ss i be atts tipo lng etapa sub handle red
+                              rows out r)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_PREFAB_BLOCK")))) out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq be (ssname ss i)
+            atts (urb:block-attribute-values (vlax-ename->vla-object be))
+            tipo (strcase (urb:safe-string (cdr (assoc "TIPO" atts)) ""))
+            lng (atof (urb:safe-string (cdr (assoc "LONGITUD_M" atts)) "0"))
+            etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) "")
+            sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) "")
+            handle (cdr (assoc 5 (entget be)))
+            red (if (wcmatch tipo "*SARDINEL*") "VIA" "ANDEN"))
+      (setq rows
+        (list
+          (urb:ppto-row red
+            (strcat (urb:safe-string (cdr (assoc "TIPO" atts)) "")
+              " prefabricado")
+            "" "" "" etapa sub "UN"
+            (float (fix (+ 0.999999 (/ lng 0.8)))) handle)
+          (urb:ppto-row red
+            (strcat "M.O. instalacion de "
+              (urb:safe-string (cdr (assoc "TIPO" atts)) "") " prefabricado")
+            "" "" "" etapa sub "ML" lng handle)))
+      (foreach r rows (if r (setq out (cons r out))))
+      (setq i (1+ i))))
+  out)
+
+(defun urb:ppto-rows-rampas (/ ss i be atts etapa sub handle rows out r)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_RAMPA_BLOCK")))) out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq be (ssname ss i)
+            atts (urb:block-attribute-values (vlax-ename->vla-object be))
+            etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) "")
+            sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) "")
+            handle (cdr (assoc 5 (entget be))))
+      (setq rows
+        (list
+          (urb:ppto-row "RAMPA-PEATONAL" "Prefabricado A-81"
+            "" "" "" etapa sub "UN"
+            (atof (urb:safe-string (cdr (assoc "A81_UND" atts)) "0")) handle)
+          (urb:ppto-row "RAMPA-PEATONAL" "Loseta toperol"
+            "" "" "" etapa sub "ML"
+            (atof (urb:safe-string (cdr (assoc "TOPEROL_ML" atts)) "0")) handle)
+          (urb:ppto-row "RAMPA-PEATONAL" "Bordillo prefabricado"
+            "" "" "" etapa sub "ML"
+            (atof (urb:safe-string (cdr (assoc "BORDILLO_ML" atts)) "0")) handle)))
+      (foreach r rows (if r (setq out (cons r out))))
+      (setq i (1+ i))))
+  out)
+
+(defun urb:ppto-tramo-red (atts / red tipo)
+  (setq red (strcase (urb:safe-string (cdr (assoc "RED" atts)) ""))
+        tipo (strcase (urb:safe-string (cdr (assoc "TIPO_RED" atts)) "")))
+  (cond
+    ((wcmatch red "ARESIDUAL") "ALC-SANITARIO")
+    ((wcmatch red "ALLUVIAS") "ALC-PLUVIAL")
+    ((wcmatch red "ACUEDUCTO") "ACUEDUCTO")
+    ((= tipo "MT") "ELECTRICA-MT")
+    ((member tipo '("BT" "AP")) "ELECTRICA-BT-AP")
+    (T nil)))
+
+;; entibado en los TRES rangos del ppto (E-1A <=2, E-1B 2-3, E-2 >3),
+;; repartido con el perfil guardado MP_TRAMO_MEMORIA (frac tn key depth);
+;; sin perfil: toda la pared a la banda de la profundidad media.
+(defun urb:ppto-entibado-3 (be lng prof-media / samples prev e1a e1b e2
+                            frac depth ds dmid item)
+  (setq samples (mp:read-tramo-memory-samples be)
+        e1a 0.0 e1b 0.0 e2 0.0 prev nil)
+  (if (and samples (> (length samples) 1))
+    (foreach item samples
+      (setq frac (nth 0 item) depth (max 0.0 (nth 3 item)))
+      (if prev
+        (progn
+          (setq ds (* (- frac (car prev)) lng)
+                dmid (* 0.5 (+ depth (cadr prev))))
+          (cond
+            ((<= dmid 2.0) (setq e1a (+ e1a (* 2.0 ds dmid))))
+            ((<= dmid 3.0) (setq e1b (+ e1b (* 2.0 ds dmid))))
+            (T (setq e2 (+ e2 (* 2.0 ds dmid)))))))
+      (setq prev (list frac depth)))
+    (if (> prof-media 0.0)
+      (cond
+        ((<= prof-media 2.0) (setq e1a (* 2.0 lng prof-media)))
+        ((<= prof-media 3.0) (setq e1b (* 2.0 lng prof-media)))
+        (T (setq e2 (* 2.0 lng prof-media))))))
+  (list e1a e1b e2))
+
+(defun urb:ppto-rows-tramos (/ ss i be atts red lng diam mat etapa sub handle
+                             pini pfin id ent rows out r)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "TRAMO_*,MP_TRAMO_*")))
+        out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq be (ssname ss i)
+            atts (mp:att-alist be)
+            red (urb:ppto-tramo-red atts)
+            lng (atof (urb:safe-string (cdr (assoc "LONGITUD" atts)) "0"))
+            diam (urb:safe-string (cdr (assoc "DIAMETRO" atts)) "")
+            mat (urb:safe-string (cdr (assoc "MATERIAL" atts)) "")
+            etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) "")
+            sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) "")
+            handle (cdr (assoc 5 (entget be)))
+            pini (urb:safe-string (cdr (assoc "POZO_INI" atts)) "")
+            pfin (urb:safe-string (cdr (assoc "POZO_FIN" atts)) "")
+            id (strcat pini "-" pfin))
+      (if (member red '("ALC-SANITARIO" "ALC-PLUVIAL" "ACUEDUCTO"))
+        (progn
+          (setq ent
+            (urb:ppto-entibado-3 be lng
+              (atof (urb:safe-string
+                (cdr (assoc "PROFUNDIDAD_MEDIA" atts)) "0"))))
+          (setq rows
+            (list
+              (urb:ppto-row red
+                (strcat "Instalacion tuberia " mat " " diam)
+                id pini pfin etapa sub "ML" lng handle)
+              (urb:ppto-row red
+                (strcat "Suministro tuberia " mat " " diam)
+                id pini pfin etapa sub "UN"
+                (float (fix (+ 0.999999 (/ lng 6.0)))) handle)
+              (urb:ppto-row red "Excavacion mecanica en material comun"
+                id pini pfin etapa sub "M3"
+                (atof (urb:safe-string
+                  (cdr (assoc "EXCAVACION_M3" atts)) "0")) handle)
+              (urb:ppto-row red "Cimentacion de tuberia en gravilla"
+                id pini pfin etapa sub "M3"
+                (atof (urb:safe-string
+                  (cdr (assoc "TRITURADO_M3" atts)) "0")) handle)
+              (urb:ppto-row red "Suministro y colocacion de recebo"
+                id pini pfin etapa sub "M3"
+                (atof (urb:safe-string
+                  (cdr (assoc "RECEBO_M3" atts)) "0")) handle)
+              (urb:ppto-row red "Cargue transporte y disposicion de sobrantes"
+                id pini pfin etapa sub "M3"
+                (atof (urb:safe-string
+                  (cdr (assoc "SOBRANTE_M3" atts)) "0")) handle)
+              (urb:ppto-row red "Entibado E-1A"
+                id pini pfin etapa sub "M2" (nth 0 ent) handle)
+              (urb:ppto-row red "Entibado E-1B"
+                id pini pfin etapa sub "M2" (nth 1 ent) handle)
+              (urb:ppto-row red "Entibado E-2"
+                id pini pfin etapa sub "M2" (nth 2 ent) handle)))
+          (foreach r rows (if r (setq out (cons r out))))))
+      (if (member red '("ELECTRICA-MT" "ELECTRICA-BT-AP"))
+        (progn
+          (setq rows
+            (list
+              (urb:ppto-row red
+                (strcat "Ducteria "
+                  (urb:safe-string (cdr (assoc "DIAM_DUCTO" atts)) "") " "
+                  (urb:safe-string (cdr (assoc "MATERIAL_DUCTO" atts)) ""))
+                id "" "" etapa sub "ML"
+                (* lng (atof (urb:safe-string
+                  (cdr (assoc "DUCTOS" atts)) "0"))) handle)
+              (urb:ppto-row red
+                (strcat "Tendido de conductor "
+                  (urb:safe-string (cdr (assoc "CONDUCTOR" atts)) ""))
+                id "" "" etapa sub "ML" lng handle)
+              (urb:ppto-row red "Excavacion mecanica en material comun"
+                id "" "" etapa sub "M3"
+                (atof (urb:safe-string
+                  (cdr (assoc "EXCAVACION_M3" atts)) "0")) handle)))
+          (foreach r rows (if r (setq out (cons r out))))))
+      (setq i (1+ i))))
+  out)
+
+(defun urb:ppto-rows-puntos (/ ss i be base atts red id etapa sub handle prof
+                             rows out r)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_*"))) out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq be (ssname ss i)
+            base (mp:point-reference-base be)
+            atts (mp:att-alist be)
+            id (urb:safe-string (cdr (assoc "ID" atts)) "")
+            etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) "")
+            sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) "")
+            prof (atof (urb:safe-string
+              (cdr (assoc "PROFUNDIDAD" atts)) "0"))
+            handle (cdr (assoc 5 (entget be)))
+            rows nil)
+      (cond
+        ((member base '("POZO_SANITARIO" "POZO_PLUVIAL"))
+          (setq red (if (= base "POZO_SANITARIO")
+                      "ALC-SANITARIO" "ALC-PLUVIAL"))
+          (setq rows
+            (list
+              (urb:ppto-row red "Base de pozo de inspeccion"
+                id "" "" etapa sub "UN" 1.0 handle)
+              (urb:ppto-row red "Canuela y acabado interior de pozo"
+                id "" "" etapa sub "UN" 1.0 handle)
+              (urb:ppto-row red "Cono de reduccion para pozo"
+                id "" "" etapa sub "UN" 1.0 handle)
+              (urb:ppto-row red "Marco y tapa de pozo"
+                id "" "" etapa sub "UN" 1.0 handle)
+              (urb:ppto-row red "Anillo cilindro prefabricado de pozo"
+                id "" "" etapa sub "ML" prof handle))))
+        ((= base "SUMIDERO")
+          (setq rows
+            (list (urb:ppto-row "ALC-PLUVIAL" "Sumidero"
+              id "" "" etapa sub "UN" 1.0 handle))))
+        ((= base "ACCESORIO_ACUEDUCTO")
+          (setq rows
+            (list (urb:ppto-row "ACUEDUCTO"
+              (strcat
+                (urb:safe-string (cdr (assoc "TIPO_ACCESORIO" atts)) "Accesorio")
+                " " (urb:safe-string (cdr (assoc "DIAMETRO" atts)) ""))
+              id "" "" etapa sub "UN" 1.0 handle)))))
+      (foreach r rows (if r (setq out (cons r out))))
+      (setq i (1+ i))))
+  out)
+
+;; ---------- escritura transaccional en TablaMemorias ----------
+(defun urb:ppto-write-rows (lo final-rows dwg / listrows count i row rng
+                            val borradas nueva c item)
+  ;; borrar de abajo hacia arriba las filas del mismo DWG
+  (setq listrows (vlax-get-property lo 'ListRows))
+  (setq count (vlax-get-property listrows 'Count) i count borradas 0)
+  (while (>= i 1)
+    (setq row (urb:ppto-obj (vlax-get-property listrows 'Item i)))
+    (setq rng (urb:ppto-obj (vlax-get-property row 'Range)))
+    (setq val (urb:ppto-cell-text rng 1 11))
+    (vlax-release-object rng)
+    (if (= (strcase val) (strcase dwg))
+      (progn (vlax-invoke-method row 'Delete) (setq borradas (1+ borradas))))
+    (vlax-release-object row)
+    (setq i (1- i)))
+  ;; insertar el bloque nuevo
+  (foreach item final-rows
+    (setq nueva (urb:ppto-obj (vlax-invoke-method listrows 'Add)))
+    (setq rng (urb:ppto-obj (vlax-get-property nueva 'Range)))
+    (setq c 1)
+    (foreach v item
+      (urb:ppto-put-cell rng 1 c v)
+      (setq c (1+ c)))
+    (vlax-release-object rng)
+    (vlax-release-object nueva))
+  (vlax-release-object listrows)
+  borradas)
+
+;; procesa UNA fila cruda: match + acumuladores (globales de la corrida) +
+;; fila final de 12 columnas. Se llama envuelta en vl-catch-all para que un
+;; item malo no tumbe la exportacion completa (queda registrado con error).
+(defun urb:ppto-process-item (item vocab dwg / m espec red-count)
+  (setq m
+    (urb:ppto-match (nth 0 item) (nth 7 item) (nth 1 item) vocab))
+  (if (eq (car m) 'HUERFANA)
+    (progn
+      (setq espec
+        (strcat "[SIN MATCH x" (itoa (cadr m)) "] " (nth 1 item)))
+      (setq *urb-ppto-huerfanas*
+        (cons (list (nth 0 item) (nth 1 item) (cadr m) (nth 9 item))
+          *urb-ppto-huerfanas*)))
+    (setq espec (car m)))
+  (setq *urb-ppto-total* (+ *urb-ppto-total* (nth 8 item)))
+  (setq red-count (assoc (nth 0 item) *urb-ppto-por-red*))
+  (setq *urb-ppto-por-red*
+    (cons (cons (nth 0 item) (1+ (if red-count (cdr red-count) 0)))
+      (vl-remove red-count *urb-ppto-por-red*)))
+  (list (nth 0 item) (nth 1 item) espec (nth 2 item) (nth 3 item)
+    (nth 4 item) (nth 5 item) (nth 6 item) (nth 7 item) (nth 8 item)
+    dwg (nth 9 item)))
+
+;; ---------- nucleo de la exportacion (lo envuelve c:PPTOEXPORTAR) ----------
+(defun urb:ppto-run (wb / lo vocab raw rows item m final huerfanas dwg total
+                     borradas por-red red-count espec result)
+  (setq lo (urb:ppto-memorias-table wb))
+  (setq vocab (if lo (urb:ppto-read-vocab wb) nil))
+  (if (and lo vocab)
+    (progn
+              ;; 1) filas CAD en formato largo
+              (setq *urb-ppto-stage* "generacion de filas CAD")
+              (setq raw
+                (append
+                  (urb:ppto-rows-vias)
+                  (urb:ppto-rows-andenes)
+                  (urb:ppto-rows-prefabs)
+                  (urb:ppto-rows-rampas)
+                  (urb:ppto-rows-tramos)
+                  (urb:ppto-rows-puntos)))
+              ;; 2) match contra el vocabulario vivo
+              (setq *urb-ppto-stage* "match contra vocabulario")
+              (setq dwg (vl-filename-base (getvar "DWGNAME"))
+                    final nil huerfanas nil total 0.0 por-red nil)
+              (setq *urb-ppto-huerfanas* nil *urb-ppto-total* 0.0
+                    *urb-ppto-por-red* nil *urb-ppto-item-errs* nil)
+              (foreach item raw
+                (setq m
+                  (vl-catch-all-apply 'urb:ppto-process-item
+                    (list item vocab dwg)))
+                (if (vl-catch-all-error-p m)
+                  (setq *urb-ppto-item-errs*
+                    (cons
+                      (list (nth 0 item) (nth 1 item)
+                        (vl-catch-all-error-message m))
+                      *urb-ppto-item-errs*))
+                  (setq final (cons m final))))
+              (setq huerfanas *urb-ppto-huerfanas*
+                    total *urb-ppto-total*
+                    por-red *urb-ppto-por-red*)
+              (if *urb-ppto-item-errs*
+                (progn
+                  (prompt (strcat "\nOJO: "
+                    (itoa (length *urb-ppto-item-errs*))
+                    " fila(s) con error interno, NO exportadas:"))
+                  (foreach item *urb-ppto-item-errs*
+                    (prompt (strcat "\n  " (urb:safe-string (nth 0 item) "?")
+                      " | " (urb:safe-string (nth 1 item) "?")
+                      " | " (urb:safe-string (nth 2 item) "?"))))))
+              (setq final (reverse final))
+              ;; 3) escribir + guardar
+              (setq *urb-ppto-stage* "escritura en TablaMemorias")
+              (setq borradas (urb:ppto-write-rows lo final dwg))
+              (setq *urb-ppto-stage* "guardado del libro")
+              (setq result (vl-catch-all-apply
+                '(lambda () (vlax-invoke-method wb 'Save))))
+              (if (vl-catch-all-error-p result)
+                (prompt (strcat "\nOJO: el libro no se pudo guardar: "
+                  (vl-catch-all-error-message result)))
+                (prompt "\nLibro guardado."))
+              ;; 4) reporte
+              (prompt (strcat "\n--- EXPORTACION PPTO (" dwg ") ---"))
+              (prompt (strcat "\nFilas escritas: " (itoa (length final))
+                " (reemplazaron " (itoa borradas) " del mismo DWG)."
+                " Cantidad total control: " (rtos total 2 3)))
+              (foreach item por-red
+                (prompt (strcat "\n  " (car item) ": "
+                  (itoa (cdr item)) " fila(s)")))
+              (if huerfanas
+                (progn
+                  (prompt (strcat "\nHUERFANAS ("
+                    (itoa (length huerfanas))
+                    ") - escritas en MEMORIAS marcadas [SIN MATCH], NO suman:"))
+                  (foreach item huerfanas
+                    (prompt (strcat "\n  " (nth 0 item) " | " (nth 1 item)
+                      " | candidatas: " (itoa (nth 2 item))
+                      " | handle " (nth 3 item)))))
+                (prompt "\nSin huerfanas: todo matcheo contra el presupuesto."))
+      (setq *urb-ppto-last-summary*
+        (list 'filas (length final) 'borradas borradas
+              'huerfanas (length huerfanas)
+              'errores-items (length *urb-ppto-item-errs*)
+              'primer-error
+              (if *urb-ppto-item-errs*
+                (nth 2 (car *urb-ppto-item-errs*)) "ninguno"))))
+    (setq *urb-ppto-last-summary*
+      (list 'SIN-TABLA-O-VOCAB
+        (if lo 'tabla-ok 'sin-tabla)
+        (if vocab 'vocab-ok 'sin-vocab))))
+  *urb-ppto-last-summary*)
+
+;; ---------- comando unico ----------
+(defun c:PPTOEXPORTAR (/ path attach app wb propia result)
+  (vl-load-com)
+  (setq path (urb:ppto-config-read))
+  (if (or (= path "") (null (findfile path)))
+    (progn
+      (setq path
+        (getfiled "Seleccione el libro del presupuesto (MEMORIAS)"
+          (if (/= path "") path "") "" 0))
+      (if path (urb:ppto-config-write path))))
+  (cond
+    ((null path) (prompt "\nExportacion cancelada: sin libro configurado."))
+    ((null (findfile path))
+      (prompt (strcat "\nNo existe el libro: " path)))
+    (T
+      (setq attach (urb:ppto-attach-excel path)
+            app (nth 0 attach) wb (nth 1 attach) propia (nth 2 attach))
+      (if (null wb)
+        (progn
+          (setq *urb-ppto-last-summary*
+            (list 'SIN-EXCEL (urb:safe-string (nth 2 attach) "?")))
+          (prompt (strcat "\n" (urb:safe-string (nth 2 attach) "Sin Excel."))))
+        (progn
+          ;; el nucleo va envuelto: pase lo que pase, la instancia PROPIA
+          ;; de Excel se cierra (sin esto, un error dejaba un EXCEL
+          ;; huerfano con el libro bloqueado -- visto 2026-08-17)
+          (setq result (vl-catch-all-apply 'urb:ppto-run (list wb)))
+          (if propia
+            (progn
+              (vl-catch-all-apply
+                '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
+              (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
+              (vlax-release-object wb)
+              (vlax-release-object app)))
+          (if (vl-catch-all-error-p result)
+            (progn
+              (setq *urb-ppto-last-summary*
+                (list 'ERROR (vl-catch-all-error-message result)
+                  'etapa (urb:safe-string *urb-ppto-stage* "?")))
+              (prompt (strcat "\nERROR EN EXPORTACION: "
+                (vl-catch-all-error-message result)
+                " -- revise y reintente (el libro pudo quedar sin guardar)."))))))))
+  (princ))
 
 (defun urb:unique-enames (entities / result ename)
   (foreach ename entities
