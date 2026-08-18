@@ -171,6 +171,16 @@ New-Icon "qactualizar" { param($g, $s)
   $pen2 = P $cVerde (3*$s); $pen2.EndCap = 'ArrowAnchor'
   $g.DrawArc($pen2, 5*$s, 5*$s, 22*$s, 22*$s, 100, 160)
 }
+New-Icon "ppto" { param($g, $s)
+  # hoja verde (Excel) con filas + flecha amarilla entrando (exportar al ppto)
+  $g.FillRectangle((B $cVerde), 8*$s, 4*$s, 20*$s, 24*$s)
+  $penB = P $cBlanco (1.5*$s)
+  foreach ($y in @(10, 16, 22)) {
+    $g.DrawLine($penB, 11*$s, $y*$s, 25*$s, $y*$s) }
+  $g.DrawLine($penB, 18*$s, 7*$s, 18*$s, 25*$s)
+  $pen = P $cAmar (3.5*$s); $pen.EndCap = 'ArrowAnchor'
+  $g.DrawLine($pen, 1*$s, 16*$s, 12*$s, 16*$s)
+}
 New-Icon "qvincular" { param($g, $s)
   $pen = P $cAzul (3*$s)
   $g.DrawEllipse($pen, 3*$s, 10*$s, 14*$s, 11*$s)

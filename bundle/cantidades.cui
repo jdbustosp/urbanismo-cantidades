@@ -31,6 +31,7 @@
       <MenuMacro UID="MM_QVERIF"><Macro type="Any"><Name xlate="true">Tabla de verificacion</Name><Command>^C^C_QVERIFICACION </Command><SmallImage Name="cant_qverificacion_16.png" /><LargeImage Name="cant_qverificacion_32.png" /></Macro></MenuMacro>
       <MenuMacro UID="MM_QALC"><Macro type="Any"><Name xlate="true">Incluir o excluir</Name><Command>^C^C_QALCANCE </Command><SmallImage Name="cant_qalcance_16.png" /><LargeImage Name="cant_qalcance_32.png" /></Macro></MenuMacro>
       <MenuMacro UID="MM_QCSV"><Macro type="Any"><Name xlate="true">CSV de redes</Name><Command>^C^C_QCSV </Command><SmallImage Name="cant_qcsv_16.png" /><LargeImage Name="cant_qcsv_32.png" /></Macro></MenuMacro>
+      <MenuMacro UID="MM_PPTO"><Macro type="Any"><Name xlate="true">Exportar al presupuesto</Name><Command>^C^C_PPTOEXPORTAR </Command><SmallImage Name="cant_ppto_16.png" /><LargeImage Name="cant_ppto_32.png" /></Macro></MenuMacro>
       <MenuMacro UID="MM_QEXCEL"><Macro type="Any"><Name xlate="true">Exportar Excel</Name><Command>^C^C_QEXCEL </Command><SmallImage Name="cant_qexcel_16.png" /><LargeImage Name="cant_qexcel_32.png" /></Macro></MenuMacro>
       <MenuMacro UID="MM_QVINC"><Macro type="Any"><Name xlate="true">Vincular Excel</Name><Command>^C^C_QVINCULAR </Command><SmallImage Name="cant_qvincular_16.png" /><LargeImage Name="cant_qvincular_32.png" /></Macro></MenuMacro>
       <MenuMacro UID="MM_QACT"><Macro type="Any"><Name xlate="true">Actualizar Excel</Name><Command>^C^C_QACTUALIZAR </Command><SmallImage Name="cant_qactualizar_16.png" /><LargeImage Name="cant_qactualizar_32.png" /></Macro></MenuMacro>
@@ -187,6 +188,10 @@
           <Name xlate="true" UID="XLC_P5">Cantidades - Excel</Name>
           <RibbonRow UID="RBC_P5R1">
             <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            <RibbonCommandButton UID="RBC_B28" Id="AcRibbonCommandButton" Text="Presupuesto" ButtonStyle="LargeWithText" MenuMacroID="MM_PPTO" KeyTip="XP">
+              <TooltipTitle xlate="true" UID="XLC_B28">Exportar cantidades al presupuesto (MEMORIAS del libro maestro)</TooltipTitle>
+              <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
+            </RibbonCommandButton>
             <RibbonCommandButton UID="RBC_B22" Id="AcRibbonCommandButton" Text="Exportar" ButtonStyle="LargeWithText" MenuMacroID="MM_QEXCEL" KeyTip="XE">
               <TooltipTitle xlate="true" UID="XLC_B22">Crear Excel independiente</TooltipTitle>
               <ModifiedRev MajorVersion="18" MinorVersion="0" UserVersion="0" />
