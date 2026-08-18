@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.26.0")
+(setq *urb-version* "4.27.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20488,7 +20488,8 @@
 
 ;; Vocabulario vivo: hoja con encabezados NIVEL/DESCRIPCION/UM.
 (defun urb:ppto-read-vocab (wb / sheets count i ws a1 d1 e1 target rng rows
-                            r nivel desc um capitulo vocab lastrow empties)
+                            r nivel codigo desc um capitulo vocab lastrow
+                            empties)
   (setq sheets (vlax-get-property wb 'Worksheets))
   (setq count (vlax-get-property sheets 'Count) i 1 target nil)
   (while (and (<= i count) (null target))
@@ -20507,8 +20508,12 @@
     (progn
       (setq rng (vlax-get-property target 'Range "A1:E4000"))
       (setq capitulo "" vocab nil empties 0 r 3)
+      ;; ademas del vocabulario se guarda el ARBOL completo del ppto
+      ;; (niveles 3/4/5 con su codigo) para la vista "Ver presupuesto"
+      (setq *urb-ppto-outline* nil)
       (while (and (<= r 4000) (< empties 80))
         (setq nivel (urb:ppto-cell rng r 1)
+              codigo (urb:ppto-cell-text rng r 3)
               desc (urb:ppto-cell-text rng r 4)
               um (urb:ppto-cell-text rng r 5))
         (if (and (or (null nivel) (= nivel "")) (= desc ""))
@@ -20516,16 +20521,22 @@
           (progn
             (setq empties 0)
             (if (numberp nivel)
-              (cond
-                ((= (fix nivel) 3)
+              (progn
+                (if (= (fix nivel) 3)
                   (setq capitulo (urb:ppto-normalize desc)))
-                ((and (= (fix nivel) 5) (/= desc "") (/= um ""))
+                (if (and (>= (fix nivel) 3) (/= desc ""))
+                  (setq *urb-ppto-outline*
+                    (cons
+                      (list (fix nivel) codigo desc (strcase um) capitulo)
+                      *urb-ppto-outline*)))
+                (if (and (= (fix nivel) 5) (/= desc "") (/= um ""))
                   (setq vocab
                     (cons
                       (list capitulo (strcase um) desc
-                            (urb:ppto-words desc) r)
+                            (urb:ppto-words desc) r codigo)
                       vocab)))))))
         (setq r (1+ r)))
+      (setq *urb-ppto-outline* (reverse *urb-ppto-outline*))
       (vlax-release-object rng)
       (prompt (strcat "\nVocabulario del presupuesto: "
         (itoa (length vocab)) " actividades leidas."))
@@ -20941,8 +20952,15 @@
               *urb-ppto-huerfanas*)))
         (setq espec (car m)))))
   ;; registro de TODAS las vinculaciones de la corrida (una por concepto)
-  ;; para el dialogo pre-export: (clave red concepto um origen espec)
-  (if (not (assoc ekey *urb-ppto-matches*))
+  ;; para el dialogo pre-export y la vista de presupuesto:
+  ;; (clave red concepto um origen espec cantidad-total-acumulada)
+  (setq entry (assoc ekey *urb-ppto-matches*))
+  (if entry
+    (setq *urb-ppto-matches*
+      (subst
+        (list (nth 0 entry) (nth 1 entry) (nth 2 entry) (nth 3 entry)
+          (nth 4 entry) (nth 5 entry) (+ (nth 6 entry) (nth 8 item)))
+        entry *urb-ppto-matches*))
     (setq *urb-ppto-matches*
       (cons
         (list ekey (nth 0 item) (nth 1 item) (strcase (nth 7 item))
@@ -20950,7 +20968,7 @@
             (evalue "ASIGNADA")
             ((wcmatch espec "`[SIN MATCH*") "PENDIENTE")
             (T "AUTO"))
-          espec)
+          espec (nth 8 item))
         *urb-ppto-matches*)))
   (setq *urb-ppto-total* (+ *urb-ppto-total* (nth 8 item)))
   (setq red-count (assoc (nth 0 item) *urb-ppto-por-red*))
@@ -20996,7 +21014,7 @@
       ": list_box { key = \"pend\"; label = \"Conceptos del plano\"; width = 62; height = 17; }"
       ": list_box { key = \"cand\"; label = \"Actividad del presupuesto (mismo capitulo y unidad)\"; width = 66; height = 17; }"
       "}"
-      ": row { : button { key = \"asignar\"; label = \"Asignar\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : toggle { key = \"vista\"; label = \"Ver solo pendientes\"; } }"
+      ": row { : button { key = \"asignar\"; label = \"Asignar\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : button { key = \"verppto\"; label = \"Ver presupuesto\"; } : toggle { key = \"vista\"; label = \"Ver solo pendientes\"; } }"
       ": text { key = \"estado\"; width = 110; }"
       ": text { label = \"Aceptar = exportar al libro. Cancelar = NO exportar nada.\"; }"
       "ok_cancel; }")))
@@ -21089,6 +21107,101 @@
           *urb-pmd-decisions*))
       (urb:pmd-refill))))
 
+;; ---------- vista "Ver presupuesto": arbol con codigos + vinculos ----------
+;; Muestra el presupuesto completo (capitulos nivel 3, subsecciones nivel 4
+;; y actividades nivel 5 con su CODIGO) y, al seleccionar una actividad,
+;; que conceptos del plano estan vinculados a ella y cuanta cantidad total
+;; le aportan en esta corrida. Solo lectura; se abre desde el dialogo de
+;; vinculacion.
+(defun urb:ppto-write-view-dcl ()
+  (urb:write-dialog-dcl
+    "urb_ppto_view"
+    '*urb-ppto-view-dcl-ok*
+    (list
+      "urb_ppto_view : dialog { label = \"Presupuesto y lo vinculado desde el plano\";"
+      ": text { label = \"Seleccione una actividad (nivel con codigo) para ver que le llega del plano.\"; }"
+      ": row {"
+      ": list_box { key = \"arbol\"; label = \"Presupuesto: codigo | actividad [unidad]\"; width = 80; height = 22; }"
+      ": list_box { key = \"vinc\"; label = \"Vinculado desde el plano (cantidad total)\"; width = 58; height = 22; }"
+      "}"
+      ": text { key = \"vinfo\"; width = 130; }"
+      "ok_only; }")))
+
+;; espec EFECTIVA de una vinculacion: la decision de la sesion (si existe)
+;; pisa lo que trajo la pasada de match
+(defun urb:ppv-espec (m / d)
+  (setq d
+    (if (boundp '*urb-pmd-decisions*)
+      (cdr (assoc (nth 0 m) *urb-pmd-decisions*)) nil))
+  (if d d (nth 5 m)))
+
+(defun urb:ppv-links (capitulo desc / m out)
+  (setq out nil)
+  (foreach m *urb-ppto-matches*
+    (if (and (= (urb:ppv-espec m) desc)
+             (= (cdr (assoc (nth 1 m) *urb-ppto-red-capitulo*)) capitulo))
+      (setq out (cons m out))))
+  (reverse out))
+
+(defun urb:ppv-labels (/ o out marca)
+  (setq out nil)
+  (foreach o *urb-ppto-outline*
+    (cond
+      ((= (nth 0 o) 3)
+        (setq out (cons (strcat "===== " (nth 2 o) " =====") out)))
+      ((= (nth 0 o) 4)
+        (setq out (cons (strcat "  " (nth 1 o) "  " (nth 2 o)) out)))
+      (T
+        (setq marca
+          (if (urb:ppv-links (nth 4 o) (nth 2 o)) "  <== PLANO" ""))
+        (setq out
+          (cons
+            (strcat "      " (nth 1 o) "  " (nth 2 o)
+              " [" (nth 3 o) "]" marca)
+            out)))))
+  (reverse out))
+
+(defun urb:ppv-select (idx / o links m total etiqueta)
+  (setq o (nth idx *urb-ppto-outline*))
+  (start_list "vinc")
+  (if (and o (= (nth 0 o) 5))
+    (progn
+      (setq links (urb:ppv-links (nth 4 o) (nth 2 o)) total 0.0)
+      (if links
+        (foreach m links
+          (setq total (+ total (nth 6 m)))
+          (add_list
+            (strcat (nth 1 m) " | " (nth 2 m) "  =  "
+              (rtos (nth 6 m) 2 2) " " (nth 3 m)
+              "  (" (nth 4 m) ")")))
+        (add_list "(nada vinculado desde este plano)"))
+      (end_list)
+      (set_tile "vinfo"
+        (if links
+          (strcat "Actividad " (nth 1 o) ": "
+            (itoa (length links)) " concepto(s) del plano, total "
+            (rtos total 2 2) " " (nth 3 o) ".")
+          (strcat "Actividad " (nth 1 o)
+            ": sin aportes de este plano en esta corrida."))))
+    (progn
+      (end_list)
+      (set_tile "vinfo"
+        "Seleccione una fila de actividad (las que tienen codigo y unidad)."))))
+
+(defun urb:ppto-view-dialog (/ dcl etiqueta)
+  (setq dcl (load_dialog (urb:ppto-write-view-dcl)))
+  (if (and (> dcl 0) (new_dialog "urb_ppto_view" dcl))
+    (progn
+      (start_list "arbol")
+      (foreach etiqueta (urb:ppv-labels) (add_list etiqueta))
+      (end_list)
+      (set_tile "vinfo"
+        "Las actividades marcadas con <== PLANO reciben cantidades de este plano.")
+      (action_tile "arbol" "(urb:ppv-select (atoi $value))")
+      (start_dialog)))
+  (if (> dcl 0) (unload_dialog dcl))
+  (princ))
+
 ;; Devuelve (cons 'OK decisiones) si el usuario Acepta (decisiones puede
 ;; ser nil), o 'CANCELADO si cancela -- en ese caso NO se exporta nada.
 (defun urb:ppto-match-dialog (vocab / g dcl done)
@@ -21109,6 +21222,7 @@
       (action_tile "asignar"
         "(urb:pmd-asignar (atoi (get_tile \"pend\")) (atoi (get_tile \"cand\")))")
       (action_tile "quitar" "(urb:pmd-quitar (atoi (get_tile \"pend\")))")
+      (action_tile "verppto" "(urb:ppto-view-dialog)")
       (setq done (start_dialog))))
   (if (> dcl 0) (unload_dialog dcl))
   (if (= done 1) (cons 'OK *urb-pmd-decisions*) 'CANCELADO))
