@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.25.1")
+(setq *urb-version* "4.26.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20125,6 +20125,77 @@
   (if (setq f (open (urb:ppto-config-file) "w"))
     (progn (write-line path f) (close f))))
 
+;; ---------- equivalencias manuales (decididas en el dialogo pre-export) ----------
+;; Viven DENTRO del libro (pedido del usuario 2026-08-18): hoja MUY OCULTA
+;; "URB_EQUIVALENCIAS" (Visible=2, no aparece ni en "Mostrar hojas"), col A
+;; = clave "RED|concepto-normalizado", col B = descripcion elegida. Viajan
+;; con el libro entre PCs y no agregan nada visible. El match las consulta
+;; ANTES de la cascada automatica; si la descripcion elegida ya no existe
+;; en el capitulo+UM (ppto renombrado), se ignora y el concepto vuelve a
+;; salir como pendiente en el dialogo.
+(defun urb:ppto-find-sheet (wb nombre / sheets count i ws nm found)
+  (setq sheets (vlax-get-property wb 'Worksheets))
+  (setq count
+    (vl-catch-all-apply '(lambda () (vlax-get-property sheets 'Count))))
+  (if (vl-catch-all-error-p count) (setq count 0))
+  (setq i 1 found nil)
+  (while (and (<= i count) (null found))
+    (setq ws (vl-catch-all-apply
+      '(lambda () (urb:ppto-obj (vlax-get-property sheets 'Item i)))))
+    (if (not (vl-catch-all-error-p ws))
+      (progn
+        (setq nm (vl-catch-all-apply
+          '(lambda () (vlax-get-property ws 'Name))))
+        (if (and (not (vl-catch-all-error-p nm))
+                 (= (strcase nm) (strcase nombre)))
+          (setq found ws))))
+    (setq i (1+ i)))
+  found)
+
+(defun urb:ppto-equiv-read (wb / ws rng r clave valor out)
+  (setq out nil)
+  (setq ws (urb:ppto-find-sheet wb "URB_EQUIVALENCIAS"))
+  (if ws
+    (progn
+      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:B300")))
+      (setq r 1 clave "x")
+      (while (and (<= r 300) (/= clave ""))
+        (setq clave (urb:ppto-cell-text rng r 1)
+              valor (urb:ppto-cell-text rng r 2))
+        (if (and (/= clave "") (/= valor ""))
+          (setq out (cons (cons clave valor) out)))
+        (setq r (1+ r)))
+      (vlax-release-object rng)))
+  (reverse out))
+
+(defun urb:ppto-equiv-write (wb equiv / ws sheets rng r item)
+  (setq ws (urb:ppto-find-sheet wb "URB_EQUIVALENCIAS"))
+  (if (null ws)
+    (progn
+      (setq sheets (vlax-get-property wb 'Worksheets))
+      (setq ws (vl-catch-all-apply
+        '(lambda () (urb:ppto-obj (vlax-invoke-method sheets 'Add)))))
+      (if (vl-catch-all-error-p ws)
+        (setq ws nil)
+        (vl-catch-all-apply
+          '(lambda () (vlax-put-property ws 'Name "URB_EQUIVALENCIAS"))))))
+  (if ws
+    (progn
+      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:B300")))
+      (vl-catch-all-apply '(lambda () (vlax-invoke-method rng 'ClearContents)))
+      (setq r 1)
+      (foreach item equiv
+        (urb:ppto-put-cell rng r 1 (car item))
+        (urb:ppto-put-cell rng r 2 (cdr item))
+        (setq r (1+ r)))
+      (vlax-release-object rng)
+      ;; 2 = xlSheetVeryHidden: invisible incluso en "Mostrar hojas"
+      (vl-catch-all-apply '(lambda () (vlax-put-property ws 'Visible 2)))
+      T)))
+
+(defun urb:ppto-equiv-key (red concepto)
+  (strcat red "|" (urb:ppto-normalize concepto)))
+
 ;; ---------- normalizacion y match ----------
 (defun urb:ppto-plain-char (code)
   ;; acentos/enie/simbolos ANSI -> ascii; lo demas no alfanumerico -> espacio
@@ -20837,17 +20908,50 @@
 ;; procesa UNA fila cruda: match + acumuladores (globales de la corrida) +
 ;; fila final de 12 columnas. Se llama envuelta en vl-catch-all para que un
 ;; item malo no tumbe la exportacion completa (queda registrado con error).
-(defun urb:ppto-process-item (item vocab dwg / m espec red-count)
-  (setq m
-    (urb:ppto-match (nth 0 item) (nth 7 item) (nth 1 item) vocab))
-  (if (eq (car m) 'HUERFANA)
+;; Consulta PRIMERO las equivalencias manuales (*urb-ppto-equiv*, decididas
+;; en el dialogo pre-export); una equivalencia solo vale si su descripcion
+;; sigue VIVA en el capitulo+UM del presupuesto (si la renombraron, el
+;; concepto vuelve a salir como pendiente).
+(defun urb:ppto-process-item (item vocab dwg / m espec red-count ekey evalue
+                              valido capitulo entry)
+  (setq ekey (urb:ppto-equiv-key (nth 0 item) (nth 1 item)))
+  (setq evalue (cdr (assoc ekey *urb-ppto-equiv*)))
+  (if evalue
     (progn
-      (setq espec
-        (strcat "[SIN MATCH x" (itoa (cadr m)) "] " (nth 1 item)))
-      (setq *urb-ppto-huerfanas*
-        (cons (list (nth 0 item) (nth 1 item) (cadr m) (nth 9 item))
-          *urb-ppto-huerfanas*)))
-    (setq espec (car m)))
+      (setq valido nil
+            capitulo (cdr (assoc (nth 0 item) *urb-ppto-red-capitulo*)))
+      (foreach entry vocab
+        (if (and (= (nth 0 entry) capitulo)
+                 (= (nth 1 entry) (strcase (nth 7 item)))
+                 (= (nth 2 entry) evalue))
+          (setq valido T)))
+      (if (not valido) (setq evalue nil))))
+  (if evalue
+    (setq espec evalue)
+    (progn
+      (setq m
+        (urb:ppto-match (nth 0 item) (nth 7 item) (nth 1 item) vocab))
+      (if (eq (car m) 'HUERFANA)
+        (progn
+          (setq espec
+            (strcat "[SIN MATCH x" (itoa (cadr m)) "] " (nth 1 item)))
+          (setq *urb-ppto-huerfanas*
+            (cons (list (nth 0 item) (nth 1 item) (cadr m) (nth 9 item)
+              (nth 7 item))
+              *urb-ppto-huerfanas*)))
+        (setq espec (car m)))))
+  ;; registro de TODAS las vinculaciones de la corrida (una por concepto)
+  ;; para el dialogo pre-export: (clave red concepto um origen espec)
+  (if (not (assoc ekey *urb-ppto-matches*))
+    (setq *urb-ppto-matches*
+      (cons
+        (list ekey (nth 0 item) (nth 1 item) (strcase (nth 7 item))
+          (cond
+            (evalue "ASIGNADA")
+            ((wcmatch espec "`[SIN MATCH*") "PENDIENTE")
+            (T "AUTO"))
+          espec)
+        *urb-ppto-matches*)))
   (setq *urb-ppto-total* (+ *urb-ppto-total* (nth 8 item)))
   (setq red-count (assoc (nth 0 item) *urb-ppto-por-red*))
   (setq *urb-ppto-por-red*
@@ -20857,9 +20961,162 @@
     (nth 4 item) (nth 5 item) (nth 6 item) (nth 7 item) (nth 8 item)
     dwg (nth 9 item)))
 
+;; pasada completa de match sobre las filas crudas; reinicia los
+;; acumuladores globales y devuelve la lista final de filas de 12 columnas.
+(defun urb:ppto-match-all (raw vocab dwg / item m final)
+  (setq *urb-ppto-huerfanas* nil *urb-ppto-total* 0.0
+        *urb-ppto-por-red* nil *urb-ppto-item-errs* nil
+        *urb-ppto-matches* nil final nil)
+  (foreach item raw
+    (setq m
+      (vl-catch-all-apply 'urb:ppto-process-item (list item vocab dwg)))
+    (if (vl-catch-all-error-p m)
+      (setq *urb-ppto-item-errs*
+        (cons
+          (list (nth 0 item) (nth 1 item) (vl-catch-all-error-message m))
+          *urb-ppto-item-errs*))
+      (setq final (cons m final))))
+  (reverse final))
+
+;; ---------- dialogo pre-exportacion de equivalencias ----------
+;; Aparece SIEMPRE antes de escribir (pedido del usuario 2026-08-18):
+;; muestra todas las vinculaciones de la corrida -- [PEND] sin actividad,
+;; [AUTO] resueltas por el matcher, [GUARD] por equivalencia guardada,
+;; [NUEVA] asignadas en esta sesion. El toggle "Ver solo pendientes"
+;; filtra la lista. Aceptar exporta; CANCELAR ABORTA sin escribir nada.
+(defun urb:ppto-write-match-dcl ()
+  (urb:write-dialog-dcl
+    "urb_ppto_match"
+    '*urb-ppto-match-dcl-ok*
+    (list
+      "urb_ppto_match : dialog { label = \"Vinculacion con el presupuesto\";"
+      ": text { label = \"Seleccione un concepto del plano, luego su actividad del presupuesto, y pulse Asignar.\"; }"
+      ": text { label = \"La asignacion queda guardada dentro del libro y no se vuelve a preguntar.\"; }"
+      ": row {"
+      ": list_box { key = \"pend\"; label = \"Conceptos del plano\"; width = 62; height = 17; }"
+      ": list_box { key = \"cand\"; label = \"Actividad del presupuesto (mismo capitulo y unidad)\"; width = 66; height = 17; }"
+      "}"
+      ": row { : button { key = \"asignar\"; label = \"Asignar\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : toggle { key = \"vista\"; label = \"Ver solo pendientes\"; } }"
+      ": text { key = \"estado\"; width = 110; }"
+      ": text { label = \"Aceptar = exportar al libro. Cancelar = NO exportar nada.\"; }"
+      "ok_cancel; }")))
+
+(defun urb:pmd-vista-groups (/ g out)
+  (setq out nil)
+  (foreach g *urb-pmd-groups*
+    (if (or (not *urb-pmd-solo-pend*)
+            (= (nth 4 g) "PENDIENTE")
+            (assoc (nth 0 g) *urb-pmd-decisions*))
+      (setq out (cons g out))))
+  (reverse out))
+
+(defun urb:pmd-labels (/ g d out estado)
+  (setq out nil)
+  (foreach g *urb-pmd-vista*
+    (setq d (cdr (assoc (nth 0 g) *urb-pmd-decisions*)))
+    (setq estado
+      (cond
+        (d "[NUEVA] ")
+        ((= (nth 4 g) "PENDIENTE") "[PEND]  ")
+        ((= (nth 4 g) "ASIGNADA") "[GUARD] ")
+        (T "[AUTO]  ")))
+    (setq out
+      (cons
+        (strcat estado (nth 1 g) " | " (nth 2 g) " [" (nth 3 g) "]  =>  "
+          (cond
+            (d d)
+            ((= (nth 4 g) "PENDIENTE") "(sin actividad)")
+            (T (nth 5 g))))
+        out)))
+  (reverse out))
+
+(defun urb:pmd-estado (/ g pendientes)
+  (setq pendientes 0)
+  (foreach g *urb-pmd-groups*
+    (if (and (= (nth 4 g) "PENDIENTE")
+             (not (assoc (nth 0 g) *urb-pmd-decisions*)))
+      (setq pendientes (1+ pendientes))))
+  (set_tile "estado"
+    (strcat (itoa (length *urb-pmd-groups*)) " concepto(s) en la corrida; "
+      (itoa pendientes) " sin actividad ([PEND] saldra [SIN MATCH]); "
+      (itoa (length *urb-pmd-decisions*)) " asignacion(es) nueva(s).")))
+
+(defun urb:pmd-refill (/ etiqueta)
+  (setq *urb-pmd-vista* (urb:pmd-vista-groups))
+  (start_list "pend")
+  (foreach etiqueta (urb:pmd-labels) (add_list etiqueta))
+  (end_list)
+  (start_list "cand")
+  (end_list)
+  (set_tile "vista" (if *urb-pmd-solo-pend* "1" "0"))
+  (urb:pmd-estado))
+
+(defun urb:pmd-toggle-vista (valor)
+  (setq *urb-pmd-solo-pend* (= valor "1"))
+  (urb:pmd-refill))
+
+(defun urb:pmd-select (idx / g capitulo entry)
+  (setq g (nth idx *urb-pmd-vista*))
+  (if g
+    (progn
+      (setq capitulo (cdr (assoc (nth 1 g) *urb-ppto-red-capitulo*)))
+      (setq *urb-pmd-cands* nil)
+      (foreach entry *urb-pmd-vocab*
+        (if (and (= (nth 0 entry) capitulo)
+                 (= (nth 1 entry) (nth 3 g)))
+          (setq *urb-pmd-cands* (cons (nth 2 entry) *urb-pmd-cands*))))
+      (setq *urb-pmd-cands* (reverse *urb-pmd-cands*))
+      (start_list "cand")
+      (foreach entry *urb-pmd-cands* (add_list entry))
+      (end_list))))
+
+(defun urb:pmd-asignar (pend-idx cand-idx / g)
+  (setq g (nth pend-idx *urb-pmd-vista*))
+  (if (and g (nth cand-idx *urb-pmd-cands*))
+    (progn
+      (setq *urb-pmd-decisions*
+        (cons (cons (nth 0 g) (nth cand-idx *urb-pmd-cands*))
+          (vl-remove (assoc (nth 0 g) *urb-pmd-decisions*)
+            *urb-pmd-decisions*)))
+      (urb:pmd-refill))))
+
+(defun urb:pmd-quitar (pend-idx / g)
+  (setq g (nth pend-idx *urb-pmd-vista*))
+  (if g
+    (progn
+      (setq *urb-pmd-decisions*
+        (vl-remove (assoc (nth 0 g) *urb-pmd-decisions*)
+          *urb-pmd-decisions*))
+      (urb:pmd-refill))))
+
+;; Devuelve (cons 'OK decisiones) si el usuario Acepta (decisiones puede
+;; ser nil), o 'CANCELADO si cancela -- en ese caso NO se exporta nada.
+(defun urb:ppto-match-dialog (vocab / g dcl done)
+  (setq *urb-pmd-vocab* vocab
+        *urb-pmd-groups* (reverse *urb-ppto-matches*)
+        *urb-pmd-decisions* nil *urb-pmd-cands* nil *urb-pmd-vista* nil)
+  ;; arranca filtrado a pendientes solo si los hay
+  (setq *urb-pmd-solo-pend* nil)
+  (foreach g *urb-pmd-groups*
+    (if (= (nth 4 g) "PENDIENTE") (setq *urb-pmd-solo-pend* T)))
+  (setq done 0)
+  (setq dcl (load_dialog (urb:ppto-write-match-dcl)))
+  (if (and (> dcl 0) (new_dialog "urb_ppto_match" dcl))
+    (progn
+      (urb:pmd-refill)
+      (action_tile "pend" "(urb:pmd-select (atoi $value))")
+      (action_tile "vista" "(urb:pmd-toggle-vista $value)")
+      (action_tile "asignar"
+        "(urb:pmd-asignar (atoi (get_tile \"pend\")) (atoi (get_tile \"cand\")))")
+      (action_tile "quitar" "(urb:pmd-quitar (atoi (get_tile \"pend\")))")
+      (setq done (start_dialog))))
+  (if (> dcl 0) (unload_dialog dcl))
+  (if (= done 1) (cons 'OK *urb-pmd-decisions*) 'CANCELADO))
+
 ;; ---------- nucleo de la exportacion (lo envuelve c:PPTOEXPORTAR) ----------
 (defun urb:ppto-run (wb / lo vocab raw rows item m final huerfanas dwg total
-                     borradas por-red red-count espec result)
+                     borradas por-red red-count espec result resdlg
+                     decisiones d)
   (setq lo (urb:ppto-memorias-table wb))
   (setq vocab (if lo (urb:ppto-read-vocab wb) nil))
   (if (and lo vocab)
@@ -20874,71 +21131,85 @@
                   (urb:ppto-rows-rampas)
                   (urb:ppto-rows-tramos)
                   (urb:ppto-rows-puntos)))
-              ;; 2) match contra el vocabulario vivo
+              ;; 2) match contra el vocabulario vivo (equivalencias del
+              ;; LIBRO primero, cascada automatica despues)
               (setq *urb-ppto-stage* "match contra vocabulario")
-              (setq dwg (vl-filename-base (getvar "DWGNAME"))
-                    final nil huerfanas nil total 0.0 por-red nil)
-              (setq *urb-ppto-huerfanas* nil *urb-ppto-total* 0.0
-                    *urb-ppto-por-red* nil *urb-ppto-item-errs* nil)
-              (foreach item raw
-                (setq m
-                  (vl-catch-all-apply 'urb:ppto-process-item
-                    (list item vocab dwg)))
-                (if (vl-catch-all-error-p m)
-                  (setq *urb-ppto-item-errs*
-                    (cons
-                      (list (nth 0 item) (nth 1 item)
-                        (vl-catch-all-error-message m))
-                      *urb-ppto-item-errs*))
-                  (setq final (cons m final))))
-              (setq huerfanas *urb-ppto-huerfanas*
-                    total *urb-ppto-total*
-                    por-red *urb-ppto-por-red*)
-              (if *urb-ppto-item-errs*
+              (setq dwg (vl-filename-base (getvar "DWGNAME")))
+              (setq *urb-ppto-equiv* (urb:ppto-equiv-read wb))
+              (setq final (urb:ppto-match-all raw vocab dwg))
+              ;; 2b) dialogo SIEMPRE antes de escribir (salvo corridas
+              ;; headless con *urb-ppto-sin-dialogo* T): muestra todas las
+              ;; vinculaciones, permite asignar/corregir y CANCELAR aborta.
+              (setq resdlg
+                (if (and (boundp '*urb-ppto-sin-dialogo*)
+                         *urb-ppto-sin-dialogo*)
+                  (cons 'OK nil)
+                  (urb:ppto-match-dialog vocab)))
+              (if (eq resdlg 'CANCELADO)
                 (progn
-                  (prompt (strcat "\nOJO: "
-                    (itoa (length *urb-ppto-item-errs*))
-                    " fila(s) con error interno, NO exportadas:"))
-                  (foreach item *urb-ppto-item-errs*
-                    (prompt (strcat "\n  " (urb:safe-string (nth 0 item) "?")
-                      " | " (urb:safe-string (nth 1 item) "?")
-                      " | " (urb:safe-string (nth 2 item) "?"))))))
-              (setq final (reverse final))
-              ;; 3) escribir + guardar
-              (setq *urb-ppto-stage* "escritura en TablaMemorias")
-              (setq borradas (urb:ppto-write-rows lo final dwg))
-              (setq *urb-ppto-stage* "guardado del libro")
-              (setq result (vl-catch-all-apply
-                '(lambda () (vlax-invoke-method wb 'Save))))
-              (if (vl-catch-all-error-p result)
-                (prompt (strcat "\nOJO: el libro no se pudo guardar: "
-                  (vl-catch-all-error-message result)))
-                (prompt "\nLibro guardado."))
-              ;; 4) reporte
-              (prompt (strcat "\n--- EXPORTACION PPTO (" dwg ") ---"))
-              (prompt (strcat "\nFilas escritas: " (itoa (length final))
-                " (reemplazaron " (itoa borradas) " del mismo DWG)."
-                " Cantidad total control: " (rtos total 2 3)))
-              (foreach item por-red
-                (prompt (strcat "\n  " (car item) ": "
-                  (itoa (cdr item)) " fila(s)")))
-              (if huerfanas
+                  (prompt
+                    "\nExportacion CANCELADA: no se escribio nada en el libro.")
+                  (setq *urb-ppto-last-summary*
+                    (list 'CANCELADO-POR-USUARIO)))
                 (progn
-                  (prompt (strcat "\nHUERFANAS ("
-                    (itoa (length huerfanas))
-                    ") - escritas en MEMORIAS marcadas [SIN MATCH], NO suman:"))
-                  (foreach item huerfanas
-                    (prompt (strcat "\n  " (nth 0 item) " | " (nth 1 item)
-                      " | candidatas: " (itoa (nth 2 item))
-                      " | handle " (nth 3 item)))))
-                (prompt "\nSin huerfanas: todo matcheo contra el presupuesto."))
-      (setq *urb-ppto-last-summary*
-        (list 'filas (length final) 'borradas borradas
-              'huerfanas (length huerfanas)
-              'errores-items (length *urb-ppto-item-errs*)
-              'primer-error
-              (if *urb-ppto-item-errs*
-                (nth 2 (car *urb-ppto-item-errs*)) "ninguno"))))
+                  (setq decisiones (cdr resdlg))
+                  (if decisiones
+                    (progn
+                      (foreach d decisiones
+                        (setq *urb-ppto-equiv*
+                          (cons d
+                            (vl-remove (assoc (car d) *urb-ppto-equiv*)
+                              *urb-ppto-equiv*))))
+                      (urb:ppto-equiv-write wb *urb-ppto-equiv*)
+                      (setq final (urb:ppto-match-all raw vocab dwg))))
+                  (setq huerfanas *urb-ppto-huerfanas*
+                        total *urb-ppto-total*
+                        por-red *urb-ppto-por-red*)
+                  (if *urb-ppto-item-errs*
+                    (progn
+                      (prompt (strcat "\nOJO: "
+                        (itoa (length *urb-ppto-item-errs*))
+                        " fila(s) con error interno, NO exportadas:"))
+                      (foreach item *urb-ppto-item-errs*
+                        (prompt (strcat "\n  "
+                          (urb:safe-string (nth 0 item) "?")
+                          " | " (urb:safe-string (nth 1 item) "?")
+                          " | " (urb:safe-string (nth 2 item) "?"))))))
+                  ;; 3) escribir + guardar
+                  (setq *urb-ppto-stage* "escritura en TablaMemorias")
+                  (setq borradas (urb:ppto-write-rows lo final dwg))
+                  (setq *urb-ppto-stage* "guardado del libro")
+                  (setq result (vl-catch-all-apply
+                    '(lambda () (vlax-invoke-method wb 'Save))))
+                  (if (vl-catch-all-error-p result)
+                    (prompt (strcat "\nOJO: el libro no se pudo guardar: "
+                      (vl-catch-all-error-message result)))
+                    (prompt "\nLibro guardado."))
+                  ;; 4) reporte
+                  (prompt (strcat "\n--- EXPORTACION PPTO (" dwg ") ---"))
+                  (prompt (strcat "\nFilas escritas: " (itoa (length final))
+                    " (reemplazaron " (itoa borradas) " del mismo DWG)."
+                    " Cantidad total control: " (rtos total 2 3)))
+                  (foreach item por-red
+                    (prompt (strcat "\n  " (car item) ": "
+                      (itoa (cdr item)) " fila(s)")))
+                  (if huerfanas
+                    (progn
+                      (prompt (strcat "\nHUERFANAS ("
+                        (itoa (length huerfanas))
+                        ") - escritas en MEMORIAS marcadas [SIN MATCH], NO suman:"))
+                      (foreach item huerfanas
+                        (prompt (strcat "\n  " (nth 0 item) " | " (nth 1 item)
+                          " | candidatas: " (itoa (nth 2 item))
+                          " | handle " (nth 3 item)))))
+                    (prompt "\nSin huerfanas: todo matcheo contra el presupuesto."))
+                  (setq *urb-ppto-last-summary*
+                    (list 'filas (length final) 'borradas borradas
+                          'huerfanas (length huerfanas)
+                          'errores-items (length *urb-ppto-item-errs*)
+                          'primer-error
+                          (if *urb-ppto-item-errs*
+                            (nth 2 (car *urb-ppto-item-errs*)) "ninguno"))))))
     (setq *urb-ppto-last-summary*
       (list 'SIN-TABLA-O-VOCAB
         (if lo 'tabla-ok 'sin-tabla)
