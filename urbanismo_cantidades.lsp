@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.28.0")
+(setq *urb-version* "4.29.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20207,7 +20207,8 @@
 (setq *urb-ppto-param-tipos*
   '(("VIA" "VIA"
       ("AREA" "AREA_SIN_SOBREANCHO" "LONGITUD" "CORTE" "RELLENO" "UNIDAD"))
-    ("ANDEN" "ANDEN" ("AREA" "UNIDAD"))
+    ("ANDEN" "ANDEN"
+      ("AREA" "TOPEROL_ML" "GUIA_ML" "PERIMETRO" "UNIDAD"))
     ("RAMPA" "RAMPA-PEATONAL"
       ("AREA" "TOPEROL_ML" "BORDILLO_ML" "UNIDAD"))
     ("SARDINEL" "VIA" ("LONGITUD" "UNIDAD"))
@@ -20802,7 +20803,17 @@
       (setq rows
         (append rows
           (urb:ppto-param-rows "ANDEN" "ANDEN"
-            (list (cons "AREA" area) (cons "UNIDAD" 1.0))
+            (list (cons "AREA" area)
+              (cons "TOPEROL_ML"
+                (atof (urb:safe-string
+                  (cdr (assoc "LOSETA_TOPEROL_ML" atts)) "0")))
+              (cons "GUIA_ML"
+                (atof (urb:safe-string
+                  (cdr (assoc "LOSETA_GUIA_ML" atts)) "0")))
+              (cons "PERIMETRO"
+                (atof (urb:safe-string
+                  (cdr (assoc "PERIMETRO_M" atts)) "0")))
+              (cons "UNIDAD" 1.0))
             "" "" "" etapa sub handle)))
       (foreach r rows (if r (setq out (cons r out))))
       (setq i (1+ i))))
@@ -21472,7 +21483,7 @@
       (set_tile "pinfo" "Eliminada. Aplica al Aceptar la exportacion."))
     (set_tile "pinfo" "Seleccione una fila de la lista de definidas.")))
 
-(defun urb:ppto-param-dialog (/ dcl tdef)
+(defun urb:ppto-param-dialog (/ dcl tdef i pre-idx entry)
   (setq dcl (load_dialog (urb:ppto-write-param-dcl)))
   (if (and (> dcl 0) (new_dialog "urb_ppto_param" dcl))
     (progn
@@ -21484,6 +21495,27 @@
       (urb:ppp-fill-lista)
       (urb:ppp-fill-mag)
       (urb:ppp-fill-act)
+      ;; preseleccion cuando se abre desde el arbol del presupuesto:
+      ;; elemento del capitulo de la actividad + la actividad marcada
+      (if (and (boundp '*urb-ppp-pre-cap*) *urb-ppp-pre-cap*)
+        (progn
+          (setq i 0 pre-idx nil)
+          (foreach tdef *urb-ppto-param-tipos*
+            (if (and (null pre-idx)
+                     (= (cdr (assoc (nth 1 tdef) *urb-ppto-red-capitulo*))
+                        *urb-ppp-pre-cap*))
+              (setq pre-idx i))
+            (setq i (1+ i)))
+          (if pre-idx
+            (progn
+              (set_tile "tipo" (itoa pre-idx))
+              (urb:ppp-fill-mag)
+              (urb:ppp-fill-act)))
+          (setq i 0)
+          (foreach entry *urb-ppp-acts*
+            (if (= (nth 2 entry) *urb-ppp-pre-act*)
+              (set_tile "act" (itoa i)))
+            (setq i (1+ i)))))
       (set_tile "pinfo"
         "Ejemplo: VIA + AREA + factor 0.05 = 5 cm de esa actividad por m2 de cada via.")
       (action_tile "tipo" "(urb:ppp-fill-mag) (urb:ppp-fill-act)")
@@ -21493,28 +21525,269 @@
   (if (> dcl 0) (unload_dialog dcl))
   (princ))
 
+;; ---------- previsualizacion de la tabla a exportar ----------
+;; Muestra las filas exactas que se escribiran en TablaMemorias, con
+;; toggles para mostrar/ocultar columnas EN LA VISTA (las 12 columnas del
+;; libro son fijas: contrato con los SUMIFS del presupuesto).
+(setq *urb-ppto-prev-cols* '(T T T nil nil nil T T T T nil nil))
+
+(defun urb:ppto-write-prev-dcl ()
+  (urb:write-dialog-dcl
+    "urb_ppto_prev"
+    '*urb-ppto-prev-dcl-ok*
+    (list
+      "urb_ppto_prev : dialog { label = \"Previsualizacion de la exportacion\";"
+      ": text { key = \"pinfo\"; width = 140; }"
+      ": row { : toggle { key = \"c1\"; label = \"RED\"; } : toggle { key = \"c2\"; label = \"CONCEPTO\"; } : toggle { key = \"c3\"; label = \"ESPECIFICACION\"; } : toggle { key = \"c4\"; label = \"ID\"; } : toggle { key = \"c5\"; label = \"DESDE\"; } : toggle { key = \"c6\"; label = \"HASTA\"; } }"
+      ": row { : toggle { key = \"c7\"; label = \"ETAPA\"; } : toggle { key = \"c8\"; label = \"SUBETAPA\"; } : toggle { key = \"c9\"; label = \"UM\"; } : toggle { key = \"c10\"; label = \"CANTIDAD\"; } : toggle { key = \"c11\"; label = \"DWG\"; } : toggle { key = \"c12\"; label = \"HANDLE\"; } }"
+      ": list_box { key = \"filas\"; label = \"Filas que se escribiran en TablaMemorias\"; width = 140; height = 22; }"
+      ": text { label = \"Las 12 columnas del libro son fijas (contrato con los SUMIFS); los toggles solo cambian esta vista.\"; }"
+      "ok_only; }")))
+
+(defun urb:ppto-prev-row-label (fila / i out d clave)
+  (setq clave (urb:ppto-equiv-key (nth 0 fila) (nth 1 fila)))
+  (setq d
+    (if (boundp '*urb-pmd-decisions*)
+      (cdr (assoc clave *urb-pmd-decisions*)) nil))
+  (setq i 0 out "")
+  (repeat 12
+    (if (nth i *urb-ppto-prev-cols*)
+      (setq out
+        (strcat out (if (= out "") "" "  |  ")
+          (cond
+            ((and (= i 2) d) d)
+            ((numberp (nth i fila)) (rtos (nth i fila) 2 3))
+            (T (urb:safe-string (nth i fila) ""))))))
+    (setq i (1+ i)))
+  out)
+
+(defun urb:ppto-prev-fill (/ fila n)
+  (start_list "filas")
+  (setq n 0)
+  (if (boundp '*urb-ppto-final-prev*)
+    (foreach fila *urb-ppto-final-prev*
+      (add_list (urb:ppto-prev-row-label fila))
+      (setq n (1+ n))))
+  (end_list)
+  (set_tile "pinfo"
+    (strcat (itoa n)
+      " fila(s) a escribir (una por elemento x actividad). Las"
+      " asignaciones de esta sesion YA se reflejan; las parametricas"
+      " nuevas apareceran al Aceptar la exportacion.")))
+
+(defun urb:ppto-prev-toggle (idx valor)
+  (setq *urb-ppto-prev-cols*
+    (urb:list-set-extended *urb-ppto-prev-cols* idx (= valor "1")))
+  (urb:ppto-prev-fill))
+
+(defun urb:ppto-prev-dialog (/ dcl i)
+  (setq dcl (load_dialog (urb:ppto-write-prev-dcl)))
+  (if (and (> dcl 0) (new_dialog "urb_ppto_prev" dcl))
+    (progn
+      (setq i 0)
+      (repeat 12
+        (set_tile (strcat "c" (itoa (1+ i)))
+          (if (nth i *urb-ppto-prev-cols*) "1" "0"))
+        (setq i (1+ i)))
+      (urb:ppto-prev-fill)
+      (action_tile "c1" "(urb:ppto-prev-toggle 0 $value)")
+      (action_tile "c2" "(urb:ppto-prev-toggle 1 $value)")
+      (action_tile "c3" "(urb:ppto-prev-toggle 2 $value)")
+      (action_tile "c4" "(urb:ppto-prev-toggle 3 $value)")
+      (action_tile "c5" "(urb:ppto-prev-toggle 4 $value)")
+      (action_tile "c6" "(urb:ppto-prev-toggle 5 $value)")
+      (action_tile "c7" "(urb:ppto-prev-toggle 6 $value)")
+      (action_tile "c8" "(urb:ppto-prev-toggle 7 $value)")
+      (action_tile "c9" "(urb:ppto-prev-toggle 8 $value)")
+      (action_tile "c10" "(urb:ppto-prev-toggle 9 $value)")
+      (action_tile "c11" "(urb:ppto-prev-toggle 10 $value)")
+      (action_tile "c12" "(urb:ppto-prev-toggle 11 $value)")
+      (start_dialog)))
+  (if (> dcl 0) (unload_dialog dcl))
+  (princ))
+
+;; ---------- dialogo PRINCIPAL sobre el ARBOL del presupuesto ----------
+;; (rediseno 2026-08-18 pedido del usuario tras validar la vista en vivo):
+;; a la izquierda el presupuesto completo (codigos, niveles, unidades) con
+;; su estado de vinculo; a la derecha lo que le llega del plano y los
+;; conceptos disponibles para asignar. Desde aqui tambien se crean
+;; parametricas apuntando a la actividad seleccionada y se previsualiza la
+;; tabla a exportar. Aceptar exporta; Cancelar ABORTA.
+(defun urb:ppto-write-match2-dcl ()
+  (urb:write-dialog-dcl
+    "urb_ppto_match2"
+    '*urb-ppto-match2-dcl-ok*
+    (list
+      "urb_ppto_match2 : dialog { label = \"Vinculacion con el presupuesto\";"
+      ": text { key = \"info1\"; width = 130; }"
+      ": row {"
+      ": list_box { key = \"arbol\"; label = \"Presupuesto: codigo | actividad [unidad]\"; width = 76; height = 21; }"
+      ": column {"
+      ": list_box { key = \"vinc\"; label = \"Vinculado desde el plano\"; width = 56; height = 10; }"
+      ": list_box { key = \"cand\"; label = \"Conceptos del plano disponibles (misma unidad)\"; width = 56; height = 8; }"
+      "}"
+      "}"
+      ": row { : button { key = \"asignar\"; label = \"Asignar concepto\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : button { key = \"param\"; label = \"Nueva parametrica aqui\"; } : button { key = \"prever\"; label = \"Previsualizar exportacion\"; } }"
+      ": text { key = \"estado\"; width = 130; }"
+      ": text { label = \"Aceptar = exportar al libro. Cancelar = NO exportar nada. Lo asignado queda guardado dentro del libro.\"; }"
+      "ok_cancel; }")))
+
+;; grupos de conceptos del plano candidatos para una actividad
+;; (mismo capitulo y misma UM); cada uno con su etiqueta de estado
+(defun urb:pm2-cands (capitulo um / m out espec-ef)
+  (setq out nil)
+  (foreach m *urb-ppto-matches*
+    (if (and (= (cdr (assoc (nth 1 m) *urb-ppto-red-capitulo*)) capitulo)
+             (= (nth 3 m) (strcase um)))
+      (setq out (cons m out))))
+  (reverse out))
+
+(defun urb:pm2-cand-label (m / d)
+  (setq d
+    (if (boundp '*urb-pmd-decisions*)
+      (cdr (assoc (nth 0 m) *urb-pmd-decisions*)) nil))
+  (strcat
+    (cond
+      (d "[NUEVA] ")
+      ((= (nth 4 m) "PENDIENTE") "[PEND]  ")
+      ((= (nth 4 m) "ASIGNADA") "[GUARD] ")
+      (T "[AUTO]  "))
+    (nth 1 m) " | " (nth 2 m) "  ("
+    (rtos (nth 6 m) 2 2) " " (nth 3 m) ")"
+    (if (or d (/= (nth 4 m) "PENDIENTE"))
+      (strcat "  hoy => "
+        (if d d (nth 5 m)))
+      "")))
+
+(defun urb:pm2-fila-actividad (idx / o)
+  (setq o (nth idx *urb-ppto-outline*))
+  (if (and o (= (nth 0 o) 5)) o nil))
+
+(defun urb:pm2-refill-arbol (/ etiqueta pos)
+  (setq pos (get_tile "arbol"))
+  (start_list "arbol")
+  (foreach etiqueta (urb:ppv-labels) (add_list etiqueta))
+  (end_list)
+  (if (/= pos "") (set_tile "arbol" pos)))
+
+(defun urb:pm2-estado (/ m pendientes)
+  (setq pendientes 0)
+  (foreach m *urb-ppto-matches*
+    (if (and (= (nth 4 m) "PENDIENTE")
+             (not (assoc (nth 0 m) *urb-pmd-decisions*)))
+      (setq pendientes (1+ pendientes))))
+  (set_tile "estado"
+    (strcat (itoa (length *urb-ppto-matches*))
+      " concepto(s) del plano en la corrida; "
+      (itoa pendientes) " sin actividad (saldran [SIN MATCH]); "
+      (itoa (length *urb-pmd-decisions*)) " asignacion(es) nueva(s).")))
+
+(defun urb:pm2-select (idx / o links m total)
+  (setq *urb-pm2-act* (urb:pm2-fila-actividad idx))
+  (start_list "vinc")
+  (setq *urb-pm2-cands* nil)
+  (if *urb-pm2-act*
+    (progn
+      (setq links
+        (urb:ppv-links (nth 4 *urb-pm2-act*) (nth 2 *urb-pm2-act*))
+        total 0.0)
+      (if links
+        (foreach m links
+          (setq total (+ total (nth 6 m)))
+          (add_list
+            (strcat (nth 1 m) " | " (nth 2 m) "  =  "
+              (rtos (nth 6 m) 2 2) " " (nth 3 m))))
+        (add_list "(sin aportes del plano)"))
+      (end_list)
+      (start_list "cand")
+      (setq *urb-pm2-cands*
+        (urb:pm2-cands (nth 4 *urb-pm2-act*) (nth 3 *urb-pm2-act*)))
+      (if *urb-pm2-cands*
+        (foreach m *urb-pm2-cands*
+          (add_list (urb:pm2-cand-label m)))
+        (add_list "(no hay conceptos del plano con esta unidad)"))
+      (end_list))
+    (progn
+      (end_list)
+      (start_list "cand")
+      (end_list))))
+
+(defun urb:pm2-idx-actual (/ v)
+  (setq v (get_tile "arbol"))
+  (if (/= v "") (atoi v) -1))
+
+(defun urb:pm2-asignar (cand-idx / m)
+  (setq m (nth cand-idx *urb-pm2-cands*))
+  (cond
+    ((null *urb-pm2-act*)
+      (set_tile "estado"
+        "Seleccione primero una actividad del presupuesto (fila con codigo)."))
+    ((null m)
+      (set_tile "estado" "Seleccione el concepto del plano a asignar."))
+    (T
+      (setq *urb-pmd-decisions*
+        (cons (cons (nth 0 m) (nth 2 *urb-pm2-act*))
+          (vl-remove (assoc (nth 0 m) *urb-pmd-decisions*)
+            *urb-pmd-decisions*)))
+      (urb:pm2-refill-arbol)
+      (urb:pm2-select (urb:pm2-idx-actual))
+      (urb:pm2-estado))))
+
+(defun urb:pm2-quitar (cand-idx / m)
+  (setq m (nth cand-idx *urb-pm2-cands*))
+  (cond
+    ((null m)
+      (set_tile "estado"
+        "Seleccione en la lista de disponibles el concepto cuya asignacion NUEVA quiere quitar."))
+    ((not (assoc (nth 0 m) *urb-pmd-decisions*))
+      (set_tile "estado"
+        "Ese concepto no tiene asignacion nueva en esta sesion (los AUTO se corrigen reasignandolos a otra actividad)."))
+    (T
+      (setq *urb-pmd-decisions*
+        (vl-remove (assoc (nth 0 m) *urb-pmd-decisions*)
+          *urb-pmd-decisions*))
+      (urb:pm2-refill-arbol)
+      (urb:pm2-select (urb:pm2-idx-actual))
+      (urb:pm2-estado))))
+
+(defun urb:pm2-parametrica ()
+  (if *urb-pm2-act*
+    (progn
+      (setq *urb-ppp-pre-cap* (nth 4 *urb-pm2-act*)
+            *urb-ppp-pre-act* (nth 2 *urb-pm2-act*))
+      (urb:ppto-param-dialog)
+      (setq *urb-ppp-pre-cap* nil *urb-ppp-pre-act* nil)
+      (urb:pm2-estado))
+    (set_tile "estado"
+      "Seleccione primero la actividad destino de la parametrica.")))
+
 ;; Devuelve (cons 'OK decisiones) si el usuario Acepta (decisiones puede
 ;; ser nil), o 'CANCELADO si cancela -- en ese caso NO se exporta nada.
-(defun urb:ppto-match-dialog (vocab / g dcl done)
+(defun urb:ppto-match-dialog (vocab / m pendientes dcl done)
   (setq *urb-pmd-vocab* vocab
-        *urb-pmd-groups* (reverse *urb-ppto-matches*)
-        *urb-pmd-decisions* nil *urb-pmd-cands* nil *urb-pmd-vista* nil)
-  ;; arranca filtrado a pendientes solo si los hay
-  (setq *urb-pmd-solo-pend* nil)
-  (foreach g *urb-pmd-groups*
-    (if (= (nth 4 g) "PENDIENTE") (setq *urb-pmd-solo-pend* T)))
+        *urb-pmd-decisions* nil
+        *urb-pm2-act* nil *urb-pm2-cands* nil)
   (setq done 0)
-  (setq dcl (load_dialog (urb:ppto-write-match-dcl)))
-  (if (and (> dcl 0) (new_dialog "urb_ppto_match" dcl))
+  (setq dcl (load_dialog (urb:ppto-write-match2-dcl)))
+  (if (and (> dcl 0) (new_dialog "urb_ppto_match2" dcl))
     (progn
-      (urb:pmd-refill)
-      (action_tile "pend" "(urb:pmd-select (atoi $value))")
-      (action_tile "vista" "(urb:pmd-toggle-vista $value)")
-      (action_tile "asignar"
-        "(urb:pmd-asignar (atoi (get_tile \"pend\")) (atoi (get_tile \"cand\")))")
-      (action_tile "quitar" "(urb:pmd-quitar (atoi (get_tile \"pend\")))")
-      (action_tile "verppto" "(urb:ppto-view-dialog)")
-      (action_tile "param" "(urb:ppto-param-dialog)")
+      (setq pendientes 0)
+      (foreach m *urb-ppto-matches*
+        (if (= (nth 4 m) "PENDIENTE") (setq pendientes (1+ pendientes))))
+      (set_tile "info1"
+        (strcat "Las actividades con <== PLANO ya reciben cantidades. "
+          (if (> pendientes 0)
+            (strcat "HAY " (itoa pendientes)
+              " concepto(s) del plano SIN actividad: ubique la actividad"
+              " correcta, seleccionela y asigneselos.")
+            "Todos los conceptos del plano tienen actividad.")))
+      (urb:pm2-refill-arbol)
+      (urb:pm2-estado)
+      (action_tile "arbol" "(urb:pm2-select (atoi $value))")
+      (action_tile "asignar" "(urb:pm2-asignar (atoi (get_tile \"cand\")))")
+      (action_tile "quitar" "(urb:pm2-quitar (atoi (get_tile \"cand\")))")
+      (action_tile "param" "(urb:pm2-parametrica)")
+      (action_tile "prever" "(urb:ppto-prev-dialog)")
       (setq done (start_dialog))))
   (if (> dcl 0) (unload_dialog dcl))
   (if (= done 1) (cons 'OK *urb-pmd-decisions*) 'CANCELADO))
@@ -21549,6 +21822,8 @@
               (setq dwg (vl-filename-base (getvar "DWGNAME")))
               (setq *urb-ppto-equiv* (urb:ppto-equiv-read wb))
               (setq final (urb:ppto-match-all raw vocab dwg))
+              ;; snapshot para la previsualizacion dentro del dialogo
+              (setq *urb-ppto-final-prev* final)
               ;; 2b) dialogo SIEMPRE antes de escribir (salvo corridas
               ;; headless con *urb-ppto-sin-dialogo* T): muestra todas las
               ;; vinculaciones, permite asignar/corregir y CANCELAR aborta.
