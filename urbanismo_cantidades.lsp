@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.30.0")
+(setq *urb-version* "4.31.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -164,6 +164,14 @@
 (setq *urb-prefab-dcl-ok* nil)
 (setq *urb-green-dcl-ok* nil)
 (setq *urb-stage-dcl-ok* nil)
+;; dialogos del PRESUPUESTO (v4.31): sin este reset, recargar un LSP con
+;; DCL cambiado reutilizaba el .dcl viejo cacheado en temp
+(setq *urb-ppto-match-dcl-ok* nil)
+(setq *urb-ppto-match2-dcl-okB* nil)
+(setq *urb-ppto-view-dcl-ok* nil)
+(setq *urb-ppto-param-dcl-okB* nil)
+(setq *urb-ppto-prev-dcl-ok* nil)
+(setq *urb-ppto-libro-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -20222,12 +20230,36 @@
     ("POZO PLUVIAL" "ALC-PLUVIAL" ("PROFUNDIDAD" "UNIDAD"))
     ("SUMIDERO" "ALC-PLUVIAL" ("UNIDAD"))))
 
+;; etiquetas legibles de las magnitudes (pedido 2026-08-18: la creacion de
+;; parametros debe leerse como en Revit, no en clave interna)
+(setq *urb-ppto-mag-labels*
+  '(("AREA" "Area (m2)")
+    ("AREA_SIN_SOBREANCHO" "Area sin sobreancho (m2)")
+    ("LONGITUD" "Longitud (ml)")
+    ("CORTE" "Corte de tierra (m3)")
+    ("RELLENO" "Relleno (m3)")
+    ("EXCAVACION" "Excavacion de zanja (m3)")
+    ("PROFUNDIDAD" "Profundidad (m)")
+    ("TOPEROL_ML" "Franja toperol (ml)")
+    ("GUIA_ML" "Franja guia (ml)")
+    ("BORDILLO_ML" "Bordillo (ml)")
+    ("PERIMETRO" "Perimetro (ml)")
+    ("LOSETA_LISA_M2" "Area loseta lisa (m2)")
+    ("LOSETA_LISA_UND" "Losetas lisas (unidades)")
+    ("ADOQUIN_M2" "Area adoquin (m2)")
+    ("ADOQUIN_UND" "Adoquines (unidades)")
+    ("UNIDAD" "Unidad (1 por elemento)")))
+
+(defun urb:ppto-mag-label (code / entry)
+  (setq entry (assoc (strcase (urb:safe-string code "")) *urb-ppto-mag-labels*))
+  (if entry (cadr entry) (urb:safe-string code "?")))
+
 (defun urb:ppto-param-read (wb / ws rng r tipo mag factor act out)
   (setq out nil)
   (setq ws (urb:ppto-find-sheet wb "URB_PARAMETRICAS"))
   (if ws
     (progn
-      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:E200")))
+      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:F200")))
       (setq r 1 tipo "x")
       (while (and (<= r 200) (/= tipo ""))
         (setq tipo (urb:ppto-cell-text rng r 1)
@@ -20243,7 +20275,11 @@
                 act
                 ;; col E: operacion X (multiplicar, default y compatible
                 ;; con lo guardado antes) o D (dividir)
-                (if (= (strcase (urb:ppto-cell-text rng r 5)) "D") "D" "X"))
+                (if (= (strcase (urb:ppto-cell-text rng r 5)) "D") "D" "X")
+                ;; col F: NOMBRE del parametro (estilo Revit; vacio en
+                ;; parametricas guardadas antes de v4.31 -> se muestra la
+                ;; actividad destino)
+                (urb:ppto-cell-text rng r 6))
               out)))
         (setq r (1+ r)))
       (vlax-release-object rng)))
@@ -20262,7 +20298,7 @@
           '(lambda () (vlax-put-property ws 'Name "URB_PARAMETRICAS"))))))
   (if ws
     (progn
-      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:E200")))
+      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:F200")))
       (vl-catch-all-apply '(lambda () (vlax-invoke-method rng 'ClearContents)))
       (setq r 1)
       (foreach item params
@@ -20272,6 +20308,7 @@
         (urb:ppto-put-cell rng r 4 (nth 3 item))
         (urb:ppto-put-cell rng r 5
           (if (= (urb:safe-string (nth 4 item) "X") "D") "D" "X"))
+        (urb:ppto-put-cell rng r 6 (urb:safe-string (nth 5 item) ""))
         (setq r (1+ r)))
       (vlax-release-object rng)
       (vl-catch-all-apply '(lambda () (vlax-put-property ws 'Visible 2)))
@@ -20636,9 +20673,17 @@
     (setq i (1+ i)))
   (if (null target)
     (progn
+      (setq *urb-ppto-vocab-hoja* nil)
       (prompt "\nNo se encontro la hoja de presupuesto (NIVEL/DESCRIPCION/UM).")
       nil)
     (progn
+      ;; nombre de la hoja para mostrarlo en los dialogos (trazabilidad
+      ;; pedida por el usuario 2026-08-18: que se VEA de donde sale todo)
+      (setq *urb-ppto-vocab-hoja*
+        (vl-catch-all-apply
+          '(lambda () (vlax-get-property target 'Name))))
+      (if (vl-catch-all-error-p *urb-ppto-vocab-hoja*)
+        (setq *urb-ppto-vocab-hoja* "?"))
       (setq rng (vlax-get-property target 'Range "A1:E4000"))
       (setq capitulo "" vocab nil empties 0 r 3)
       ;; ademas del vocabulario se guarda el ARBOL completo del ppto
@@ -21437,81 +21482,115 @@
   (if (> dcl 0) (unload_dialog dcl))
   (princ))
 
-;; ---------- dialogo de actividades PARAMETRICAS ----------
+;; ---------- dialogo de actividades PARAMETRICAS (estilo Revit) ----------
+;; Rediseno 2026-08-18 (pedido del usuario: "guiate mucho de la creacion de
+;; parametros de Revit, que uno le podia poner nombre al parametro"): el
+;; parametro tiene NOMBRE propio, las magnitudes se leen en lenguaje normal
+;; ("Franja toperol (ml)"), la formula se arma a la vista mientras se
+;; escoge, y la actividad destino se encuentra con un buscador.
 (defun urb:ppto-write-param-dcl ()
   (urb:write-dialog-dcl
     "urb_ppto_param"
-    '*urb-ppto-param-dcl-ok*
+    '*urb-ppto-param-dcl-okB*
     (list
-      "urb_ppto_param : dialog { label = \"Actividades parametricas (cantidad = magnitud x factor, o magnitud / factor)\";"
-      ": list_box { key = \"lista\"; label = \"Definidas (aplican a TODOS los elementos de ese tipo)\"; width = 110; height = 7; }"
-      ": row { : popup_list { key = \"tipo\"; label = \"Elemento\"; width = 30; } : popup_list { key = \"mag\"; label = \"Magnitud\"; width = 30; } : popup_list { key = \"oper\"; label = \"Operacion\"; width = 16; } : edit_box { key = \"factor\"; label = \"Factor\"; edit_width = 10; } }"
-      ": list_box { key = \"act\"; label = \"Actividad destino del presupuesto (capitulo del elemento)\"; width = 110; height = 10; }"
-      ": row { : button { key = \"agregar\"; label = \"Agregar\"; } : button { key = \"eliminar\"; label = \"Eliminar seleccionada\"; } }"
-      ": text { key = \"pinfo\"; width = 120; }"
+      "urb_ppto_param : dialog { label = \"Parametros de medicion (como en Revit: nombre + formula + actividad)\";"
+      ": list_box { key = \"lista\"; label = \"Parametros definidos (aplican a TODOS los elementos de su tipo)\"; width = 118; height = 6; }"
+      ": boxed_column { label = \"Nuevo parametro\";"
+      ": row { : edit_box { key = \"nombre\"; label = \"1. Nombre\"; edit_width = 32; } : popup_list { key = \"tipo\"; label = \"2. Se mide de cada\"; width = 26; } : popup_list { key = \"mag\"; label = \"3. Magnitud\"; width = 34; } }"
+      ": row { : popup_list { key = \"oper\"; label = \"4. Operacion\"; width = 22; } : edit_box { key = \"factor\"; label = \"5. Factor\"; edit_width = 12; } : text { key = \"formula\"; width = 62; } }"
+      ": edit_box { key = \"fbusca\"; label = \"6. Buscar la actividad del presupuesto que recibe la cantidad\"; edit_width = 40; }"
+      ": list_box { key = \"act\"; label = \"Actividad destino (del capitulo del elemento; filtrada por el buscador)\"; width = 118; height = 9; }"
+      ": row { : button { key = \"agregar\"; label = \"Crear parametro\"; } : button { key = \"eliminar\"; label = \"Eliminar el seleccionado arriba\"; } }"
+      "}"
+      ": text { key = \"pinfo\"; width = 126; }"
       "ok_only; }")))
 
 (defun urb:ppp-tipo (/ idx)
   (setq idx (atoi (get_tile "tipo")))
   (nth idx *urb-ppto-param-tipos*))
 
-(defun urb:ppp-fill-lista (/ p)
+(defun urb:ppp-fill-lista (/ p nombre)
   (start_list "lista")
   (if *urb-ppto-param*
     (foreach p *urb-ppto-param*
+      (setq nombre (urb:safe-string (nth 5 p) ""))
       (add_list
-        (strcat (nth 0 p) " | " (nth 1 p)
+        (strcat
+          (if (/= nombre "") nombre (nth 3 p))
+          "  --  cada " (nth 0 p) ": " (urb:ppto-mag-label (nth 1 p))
           (if (= (urb:safe-string (nth 4 p) "X") "D") " / " " x ")
           (rtos (nth 2 p) 2 4) "  =>  " (nth 3 p))))
-    (add_list "(ninguna definida)"))
+    (add_list "(ninguno definido)"))
   (end_list))
 
 (defun urb:ppp-fill-mag (/ tdef m)
   (setq tdef (urb:ppp-tipo))
   (start_list "mag")
-  (foreach m (nth 2 tdef) (add_list m))
+  (foreach m (nth 2 tdef) (add_list (urb:ppto-mag-label m)))
   (end_list))
 
-(defun urb:ppp-fill-act (/ tdef capitulo entry)
+;; formula en vivo: se actualiza con cada cambio de magnitud/operacion/factor
+(defun urb:ppp-formula (/ tdef mag oper factor)
+  (setq tdef (urb:ppp-tipo))
+  (setq mag (nth (atoi (get_tile "mag")) (nth 2 tdef)))
+  (setq oper (if (= (get_tile "oper") "1") " / " " x "))
+  (setq factor (urb:parse-real (get_tile "factor")))
+  (set_tile "formula"
+    (strcat "Cantidad = " (urb:ppto-mag-label mag) oper
+      (if (and factor (> factor 0.0)) (rtos factor 2 4) "?")
+      "  (por cada " (nth 0 tdef) ")")))
+
+;; la lista de actividades se filtra con el buscador (normalizado: sin
+;; acentos ni mayusculas); *urb-ppp-acts* SIEMPRE refleja lo visible para
+;; que el indice seleccionado apunte a la actividad correcta
+(defun urb:ppp-fill-act (/ tdef capitulo entry filtro)
   (setq tdef (urb:ppp-tipo))
   (setq capitulo (cdr (assoc (nth 1 tdef) *urb-ppto-red-capitulo*)))
+  (setq filtro (urb:ppto-normalize (get_tile "fbusca")))
   (setq *urb-ppp-acts* nil)
   (foreach entry *urb-ppto-vocab*
-    (if (= (nth 0 entry) capitulo)
+    (if (and (= (nth 0 entry) capitulo)
+             (or (= filtro "")
+                 (vl-string-search filtro (urb:ppto-normalize (nth 2 entry)))))
       (setq *urb-ppp-acts* (cons entry *urb-ppp-acts*))))
   (setq *urb-ppp-acts* (reverse *urb-ppp-acts*))
   (start_list "act")
-  (foreach entry *urb-ppp-acts*
-    (add_list (strcat (nth 2 entry) "  [" (nth 1 entry) "]")))
+  (if *urb-ppp-acts*
+    (foreach entry *urb-ppp-acts*
+      (add_list (strcat (nth 2 entry) "  [" (nth 1 entry) "]")))
+    (add_list "(ninguna actividad del capitulo contiene ese texto)"))
   (end_list))
 
-(defun urb:ppp-agregar (/ tdef mags mag factor entry oper)
+(defun urb:ppp-agregar (/ tdef mags mag factor entry oper nombre)
   (setq tdef (urb:ppp-tipo))
   (setq mags (nth 2 tdef))
   (setq mag (nth (atoi (get_tile "mag")) mags))
   (setq oper (if (= (get_tile "oper") "1") "D" "X"))
   (setq factor (urb:parse-real (get_tile "factor")))
   (setq entry (nth (atoi (get_tile "act")) *urb-ppp-acts*))
+  (setq nombre (urb:safe-string (get_tile "nombre") ""))
   (cond
     ((null entry)
-      (set_tile "pinfo" "Seleccione la actividad destino en la lista."))
+      (set_tile "pinfo" "Falta la actividad destino: busquela y seleccionela en la lista."))
     ((or (null factor) (<= factor 0.0))
       (set_tile "pinfo" "El factor debe ser un numero mayor que cero."))
     ((null mag)
       (set_tile "pinfo" "Seleccione la magnitud."))
     (T
+      ;; sin nombre escrito, el parametro se llama como su actividad
+      (if (= nombre "") (setq nombre (nth 2 entry)))
       (setq *urb-ppto-param*
         (append *urb-ppto-param*
-          (list (list (nth 0 tdef) mag factor (nth 2 entry) oper))))
+          (list (list (nth 0 tdef) mag factor (nth 2 entry) oper nombre))))
       (urb:ppto-param-write *urb-ppto-wb* *urb-ppto-param*)
       (setq *urb-ppto-param-dirty* T)
       (urb:ppp-fill-lista)
       (set_tile "pinfo"
-        (strcat "Agregada: cada " (nth 0 tdef) " exportara "
-          mag (if (= oper "D") " / " " x ") (rtos factor 2 4)
-          " a esa actividad. Aplica al Aceptar la exportacion."
-          " Si la magnitud vale 0 hoy (no modelada), la fila aparecera"
-          " cuando exista.")))))
+        (strcat "Creado \"" nombre "\": cada " (nth 0 tdef) " exporta "
+          (urb:ppto-mag-label mag) (if (= oper "D") " / " " x ")
+          (rtos factor 2 4)
+          " a esa actividad. Queda guardado en el libro; si la magnitud"
+          " vale 0 hoy (no modelada aun), la fila aparece cuando exista.")))))
 
 (defun urb:ppp-eliminar (/ idx p)
   (setq idx (atoi (get_tile "lista")))
@@ -21523,8 +21602,8 @@
       (urb:ppto-param-write *urb-ppto-wb* *urb-ppto-param*)
       (setq *urb-ppto-param-dirty* T)
       (urb:ppp-fill-lista)
-      (set_tile "pinfo" "Eliminada. Aplica al Aceptar la exportacion."))
-    (set_tile "pinfo" "Seleccione una fila de la lista de definidas.")))
+      (set_tile "pinfo" "Eliminado. Aplica al Aceptar la exportacion."))
+    (set_tile "pinfo" "Seleccione arriba el parametro definido que quiere eliminar.")))
 
 (defun urb:ppto-param-dialog (/ dcl tdef i pre-idx entry)
   (setq dcl (load_dialog (urb:ppto-write-param-dcl)))
@@ -21535,8 +21614,8 @@
       (end_list)
       (set_tile "tipo" "0")
       (start_list "oper")
-      (add_list "x  multiplicar")
-      (add_list "/  dividir")
+      (add_list "x  multiplicar por el factor")
+      (add_list "/  dividir por el factor")
       (end_list)
       (set_tile "oper" "0")
       (set_tile "factor" "1.0")
@@ -21564,11 +21643,17 @@
             (if (= (nth 2 entry) *urb-ppp-pre-act*)
               (set_tile "act" (itoa i)))
             (setq i (1+ i)))))
+      (urb:ppp-formula)
       (set_tile "pinfo"
-        (strcat "Ej: VIA + AREA x 0.05 = 5 cm por m2 de via."
-          " ANDEN + TOPEROL_ML / 0.20 = unidades de loseta toperol"
-          " (largo de la franja dividido el ancho de la pieza)."))
-      (action_tile "tipo" "(urb:ppp-fill-mag) (urb:ppp-fill-act)")
+        (strcat "Ej: nombre \"Losetas toperol\", de cada ANDEN, magnitud"
+          " Franja toperol (ml), / 0.20 (ancho de la pieza) = unidades."
+          " O \"Riego de liga\", de cada VIA, Area (m2) x 0.05."))
+      (action_tile "tipo"
+        "(urb:ppp-fill-mag) (urb:ppp-fill-act) (urb:ppp-formula)")
+      (action_tile "mag" "(urb:ppp-formula)")
+      (action_tile "oper" "(urb:ppp-formula)")
+      (action_tile "factor" "(urb:ppp-formula)")
+      (action_tile "fbusca" "(urb:ppp-fill-act)")
       (action_tile "agregar" "(urb:ppp-agregar)")
       (action_tile "eliminar" "(urb:ppp-eliminar)")
       (start_dialog)))
@@ -21725,6 +21810,139 @@
   (if (> dcl 0) (unload_dialog dcl))
   done)
 
+;; ---------- previsualizacion en el NAVEGADOR (2026-08-18) ----------
+;; DCL no puede dibujar lineas de tabla ni colorear encabezados (pedido del
+;; usuario tras ver la lista "desordenada"), asi que la previsualizacion se
+;; genera como pagina HTML autonoma y se abre en el navegador por defecto:
+;; tabla real con bordes, encabezado azul, filas cebra, orden por clic en
+;; el encabezado, buscador, filtro por red y desplegable de columnas.
+;; Es solo VISTA: cerrarla no toca nada; el libro se escribe al Aceptar.
+(defun urb:ppto-html-esc (s / out i c)
+  (setq s (urb:safe-string s "") out "" i 1)
+  (while (<= i (strlen s))
+    (setq c (substr s i 1))
+    (setq out
+      (strcat out
+        (cond ((= c "&") "&amp;") ((= c "<") "&lt;")
+              ((= c ">") "&gt;") (T c))))
+    (setq i (1+ i)))
+  out)
+
+(defun urb:ppto-prev-html (/ file f reds fila clave d celda linea i n h)
+  (setq file (urb:temp-file "urb_ppto_preview" ".html"))
+  (setq f (open file "w"))
+  (if (null f)
+    nil
+    (progn
+      (setq reds nil)
+      (if (boundp '*urb-ppto-final-prev*)
+        (foreach fila *urb-ppto-final-prev*
+          (if (not (member (nth 0 fila) reds))
+            (setq reds (append reds (list (nth 0 fila)))))))
+      (write-line "<!doctype html>" f)
+      (write-line "<html><head><meta charset='windows-1252'>" f)
+      (write-line "<title>Previsualizacion exportacion al presupuesto</title>" f)
+      (write-line "<style>" f)
+      (write-line "body{font-family:'Segoe UI',Arial,sans-serif;margin:0;background:#f4f6f9;color:#1c2733;}" f)
+      (write-line "#top{background:#1f4e79;color:#fff;padding:10px 16px;}" f)
+      (write-line "#top h1{font-size:17px;margin:0 0 4px 0;}" f)
+      (write-line "#top .sub{font-size:12px;color:#cfe0f0;}" f)
+      (write-line "#bar{background:#fff;border-bottom:2px solid #1f4e79;padding:8px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;}" f)
+      (write-line "#bar label{font-size:13px;}" f)
+      (write-line "#bar input,#bar select{padding:4px 6px;border:1px solid #9db4c8;border-radius:3px;font-size:13px;}" f)
+      (write-line "#count{font-size:13px;font-weight:600;color:#1f4e79;margin-left:auto;}" f)
+      (write-line "details{position:relative;font-size:13px;}" f)
+      (write-line "summary{cursor:pointer;padding:4px 10px;border:1px solid #9db4c8;border-radius:3px;background:#eef3f8;user-select:none;}" f)
+      (write-line "details div{position:absolute;top:110%;left:0;background:#fff;border:1px solid #9db4c8;border-radius:4px;box-shadow:0 4px 14px rgba(0,0,0,.18);padding:8px 12px;z-index:5;white-space:nowrap;}" f)
+      (write-line "details div label{display:block;padding:2px 0;font-size:13px;}" f)
+      (write-line "table{border-collapse:collapse;width:100%;font-size:12.5px;background:#fff;}" f)
+      (write-line "th{background:#2e6da4;color:#fff;padding:6px 9px;text-align:left;cursor:pointer;position:sticky;top:0;border:1px solid #245a8c;white-space:nowrap;}" f)
+      (write-line "th:hover{background:#1f4e79;}" f)
+      (write-line "td{border:1px solid #d4dde6;padding:4px 9px;}" f)
+      (write-line "tbody tr:nth-child(even) td{background:#eef3f8;}" f)
+      (write-line "td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;}" f)
+      (write-line ".h{display:none;}" f)
+      (write-line "</style></head><body>" f)
+      (write-line "<div id='top'><h1>Filas que se escribiran en TablaMemorias</h1>" f)
+      (write-line
+        (strcat "<div class='sub'>Plano: "
+          (urb:ppto-html-esc (getvar "DWGNAME"))
+          "&nbsp;&nbsp;|&nbsp;&nbsp;Libro: "
+          (urb:ppto-html-esc
+            (if (and (boundp '*urb-ppto-path*) *urb-ppto-path*)
+              (strcat (vl-filename-base *urb-ppto-path*)
+                (urb:safe-string (vl-filename-extension *urb-ppto-path*) ""))
+              "?"))
+          "&nbsp;&nbsp;|&nbsp;&nbsp;Esta pagina es solo VISTA: para escribir"
+          " al libro vuelva a Civil 3D y pulse Aceptar."
+          " Ordene con clic en el encabezado.</div></div>") f)
+      (write-line "<div id='bar'>" f)
+      (write-line "<label>Buscar: <input id='q' oninput='flt()' placeholder='texto en cualquier columna'></label>" f)
+      (write-line "<label>Red: <select id='fred' onchange='flt()'>" f)
+      (write-line "<option>TODAS</option>" f)
+      (foreach linea reds
+        (write-line
+          (strcat "<option>" (urb:ppto-html-esc linea) "</option>") f))
+      (write-line "</select></label>" f)
+      (write-line "<details><summary>Columnas &#9662;</summary><div>" f)
+      (setq i 0)
+      (foreach h *urb-ppto-prev-heads*
+        (write-line
+          (strcat "<label><input type='checkbox' "
+            (if (member i '(3 4 5 10 11)) "" "checked ")
+            "onchange='tc(" (itoa i) ",this.checked)'> " h "</label>") f)
+        (setq i (1+ i)))
+      (write-line "</div></details>" f)
+      (write-line "<span id='count'></span>" f)
+      (write-line "</div>" f)
+      (write-line "<table id='t'><thead><tr>" f)
+      (setq i 0)
+      (foreach h *urb-ppto-prev-heads*
+        (write-line
+          (strcat "<th onclick='srt(" (itoa i) ")'>" h "</th>") f)
+        (setq i (1+ i)))
+      (write-line "</tr></thead><tbody>" f)
+      (setq n 0)
+      (if (boundp '*urb-ppto-final-prev*)
+        (foreach fila *urb-ppto-final-prev*
+          (setq n (1+ n))
+          (setq clave (urb:ppto-equiv-key (nth 0 fila) (nth 1 fila)))
+          (setq d
+            (if (boundp '*urb-pmd-decisions*)
+              (cdr (assoc clave *urb-pmd-decisions*)) nil))
+          (setq linea "<tr>" i 0)
+          (repeat 12
+            (setq celda
+              (cond
+                ((and (= i 2) d) d)
+                ((numberp (nth i fila)) (rtos (nth i fila) 2 3))
+                (T (urb:safe-string (nth i fila) ""))))
+            (setq linea
+              (strcat linea
+                (if (= i 9) "<td class='num'>" "<td>")
+                (urb:ppto-html-esc celda) "</td>"))
+            (setq i (1+ i)))
+          (write-line (strcat linea "</tr>") f)))
+      (write-line "</tbody></table>" f)
+      (write-line "<script>" f)
+      (write-line "var T=document.getElementById('t');" f)
+      (write-line "function rows(){return Array.prototype.slice.call(T.tBodies[0].rows);}" f)
+      (write-line "function flt(){var q=document.getElementById('q').value.toLowerCase();var r=document.getElementById('fred').value;var n=0;rows().forEach(function(tr){var ok=(r=='TODAS'||tr.cells[0].textContent==r)&&(q==''||tr.textContent.toLowerCase().indexOf(q)>=0);tr.style.display=ok?'':'none';if(ok)n++;});document.getElementById('count').textContent='Mostrando '+n+' de '+rows().length+' filas';}" f)
+      (write-line "function tc(i,on){var all=T.rows;for(var k=0;k<all.length;k++){var c=all[k].cells[i];if(c)c.classList.toggle('h',!on);}}" f)
+      (write-line "var dir={};" f)
+      (write-line "function srt(i){var rs=rows();var d=dir[i]=!dir[i];rs.sort(function(a,b){var x=a.cells[i].textContent,y=b.cells[i].textContent;var nx=parseFloat(x),ny=parseFloat(y);if(!isNaN(nx)&&!isNaN(ny))return d?nx-ny:ny-nx;return d?x.localeCompare(y):y.localeCompare(x);});rs.forEach(function(r){T.tBodies[0].appendChild(r);});}" f)
+      (write-line "[3,4,5,10,11].forEach(function(i){tc(i,false);});" f)
+      (write-line "flt();" f)
+      (write-line "</script></body></html>" f)
+      (close f)
+      file)))
+
+(defun urb:ppto-prev-abrir (/ file)
+  (setq file (urb:ppto-prev-html))
+  (if file
+    (progn (startapp "explorer" (strcat "\"" file "\"")) file)
+    nil))
+
 ;; ---------- dialogo PRINCIPAL sobre el ARBOL del presupuesto ----------
 ;; (rediseno 2026-08-18 pedido del usuario tras validar la vista en vivo):
 ;; a la izquierda el presupuesto completo (codigos, niveles, unidades) con
@@ -21735,9 +21953,10 @@
 (defun urb:ppto-write-match2-dcl ()
   (urb:write-dialog-dcl
     "urb_ppto_match2"
-    '*urb-ppto-match2-dcl-ok*
+    '*urb-ppto-match2-dcl-okB*
     (list
       "urb_ppto_match2 : dialog { label = \"Vinculacion con el presupuesto\";"
+      ": text { key = \"libro\"; width = 130; }"
       ": text { key = \"info1\"; width = 130; }"
       ": row {"
       ": list_box { key = \"arbol\"; label = \"Presupuesto: codigo | actividad [unidad]\"; width = 76; height = 21; }"
@@ -21746,7 +21965,7 @@
       ": list_box { key = \"cand\"; label = \"Conceptos del plano disponibles (misma unidad)\"; width = 56; height = 8; }"
       "}"
       "}"
-      ": row { : button { key = \"asignar\"; label = \"Asignar concepto\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : button { key = \"param\"; label = \"Nueva parametrica aqui\"; } : button { key = \"prever\"; label = \"Previsualizar exportacion\"; } }"
+      ": row { : button { key = \"asignar\"; label = \"Asignar concepto\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : button { key = \"param\"; label = \"Nueva parametrica aqui\"; } : button { key = \"prever\"; label = \"Previsualizar (navegador)\"; } : button { key = \"actualizar\"; label = \"ACTUALIZAR del modelo\"; } }"
       ": text { key = \"estado\"; width = 130; }"
       ": text { label = \"Aceptar = exportar al libro. Cancelar = NO exportar nada. Lo asignado queda guardado dentro del libro.\"; }"
       "ok_cancel; }")))
@@ -21894,6 +22113,20 @@
       (setq pendientes 0)
       (foreach m *urb-ppto-matches*
         (if (= (nth 4 m) "PENDIENTE") (setq pendientes (1+ pendientes))))
+      ;; trazabilidad (pedido 2026-08-18): que se VEA que libro, que tabla
+      ;; y que hoja de presupuesto estan detras de esta corrida
+      (set_tile "libro"
+        (strcat "Libro: "
+          (if (and (boundp '*urb-ppto-path*) *urb-ppto-path*)
+            (strcat (vl-filename-base *urb-ppto-path*)
+              (urb:safe-string (vl-filename-extension *urb-ppto-path*) ""))
+            "?")
+          "  |  Se escribe en: hoja MEMORIAS, tabla TablaMemorias"
+          "  |  Presupuesto leido: hoja \""
+          (urb:safe-string
+            (if (boundp '*urb-ppto-vocab-hoja*) *urb-ppto-vocab-hoja* "?") "?")
+          "\" (" (itoa (length vocab)) " actividades)"
+          "  |  Cambiarlo: icono Excel > Vincular libro."))
       (set_tile "info1"
         (strcat "Las actividades con <== PLANO ya reciben cantidades. "
           (if (> pendientes 0)
@@ -21907,10 +22140,14 @@
       (action_tile "asignar" "(urb:pm2-asignar (atoi (get_tile \"cand\")))")
       (action_tile "quitar" "(urb:pm2-quitar (atoi (get_tile \"cand\")))")
       (action_tile "param" "(urb:pm2-parametrica)")
-      ;; ACTUALIZAR desde la previsualizacion: cierra los dos dialogos con
-      ;; status 3 -> el run regenera las filas del modelo y reabre.
+      ;; previsualizacion: se genera la pagina HTML y se abre en el
+      ;; navegador SIN cerrar este dialogo (es solo vista)
       (action_tile "prever"
-        "(if (= 3 (urb:ppto-prev-dialog)) (done_dialog 3))")
+        "(if (urb:ppto-prev-abrir) (set_tile \"estado\" (strcat \"Previsualizacion abierta en el navegador (\" (itoa (length *urb-ppto-final-prev*)) \" filas). Refleja las asignaciones de esta sesion; parametricas nuevas y elementos recien modelados entran con ACTUALIZAR.\")) (set_tile \"estado\" \"No se pudo generar la pagina de previsualizacion.\"))")
+      ;; ACTUALIZAR: cierra con status 3 -> urb:ppto-run re-mide el MODELO
+      ;; (elementos nuevos), rehace el match conservando las asignaciones
+      ;; de la sesion y reabre este dialogo.
+      (action_tile "actualizar" "(done_dialog 3)")
       (setq done (start_dialog))))
   (if (> dcl 0) (unload_dialog dcl))
   (cond
@@ -21984,6 +22221,14 @@
                 (progn
                   (prompt
                     "\nExportacion CANCELADA: no se escribio nada en el libro.")
+                  (if (not (and (boundp '*urb-ppto-sin-dialogo*)
+                                *urb-ppto-sin-dialogo*))
+                    (alert
+                      (strcat "Exportacion CANCELADA."
+                        "\n\nNO se escribio nada en el libro."
+                        "\nLas asignaciones que ya habia guardadas en el"
+                        "\nlibro se conservan; las nuevas de esta sesion"
+                        "\nse descartaron.")))
                   (setq *urb-ppto-last-summary*
                     (list 'CANCELADO-POR-USUARIO)))
                 (progn
@@ -22060,7 +22305,36 @@
                           'errores-items (length *urb-ppto-item-errs*)
                           'primer-error
                           (if *urb-ppto-item-errs*
-                            (nth 2 (car *urb-ppto-item-errs*)) "ninguno"))))))
+                            (nth 2 (car *urb-ppto-item-errs*)) "ninguno")))
+                  ;; confirmacion VISIBLE (pedido 2026-08-18: "no me bota
+                  ;; ningun mensaje de si quedo bien o mal")
+                  (if (not (and (boundp '*urb-ppto-sin-dialogo*)
+                                *urb-ppto-sin-dialogo*))
+                    (alert
+                      (strcat
+                        (if (vl-catch-all-error-p result)
+                          "EXPORTACION ESCRITA pero el libro NO SE PUDO GUARDAR (cierrelo si esta abierto y reintente)."
+                          "EXPORTACION CORRECTA: libro guardado.")
+                        "\n\nLibro: "
+                        (if (and (boundp '*urb-ppto-path*) *urb-ppto-path*)
+                          (strcat (vl-filename-base *urb-ppto-path*)
+                            (urb:safe-string
+                              (vl-filename-extension *urb-ppto-path*) ""))
+                          "?")
+                        "\nFilas escritas en TablaMemorias: "
+                        (itoa (length final))
+                        "\nReemplazaron " (itoa borradas)
+                        " fila(s) anteriores de este mismo plano (" dwg ")."
+                        "\nHuerfanas [SIN MATCH] (escritas pero NO suman): "
+                        (itoa (length huerfanas))
+                        (if *urb-ppto-item-errs*
+                          (strcat "\nOJO: "
+                            (itoa (length *urb-ppto-item-errs*))
+                            " fila(s) con error interno NO exportadas"
+                            " (detalle en la linea de comandos).")
+                          "")
+                        "\n\nLas asignaciones y parametricas quedaron"
+                        "\nguardadas DENTRO del libro."))))))
     (setq *urb-ppto-last-summary*
       (list 'SIN-TABLA-O-VOCAB
         (if lo 'tabla-ok 'sin-tabla)
@@ -22082,13 +22356,19 @@
     ((null (findfile path))
       (prompt (strcat "\nNo existe el libro: " path)))
     (T
+      (setq *urb-ppto-path* path)
       (setq attach (urb:ppto-attach-excel path)
             app (nth 0 attach) wb (nth 1 attach) propia (nth 2 attach))
       (if (null wb)
         (progn
           (setq *urb-ppto-last-summary*
             (list 'SIN-EXCEL (urb:safe-string (nth 2 attach) "?")))
-          (prompt (strcat "\n" (urb:safe-string (nth 2 attach) "Sin Excel."))))
+          (prompt (strcat "\n" (urb:safe-string (nth 2 attach) "Sin Excel.")))
+          (if (not (and (boundp '*urb-ppto-sin-dialogo*)
+                        *urb-ppto-sin-dialogo*))
+            (alert
+              (strcat "NO se pudo abrir el libro del presupuesto:\n\n"
+                (urb:safe-string (nth 2 attach) "Sin Excel.")))))
         (progn
           ;; el nucleo va envuelto: pase lo que pase, la instancia PROPIA
           ;; de Excel se cierra (sin esto, un error dejaba un EXCEL
@@ -22108,7 +22388,168 @@
                   'etapa (urb:safe-string *urb-ppto-stage* "?")))
               (prompt (strcat "\nERROR EN EXPORTACION: "
                 (vl-catch-all-error-message result)
-                " -- revise y reintente (el libro pudo quedar sin guardar)."))))))))
+                " -- revise y reintente (el libro pudo quedar sin guardar)."))
+              (if (not (and (boundp '*urb-ppto-sin-dialogo*)
+                            *urb-ppto-sin-dialogo*))
+                (alert
+                  (strcat "ERROR EN LA EXPORTACION (etapa: "
+                    (urb:safe-string *urb-ppto-stage* "?") "):\n\n"
+                    (vl-catch-all-error-message result)
+                    "\n\nNo se dio por buena: el libro pudo quedar sin"
+                    "\nguardar. Revise y reintente.")))))))))
+  (princ))
+
+;; ---------- gestion VISIBLE del vinculo con el libro (2026-08-18) ----------
+;; Pedido del usuario: "como se que presupuesto esta vinculado, en que hoja
+;; o tabla esta... quiero ver todos esos datos y si quiero cambiar el libro
+;; que me deje". PPTOLIBRO abre un dialogo que valida el libro configurado
+;; en este PC y muestra: ruta, tabla de escritura, hoja del presupuesto con
+;; su numero de actividades, y cuantas asignaciones/parametricas viven
+;; guardadas dentro del libro. Desde ahi se cambia o desvincula.
+;; Desvincular SOLO borra la ruta recordada en este PC (%APPDATA%): el
+;; libro conserva intactos su tabla MEMORIAS, las asignaciones (hoja
+;; URB_EQUIVALENCIAS) y las parametricas (URB_PARAMETRICAS).
+(defun urb:ppto-libro-info (path / attach app wb propia lo filas vocab
+                            equiv params lineas result)
+  ;; valida ABRIENDO el libro (instancia propia oculta si hace falta) y
+  ;; devuelve la lista de lineas de estado; nunca deja Excel huerfano
+  (setq attach (urb:ppto-attach-excel path)
+        app (nth 0 attach) wb (nth 1 attach) propia (nth 2 attach))
+  (if (null wb)
+    (list (strcat "PROBLEMA al abrir el libro: "
+            (urb:safe-string (nth 2 attach) "?")))
+    (progn
+      (setq result
+        (vl-catch-all-apply
+          '(lambda ()
+            (setq lo (urb:ppto-memorias-table wb))
+            (setq filas
+              (if lo
+                (vl-catch-all-apply
+                  '(lambda ()
+                    (vlax-get-property
+                      (vlax-get-property lo 'ListRows) 'Count)))
+                nil))
+            (if (vl-catch-all-error-p filas) (setq filas nil))
+            (setq vocab (urb:ppto-read-vocab wb))
+            (setq equiv (urb:ppto-equiv-read wb))
+            (setq params (urb:ppto-param-read wb))
+            (setq lineas
+              (list
+                (if lo
+                  (strcat "Tabla de escritura: hoja MEMORIAS, tabla"
+                    " TablaMemorias -- OK"
+                    (if filas
+                      (strcat " (" (itoa filas) " fila(s) exportadas hoy)")
+                      ""))
+                  "PROBLEMA: no se valido la tabla MEMORIAS/TablaMemorias (detalle en la linea de comandos).")
+                (if vocab
+                  (strcat "Presupuesto leido: hoja \""
+                    (urb:safe-string *urb-ppto-vocab-hoja* "?")
+                    "\" con " (itoa (length vocab))
+                    " actividades (encabezados NIVEL/DESCRIPCION/UM).")
+                  "PROBLEMA: ninguna hoja tiene encabezados NIVEL/DESCRIPCION/UM (no hay presupuesto que leer).")
+                (strcat "Guardado dentro del libro: "
+                  (itoa (length equiv)) " asignacion(es) manual(es) y "
+                  (itoa (length params)) " parametrica(s).")))
+            T)))
+      (if propia
+        (progn
+          (vl-catch-all-apply
+            '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
+          (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
+          (vlax-release-object wb)
+          (vlax-release-object app)))
+      (if (vl-catch-all-error-p result)
+        (list (strcat "PROBLEMA validando el libro: "
+                (vl-catch-all-error-message result)))
+        lineas))))
+
+(defun urb:ppto-write-libro-dcl ()
+  (urb:write-dialog-dcl
+    "urb_ppto_libro"
+    '*urb-ppto-libro-dcl-ok*
+    (list
+      "urb_ppto_libro : dialog { label = \"Libro del presupuesto vinculado en este PC\";"
+      ": text { key = \"ruta\"; width = 130; }"
+      ": text { key = \"l1\"; width = 130; }"
+      ": text { key = \"l2\"; width = 130; }"
+      ": text { key = \"l3\"; width = 130; }"
+      ": text { label = \"Desvincular solo hace que este PC olvide la ruta: el libro conserva su tabla MEMORIAS,\"; }"
+      ": text { label = \"las asignaciones y las parametricas (viven dentro del archivo y viajan con el).\"; }"
+      ": row { : button { key = \"cambiar\"; label = \"Cambiar libro...\"; } : button { key = \"desvincular\"; label = \"Desvincular este PC\"; } }"
+      "ok_only; }")))
+
+(defun urb:ppto-libro-dialog (path lineas / dcl done)
+  (setq done 0)
+  (setq dcl (load_dialog (urb:ppto-write-libro-dcl)))
+  (if (and (> dcl 0) (new_dialog "urb_ppto_libro" dcl))
+    (progn
+      (set_tile "ruta"
+        (if (= path "") "SIN LIBRO VINCULADO en este PC."
+          (strcat "Libro: " path)))
+      (set_tile "l1" (urb:safe-string (nth 0 lineas) ""))
+      (set_tile "l2" (urb:safe-string (nth 1 lineas) ""))
+      (set_tile "l3" (urb:safe-string (nth 2 lineas) ""))
+      (action_tile "cambiar" "(done_dialog 2)")
+      (action_tile "desvincular" "(done_dialog 3)")
+      (setq done (start_dialog))))
+  (if (> dcl 0) (unload_dialog dcl))
+  done)
+
+(defun c:PPTOLIBRO (/ path lineas done nuevo seguir)
+  (vl-load-com)
+  (setq seguir T)
+  (while seguir
+    (setq path (urb:ppto-config-read))
+    (setq lineas
+      (cond
+        ((= path "")
+          (list "Use \"Cambiar libro...\" para elegir el archivo de Excel del presupuesto." "" ""))
+        ((null (findfile path))
+          (list "PROBLEMA: el archivo configurado NO existe en esa ruta." "" ""))
+        (T
+          (prompt "\nValidando el libro (se abre un Excel oculto un momento)...")
+          (urb:ppto-libro-info path))))
+    (setq done (urb:ppto-libro-dialog path lineas))
+    (cond
+      ((= done 2)
+        (setq nuevo
+          (getfiled "Seleccione el libro del presupuesto (Excel)"
+            (if (/= path "") path "") "xlsx;xlsm" 0))
+        (if nuevo
+          (progn
+            (urb:ppto-config-write nuevo)
+            (prompt (strcat "\nLibro vinculado en este PC: " nuevo))))
+        ;; el bucle reabre el dialogo mostrando la validacion del nuevo
+        )
+      ((= done 3)
+        (urb:ppto-config-write "")
+        (prompt "\nLibro DESVINCULADO de este PC (el archivo no se toco).")
+        (alert
+          (strcat "Libro desvinculado de este PC."
+            "\n\nEl archivo de Excel NO se modifico: conserva su tabla"
+            "\nMEMORIAS, las asignaciones y las parametricas."
+            "\nAl volver a vincularlo (o vincular otro libro) todo"
+            "\nfunciona igual, porque eso vive dentro del archivo."))
+        (setq seguir nil))
+      (T (setq seguir nil))))
+  (princ))
+
+;; acceso directo al desvinculo desde la cinta (mismo efecto que el boton
+;; "Desvincular este PC" de PPTOLIBRO, con la misma explicacion)
+(defun c:PPTODESVINCULAR (/ path)
+  (setq path (urb:ppto-config-read))
+  (if (= path "")
+    (alert "Este PC no tiene libro del presupuesto vinculado.")
+    (progn
+      (urb:ppto-config-write "")
+      (prompt (strcat "\nLibro DESVINCULADO de este PC: " path))
+      (alert
+        (strcat "Libro desvinculado de este PC:\n" path
+          "\n\nEl archivo de Excel NO se modifico: conserva su tabla"
+          "\nMEMORIAS, las asignaciones y las parametricas."
+          "\nAl volver a vincularlo todo funciona igual."))))
   (princ))
 
 (defun urb:unique-enames (entities / result ename)
