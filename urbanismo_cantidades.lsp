@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.29.1")
+(setq *urb-version* "4.30.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20208,7 +20208,8 @@
   '(("VIA" "VIA"
       ("AREA" "AREA_SIN_SOBREANCHO" "LONGITUD" "CORTE" "RELLENO" "UNIDAD"))
     ("ANDEN" "ANDEN"
-      ("AREA" "TOPEROL_ML" "GUIA_ML" "PERIMETRO" "UNIDAD"))
+      ("AREA" "TOPEROL_ML" "GUIA_ML" "PERIMETRO" "LOSETA_LISA_M2"
+       "LOSETA_LISA_UND" "ADOQUIN_M2" "ADOQUIN_UND" "UNIDAD"))
     ("RAMPA" "RAMPA-PEATONAL"
       ("AREA" "TOPEROL_ML" "BORDILLO_ML" "UNIDAD"))
     ("SARDINEL" "VIA" ("LONGITUD" "UNIDAD"))
@@ -20226,7 +20227,7 @@
   (setq ws (urb:ppto-find-sheet wb "URB_PARAMETRICAS"))
   (if ws
     (progn
-      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:D200")))
+      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:E200")))
       (setq r 1 tipo "x")
       (while (and (<= r 200) (/= tipo ""))
         (setq tipo (urb:ppto-cell-text rng r 1)
@@ -20239,7 +20240,10 @@
               (list (strcase tipo) (strcase mag)
                 (if (numberp factor) factor
                   (atof (urb:safe-string factor "1")))
-                act)
+                act
+                ;; col E: operacion X (multiplicar, default y compatible
+                ;; con lo guardado antes) o D (dividir)
+                (if (= (strcase (urb:ppto-cell-text rng r 5)) "D") "D" "X"))
               out)))
         (setq r (1+ r)))
       (vlax-release-object rng)))
@@ -20258,7 +20262,7 @@
           '(lambda () (vlax-put-property ws 'Name "URB_PARAMETRICAS"))))))
   (if ws
     (progn
-      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:D200")))
+      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:E200")))
       (vl-catch-all-apply '(lambda () (vlax-invoke-method rng 'ClearContents)))
       (setq r 1)
       (foreach item params
@@ -20266,6 +20270,8 @@
         (urb:ppto-put-cell rng r 2 (nth 1 item))
         (urb:ppto-put-cell rng r 3 (nth 2 item))
         (urb:ppto-put-cell rng r 4 (nth 3 item))
+        (urb:ppto-put-cell rng r 5
+          (if (= (urb:safe-string (nth 4 item) "X") "D") "D" "X"))
         (setq r (1+ r)))
       (vlax-release-object rng)
       (vl-catch-all-apply '(lambda () (vlax-put-property ws 'Visible 2)))
@@ -20288,10 +20294,16 @@
     (foreach p *urb-ppto-param*
       (if (= (nth 0 p) tipo)
         (progn
+          ;; operacion: X = magnitud x factor; D = magnitud / factor
+          ;; (ej. loseta toperol UN = TOPEROL_ML / 0.20 de ancho de pieza)
           (setq qty
-            (* (nth 2 p)
-              (if (cdr (assoc (nth 1 p) mags))
-                (cdr (assoc (nth 1 p) mags)) 0.0)))
+            (if (cdr (assoc (nth 1 p) mags))
+              (cdr (assoc (nth 1 p) mags)) 0.0))
+          (setq qty
+            (if (and (= (urb:safe-string (nth 4 p) "X") "D")
+                     (> (nth 2 p) 0.0))
+              (/ qty (nth 2 p))
+              (* qty (nth 2 p))))
           (setq um (urb:ppto-param-um red (nth 3 p)))
           (if (= um "") (setq um "?"))
           (setq fila
@@ -20755,7 +20767,7 @@
   out)
 
 (defun urb:ppto-rows-andenes (/ ss i be d atts area material etapa sub handle
-                              corte relleno rows out r)
+                              corte relleno loseta-und adoq-und rows out r)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) out nil i 0)
   (if ss
     (repeat (sslength ss)
@@ -20794,15 +20806,31 @@
             "" "" "" etapa sub "M2" area handle)
           (urb:ppto-row "ANDEN" "M.O. instalacion de adoquin y tabletas"
             "" "" "" etapa sub "M2" area handle)))
+      ;; acabados: PRIMERO los conteos reales guardados al crear el anden
+      ;; (permiten andenes mixtos adoquin+loseta); factores de area solo
+      ;; como respaldo de bloques viejos sin esos atributos
+      (setq loseta-und (atof (urb:safe-string
+        (cdr (assoc "LOSETA_LISA_UND" atts)) "0")))
+      (setq adoq-und (atof (urb:safe-string
+        (cdr (assoc "ADOQUIN_20X10_UND" atts)) "0")))
       (cond
-        ((wcmatch material "*ADOQUIN*")
+        ((> loseta-und 0.0)
           (setq rows
-            (cons (urb:ppto-row "ANDEN" "Adoquin gris 10x20x6"
-              "" "" "" etapa sub "UN" (* area 50.0) handle) rows)))
+            (cons (urb:ppto-row "ANDEN" "Loseta lisa 20x20x6"
+              "" "" "" etapa sub "UN" loseta-und handle) rows)))
         ((wcmatch material "*LOSETA*")
           (setq rows
             (cons (urb:ppto-row "ANDEN" "Loseta lisa 20x20x6"
               "" "" "" etapa sub "UN" (* area 25.0) handle) rows))))
+      (cond
+        ((> adoq-und 0.0)
+          (setq rows
+            (cons (urb:ppto-row "ANDEN" "Adoquin gris 10x20x6"
+              "" "" "" etapa sub "UN" adoq-und handle) rows)))
+        ((wcmatch material "*ADOQUIN*")
+          (setq rows
+            (cons (urb:ppto-row "ANDEN" "Adoquin gris 10x20x6"
+              "" "" "" etapa sub "UN" (* area 50.0) handle) rows))))
       (setq rows
         (append rows
           (urb:ppto-param-rows "ANDEN" "ANDEN"
@@ -20816,6 +20844,14 @@
               (cons "PERIMETRO"
                 (atof (urb:safe-string
                   (cdr (assoc "PERIMETRO_M" atts)) "0")))
+              (cons "LOSETA_LISA_M2"
+                (atof (urb:safe-string
+                  (cdr (assoc "LOSETA_LISA_M2" atts)) "0")))
+              (cons "LOSETA_LISA_UND" loseta-und)
+              (cons "ADOQUIN_M2"
+                (atof (urb:safe-string
+                  (cdr (assoc "ADOQUIN_20X10_M2" atts)) "0")))
+              (cons "ADOQUIN_UND" adoq-und)
               (cons "UNIDAD" 1.0))
             "" "" "" etapa sub handle)))
       (foreach r rows (if r (setq out (cons r out))))
@@ -21407,9 +21443,9 @@
     "urb_ppto_param"
     '*urb-ppto-param-dcl-ok*
     (list
-      "urb_ppto_param : dialog { label = \"Actividades parametricas (cantidad = magnitud x factor)\";"
+      "urb_ppto_param : dialog { label = \"Actividades parametricas (cantidad = magnitud x factor, o magnitud / factor)\";"
       ": list_box { key = \"lista\"; label = \"Definidas (aplican a TODOS los elementos de ese tipo)\"; width = 110; height = 7; }"
-      ": row { : popup_list { key = \"tipo\"; label = \"Elemento\"; width = 34; } : popup_list { key = \"mag\"; label = \"Magnitud\"; width = 34; } : edit_box { key = \"factor\"; label = \"Factor\"; edit_width = 10; } }"
+      ": row { : popup_list { key = \"tipo\"; label = \"Elemento\"; width = 30; } : popup_list { key = \"mag\"; label = \"Magnitud\"; width = 30; } : popup_list { key = \"oper\"; label = \"Operacion\"; width = 16; } : edit_box { key = \"factor\"; label = \"Factor\"; edit_width = 10; } }"
       ": list_box { key = \"act\"; label = \"Actividad destino del presupuesto (capitulo del elemento)\"; width = 110; height = 10; }"
       ": row { : button { key = \"agregar\"; label = \"Agregar\"; } : button { key = \"eliminar\"; label = \"Eliminar seleccionada\"; } }"
       ": text { key = \"pinfo\"; width = 120; }"
@@ -21424,7 +21460,8 @@
   (if *urb-ppto-param*
     (foreach p *urb-ppto-param*
       (add_list
-        (strcat (nth 0 p) " | " (nth 1 p) " x "
+        (strcat (nth 0 p) " | " (nth 1 p)
+          (if (= (urb:safe-string (nth 4 p) "X") "D") " / " " x ")
           (rtos (nth 2 p) 2 4) "  =>  " (nth 3 p))))
     (add_list "(ninguna definida)"))
   (end_list))
@@ -21448,10 +21485,11 @@
     (add_list (strcat (nth 2 entry) "  [" (nth 1 entry) "]")))
   (end_list))
 
-(defun urb:ppp-agregar (/ tdef mags mag factor entry)
+(defun urb:ppp-agregar (/ tdef mags mag factor entry oper)
   (setq tdef (urb:ppp-tipo))
   (setq mags (nth 2 tdef))
   (setq mag (nth (atoi (get_tile "mag")) mags))
+  (setq oper (if (= (get_tile "oper") "1") "D" "X"))
   (setq factor (urb:parse-real (get_tile "factor")))
   (setq entry (nth (atoi (get_tile "act")) *urb-ppp-acts*))
   (cond
@@ -21464,14 +21502,16 @@
     (T
       (setq *urb-ppto-param*
         (append *urb-ppto-param*
-          (list (list (nth 0 tdef) mag factor (nth 2 entry)))))
+          (list (list (nth 0 tdef) mag factor (nth 2 entry) oper))))
       (urb:ppto-param-write *urb-ppto-wb* *urb-ppto-param*)
       (setq *urb-ppto-param-dirty* T)
       (urb:ppp-fill-lista)
       (set_tile "pinfo"
         (strcat "Agregada: cada " (nth 0 tdef) " exportara "
-          mag " x " (rtos factor 2 4) " a esa actividad."
-          " Aplica al Aceptar la exportacion.")))))
+          mag (if (= oper "D") " / " " x ") (rtos factor 2 4)
+          " a esa actividad. Aplica al Aceptar la exportacion."
+          " Si la magnitud vale 0 hoy (no modelada), la fila aparecera"
+          " cuando exista.")))))
 
 (defun urb:ppp-eliminar (/ idx p)
   (setq idx (atoi (get_tile "lista")))
@@ -21494,6 +21534,11 @@
       (foreach tdef *urb-ppto-param-tipos* (add_list (nth 0 tdef)))
       (end_list)
       (set_tile "tipo" "0")
+      (start_list "oper")
+      (add_list "x  multiplicar")
+      (add_list "/  dividir")
+      (end_list)
+      (set_tile "oper" "0")
       (set_tile "factor" "1.0")
       (urb:ppp-fill-lista)
       (urb:ppp-fill-mag)
@@ -21520,7 +21565,9 @@
               (set_tile "act" (itoa i)))
             (setq i (1+ i)))))
       (set_tile "pinfo"
-        "Ejemplo: VIA + AREA + factor 0.05 = 5 cm de esa actividad por m2 de cada via.")
+        (strcat "Ej: VIA + AREA x 0.05 = 5 cm por m2 de via."
+          " ANDEN + TOPEROL_ML / 0.20 = unidades de loseta toperol"
+          " (largo de la franja dividido el ancho de la pieza)."))
       (action_tile "tipo" "(urb:ppp-fill-mag) (urb:ppp-fill-act)")
       (action_tile "agregar" "(urb:ppp-agregar)")
       (action_tile "eliminar" "(urb:ppp-eliminar)")
@@ -21534,20 +21581,36 @@
 ;; libro son fijas: contrato con los SUMIFS del presupuesto).
 (setq *urb-ppto-prev-cols* '(T T T nil nil nil T T T T nil nil))
 
+(setq *urb-ppto-prev-heads*
+  '("RED" "CONCEPTO" "ESPECIFICACION" "ID" "DESDE" "HASTA" "ETAPA"
+    "SUBETAPA" "UM" "CANTIDAD" "DWG" "HANDLE"))
+;; anchos fijos por columna (caracteres) para que la lista se lea en
+;; columnas aun con fuente proporcional
+(setq *urb-ppto-prev-anchos*
+  '(15 30 38 12 7 7 6 5 4 11 14 8))
+
+(defun urb:ppto-pad (texto ancho / s)
+  (setq s (urb:safe-string texto ""))
+  (if (> (strlen s) ancho)
+    (strcat (substr s 1 (- ancho 1)) "~")
+    (progn
+      (while (< (strlen s) ancho) (setq s (strcat s " ")))
+      s)))
+
 (defun urb:ppto-write-prev-dcl ()
   (urb:write-dialog-dcl
     "urb_ppto_prev"
     '*urb-ppto-prev-dcl-ok*
     (list
       "urb_ppto_prev : dialog { label = \"Previsualizacion de la exportacion\";"
-      ": text { key = \"pinfo\"; width = 140; }"
-      ": row { : toggle { key = \"c1\"; label = \"RED\"; } : toggle { key = \"c2\"; label = \"CONCEPTO\"; } : toggle { key = \"c3\"; label = \"ESPECIFICACION\"; } : toggle { key = \"c4\"; label = \"ID\"; } : toggle { key = \"c5\"; label = \"DESDE\"; } : toggle { key = \"c6\"; label = \"HASTA\"; } }"
-      ": row { : toggle { key = \"c7\"; label = \"ETAPA\"; } : toggle { key = \"c8\"; label = \"SUBETAPA\"; } : toggle { key = \"c9\"; label = \"UM\"; } : toggle { key = \"c10\"; label = \"CANTIDAD\"; } : toggle { key = \"c11\"; label = \"DWG\"; } : toggle { key = \"c12\"; label = \"HANDLE\"; } }"
-      ": list_box { key = \"filas\"; label = \"Filas que se escribiran en TablaMemorias\"; width = 140; height = 22; }"
-      ": text { label = \"Las 12 columnas del libro son fijas (contrato con los SUMIFS); los toggles solo cambian esta vista.\"; }"
+      ": text { key = \"pinfo\"; width = 150; }"
+      ": row { : toggle { key = \"c1\"; label = \"RED\"; } : toggle { key = \"c2\"; label = \"CONCEPTO\"; } : toggle { key = \"c3\"; label = \"ESPECIFICACION\"; } : toggle { key = \"c4\"; label = \"ID\"; } : toggle { key = \"c5\"; label = \"DESDE\"; } : toggle { key = \"c6\"; label = \"HASTA\"; } : toggle { key = \"c7\"; label = \"ETAPA\"; } : toggle { key = \"c8\"; label = \"SUBETAPA\"; } : toggle { key = \"c9\"; label = \"UM\"; } : toggle { key = \"c10\"; label = \"CANTIDAD\"; } : toggle { key = \"c11\"; label = \"DWG\"; } : toggle { key = \"c12\"; label = \"HANDLE\"; } }"
+      ": row { : popup_list { key = \"fred\"; label = \"Filtrar red\"; width = 26; } : edit_box { key = \"ftxt\"; label = \"Buscar texto\"; edit_width = 34; } : button { key = \"aplicar\"; label = \"Aplicar filtro\"; } : spacer { width = 4; } : button { key = \"actualizar\"; label = \"ACTUALIZAR cantidades del modelo\"; } }"
+      ": list_box { key = \"filas\"; label = \"Filas que se escribiran en TablaMemorias\"; width = 150; height = 24; }"
+      ": text { label = \"Las 12 columnas del libro son fijas (contrato con los SUMIFS); los toggles y filtros solo cambian esta vista.\"; }"
       "ok_only; }")))
 
-(defun urb:ppto-prev-row-label (fila / i out d clave)
+(defun urb:ppto-prev-row-label (fila / i out d clave celda)
   (setq clave (urb:ppto-equiv-key (nth 0 fila) (nth 1 fila)))
   (setq d
     (if (boundp '*urb-pmd-decisions*)
@@ -21555,35 +21618,81 @@
   (setq i 0 out "")
   (repeat 12
     (if (nth i *urb-ppto-prev-cols*)
-      (setq out
-        (strcat out (if (= out "") "" "  |  ")
+      (progn
+        (setq celda
           (cond
             ((and (= i 2) d) d)
             ((numberp (nth i fila)) (rtos (nth i fila) 2 3))
-            (T (urb:safe-string (nth i fila) ""))))))
+            (T (urb:safe-string (nth i fila) ""))))
+        (setq out
+          (strcat out
+            (urb:ppto-pad celda (nth i *urb-ppto-prev-anchos*)) " "))))
     (setq i (1+ i)))
   out)
 
-(defun urb:ppto-prev-fill (/ fila n)
+(defun urb:ppto-prev-head-label (/ i out)
+  (setq i 0 out "")
+  (repeat 12
+    (if (nth i *urb-ppto-prev-cols*)
+      (setq out
+        (strcat out
+          (urb:ppto-pad (nth i *urb-ppto-prev-heads*)
+            (nth i *urb-ppto-prev-anchos*)) " ")))
+    (setq i (1+ i)))
+  out)
+
+(defun urb:ppto-prev-pasa-filtro (fila etiqueta / red-f txt-f)
+  (setq red-f
+    (if (and (boundp '*urb-ppto-prev-fred*) *urb-ppto-prev-fred*
+             (/= *urb-ppto-prev-fred* "TODAS"))
+      *urb-ppto-prev-fred* nil))
+  (setq txt-f
+    (if (boundp '*urb-ppto-prev-ftxt*)
+      (strcase (urb:safe-string *urb-ppto-prev-ftxt* "")) ""))
+  (and
+    (or (null red-f) (= (nth 0 fila) red-f))
+    (or (= txt-f "")
+        (vl-string-search txt-f (strcase etiqueta)))))
+
+(defun urb:ppto-prev-fill (/ fila n total etiqueta)
   (start_list "filas")
-  (setq n 0)
+  (add_list (urb:ppto-prev-head-label))
+  (setq n 0 total 0)
   (if (boundp '*urb-ppto-final-prev*)
     (foreach fila *urb-ppto-final-prev*
-      (add_list (urb:ppto-prev-row-label fila))
-      (setq n (1+ n))))
+      (setq total (1+ total))
+      (setq etiqueta (urb:ppto-prev-row-label fila))
+      (if (urb:ppto-prev-pasa-filtro fila etiqueta)
+        (progn (add_list etiqueta) (setq n (1+ n))))))
   (end_list)
   (set_tile "pinfo"
-    (strcat (itoa n)
-      " fila(s) a escribir (una por elemento x actividad). Las"
-      " asignaciones de esta sesion YA se reflejan; las parametricas"
-      " nuevas apareceran al Aceptar la exportacion.")))
+    (strcat "Mostrando " (itoa n) " de " (itoa total)
+      " fila(s) a escribir. Las asignaciones de esta sesion YA se"
+      " reflejan; parametricas nuevas y elementos recien modelados"
+      " entran con ACTUALIZAR o al Aceptar.")))
 
 (defun urb:ppto-prev-toggle (idx valor)
   (setq *urb-ppto-prev-cols*
     (urb:list-set-extended *urb-ppto-prev-cols* idx (= valor "1")))
   (urb:ppto-prev-fill))
 
-(defun urb:ppto-prev-dialog (/ dcl i)
+(defun urb:ppto-prev-aplicar (/ idx)
+  (setq idx (atoi (get_tile "fred")))
+  (setq *urb-ppto-prev-fred* (nth idx *urb-ppto-prev-reds*))
+  (setq *urb-ppto-prev-ftxt* (get_tile "ftxt"))
+  (urb:ppto-prev-fill))
+
+;; devuelve el status de start_dialog: 1 = OK, 3 = ACTUALIZAR cantidades
+(defun urb:ppto-prev-dialog (/ dcl i fila done)
+  (setq *urb-ppto-prev-fred* "TODAS" *urb-ppto-prev-ftxt* "")
+  ;; redes presentes en la corrida para el filtro
+  (setq *urb-ppto-prev-reds* (list "TODAS"))
+  (if (boundp '*urb-ppto-final-prev*)
+    (foreach fila *urb-ppto-final-prev*
+      (if (not (member (nth 0 fila) *urb-ppto-prev-reds*))
+        (setq *urb-ppto-prev-reds*
+          (append *urb-ppto-prev-reds* (list (nth 0 fila)))))))
+  (setq done 0)
   (setq dcl (load_dialog (urb:ppto-write-prev-dcl)))
   (if (and (> dcl 0) (new_dialog "urb_ppto_prev" dcl))
     (progn
@@ -21592,6 +21701,10 @@
         (set_tile (strcat "c" (itoa (1+ i)))
           (if (nth i *urb-ppto-prev-cols*) "1" "0"))
         (setq i (1+ i)))
+      (start_list "fred")
+      (foreach fila *urb-ppto-prev-reds* (add_list fila))
+      (end_list)
+      (set_tile "fred" "0")
       (urb:ppto-prev-fill)
       (action_tile "c1" "(urb:ppto-prev-toggle 0 $value)")
       (action_tile "c2" "(urb:ppto-prev-toggle 1 $value)")
@@ -21605,9 +21718,12 @@
       (action_tile "c10" "(urb:ppto-prev-toggle 9 $value)")
       (action_tile "c11" "(urb:ppto-prev-toggle 10 $value)")
       (action_tile "c12" "(urb:ppto-prev-toggle 11 $value)")
-      (start_dialog)))
+      (action_tile "fred" "(urb:ppto-prev-aplicar)")
+      (action_tile "aplicar" "(urb:ppto-prev-aplicar)")
+      (action_tile "actualizar" "(done_dialog 3)")
+      (setq done (start_dialog))))
   (if (> dcl 0) (unload_dialog dcl))
-  (princ))
+  done)
 
 ;; ---------- dialogo PRINCIPAL sobre el ARBOL del presupuesto ----------
 ;; (rediseno 2026-08-18 pedido del usuario tras validar la vista en vivo):
@@ -21767,8 +21883,9 @@
 ;; Devuelve (cons 'OK decisiones) si el usuario Acepta (decisiones puede
 ;; ser nil), o 'CANCELADO si cancela -- en ese caso NO se exporta nada.
 (defun urb:ppto-match-dialog (vocab / m pendientes dcl done)
+  ;; OJO: *urb-pmd-decisions* NO se reinicia aqui -- lo hace urb:ppto-run
+  ;; antes del bucle, para que las asignaciones sobrevivan al ACTUALIZAR
   (setq *urb-pmd-vocab* vocab
-        *urb-pmd-decisions* nil
         *urb-pm2-act* nil *urb-pm2-cands* nil)
   (setq done 0)
   (setq dcl (load_dialog (urb:ppto-write-match2-dcl)))
@@ -21790,10 +21907,16 @@
       (action_tile "asignar" "(urb:pm2-asignar (atoi (get_tile \"cand\")))")
       (action_tile "quitar" "(urb:pm2-quitar (atoi (get_tile \"cand\")))")
       (action_tile "param" "(urb:pm2-parametrica)")
-      (action_tile "prever" "(urb:ppto-prev-dialog)")
+      ;; ACTUALIZAR desde la previsualizacion: cierra los dos dialogos con
+      ;; status 3 -> el run regenera las filas del modelo y reabre.
+      (action_tile "prever"
+        "(if (= 3 (urb:ppto-prev-dialog)) (done_dialog 3))")
       (setq done (start_dialog))))
   (if (> dcl 0) (unload_dialog dcl))
-  (if (= done 1) (cons 'OK *urb-pmd-decisions*) 'CANCELADO))
+  (cond
+    ((= done 1) (cons 'OK *urb-pmd-decisions*))
+    ((= done 3) 'ACTUALIZAR)
+    (T 'CANCELADO)))
 
 ;; ---------- nucleo de la exportacion (lo envuelve c:PPTOEXPORTAR) ----------
 (defun urb:ppto-run (wb / lo vocab raw rows item m final huerfanas dwg total
@@ -21830,11 +21953,33 @@
               ;; 2b) dialogo SIEMPRE antes de escribir (salvo corridas
               ;; headless con *urb-ppto-sin-dialogo* T): muestra todas las
               ;; vinculaciones, permite asignar/corregir y CANCELAR aborta.
-              (setq resdlg
-                (if (and (boundp '*urb-ppto-sin-dialogo*)
-                         *urb-ppto-sin-dialogo*)
-                  (cons 'OK nil)
-                  (urb:ppto-match-dialog vocab)))
+              ;; El boton ACTUALIZAR (previsualizacion) devuelve 'ACTUALIZAR:
+              ;; se re-mide el MODELO (elementos nuevos/etc.), se rehace el
+              ;; match conservando las asignaciones de la sesion, y se
+              ;; reabre el dialogo.
+              (setq *urb-pmd-decisions* nil)
+              (setq resdlg 'ACTUALIZAR)
+              (while (eq resdlg 'ACTUALIZAR)
+                (setq resdlg
+                  (if (and (boundp '*urb-ppto-sin-dialogo*)
+                           *urb-ppto-sin-dialogo*)
+                    (cons 'OK nil)
+                    (urb:ppto-match-dialog vocab)))
+                (if (eq resdlg 'ACTUALIZAR)
+                  (progn
+                    (prompt "\nActualizando cantidades desde el modelo...")
+                    (setq *urb-ppto-param-dirty* nil)
+                    (setq *urb-ppto-param* (urb:ppto-param-read wb))
+                    (setq raw
+                      (append
+                        (urb:ppto-rows-vias)
+                        (urb:ppto-rows-andenes)
+                        (urb:ppto-rows-prefabs)
+                        (urb:ppto-rows-rampas)
+                        (urb:ppto-rows-tramos)
+                        (urb:ppto-rows-puntos)))
+                    (setq final (urb:ppto-match-all raw vocab dwg))
+                    (setq *urb-ppto-final-prev* final))))
               (if (eq resdlg 'CANCELADO)
                 (progn
                   (prompt
