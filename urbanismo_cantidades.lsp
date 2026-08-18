@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.29.0")
+(setq *urb-version* "4.29.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20488,8 +20488,11 @@
       (vlax-release-object wbs)))
   (cond
     (wb (list app wb nil))
-    ;; 2) lock de OTRA sesion/PC -> abortar (nunca escritura parcial)
-    ((findfile lock)
+    ;; 2) lock ~$: puede ser un HUERFANO de un Excel que cerro mal (visto
+    ;; 2026-08-18 con el libro cerrado). Si se deja eliminar era huerfano
+    ;; y se continua; si NO se deja, un Excel vivo (otra sesion/PC) lo
+    ;; tiene -> abortar (nunca escritura parcial).
+    ((and (findfile lock) (not (vl-file-delete lock)))
       (list nil nil
         (strcat "El libro esta abierto en otra sesion/PC (lock "
           lock "). Cierre el libro alla y reintente.")))

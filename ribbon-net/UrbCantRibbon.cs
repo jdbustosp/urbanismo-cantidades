@@ -473,33 +473,13 @@ namespace UrbanismoCantidades
             }
         }
 
-        // Boton desplegable "Excel" con las 4 acciones adentro (siempre
-        // muestra "Excel"; la lista se abre al oprimirlo)
-        private static RibbonSplitButton MakeExcelGroup()
+        // 2026-08-18 v4.29.1 (pedido del usuario): la cinta solo muestra la
+        // exportacion al PRESUPUESTO como boton directo. El sistema Excel
+        // generico viejo sigue disponible escribiendo QEXCEL / QACTUALIZAR /
+        // QVINCULAR / QDESVINCULAR, pero fuera de la interfaz.
+        private static RibbonButton MakeExcelGroup()
         {
-            RibbonSplitButton sb = new RibbonSplitButton();
-            sb.Text = "Excel";
-            sb.ShowText = true;
-            sb.ToolTip = "Exportar y sincronizar con Excel";
-            sb.Size = RibbonItemSize.Large;
-            sb.Orientation = System.Windows.Controls.Orientation.Vertical;
-            sb.IsSplit = false;
-            sb.IsSynchronizedWithCurrentItem = false;
-            sb.ListStyle = RibbonSplitButtonListStyle.List;
-            BitmapImage img16 = LoadIcon("cant_qexcel_16.png");
-            BitmapImage img32 = LoadIcon("cant_qexcel_32.png");
-            if (img16 != null) sb.Image = img16;
-            if (img32 != null) sb.LargeImage = img32;
-            sb.ShowImage = true;
-            // 2026-08-18 v4.26: el PRIMER item es la exportacion al
-            // PRESUPUESTO (dialogo de vinculacion + TablaMemorias del libro
-            // maestro). Los 4 de abajo son el sistema Excel GENERICO viejo.
-            sb.Items.Add(MakeBig("Exportar al PRESUPUESTO", "PPTOEXPORTAR", "ppto"));
-            sb.Items.Add(MakeBig("Exportar Excel (generico)", "QEXCEL", "qexcel"));
-            sb.Items.Add(MakeBig("Actualizar Excel vinculado", "QACTUALIZAR", "qactualizar"));
-            sb.Items.Add(MakeBig("Vincular Excel maestro", "QVINCULAR", "qvincular"));
-            sb.Items.Add(MakeBig("Desvincular Excel", "QDESVINCULAR", "qdesvincular"));
-            return sb;
+            return MakeBig("Presupuesto", "PPTOEXPORTAR", "ppto");
         }
 
         // --- fabrica de paneles y botones -----------------------------
