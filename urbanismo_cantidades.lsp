@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.31.0")
+(setq *urb-version* "4.32.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -172,6 +172,7 @@
 (setq *urb-ppto-param-dcl-okB* nil)
 (setq *urb-ppto-prev-dcl-ok* nil)
 (setq *urb-ppto-libro-dcl-ok* nil)
+(setq *urb-ppto-hoja-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -20204,6 +20205,59 @@
 (defun urb:ppto-equiv-key (red concepto)
   (strcat red "|" (urb:ppto-normalize concepto)))
 
+;; ---------- configuracion DENTRO del libro (2026-08-18, v4.32) ----------
+;; Ajustes propios de ESTE libro (cual hoja es el presupuesto, etc.) --
+;; a diferencia de la ruta del archivo (que es por PC, en %APPDATA%), esto
+;; viaja con el libro. Misma idea que equivalencias/parametricas: hoja MUY
+;; OCULTA "URB_CONFIG", col A clave, col B valor.
+(defun urb:ppto-cfg-read (wb / ws rng r clave valor out)
+  (setq out nil)
+  (setq ws (urb:ppto-find-sheet wb "URB_CONFIG"))
+  (if ws
+    (progn
+      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:B50")))
+      (setq r 1 clave "x")
+      (while (and (<= r 50) (/= clave ""))
+        (setq clave (urb:ppto-cell-text rng r 1)
+              valor (urb:ppto-cell-text rng r 2))
+        (if (/= clave "") (setq out (cons (cons clave valor) out)))
+        (setq r (1+ r)))
+      (vlax-release-object rng)))
+  (reverse out))
+
+(defun urb:ppto-cfg-write (wb cfg / ws sheets rng r item)
+  (setq ws (urb:ppto-find-sheet wb "URB_CONFIG"))
+  (if (null ws)
+    (progn
+      (setq sheets (vlax-get-property wb 'Worksheets))
+      (setq ws (vl-catch-all-apply
+        '(lambda () (urb:ppto-obj (vlax-invoke-method sheets 'Add)))))
+      (if (vl-catch-all-error-p ws)
+        (setq ws nil)
+        (vl-catch-all-apply
+          '(lambda () (vlax-put-property ws 'Name "URB_CONFIG"))))))
+  (if ws
+    (progn
+      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:B50")))
+      (vl-catch-all-apply '(lambda () (vlax-invoke-method rng 'ClearContents)))
+      (setq r 1)
+      (foreach item cfg
+        (urb:ppto-put-cell rng r 1 (car item))
+        (urb:ppto-put-cell rng r 2 (cdr item))
+        (setq r (1+ r)))
+      (vlax-release-object rng)
+      (vl-catch-all-apply '(lambda () (vlax-put-property ws 'Visible 2)))
+      T)))
+
+(defun urb:ppto-cfg-get (wb clave / cfg)
+  (setq cfg (urb:ppto-cfg-read wb))
+  (cdr (assoc clave cfg)))
+
+(defun urb:ppto-cfg-set (wb clave valor / cfg)
+  (setq cfg (urb:ppto-cfg-read wb))
+  (setq cfg (cons (cons clave valor) (vl-remove (assoc clave cfg) cfg)))
+  (urb:ppto-cfg-write wb cfg))
+
 ;; ---------- actividades PARAMETRICAS (cantidad = magnitud x factor) ----------
 ;; Como los parametros de Revit (pedido del usuario 2026-08-18): para un
 ;; TIPO de elemento se define una actividad adicional del presupuesto cuya
@@ -20657,68 +20711,157 @@
             lo))))))
 
 ;; Vocabulario vivo: hoja con encabezados NIVEL/DESCRIPCION/UM.
-(defun urb:ppto-read-vocab (wb / sheets count i ws a1 d1 e1 target rng rows
-                            r nivel codigo desc um capitulo vocab lastrow
-                            empties)
+;; busca en TODAS las hojas del libro, en las filas 1..15 de cada una, la
+;; fila de encabezados NIVEL (col A) / DESCRIPCION* (col D) / UM (col E).
+;; No exige que exista una tabla de Excel: solo esos 3 encabezados en algun
+;; punto arriba de la hoja. Devuelve (("Hoja1" . fila-encabezado) ...).
+(defun urb:ppto-vocab-candidatas (wb / sheets count i ws rng r out nombre)
   (setq sheets (vlax-get-property wb 'Worksheets))
-  (setq count (vlax-get-property sheets 'Count) i 1 target nil)
-  (while (and (<= i count) (null target))
+  (setq count (vlax-get-property sheets 'Count) i 1 out nil)
+  (while (<= i count)
     (setq ws (urb:ppto-obj (vlax-get-property sheets 'Item i)))
-    (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:E1")))
-    (if (and (= (strcase (urb:ppto-cell-text rng 1 1)) "NIVEL")
-             (wcmatch (strcase (urb:ppto-cell-text rng 1 4)) "DESCRIPCION*")
-             (= (strcase (urb:ppto-cell-text rng 1 5)) "UM"))
-      (setq target ws))
+    (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:E15")))
+    (setq r 1)
+    (while (<= r 15)
+      (if (and (= (strcase (urb:ppto-cell-text rng r 1)) "NIVEL")
+               (wcmatch (strcase (urb:ppto-cell-text rng r 4)) "DESCRIPCION*")
+               (= (strcase (urb:ppto-cell-text rng r 5)) "UM"))
+        (progn
+          (setq nombre
+            (vl-catch-all-apply '(lambda () (vlax-get-property ws 'Name))))
+          (if (not (vl-catch-all-error-p nombre))
+            (setq out (cons (cons nombre r) out)))
+          (setq r 99)))
+      (setq r (1+ r)))
     (vlax-release-object rng)
     (setq i (1+ i)))
-  (if (null target)
+  (reverse out))
+
+;; extrae vocabulario + arbol de UNA hoja ya identificada como presupuesto,
+;; con su fila de encabezado. Convencion del libro real: 1 fila de
+;; "sub-encabezado" entre el encabezado y el primer dato (header+1 se
+;; salta), igual que el diseno original con header fijo en fila 1 -> datos
+;; desde fila 3.
+(defun urb:ppto-vocab-extraer (ws header-row / rng capitulo vocab empties r
+                               nivel codigo desc um limite)
+  (setq rng (vlax-get-property ws 'Range "A1:E8000"))
+  (setq capitulo "" vocab nil empties 0 r (+ header-row 2) limite 8000)
+  (setq *urb-ppto-outline* nil)
+  (while (and (<= r limite) (< empties 80))
+    (setq nivel (urb:ppto-cell rng r 1)
+          codigo (urb:ppto-cell-text rng r 3)
+          desc (urb:ppto-cell-text rng r 4)
+          um (urb:ppto-cell-text rng r 5))
+    (if (and (or (null nivel) (= nivel "")) (= desc ""))
+      (setq empties (1+ empties))
+      (progn
+        (setq empties 0)
+        (if (numberp nivel)
+          (progn
+            (if (= (fix nivel) 3)
+              (setq capitulo (urb:ppto-normalize desc)))
+            (if (and (>= (fix nivel) 3) (/= desc ""))
+              (setq *urb-ppto-outline*
+                (cons
+                  (list (fix nivel) codigo desc (strcase um) capitulo)
+                  *urb-ppto-outline*)))
+            (if (and (= (fix nivel) 5) (/= desc "") (/= um ""))
+              (setq vocab
+                (cons
+                  (list capitulo (strcase um) desc
+                        (urb:ppto-words desc) r codigo)
+                  vocab)))))))
+    (setq r (1+ r)))
+  (setq *urb-ppto-outline* (reverse *urb-ppto-outline*))
+  (vlax-release-object rng)
+  (reverse vocab))
+
+;; resuelve QUE hoja leer: preferencia guardada en el libro (URB_CONFIG,
+;; clave HOJA_PRESUPUESTO) si sigue siendo valida; si no hay preferencia y
+;; hay una sola candidata, se usa y se guarda sola (sin preguntar); si hay
+;; varias candidatas y el usuario esta interactivo, se pregunta con un
+;; dialogo y la eleccion se guarda; en corridas headless se toma la
+;; primera y se deja constancia en el log.
+(defun urb:ppto-resolver-hoja (wb / candidatas pref entry elegida)
+  (setq candidatas (urb:ppto-vocab-candidatas wb))
+  (setq pref (urb:ppto-cfg-get wb "HOJA_PRESUPUESTO"))
+  (setq entry (if pref (assoc pref candidatas) nil))
+  (cond
+    (entry entry)
+    ((null candidatas) nil)
+    ((= (length candidatas) 1)
+      (urb:ppto-cfg-set wb "HOJA_PRESUPUESTO" (caar candidatas))
+      (car candidatas))
+    ((and (boundp '*urb-ppto-sin-dialogo*) *urb-ppto-sin-dialogo*)
+      (prompt (strcat "\nOJO: " (itoa (length candidatas))
+        " hojas parecen presupuesto (candidata usada: " (caar candidatas)
+        "); use PPTOLIBRO para fijar cual es."))
+      (car candidatas))
+    (T
+      (setq elegida (urb:ppto-elegir-hoja-dialog candidatas
+        (strcat (if pref
+          (strcat "La hoja guardada (\"" pref
+            "\") ya no tiene encabezados de presupuesto. ")
+          "")
+          "Hay " (itoa (length candidatas))
+          " hoja(s) con encabezados NIVEL/DESCRIPCION/UM: elija cual es"
+          " el presupuesto vigente.")))
+      (if elegida
+        (progn
+          (urb:ppto-cfg-set wb "HOJA_PRESUPUESTO" (car elegida))
+          elegida)
+        (car candidatas)))))
+
+(defun urb:ppto-write-hoja-dcl ()
+  (urb:write-dialog-dcl
+    "urb_ppto_hoja"
+    '*urb-ppto-hoja-dcl-ok*
+    (list
+      "urb_ppto_hoja : dialog { label = \"Elegir la hoja del presupuesto\";"
+      ": text { key = \"info\"; width = 90; }"
+      ": list_box { key = \"hojas\"; label = \"Hojas del libro con encabezados NIVEL/DESCRIPCION/UM\"; width = 90; height = 10; }"
+      "ok_cancel; }")))
+
+;; candidatas: (("Hoja1" . fila) ...). Devuelve la elegida (par) o nil si
+;; cancela.
+(defun urb:ppto-elegir-hoja-dialog (candidatas info / dcl c done sel)
+  (setq dcl (load_dialog (urb:ppto-write-hoja-dcl)))
+  (setq sel nil)
+  (if (and (> dcl 0) (new_dialog "urb_ppto_hoja" dcl))
+    (progn
+      (set_tile "info" info)
+      (start_list "hojas")
+      (foreach c candidatas
+        (add_list (strcat (car c) "  (encabezado en fila " (itoa (cdr c)) ")")))
+      (end_list)
+      (set_tile "hojas" "0")
+      (setq done (start_dialog))
+      (if (= done 1)
+        (setq sel (nth (atoi (get_tile "hojas")) candidatas)))))
+  (if (> dcl 0) (unload_dialog dcl))
+  sel)
+
+(defun urb:ppto-read-vocab (wb / entry target-name header-row vocab)
+  (setq entry (urb:ppto-resolver-hoja wb))
+  (if (null entry)
     (progn
       (setq *urb-ppto-vocab-hoja* nil)
-      (prompt "\nNo se encontro la hoja de presupuesto (NIVEL/DESCRIPCION/UM).")
+      (prompt "\nNo se encontro ninguna hoja de presupuesto (NIVEL/DESCRIPCION/UM).")
       nil)
     (progn
+      (setq target-name (car entry) header-row (cdr entry))
       ;; nombre de la hoja para mostrarlo en los dialogos (trazabilidad
       ;; pedida por el usuario 2026-08-18: que se VEA de donde sale todo)
-      (setq *urb-ppto-vocab-hoja*
-        (vl-catch-all-apply
-          '(lambda () (vlax-get-property target 'Name))))
-      (if (vl-catch-all-error-p *urb-ppto-vocab-hoja*)
-        (setq *urb-ppto-vocab-hoja* "?"))
-      (setq rng (vlax-get-property target 'Range "A1:E4000"))
-      (setq capitulo "" vocab nil empties 0 r 3)
-      ;; ademas del vocabulario se guarda el ARBOL completo del ppto
-      ;; (niveles 3/4/5 con su codigo) para la vista "Ver presupuesto"
-      (setq *urb-ppto-outline* nil)
-      (while (and (<= r 4000) (< empties 80))
-        (setq nivel (urb:ppto-cell rng r 1)
-              codigo (urb:ppto-cell-text rng r 3)
-              desc (urb:ppto-cell-text rng r 4)
-              um (urb:ppto-cell-text rng r 5))
-        (if (and (or (null nivel) (= nivel "")) (= desc ""))
-          (setq empties (1+ empties))
-          (progn
-            (setq empties 0)
-            (if (numberp nivel)
-              (progn
-                (if (= (fix nivel) 3)
-                  (setq capitulo (urb:ppto-normalize desc)))
-                (if (and (>= (fix nivel) 3) (/= desc ""))
-                  (setq *urb-ppto-outline*
-                    (cons
-                      (list (fix nivel) codigo desc (strcase um) capitulo)
-                      *urb-ppto-outline*)))
-                (if (and (= (fix nivel) 5) (/= desc "") (/= um ""))
-                  (setq vocab
-                    (cons
-                      (list capitulo (strcase um) desc
-                            (urb:ppto-words desc) r codigo)
-                      vocab)))))))
-        (setq r (1+ r)))
-      (setq *urb-ppto-outline* (reverse *urb-ppto-outline*))
-      (vlax-release-object rng)
-      (prompt (strcat "\nVocabulario del presupuesto: "
-        (itoa (length vocab)) " actividades leidas."))
-      (reverse vocab))))
+      (setq *urb-ppto-vocab-hoja* target-name)
+      (setq vocab
+        (urb:ppto-vocab-extraer
+          (urb:ppto-obj
+            (vlax-get-property (vlax-get-property wb 'Worksheets) 'Item
+              target-name))
+          header-row))
+      (prompt (strcat "\nVocabulario del presupuesto (hoja \"" target-name
+        "\"): " (itoa (length vocab)) " actividades leidas."))
+      vocab)))
 
 ;; ---------- generacion de filas CAD (formato largo) ----------
 ;; fila cruda: (red concepto id desde hasta etapa subetapa um cantidad handle)
@@ -21592,6 +21735,38 @@
           " a esa actividad. Queda guardado en el libro; si la magnitud"
           " vale 0 hoy (no modelada aun), la fila aparece cuando exista.")))))
 
+;; sugerencia automatica (pedido 2026-08-18: "ese parametro deberia ya
+;; estar creado pero no aparece" -- toperol/guia/adoquin/loseta/bordillo
+;; son casos tan comunes que no hay que partir siempre de Area): por el
+;; NOMBRE de la actividad destino, adivina la magnitud/operacion/factor
+;; tipicos. Solo sugiere si esa magnitud existe en el tipo de elemento
+;; actual; si no aplica ninguna regla, no toca nada (queda Area x 1.0).
+(defun urb:ppp-sugerir (tdef texto um / mags norm um2)
+  (setq mags (nth 2 tdef))
+  (setq norm (urb:ppto-normalize texto))
+  (setq um2 (strcase (urb:safe-string um "")))
+  (cond
+    ((and (vl-string-search "toperol" norm) (member "TOPEROL_ML" mags))
+      (list "TOPEROL_ML" "D" 0.20))
+    ((and (vl-string-search "guia" norm) (member "GUIA_ML" mags))
+      (list "GUIA_ML" "D" 0.20))
+    ((and (vl-string-search "adoquin" norm) (= um2 "UN")
+          (member "ADOQUIN_UND" mags))
+      (list "ADOQUIN_UND" "X" 1.0))
+    ((and (vl-string-search "adoquin" norm) (member "ADOQUIN_M2" mags))
+      (list "ADOQUIN_M2" "X" 1.0))
+    ((and (vl-string-search "loseta" norm) (vl-string-search "lisa" norm)
+          (= um2 "UN") (member "LOSETA_LISA_UND" mags))
+      (list "LOSETA_LISA_UND" "X" 1.0))
+    ((and (vl-string-search "loseta" norm) (vl-string-search "lisa" norm)
+          (member "LOSETA_LISA_M2" mags))
+      (list "LOSETA_LISA_M2" "X" 1.0))
+    ((and (vl-string-search "bordillo" norm) (member "BORDILLO_ML" mags))
+      (list "BORDILLO_ML" "X" 1.0))
+    ((and (vl-string-search "bordillo" norm) (member "LONGITUD" mags))
+      (list "LONGITUD" "X" 1.0))
+    (T nil)))
+
 (defun urb:ppp-eliminar (/ idx p)
   (setq idx (atoi (get_tile "lista")))
   (setq p (nth idx *urb-ppto-param*))
@@ -21605,7 +21780,7 @@
       (set_tile "pinfo" "Eliminado. Aplica al Aceptar la exportacion."))
     (set_tile "pinfo" "Seleccione arriba el parametro definido que quiere eliminar.")))
 
-(defun urb:ppto-param-dialog (/ dcl tdef i pre-idx entry)
+(defun urb:ppto-param-dialog (/ dcl tdef i pre-idx entry act-um sug mag-idx)
   (setq dcl (load_dialog (urb:ppto-write-param-dcl)))
   (if (and (> dcl 0) (new_dialog "urb_ppto_param" dcl))
     (progn
@@ -21638,16 +21813,31 @@
               (set_tile "tipo" (itoa pre-idx))
               (urb:ppp-fill-mag)
               (urb:ppp-fill-act)))
-          (setq i 0)
+          (setq i 0 act-um nil)
           (foreach entry *urb-ppp-acts*
             (if (= (nth 2 entry) *urb-ppp-pre-act*)
-              (set_tile "act" (itoa i)))
-            (setq i (1+ i)))))
+              (progn (set_tile "act" (itoa i)) (setq act-um (nth 1 entry))))
+            (setq i (1+ i)))
+          ;; adivina magnitud/operacion/factor por el nombre de la actividad
+          (setq tdef (urb:ppp-tipo))
+          (setq sug
+            (urb:ppp-sugerir tdef (urb:safe-string *urb-ppp-pre-act* "")
+              (urb:safe-string act-um "")))
+          (if sug
+            (progn
+              (setq mag-idx (vl-position (nth 0 sug) (nth 2 tdef)))
+              (if mag-idx (set_tile "mag" (itoa mag-idx)))
+              (set_tile "oper" (if (= (nth 1 sug) "D") "1" "0"))
+              (set_tile "factor" (rtos (nth 2 sug) 2 4))
+              (setq *urb-ppp-sugerido* T))
+            (setq *urb-ppp-sugerido* nil))))
       (urb:ppp-formula)
       (set_tile "pinfo"
-        (strcat "Ej: nombre \"Losetas toperol\", de cada ANDEN, magnitud"
-          " Franja toperol (ml), / 0.20 (ancho de la pieza) = unidades."
-          " O \"Riego de liga\", de cada VIA, Area (m2) x 0.05."))
+        (if (and (boundp '*urb-ppp-sugerido*) *urb-ppp-sugerido*)
+          "Sugerencia automatica por el nombre de la actividad (revise magnitud/factor si hace falta) -- pulse \"Crear parametro\" para guardarla."
+          (strcat "Ej: nombre \"Losetas toperol\", de cada ANDEN, magnitud"
+            " Franja toperol (ml), / 0.20 (ancho de la pieza) = unidades."
+            " O \"Riego de liga\", de cada VIA, Area (m2) x 0.05.")))
       (action_tile "tipo"
         "(urb:ppp-fill-mag) (urb:ppp-fill-act) (urb:ppp-formula)")
       (action_tile "mag" "(urb:ppp-formula)")
@@ -21965,7 +22155,7 @@
       ": list_box { key = \"cand\"; label = \"Conceptos del plano disponibles (misma unidad)\"; width = 56; height = 8; }"
       "}"
       "}"
-      ": row { : button { key = \"asignar\"; label = \"Asignar concepto\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : button { key = \"param\"; label = \"Nueva parametrica aqui\"; } : button { key = \"prever\"; label = \"Previsualizar (navegador)\"; } : button { key = \"actualizar\"; label = \"ACTUALIZAR del modelo\"; } }"
+      ": row { : button { key = \"asignar\"; label = \"Asignar concepto\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : button { key = \"param\"; label = \"Nueva parametrica aqui\"; } : button { key = \"prever\"; label = \"Previsualizar (navegador)\"; } : button { key = \"actualizar\"; label = \"ACTUALIZAR del modelo\"; } : button { key = \"hoja\"; label = \"Cambiar hoja del presupuesto...\"; } }"
       ": text { key = \"estado\"; width = 130; }"
       ": text { label = \"Aceptar = exportar al libro. Cancelar = NO exportar nada. Lo asignado queda guardado dentro del libro.\"; }"
       "ok_cancel; }")))
@@ -22088,6 +22278,28 @@
       (urb:pm2-select (urb:pm2-idx-actual))
       (urb:pm2-estado))))
 
+;; boton "Cambiar hoja del presupuesto..." (pedido 2026-08-18: el presupuesto
+;; puede estar en otra hoja distinta de POR EJECUTAR, y debe poder elegirse
+;; sin salir del dialogo de vinculacion)
+(defun urb:pm2-elegir-hoja (/ candidatas elegida)
+  (setq candidatas (urb:ppto-vocab-candidatas *urb-ppto-wb*))
+  (cond
+    ((null candidatas)
+      (set_tile "estado"
+        "Ninguna hoja del libro tiene encabezados NIVEL/DESCRIPCION/UM arriba de la fila 15."))
+    (T
+      (setq elegida
+        (urb:ppto-elegir-hoja-dialog candidatas
+          (strcat "Hoja actual: \""
+            (urb:safe-string *urb-ppto-vocab-hoja* "?")
+            "\". Elija la hoja del presupuesto a usar de aqui en adelante"
+            " (queda guardada en el libro).")))
+      (if elegida
+        (progn
+          (urb:ppto-cfg-set *urb-ppto-wb* "HOJA_PRESUPUESTO" (car elegida))
+          (done_dialog 4))
+        (set_tile "estado" "Cambio de hoja cancelado; sigue igual.")))))
+
 (defun urb:pm2-parametrica ()
   (if *urb-pm2-act*
     (progn
@@ -22126,7 +22338,10 @@
           (urb:safe-string
             (if (boundp '*urb-ppto-vocab-hoja*) *urb-ppto-vocab-hoja* "?") "?")
           "\" (" (itoa (length vocab)) " actividades)"
-          "  |  Cambiarlo: icono Excel > Vincular libro."))
+          "  |  Se relee en vivo cada corrida: si edita una fila del"
+          " presupuesto, aparece con ACTUALIZAR."
+          "  |  Otra hoja: boton \"Cambiar hoja...\". Otro libro: icono"
+          " Excel > Ver o cambiar libro."))
       (set_tile "info1"
         (strcat "Las actividades con <== PLANO ya reciben cantidades. "
           (if (> pendientes 0)
@@ -22148,11 +22363,16 @@
       ;; (elementos nuevos), rehace el match conservando las asignaciones
       ;; de la sesion y reabre este dialogo.
       (action_tile "actualizar" "(done_dialog 3)")
+      ;; cambiar hoja: elige y guarda la preferencia EN el propio boton
+      ;; (dialogo anidado); si eligio algo cierra con status 4 -> el run
+      ;; relee el vocabulario de la hoja nueva y rehace el match.
+      (action_tile "hoja" "(urb:pm2-elegir-hoja)")
       (setq done (start_dialog))))
   (if (> dcl 0) (unload_dialog dcl))
   (cond
     ((= done 1) (cons 'OK *urb-pmd-decisions*))
     ((= done 3) 'ACTUALIZAR)
+    ((= done 4) 'CAMBIAR-HOJA)
     (T 'CANCELADO)))
 
 ;; ---------- nucleo de la exportacion (lo envuelve c:PPTOEXPORTAR) ----------
@@ -22196,14 +22416,14 @@
               ;; reabre el dialogo.
               (setq *urb-pmd-decisions* nil)
               (setq resdlg 'ACTUALIZAR)
-              (while (eq resdlg 'ACTUALIZAR)
+              (while (or (eq resdlg 'ACTUALIZAR) (eq resdlg 'CAMBIAR-HOJA))
                 (setq resdlg
                   (if (and (boundp '*urb-ppto-sin-dialogo*)
                            *urb-ppto-sin-dialogo*)
                     (cons 'OK nil)
                     (urb:ppto-match-dialog vocab)))
-                (if (eq resdlg 'ACTUALIZAR)
-                  (progn
+                (cond
+                  ((eq resdlg 'ACTUALIZAR)
                     (prompt "\nActualizando cantidades desde el modelo...")
                     (setq *urb-ppto-param-dirty* nil)
                     (setq *urb-ppto-param* (urb:ppto-param-read wb))
@@ -22216,7 +22436,22 @@
                         (urb:ppto-rows-tramos)
                         (urb:ppto-rows-puntos)))
                     (setq final (urb:ppto-match-all raw vocab dwg))
-                    (setq *urb-ppto-final-prev* final))))
+                    (setq *urb-ppto-final-prev* final))
+                  ;; el usuario eligio otra hoja del presupuesto (boton
+                  ;; "Cambiar hoja..."): la preferencia ya quedo guardada en
+                  ;; el libro; aqui solo se relee el vocabulario nuevo y se
+                  ;; rehace el match -- las filas del modelo NO cambian.
+                  ((eq resdlg 'CAMBIAR-HOJA)
+                    (prompt "\nReleyendo el presupuesto de la hoja elegida...")
+                    (setq vocab (urb:ppto-read-vocab wb))
+                    (if vocab
+                      (progn
+                        (setq *urb-ppto-vocab* vocab)
+                        (setq final (urb:ppto-match-all raw vocab dwg))
+                        (setq *urb-ppto-final-prev* final))
+                      (progn
+                        (prompt "\nOJO: la hoja elegida no se pudo leer; sigue con el vocabulario anterior.")
+                        (setq resdlg 'ACTUALIZAR)))))) ; fuerza otra vuelta con lo anterior
               (if (eq resdlg 'CANCELADO)
                 (progn
                   (prompt
@@ -22477,7 +22712,8 @@
       ": text { key = \"l3\"; width = 130; }"
       ": text { label = \"Desvincular solo hace que este PC olvide la ruta: el libro conserva su tabla MEMORIAS,\"; }"
       ": text { label = \"las asignaciones y las parametricas (viven dentro del archivo y viajan con el).\"; }"
-      ": row { : button { key = \"cambiar\"; label = \"Cambiar libro...\"; } : button { key = \"desvincular\"; label = \"Desvincular este PC\"; } }"
+      ": text { label = \"El presupuesto se relee EN VIVO en cada exportacion: editar una fila (renombrar, cambiar UM) se refleja solo.\"; }"
+      ": row { : button { key = \"cambiar\"; label = \"Cambiar libro...\"; } : button { key = \"hoja\"; label = \"Elegir hoja del presupuesto...\"; } : button { key = \"desvincular\"; label = \"Desvincular este PC\"; } }"
       "ok_only; }")))
 
 (defun urb:ppto-libro-dialog (path lineas / dcl done)
@@ -22492,10 +22728,55 @@
       (set_tile "l2" (urb:safe-string (nth 1 lineas) ""))
       (set_tile "l3" (urb:safe-string (nth 2 lineas) ""))
       (action_tile "cambiar" "(done_dialog 2)")
+      (action_tile "hoja" "(done_dialog 4)")
       (action_tile "desvincular" "(done_dialog 3)")
       (setq done (start_dialog))))
   (if (> dcl 0) (unload_dialog dcl))
   done)
+
+;; abre el libro (instancia propia si hace falta), deja elegir la hoja del
+;; presupuesto entre las candidatas y GUARDA la eleccion en el propio
+;; libro (Save explicito -- no depende de si el Close final guarda o no).
+(defun urb:ppto-libro-elegir-hoja (path / attach app wb propia candidatas
+                                   elegida result)
+  (setq attach (urb:ppto-attach-excel path)
+        app (nth 0 attach) wb (nth 1 attach) propia (nth 2 attach))
+  (if (null wb)
+    (alert (strcat "No se pudo abrir el libro:\n\n"
+      (urb:safe-string (nth 2 attach) "?")))
+    (progn
+      (setq result
+        (vl-catch-all-apply
+          '(lambda ()
+            (setq candidatas (urb:ppto-vocab-candidatas wb))
+            (cond
+              ((null candidatas)
+                (alert "Ninguna hoja del libro tiene encabezados NIVEL/DESCRIPCION/UM arriba de la fila 15."))
+              (T
+                (setq elegida
+                  (urb:ppto-elegir-hoja-dialog candidatas
+                    (strcat "Hoja actual guardada: \""
+                      (urb:safe-string
+                        (urb:ppto-cfg-get wb "HOJA_PRESUPUESTO")
+                        "(ninguna todavia)")
+                      "\". Elija la hoja del presupuesto.")))
+                (if elegida
+                  (progn
+                    (urb:ppto-cfg-set wb "HOJA_PRESUPUESTO" (car elegida))
+                    (vl-catch-all-apply
+                      '(lambda () (vlax-invoke-method wb 'Save)))))))
+            T)))
+      (if propia
+        (progn
+          (vl-catch-all-apply
+            '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
+          (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
+          (vlax-release-object wb)
+          (vlax-release-object app)))
+      (if (vl-catch-all-error-p result)
+        (alert (strcat "PROBLEMA eligiendo la hoja:\n\n"
+          (vl-catch-all-error-message result))))
+      elegida)))
 
 (defun c:PPTOLIBRO (/ path lineas done nuevo seguir)
   (vl-load-com)
@@ -22523,6 +22804,12 @@
             (prompt (strcat "\nLibro vinculado en este PC: " nuevo))))
         ;; el bucle reabre el dialogo mostrando la validacion del nuevo
         )
+      ((= done 4)
+        (if (and (/= path "") (findfile path))
+          (progn
+            (prompt "\nAbriendo el libro para elegir la hoja...")
+            (urb:ppto-libro-elegir-hoja path))
+          (alert "Primero vincule un libro (\"Cambiar libro...\").")))
       ((= done 3)
         (urb:ppto-config-write "")
         (prompt "\nLibro DESVINCULADO de este PC (el archivo no se toco).")
