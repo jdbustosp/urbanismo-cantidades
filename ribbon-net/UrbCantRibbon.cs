@@ -491,7 +491,11 @@ namespace UrbanismoCantidades
             if (img16 != null) sb.Image = img16;
             if (img32 != null) sb.LargeImage = img32;
             sb.ShowImage = true;
-            sb.Items.Add(MakeBig("Exportar Excel", "QEXCEL", "qexcel"));
+            // 2026-08-18 v4.26: el PRIMER item es la exportacion al
+            // PRESUPUESTO (dialogo de vinculacion + TablaMemorias del libro
+            // maestro). Los 4 de abajo son el sistema Excel GENERICO viejo.
+            sb.Items.Add(MakeBig("Exportar al PRESUPUESTO", "PPTOEXPORTAR", "ppto"));
+            sb.Items.Add(MakeBig("Exportar Excel (generico)", "QEXCEL", "qexcel"));
             sb.Items.Add(MakeBig("Actualizar Excel vinculado", "QACTUALIZAR", "qactualizar"));
             sb.Items.Add(MakeBig("Vincular Excel maestro", "QVINCULAR", "qvincular"));
             sb.Items.Add(MakeBig("Desvincular Excel", "QDESVINCULAR", "qdesvincular"));

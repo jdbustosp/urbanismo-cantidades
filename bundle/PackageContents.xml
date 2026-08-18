@@ -27,7 +27,7 @@
         LoadOnAutoCADStartup="True" />
     <ComponentEntry
         AppName="UrbanismoCantidadesRibbon2023"
-        ModuleName="./Contents/net/UrbCantRibbon2023_v42313.dll"
+        ModuleName="./Contents/net/UrbCantRibbon2023_v4270.dll"
         AppDescription="Pestana CANTIDADES (ribbon dinamico, 2019-2024)"
         LoadOnAutoCADStartup="True" />
   </Components>
