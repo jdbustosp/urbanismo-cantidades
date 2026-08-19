@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.36.0")
+(setq *urb-version* "4.37.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -22335,24 +22335,37 @@
 ;; boton "Cambiar hoja del presupuesto..." (pedido 2026-08-18: el presupuesto
 ;; puede estar en otra hoja distinta de POR EJECUTAR, y debe poder elegirse
 ;; sin salir del dialogo de vinculacion)
-(defun urb:pm2-elegir-hoja (/ candidatas elegida)
-  (setq candidatas (urb:ppto-vocab-candidatas *urb-ppto-wb*))
-  (cond
-    ((null candidatas)
-      (set_tile "estado"
-        "Ninguna hoja del libro tiene encabezados NIVEL/DESCRIPCION/UM arriba de la fila 15."))
-    (T
-      (setq elegida
-        (urb:ppto-elegir-hoja-dialog candidatas
-          (strcat "Hoja actual: \""
-            (urb:safe-string *urb-ppto-vocab-hoja* "?")
-            "\". Elija la hoja del presupuesto a usar de aqui en adelante"
-            " (queda guardada en el libro).")))
-      (if elegida
-        (progn
-          (urb:ppto-cfg-set *urb-ppto-wb* "HOJA_PRESUPUESTO" (car elegida))
-          (done_dialog 4))
-        (set_tile "estado" "Cambio de hoja cancelado; sigue igual.")))))
+;; Blindado (2026-08-18): esta funcion dispara varias llamadas COM
+;; (recorrer TODAS las hojas del libro, incluidas las muy ocultas) sin
+;; envoltura -- a diferencia de urb:ppto-libro-elegir-hoja (que si esta
+;; protegida). Un hipo COM transitorio aqui tumbaba TODO el comando
+;; PPTOEXPORTAR en vez de mostrar un mensaje y dejar seguir en el dialogo.
+(defun urb:pm2-elegir-hoja (/ candidatas elegida result)
+  (setq result
+    (vl-catch-all-apply
+      '(lambda ()
+        (setq candidatas (urb:ppto-vocab-candidatas *urb-ppto-wb*))
+        (cond
+          ((null candidatas)
+            (set_tile "estado"
+              "Ninguna hoja del libro tiene encabezados NIVEL/DESCRIPCION/UM arriba de la fila 15."))
+          (T
+            (setq elegida
+              (urb:ppto-elegir-hoja-dialog candidatas
+                (strcat "Hoja actual: \""
+                  (urb:safe-string *urb-ppto-vocab-hoja* "?")
+                  "\". Elija la hoja del presupuesto a usar de aqui en adelante"
+                  " (queda guardada en el libro).")))
+            (if elegida
+              (progn
+                (urb:ppto-cfg-set *urb-ppto-wb* "HOJA_PRESUPUESTO" (car elegida))
+                (done_dialog 4))
+              (set_tile "estado" "Cambio de hoja cancelado; sigue igual."))))
+        T)))
+  (if (vl-catch-all-error-p result)
+    (set_tile "estado"
+      (strcat "PROBLEMA eligiendo la hoja: " (vl-catch-all-error-message result)
+        " -- no se cambio nada, puede reintentar o seguir con la hoja actual."))))
 
 (defun urb:pm2-parametrica ()
   (if *urb-pm2-act*
@@ -22367,14 +22380,22 @@
 
 ;; Devuelve (cons 'OK decisiones) si el usuario Acepta (decisiones puede
 ;; ser nil), o 'CANCELADO si cancela -- en ese caso NO se exporta nada.
-(defun urb:ppto-match-dialog (vocab / m pendientes dcl done)
+;; Blindado (2026-08-18, mismo bug real de "Elegir hoja" v4.36): este
+;; dialogo se REABRE cada vez que se usa "Cambiar hoja"/"ACTUALIZAR", asi
+;; que si el .dcl temporal falla al escribirse en una reapertura, pasar
+;; nil a load_dialog crasheaba "bad argument type: stringp nil" en vez de
+;; avisar. Se comprueba el archivo antes.
+(defun urb:ppto-match-dialog (vocab / m pendientes dcl done dclfile)
   ;; OJO: *urb-pmd-decisions* NO se reinicia aqui -- lo hace urb:ppto-run
   ;; antes del bucle, para que las asignaciones sobrevivan al ACTUALIZAR
   (setq *urb-pmd-vocab* vocab
         *urb-pm2-act* nil *urb-pm2-cands* nil)
   (setq done 0)
-  (setq dcl (load_dialog (urb:ppto-write-match2-dcl)))
-  (if (and (> dcl 0) (new_dialog "urb_ppto_match2" dcl))
+  (setq dclfile (urb:ppto-write-match2-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar el dialogo de vinculacion (revise permisos de la carpeta temporal de Windows) -- reintente.")
+    (setq dcl (load_dialog dclfile)))
+  (if (and dcl (> dcl 0) (new_dialog "urb_ppto_match2" dcl))
     (progn
       (setq pendientes 0)
       (foreach m *urb-ppto-matches*
@@ -22425,7 +22446,7 @@
       ;; asi que solo avisa hacia arriba con el sentinel del resumen)
       (action_tile "cambiarlibro" "(done_dialog 6)")
       (setq done (start_dialog))))
-  (if (> dcl 0) (unload_dialog dcl))
+  (if (and dcl (> dcl 0)) (unload_dialog dcl))
   (cond
     ((= done 1) (cons 'OK *urb-pmd-decisions*))
     ((= done 3) 'ACTUALIZAR)
