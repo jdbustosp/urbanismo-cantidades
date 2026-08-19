@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.43.0")
+(setq *urb-version* "4.44.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20349,9 +20349,11 @@
                     (strcase factor))
                   (T (atof (urb:safe-string factor "1"))))
                 act
-                ;; col E: operacion X (multiplicar, default y compatible
-                ;; con lo guardado antes) o D (dividir)
-                (if (= (strcase (urb:ppto-cell-text rng r 5)) "D") "D" "X")
+                ;; col E: operacion X (multiplicar, default compatible),
+                ;; D (dividir), S (sumar) o R (restar) -- v4.44
+                (if (member (strcase (urb:ppto-cell-text rng r 5))
+                      '("D" "S" "R"))
+                  (strcase (urb:ppto-cell-text rng r 5)) "X")
                 ;; col F: NOMBRE del parametro (estilo Revit; vacio en
                 ;; parametricas guardadas antes de v4.31 -> se muestra la
                 ;; actividad destino)
@@ -20383,7 +20385,8 @@
         (urb:ppto-put-cell rng r 3 (nth 2 item))
         (urb:ppto-put-cell rng r 4 (nth 3 item))
         (urb:ppto-put-cell rng r 5
-          (if (= (urb:safe-string (nth 4 item) "X") "D") "D" "X"))
+          (if (member (urb:safe-string (nth 4 item) "X") '("D" "S" "R"))
+            (nth 4 item) "X"))
         (urb:ppto-put-cell rng r 6 (urb:safe-string (nth 5 item) ""))
         (setq r (1+ r)))
       (vlax-release-object rng)
@@ -20419,10 +20422,13 @@
               (if (cdr (assoc (nth 2 p) mags))
                 (cdr (assoc (nth 2 p) mags)) 0.0)))
           (setq qty
-            (if (and (= (urb:safe-string (nth 4 p) "X") "D")
-                     (> factor 0.0))
-              (/ qty factor)
-              (* qty factor)))
+            (cond
+              ((= (urb:safe-string (nth 4 p) "X") "S") (+ qty factor))
+              ((= (urb:safe-string (nth 4 p) "X") "R") (- qty factor))
+              ((and (= (urb:safe-string (nth 4 p) "X") "D")
+                    (> factor 0.0))
+                (/ qty factor))
+              (T (* qty factor))))
           (setq um (urb:ppto-param-um red (nth 3 p)))
           (if (= um "") (setq um "?"))
           (setq fila
@@ -20726,12 +20732,36 @@
       ;; reutiliza la hoja MEMORIAS si ya existe)
       (setq sheets (vlax-get-property wb 'Worksheets))
       (setq ws (vl-catch-all-apply
-        '(lambda () (vlax-get-property sheets 'Item "MEMORIAS"))))
+        '(lambda () (urb:ppto-obj (vlax-get-property sheets 'Item "MEMORIAS")))))
       (if (vl-catch-all-error-p ws)
         (progn
           (setq ws (vlax-invoke-method sheets 'Add))
           (vl-catch-all-apply
-            '(lambda () (vlax-put-property ws 'Name "MEMORIAS")))))
+            '(lambda () (vlax-put-property ws 'Name "MEMORIAS"))))
+        ;; PROTECCION (2026-08-19, consulta del usuario "que pasa si ya
+        ;; tengo una hoja MEMORIAS"): si la hoja YA existia y su fila 1
+        ;; tiene contenido que NO es la firma de encabezados del plugin,
+        ;; es una hoja AJENA -- no se le escribe ni una celda; se aborta
+        ;; con mensaje (renombrarla o usar otro libro).
+        (progn
+          (setq refrange (vlax-get-property ws 'Range "A1:L1"))
+          (setq ok T i 1)
+          (foreach h *urb-ppto-headers*
+            (if (/= (strcase (urb:ppto-cell-text refrange 1 i)) h)
+              (setq ok nil))
+            (setq i (1+ i)))
+          (vlax-release-object refrange)
+          (if (and (not ok)
+                   (/= (urb:ppto-cell-text
+                         (setq refrange
+                           (vlax-get-property ws 'Range "A1:L1")) 1 1) ""))
+            (progn
+              (vlax-release-object refrange)
+              (prompt "\nEl libro ya tiene una hoja MEMORIAS con OTRO contenido: no se toco. Renombre esa hoja o use otro libro.")
+              (setq ws nil)))))
+      (if (null ws)
+        nil
+        (progn
       (setq refrange (vlax-get-property ws 'Range "A1:L1"))
       (setq i 1)
       (foreach h *urb-ppto-headers*
@@ -20752,7 +20782,7 @@
           (vlax-invoke-method names 'Add "TM_MEMORIAS"
             "=MEMORIAS!$A$1:$L$1")))
       (prompt "\nLibro nuevo: hoja MEMORIAS + TablaMemorias creadas.")
-      (setq nm (urb:ppto-find-name wb "TM_MEMORIAS"))))
+      (setq nm (urb:ppto-find-name wb "TM_MEMORIAS"))))))
   (if nm
     (setq refrange
       (vl-catch-all-apply
@@ -21988,25 +22018,24 @@
       (set_tile "campos" "0")
       (urb:ppp-preview))))
 
-;; interpreta el texto de la formula: MAGNITUD * numero, MAGNITUD / numero,
-;; numero * MAGNITUD, solo MAGNITUD (= x 1.0), y desde v4.43 tambien
-;; MAGNITUD * MAGNITUD o MAGNITUD / MAGNITUD (el segundo operando es OTRA
-;; magnitud del mismo elemento -- pedido del usuario con el ejemplo
-;; LONGITUD * EXCAVACION). Devuelve (codigo-magnitud "X"/"D" factor) donde
-;; factor es un NUMERO o el CODIGO de la segunda magnitud; nil si no se
-;; entiende.
+;; interpreta el texto de la formula: MAGNITUD op numero, numero * MAGNITUD,
+;; solo MAGNITUD (= x 1.0), y MAGNITUD op MAGNITUD. Operadores: * / + -
+;; (suma y resta desde v4.44, pedido del usuario: TOPEROL_ML + GUIA_ML).
+;; Devuelve (codigo-magnitud oper factor) con oper "X"/"D"/"S"/"R" y
+;; factor NUMERO o CODIGO de la segunda magnitud; nil si no se entiende.
 (defun urb:ppp-parse-formula (texto mags / s pos oper izq der mag-code
-                              num-val)
+                              num-val par simbolo)
   (setq s (vl-string-trim " " (urb:safe-string texto "")))
   (cond
     ((= s "") nil)
     (T
-      (setq pos (vl-string-search "/" s))
-      (setq oper (if pos "D" nil))
-      (if (null pos)
-        (progn
-          (setq pos (vl-string-search "*" s))
-          (if pos (setq oper "X"))))
+      ;; primer operador presente (las magnitudes no llevan + - * /)
+      (setq pos nil oper nil)
+      (foreach par '(("+" . "S") ("-" . "R") ("/" . "D") ("*" . "X"))
+        (if (null pos)
+          (progn
+            (setq simbolo (vl-string-search (car par) s))
+            (if simbolo (setq pos simbolo oper (cdr par))))))
       (cond
         ((null pos)
           (if (member (strcase s) mags) (list (strcase s) "X" 1.0) nil))
@@ -22020,15 +22049,22 @@
               (setq mag-code (strcase izq) num-val (urb:parse-real der))
               (if (and num-val (> num-val 0.0))
                 (list mag-code oper num-val) nil))
-            ((and (= oper "X") (member (strcase der) mags))
+            ;; numero primero: solo operaciones conmutativas (x, +)
+            ((and (member oper '("X" "S")) (member (strcase der) mags))
               (setq mag-code (strcase der) num-val (urb:parse-real izq))
               (if (and num-val (> num-val 0.0))
-                (list mag-code "X" num-val) nil))
+                (list mag-code oper num-val) nil))
             (T nil)))))))
 
 ;; representa el factor de una parametrica (numero o segunda magnitud)
 (defun urb:ppp-factor-str (factor)
   (if (numberp factor) (rtos factor 2 4) (urb:ppto-mag-label factor)))
+
+;; simbolo legible de la operacion guardada
+(defun urb:ppp-oper-str (oper / o)
+  (setq o (urb:safe-string oper "X"))
+  (cond
+    ((= o "D") " / ") ((= o "S") " + ") ((= o "R") " - ") (T " x ")))
 
 ;; interpretacion en vivo en la linea de info
 (defun urb:ppp-preview (/ tdef mags parsed)
@@ -22038,10 +22074,10 @@
   (set_tile "pinfo"
     (if parsed
       (strcat "Cantidad = " (urb:ppto-mag-label (nth 0 parsed))
-        (if (= (nth 1 parsed) "D") " / " " x ")
+        (urb:ppp-oper-str (nth 1 parsed))
         (urb:ppp-factor-str (nth 2 parsed))
         "  (por cada " (nth 0 tdef) ")")
-      "Inserte campos con el desplegable + y arme la formula: CAMPO / 0.20, CAMPO * 2, o CAMPO * CAMPO.")))
+      "Inserte campos con el desplegable + y arme la formula: CAMPO / 0.20, CAMPO * 2, CAMPO + CAMPO...")))
 
 (defun urb:ppp-agregar (/ tdef mags parsed nombre)
   (setq tdef (urb:ppp-tipo))
@@ -22161,8 +22197,8 @@
                 (urb:safe-string (nth 5 *urb-ppp-editando*) ""))
               (set_tile "formula"
                 (strcat (nth 1 *urb-ppp-editando*)
-                  (if (= (urb:safe-string (nth 4 *urb-ppp-editando*) "X") "D")
-                    " / " " * ")
+                  (vl-string-translate "x" "*"
+                    (urb:ppp-oper-str (nth 4 *urb-ppp-editando*)))
                   (if (numberp (nth 2 *urb-ppp-editando*))
                     (rtos (nth 2 *urb-ppp-editando*) 2 4)
                     (nth 2 *urb-ppp-editando*)))))
@@ -22636,7 +22672,7 @@
           (strcat "[PARAMETRICA] "
             (if (/= nombre "") nombre (nth 3 p))
             "  --  " (urb:ppto-mag-label (nth 1 p))
-            (if (= (urb:safe-string (nth 4 p) "X") "D") " / " " x ")
+            (urb:ppp-oper-str (nth 4 p))
             (urb:ppp-factor-str (nth 2 p))
             "  (cantidad entra con ACTUALIZAR)"))
         (setq *urb-pm2-plist* (cons (cons 'P p) *urb-pm2-plist*)))))
