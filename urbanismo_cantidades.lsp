@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.38.0")
+(setq *urb-version* "4.39.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20560,6 +20560,50 @@
     ((numberp v) (rtos v 2 8))
     (T "")))
 
+;; Lectura EN BLOQUE de un rango (2026-08-19, medido en el libro real:
+;; 600 celdas leidas UNA por UNA vs Range.Item = 36 segundos y hasta
+;; rechazo de llamadas COM -- RPC_E_CALL_REJECTED -- con formulas
+;; volatiles/hojas de calculo pesadas como DINAMICA/BD. Un solo
+;; Range.Value2 trae TODO el bloque en UNA llamada COM en vez de
+;; filas*columnas llamadas. Devuelve una lista de FILAS, cada una una
+;; lista de `cols` textos (mismo formato que urb:ppto-cell-text). Si algo
+;; falla, devuelve nil (el llamador debe caer de vuelta a
+;; urb:ppto-cell-text celda por celda si hace falta).
+(defun urb:ppto-read-block (rng filas cols / varr lo-r lo-c out r c fila v)
+  (setq varr (vl-catch-all-apply
+    '(lambda () (vlax-variant-value (vlax-get-property rng 'Value2)))))
+  (if (or (vl-catch-all-error-p varr) (null varr))
+    nil
+    (progn
+      (setq lo-r (vl-catch-all-apply
+        '(lambda () (vlax-safearray-get-l-bound varr 1))))
+      (setq lo-c (vl-catch-all-apply
+        '(lambda () (vlax-safearray-get-l-bound varr 2))))
+      (if (or (vl-catch-all-error-p lo-r) (vl-catch-all-error-p lo-c))
+        nil
+        (progn
+          (setq out nil r 0)
+          (while (< r filas)
+            (setq fila nil c 0)
+            (while (< c cols)
+              (setq v (vl-catch-all-apply
+                '(lambda ()
+                  (urb:ppto-variant
+                    (vlax-safearray-get-element varr (+ lo-r r) (+ lo-c c))))))
+              (setq fila
+                (cons
+                  (cond
+                    ((vl-catch-all-error-p v) "")
+                    ((= (type v) 'STR) v)
+                    ((numberp v) (rtos v 2 8))
+                    (T ""))
+                  fila))
+              (setq c (1+ c)))
+            (setq out (cons (reverse fila) out))
+            (setq r (1+ r)))
+          (reverse out)))))
+)
+
 (defun urb:ppto-put-cell (rng row col value / cell)
   (setq cell (vlax-get-property rng 'Item row col))
   (if (= (type cell) 'variant) (setq cell (vlax-variant-value cell)))
@@ -20716,17 +20760,32 @@
 ;; fila de encabezados NIVEL (col A) / DESCRIPCION* (col D) / UM (col E).
 ;; No exige que exista una tabla de Excel: solo esos 3 encabezados en algun
 ;; punto arriba de la hoja. Devuelve (("Hoja1" . fila-encabezado) ...).
-(defun urb:ppto-vocab-candidatas (wb / sheets count i ws rng r out nombre)
+;; 2026-08-19: reescrita para leer cada hoja EN BLOQUE (una llamada COM)
+;; en vez de celda por celda (hasta 75 llamadas por hoja) -- medido en el
+;; libro real: 36s y rechazo de llamadas COM (RPC_E_CALL_REJECTED) con
+;; hojas de calculo pesadas (formulas volatiles). Con bloque: <1s. Si el
+;; bloque falla en una hoja puntual, esa hoja cae de vuelta a leer celda
+;; por celda (nunca se deja de revisar una hoja por un fallo del atajo).
+(defun urb:ppto-vocab-candidatas (wb / sheets count i ws rng bloque fila
+                                  r c1 c4 c5 out nombre)
   (setq sheets (vlax-get-property wb 'Worksheets))
   (setq count (vlax-get-property sheets 'Count) i 1 out nil)
   (while (<= i count)
     (setq ws (urb:ppto-obj (vlax-get-property sheets 'Item i)))
     (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:E15")))
+    (setq bloque (urb:ppto-read-block rng 15 5))
     (setq r 1)
     (while (<= r 15)
-      (if (and (= (strcase (urb:ppto-cell-text rng r 1)) "NIVEL")
-               (wcmatch (strcase (urb:ppto-cell-text rng r 4)) "DESCRIPCION*")
-               (= (strcase (urb:ppto-cell-text rng r 5)) "UM"))
+      (if bloque
+        (progn
+          (setq fila (nth (1- r) bloque))
+          (setq c1 (strcase (nth 0 fila)) c4 (strcase (nth 3 fila))
+                c5 (strcase (nth 4 fila))))
+        (progn
+          (setq c1 (strcase (urb:ppto-cell-text rng r 1)))
+          (setq c4 (strcase (urb:ppto-cell-text rng r 4)))
+          (setq c5 (strcase (urb:ppto-cell-text rng r 5)))))
+      (if (and (= c1 "NIVEL") (wcmatch c4 "DESCRIPCION*") (= c5 "UM"))
         (progn
           (setq nombre
             (vl-catch-all-apply '(lambda () (vlax-get-property ws 'Name))))
@@ -20743,38 +20802,68 @@
 ;; "sub-encabezado" entre el encabezado y el primer dato (header+1 se
 ;; salta), igual que el diseno original con header fijo en fila 1 -> datos
 ;; desde fila 3.
-(defun urb:ppto-vocab-extraer (ws header-row / rng capitulo vocab empties r
-                               nivel codigo desc um limite)
-  (setq rng (vlax-get-property ws 'Range "A1:E8000"))
+;; 2026-08-19: reescrita para leer en BLOQUES de 500 filas (una llamada
+;; COM por bloque) en vez de fila por fila (hasta 8000 filas x 4 celdas =
+;; 32000 llamadas). Medido en el libro real: la lectura celda a celda de
+;; solo 600 celdas de encabezados ya tomaba 36s con formulas volatiles
+;; (DINAMICA/BD) -- con ~1500 filas reales de actividades esto explicaba
+;; la demora larga al abrir "Presupuesto". Con bloques: unas pocas
+;; llamadas COM en vez de miles. Si el bloque falla en un tramo puntual,
+;; ESE tramo cae de vuelta a leer celda por celda (nunca se pierden filas
+;; por un fallo del atajo).
+(defun urb:ppto-vocab-extraer (ws header-row / capitulo vocab empties r
+                               nivel-txt codigo desc um limite bsize base
+                               fin chunk-rng bloque idx fila nivel rr tmp)
   (setq capitulo "" vocab nil empties 0 r (+ header-row 2) limite 8000)
   (setq *urb-ppto-outline* nil)
+  (setq bsize 500)
   (while (and (<= r limite) (< empties 80))
-    (setq nivel (urb:ppto-cell rng r 1)
-          codigo (urb:ppto-cell-text rng r 3)
-          desc (urb:ppto-cell-text rng r 4)
-          um (urb:ppto-cell-text rng r 5))
-    (if (and (or (null nivel) (= nivel "")) (= desc ""))
-      (setq empties (1+ empties))
+    (setq base r)
+    (setq fin (min limite (+ base bsize -1)))
+    (setq chunk-rng (vlax-get-property ws 'Range
+      (strcat "A" (itoa base) ":E" (itoa fin))))
+    (setq bloque (urb:ppto-read-block chunk-rng (1+ (- fin base)) 5))
+    (if (null bloque)
       (progn
-        (setq empties 0)
-        (if (numberp nivel)
-          (progn
-            (if (= (fix nivel) 3)
-              (setq capitulo (urb:ppto-normalize desc)))
-            (if (and (>= (fix nivel) 3) (/= desc ""))
-              (setq *urb-ppto-outline*
-                (cons
-                  (list (fix nivel) codigo desc (strcase um) capitulo)
-                  *urb-ppto-outline*)))
-            (if (and (= (fix nivel) 5) (/= desc "") (/= um ""))
-              (setq vocab
-                (cons
-                  (list capitulo (strcase um) desc
-                        (urb:ppto-words desc) r codigo)
-                  vocab)))))))
-    (setq r (1+ r)))
+        (setq rr 1 tmp nil)
+        (while (<= rr (1+ (- fin base)))
+          (setq tmp
+            (cons
+              (list (urb:ppto-cell-text chunk-rng rr 1) ""
+                    (urb:ppto-cell-text chunk-rng rr 3)
+                    (urb:ppto-cell-text chunk-rng rr 4)
+                    (urb:ppto-cell-text chunk-rng rr 5))
+              tmp))
+          (setq rr (1+ rr)))
+        (setq bloque (reverse tmp))))
+    (vlax-release-object chunk-rng)
+    (setq idx 0)
+    (while (and (<= r fin) (< empties 80))
+      (setq fila (nth idx bloque))
+      (setq nivel-txt (nth 0 fila) codigo (nth 2 fila) desc (nth 3 fila)
+            um (nth 4 fila))
+      (setq nivel (if (/= nivel-txt "") (atof nivel-txt) nil))
+      (if (and (null nivel) (= desc ""))
+        (setq empties (1+ empties))
+        (progn
+          (setq empties 0)
+          (if nivel
+            (progn
+              (if (= (fix nivel) 3)
+                (setq capitulo (urb:ppto-normalize desc)))
+              (if (and (>= (fix nivel) 3) (/= desc ""))
+                (setq *urb-ppto-outline*
+                  (cons
+                    (list (fix nivel) codigo desc (strcase um) capitulo)
+                    *urb-ppto-outline*)))
+              (if (and (= (fix nivel) 5) (/= desc "") (/= um ""))
+                (setq vocab
+                  (cons
+                    (list capitulo (strcase um) desc
+                          (urb:ppto-words desc) r codigo)
+                    vocab)))))))
+      (setq r (1+ r) idx (1+ idx))))
   (setq *urb-ppto-outline* (reverse *urb-ppto-outline*))
-  (vlax-release-object rng)
   (reverse vocab))
 
 ;; resuelve QUE hoja leer: preferencia guardada en el libro (URB_CONFIG,
@@ -20869,14 +20958,20 @@
 ;; (1-12) y UM/UN/UND en otra de la MISMA fila. Devuelve (fila col-desc
 ;; col-um) o nil. No exige NIVEL -- por eso encuentra "PPTO" (COD |
 ;; DESCRIPCION | UN | CANT) ademas de books con NIVEL.
+;; 2026-08-19: bloque en vez de celda a celda (mismo motivo que
+;; urb:ppto-vocab-candidatas -- ver su comentario).
 (defun urb:ppto-header-scan-b (ws / rng r c col-desc col-um encontrado
-                               txt)
+                               txt bloque fila)
   (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:L15")))
+  (setq bloque (urb:ppto-read-block rng 15 12))
   (setq encontrado nil r 1)
   (while (and (<= r 15) (null encontrado))
     (setq col-desc nil col-um nil c 1)
+    (setq fila (if bloque (nth (1- r) bloque) nil))
     (while (<= c 12)
-      (setq txt (strcase (urb:ppto-cell-text rng r c)))
+      (setq txt
+        (strcase
+          (if bloque (nth (1- c) fila) (urb:ppto-cell-text rng r c))))
       (cond
         ((wcmatch txt "DESCRIPCION*") (setq col-desc c))
         ((member txt '("UM" "UN" "UND")) (setq col-um c)))
@@ -20911,31 +21006,52 @@
 ;; red) y las actividades directo debajo como nivel 5 -- sin nivel 4,
 ;; porque los titulos de seccion del archivo no corresponden a una red
 ;; distinta, son solo fases de obra dentro de la misma.
+;; 2026-08-19: en bloques de 500 filas (una llamada COM por bloque) --
+;; mismo motivo que urb:ppto-vocab-extraer (Formato A).
 (defun urb:ppto-vocab-extraer-b (ws col-desc col-um header-row capitulo
-                                 / rng vocab empties r desc um limite)
-  (setq rng (vlax-get-property ws 'Range "A1:P8000"))
+                                 / vocab empties r desc um limite bsize
+                                 base fin chunk-rng bloque idx fila
+                                 fila-rng)
   (setq vocab nil empties 0 r (1+ header-row) limite 8000)
   (setq *urb-ppto-outline*
     (list (list 3 "" capitulo "" (urb:ppto-normalize capitulo))))
+  (setq bsize 500)
   (while (and (<= r limite) (< empties 200))
-    (setq desc (urb:ppto-cell-text rng r col-desc)
-          um (strcase (urb:ppto-cell-text rng r col-um)))
-    (cond
-      ((and (/= um "") (member um *urb-ppto-unidades-conocidas*)
-            (/= desc ""))
-        (setq empties 0)
-        (setq *urb-ppto-outline*
-          (cons (list 5 "" desc um (urb:ppto-normalize capitulo))
-            *urb-ppto-outline*))
-        (setq vocab
-          (cons
-            (list (urb:ppto-normalize capitulo) um desc
-                  (urb:ppto-words desc) r "")
-            vocab)))
-      ((= desc "") (setq empties (1+ empties))))
-    (setq r (1+ r)))
+    (setq base r)
+    (setq fin (min limite (+ base bsize -1)))
+    (setq chunk-rng (vlax-get-property ws 'Range
+      (strcat "A" (itoa base) ":P" (itoa fin))))
+    (setq bloque (urb:ppto-read-block chunk-rng (1+ (- fin base)) 16))
+    (vlax-release-object chunk-rng)
+    (setq idx 0)
+    (while (and (<= r fin) (< empties 200))
+      (if bloque
+        (progn
+          (setq fila (nth idx bloque))
+          (setq desc (nth (1- col-desc) fila))
+          (setq um (strcase (nth (1- col-um) fila))))
+        (progn
+          ;; respaldo puntual: reabre SOLO esta fila
+          (setq fila-rng (vlax-get-property ws 'Range
+            (strcat "A" (itoa r) ":P" (itoa r))))
+          (setq desc (urb:ppto-cell-text fila-rng 1 col-desc))
+          (setq um (strcase (urb:ppto-cell-text fila-rng 1 col-um)))
+          (vlax-release-object fila-rng)))
+      (cond
+        ((and (/= um "") (member um *urb-ppto-unidades-conocidas*)
+              (/= desc ""))
+          (setq empties 0)
+          (setq *urb-ppto-outline*
+            (cons (list 5 "" desc um (urb:ppto-normalize capitulo))
+              *urb-ppto-outline*))
+          (setq vocab
+            (cons
+              (list (urb:ppto-normalize capitulo) um desc
+                    (urb:ppto-words desc) r "")
+              vocab)))
+        ((= desc "") (setq empties (1+ empties))))
+      (setq r (1+ r) idx (1+ idx))))
   (setq *urb-ppto-outline* (reverse *urb-ppto-outline*))
-  (vlax-release-object rng)
   (reverse vocab))
 
 (defun urb:ppto-write-red-dcl ()
