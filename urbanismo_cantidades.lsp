@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.39.0")
+(setq *urb-version* "4.40.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20766,16 +20766,24 @@
 ;; hojas de calculo pesadas (formulas volatiles). Con bloque: <1s. Si el
 ;; bloque falla en una hoja puntual, esa hoja cae de vuelta a leer celda
 ;; por celda (nunca se deja de revisar una hoja por un fallo del atajo).
+;; 2026-08-19: tope de filas subido 15->40 -- se descubrio en vivo que un
+;; libro real (PEATONAL 3 Y 4.xlsx) tiene su encabezado en la fila 20
+;; (bloques de metadatos/totales arriba). Con la lectura en bloque (v4.39)
+;; escanear mas filas cuesta lo mismo (sigue siendo UNA llamada COM), asi
+;; que no hay motivo para quedarse corto.
+(setq *urb-ppto-tope-filas-header* 40)
 (defun urb:ppto-vocab-candidatas (wb / sheets count i ws rng bloque fila
-                                  r c1 c4 c5 out nombre)
+                                  r c1 c4 c5 out nombre tope)
+  (setq tope *urb-ppto-tope-filas-header*)
   (setq sheets (vlax-get-property wb 'Worksheets))
   (setq count (vlax-get-property sheets 'Count) i 1 out nil)
   (while (<= i count)
     (setq ws (urb:ppto-obj (vlax-get-property sheets 'Item i)))
-    (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:E15")))
-    (setq bloque (urb:ppto-read-block rng 15 5))
+    (setq rng (urb:ppto-obj (vlax-get-property ws 'Range
+      (strcat "A1:E" (itoa tope)))))
+    (setq bloque (urb:ppto-read-block rng tope 5))
     (setq r 1)
-    (while (<= r 15)
+    (while (<= r tope)
       (if bloque
         (progn
           (setq fila (nth (1- r) bloque))
@@ -20961,11 +20969,13 @@
 ;; 2026-08-19: bloque en vez de celda a celda (mismo motivo que
 ;; urb:ppto-vocab-candidatas -- ver su comentario).
 (defun urb:ppto-header-scan-b (ws / rng r c col-desc col-um encontrado
-                               txt bloque fila)
-  (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:L15")))
-  (setq bloque (urb:ppto-read-block rng 15 12))
+                               txt bloque fila tope)
+  (setq tope *urb-ppto-tope-filas-header*)
+  (setq rng (urb:ppto-obj (vlax-get-property ws 'Range
+    (strcat "A1:L" (itoa tope)))))
+  (setq bloque (urb:ppto-read-block rng tope 12))
   (setq encontrado nil r 1)
-  (while (and (<= r 15) (null encontrado))
+  (while (and (<= r tope) (null encontrado))
     (setq col-desc nil col-um nil c 1)
     (setq fila (if bloque (nth (1- r) bloque) nil))
     (while (<= c 12)
@@ -23078,6 +23088,24 @@
                     (urb:ppto-config-write nuevo)
                     (prompt (strcat "\nLibro vinculado en este PC: " nuevo)))
                   (setq seguir nil)))
+              ;; el libro se abrio bien pero no se reconocio ningun
+              ;; presupuesto adentro (ni NIVEL ni por secciones): antes el
+              ;; comando terminaba en silencio y el usuario quedaba SIN
+              ;; ninguna ventana para corregirlo (visto en vivo 2026-08-19
+              ;; con PEATONAL 3 Y 4.xlsx) -- ahora se abre la MISMA
+              ;; ventana de gestion (Cambiar libro/Elegir hoja/
+              ;; Desvincular/Reintentar) en vez de dejar al usuario sin
+              ;; salida.
+              ((and (listp result) (eq (car result) 'SIN-TABLA-O-VOCAB))
+                (if *urb-ppto-headless*
+                  (setq seguir nil)
+                  (progn
+                    (setq gestion
+                      (urb:ppto-libro-gestionar
+                        (if (eq (nth 2 result) 'sin-vocab)
+                          "No se encontro presupuesto en este libro (ni con NIVEL ni por secciones DESCRIPCION/UM). Puede elegir la hoja correcta, cambiar de libro, o desvincular."
+                          "No se pudo validar la tabla MEMORIAS/TablaMemorias de este libro. Puede cambiar de libro o desvincular.")))
+                    (if (not (eq gestion 'REINTENTAR)) (setq seguir nil)))))
               (T (setq seguir nil))))))))
   (princ))
 
