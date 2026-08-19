@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.35.0")
+(setq *urb-version* "4.36.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20823,22 +20823,32 @@
       "ok_cancel; }")))
 
 ;; candidatas: (("Hoja1" . fila) ...). Devuelve la elegida (par) o nil si
-;; cancela.
-(defun urb:ppto-elegir-hoja-dialog (candidatas info / dcl c done sel)
-  (setq dcl (load_dialog (urb:ppto-write-hoja-dcl)))
+;; cancela. Blindado (2026-08-18, bug real en vivo): load_dialog exige un
+;; NOMBRE DE ARCHIVO como argumento -- si urb:write-dialog-dcl no pudo
+;; escribir el .dcl temporal (carpeta temp con problema transitorio) y
+;; devuelve nil, pasarlo directo a load_dialog crashea con
+;; "bad argument type: stringp nil" en vez de avisar con un mensaje claro.
+(defun urb:ppto-elegir-hoja-dialog (candidatas info / dcl c done sel dclfile)
   (setq sel nil)
-  (if (and (> dcl 0) (new_dialog "urb_ppto_hoja" dcl))
+  (setq dclfile (urb:ppto-write-hoja-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar el dialogo de seleccion de hoja (revise permisos de la carpeta temporal de Windows).")
     (progn
-      (set_tile "info" info)
-      (start_list "hojas")
-      (foreach c candidatas
-        (add_list (strcat (car c) "  (encabezado en fila " (itoa (cdr c)) ")")))
-      (end_list)
-      (set_tile "hojas" "0")
-      (setq done (start_dialog))
-      (if (= done 1)
-        (setq sel (nth (atoi (get_tile "hojas")) candidatas)))))
-  (if (> dcl 0) (unload_dialog dcl))
+      (setq dcl (load_dialog dclfile))
+      (if (and (> dcl 0) (new_dialog "urb_ppto_hoja" dcl))
+        (progn
+          (set_tile "info" (urb:safe-string info ""))
+          (start_list "hojas")
+          (foreach c candidatas
+            (add_list
+              (strcat (urb:safe-string (car c) "?")
+                "  (encabezado en fila " (itoa (cdr c)) ")")))
+          (end_list)
+          (set_tile "hojas" "0")
+          (setq done (start_dialog))
+          (if (= done 1)
+            (setq sel (nth (atoi (get_tile "hojas")) candidatas)))))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))))
   sel)
 
 (defun urb:ppto-read-vocab (wb / entry target-name header-row vocab)
@@ -22852,24 +22862,28 @@
 
 ;; extra: linea opcional arriba de todo (p.ej. el motivo por el que se llego
 ;; aqui -- un intento de exportacion fallido). nil/"" no la muestra.
-(defun urb:ppto-libro-dialog (path lineas extra / dcl done)
+(defun urb:ppto-libro-dialog (path lineas extra / dcl done dclfile)
   (setq done 0)
-  (setq dcl (load_dialog (urb:ppto-write-libro-dcl)))
-  (if (and (> dcl 0) (new_dialog "urb_ppto_libro" dcl))
+  (setq dclfile (urb:ppto-write-libro-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar la ventana de gestion del libro (revise permisos de la carpeta temporal de Windows).")
     (progn
-      (set_tile "extra" (urb:safe-string extra ""))
-      (set_tile "ruta"
-        (if (= path "") "SIN LIBRO VINCULADO en este PC."
-          (strcat "Libro: " path)))
-      (set_tile "l1" (urb:safe-string (nth 0 lineas) ""))
-      (set_tile "l2" (urb:safe-string (nth 1 lineas) ""))
-      (set_tile "l3" (urb:safe-string (nth 2 lineas) ""))
-      (action_tile "cambiar" "(done_dialog 2)")
-      (action_tile "hoja" "(done_dialog 4)")
-      (action_tile "desvincular" "(done_dialog 3)")
-      (action_tile "reintentar" "(done_dialog 5)")
-      (setq done (start_dialog))))
-  (if (> dcl 0) (unload_dialog dcl))
+      (setq dcl (load_dialog dclfile))
+      (if (and (> dcl 0) (new_dialog "urb_ppto_libro" dcl))
+        (progn
+          (set_tile "extra" (urb:safe-string extra ""))
+          (set_tile "ruta"
+            (if (= path "") "SIN LIBRO VINCULADO en este PC."
+              (strcat "Libro: " path)))
+          (set_tile "l1" (urb:safe-string (nth 0 lineas) ""))
+          (set_tile "l2" (urb:safe-string (nth 1 lineas) ""))
+          (set_tile "l3" (urb:safe-string (nth 2 lineas) ""))
+          (action_tile "cambiar" "(done_dialog 2)")
+          (action_tile "hoja" "(done_dialog 4)")
+          (action_tile "desvincular" "(done_dialog 3)")
+          (action_tile "reintentar" "(done_dialog 5)")
+          (setq done (start_dialog))))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))))
   done)
 
 ;; abre el libro (instancia propia si hace falta), deja elegir la hoja del
