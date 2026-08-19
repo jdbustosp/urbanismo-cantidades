@@ -8,7 +8,7 @@ $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $src = Join-Path $dir "UrbCantRibbon.cs"
 $outDir = Join-Path (Split-Path -Parent $dir) "bundle\net"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-$out = Join-Path $outDir "UrbCantRibbon2023_v4350.dll"
+$out = Join-Path $outDir "UrbCantRibbon2023_v4410.dll"
 
 $acad = "C:\Program Files\Autodesk\AutoCAD 2023"
 if (-not (Test-Path (Join-Path $acad "acmgd.dll"))) {

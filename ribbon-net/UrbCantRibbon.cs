@@ -500,6 +500,11 @@ namespace UrbanismoCantidades
             if (img32 != null) sb.LargeImage = img32;
             sb.ShowImage = true;
             sb.Items.Add(MakeBig("Presupuesto", "PPTOEXPORTAR", "ppto"));
+            // 2026-08-19 v4.41 (pedido del usuario): la VINCULACION sale
+            // del flujo de exportar a su propio boton -- elegir libro,
+            // hoja, elemento/red y previsualizar el presupuesto, sin
+            // exportar nada.
+            sb.Items.Add(MakeBig("Vinculacion", "PPTOVINCULAR", "qvincular"));
             return sb;
         }
 

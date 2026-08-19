@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.40.0")
+(setq *urb-version* "4.41.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -174,6 +174,7 @@
 (setq *urb-ppto-libro-dcl-ok* nil)
 (setq *urb-ppto-hoja-dcl-ok* nil)
 (setq *urb-ppto-red-dcl-ok* nil)
+(setq *urb-ppto-vinc-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -20943,9 +20944,20 @@
                 "  (encabezado en fila " (itoa (cdr c)) ")")))
           (end_list)
           (set_tile "hojas" "0")
+          ;; CAUSA RAIZ del "bad argument type: stringp nil" visto en vivo
+          ;; (2026-08-18 en Elegir hoja y 2026-08-19 en Elegir red,
+          ;; reproducido con driver interactivo): get_tile DESPUES de
+          ;; start_dialog es invalido (el dialogo ya no existe) y devuelve
+          ;; nil a veces -> (atoi nil) revienta. La seleccion se captura
+          ;; DENTRO del action_tile del boton OK, mientras el dialogo vive.
+          (setq *urb-ppto-hoja-sel* "0")
+          (action_tile "accept"
+            "(setq *urb-ppto-hoja-sel* (get_tile \"hojas\")) (done_dialog 1)")
           (setq done (start_dialog))
           (if (= done 1)
-            (setq sel (nth (atoi (get_tile "hojas")) candidatas)))))
+            (setq sel
+              (nth (atoi (urb:safe-string *urb-ppto-hoja-sel* "0"))
+                candidatas)))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))))
   sel)
 
@@ -21090,10 +21102,18 @@
           (foreach entry *urb-ppto-red-capitulo* (add_list (car entry)))
           (end_list)
           (set_tile "red" "0")
+          ;; seleccion capturada DENTRO del action_tile del OK: get_tile
+          ;; despues de start_dialog es invalido y devolvia nil ->
+          ;; "stringp nil" (causa raiz del crash en vivo 2026-08-19)
+          (setq *urb-ppto-red-sel* "0")
+          (action_tile "accept"
+            "(setq *urb-ppto-red-sel* (get_tile \"red\")) (done_dialog 1)")
           (setq done (start_dialog))
           (if (= done 1)
             (setq sel
-              (car (nth (atoi (get_tile "red")) *urb-ppto-red-capitulo*))))))
+              (car
+                (nth (atoi (urb:safe-string *urb-ppto-red-sel* "0"))
+                  *urb-ppto-red-capitulo*))))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))))
   sel)
 
@@ -23338,6 +23358,186 @@
           "\n\nEl archivo de Excel NO se modifico: conserva su tabla"
           "\nMEMORIAS, las asignaciones y las parametricas."
           "\nAl volver a vincularlo todo funciona igual."))))
+  (princ))
+
+;; ---------- VINCULACION: boton propio (2026-08-19, pedido del usuario:
+;; "que quede en un boton aparte a presupuesto... que me deje elegir el
+;; archivo y la hoja... tambien una previsualizacion de como se veria el
+;; presupuesto"). Aqui SOLO se prepara y revisa el vinculo; exportar
+;; cantidades sigue siendo el boton Presupuesto (PPTOEXPORTAR). ----------
+(defun urb:ppto-write-vinc-dcl ()
+  (urb:write-dialog-dcl
+    "urb_ppto_vinc"
+    '*urb-ppto-vinc-dcl-ok*
+    (list
+      "urb_ppto_vinc : dialog { label = \"Vinculacion del presupuesto\";"
+      ": text { key = \"ruta\"; width = 130; }"
+      ": text { key = \"l1\"; width = 130; }"
+      ": text { key = \"l2\"; width = 130; }"
+      ": list_box { key = \"arbol\"; label = \"Previsualizacion: asi se leera el presupuesto (capitulos y actividades con su unidad)\"; width = 130; height = 20; }"
+      ": row { : button { key = \"cambiar\"; label = \"Cambiar libro...\"; } : button { key = \"hoja\"; label = \"Elegir hoja...\"; } : button { key = \"red\"; label = \"Elegir elemento-red (hoja sin NIVEL)...\"; } : button { key = \"desvincular\"; label = \"Desvincular este PC\"; } }"
+      ": text { label = \"Aqui solo se prepara y revisa el vinculo; exportar cantidades es el boton Presupuesto.\"; }"
+      "ok_cancel; }")))
+
+;; arbol de previsualizacion SIN marcas de vinculo (urb:ppv-labels exige
+;; *urb-ppto-matches* de una corrida de exportacion; aqui no hay corrida)
+(defun urb:ppto-vinc-labels (/ o out)
+  (setq out nil)
+  (foreach o *urb-ppto-outline*
+    (cond
+      ((= (nth 0 o) 3)
+        (setq out (cons (strcat "===== " (nth 2 o) " =====") out)))
+      ((= (nth 0 o) 4)
+        (setq out (cons (strcat "  " (nth 1 o) "  " (nth 2 o)) out)))
+      (T
+        (setq out
+          (cons
+            (strcat "      " (nth 1 o) "  " (nth 2 o) " [" (nth 3 o) "]")
+            out)))))
+  (reverse out))
+
+;; abre el libro, valida la tabla, lee el vocabulario (puede preguntar la
+;; hoja o la red si aplica) y arma la previsualizacion.
+;; Devuelve (linea1 linea2 labels); nunca deja Excel huerfano.
+(defun urb:ppto-vinc-info (path / attach app wb propia lo vocab labels
+                           lineas result)
+  (setq attach (urb:ppto-attach-excel path)
+        app (nth 0 attach) wb (nth 1 attach) propia (nth 2 attach))
+  (if (null wb)
+    (list (strcat "PROBLEMA al abrir el libro: "
+            (urb:safe-string (nth 2 attach) "?")) "" nil)
+    (progn
+      (setq result
+        (vl-catch-all-apply
+          '(lambda ()
+            (setq lo (urb:ppto-memorias-table wb))
+            (setq vocab (urb:ppto-read-vocab wb))
+            (setq labels (if vocab (urb:ppto-vinc-labels) nil))
+            (setq lineas
+              (list
+                (if lo
+                  "Tabla de escritura: hoja MEMORIAS, tabla TablaMemorias -- OK."
+                  "PROBLEMA: no se valido la tabla MEMORIAS (detalle en la linea de comandos).")
+                (if vocab
+                  (strcat "Presupuesto: hoja \""
+                    (urb:safe-string *urb-ppto-vocab-hoja* "?") "\" -- "
+                    (itoa (length vocab)) " actividades leidas.")
+                  "PROBLEMA: no se reconocio presupuesto en el libro (use Elegir hoja, Elegir elemento-red o Cambiar libro).")))
+            T)))
+      (if propia
+        (progn
+          (vl-catch-all-apply
+            '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
+          (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
+          (vlax-release-object wb)
+          (vlax-release-object app)))
+      (if (vl-catch-all-error-p result)
+        (list (strcat "PROBLEMA leyendo el libro: "
+                (vl-catch-all-error-message result)) "" nil)
+        (list (nth 0 lineas) (nth 1 lineas) labels)))))
+
+(defun urb:ppto-vinc-dialog (path datos / dcl dclfile done lbl)
+  (setq done 0)
+  (setq dclfile (urb:ppto-write-vinc-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar la ventana de vinculacion (revise permisos de la carpeta temporal de Windows).")
+    (progn
+      (setq dcl (load_dialog dclfile))
+      (if (and dcl (> dcl 0) (new_dialog "urb_ppto_vinc" dcl))
+        (progn
+          (set_tile "ruta"
+            (if (= path "") "SIN LIBRO VINCULADO en este PC."
+              (strcat "Libro: " path)))
+          (set_tile "l1" (urb:safe-string (nth 0 datos) ""))
+          (set_tile "l2" (urb:safe-string (nth 1 datos) ""))
+          (start_list "arbol")
+          (if (nth 2 datos)
+            (foreach lbl (nth 2 datos) (add_list lbl))
+            (add_list "(sin presupuesto que previsualizar)"))
+          (end_list)
+          (action_tile "cambiar" "(done_dialog 2)")
+          (action_tile "hoja" "(done_dialog 4)")
+          (action_tile "red" "(done_dialog 5)")
+          (action_tile "desvincular" "(done_dialog 3)")
+          (setq done (start_dialog))))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))))
+  done)
+
+;; elegir la red de una hoja sin NIVEL desde la vinculacion: borra la
+;; eleccion guardada y deja que el flujo normal la pregunte de nuevo
+(defun urb:ppto-vinc-elegir-red (path / attach app wb propia sel result)
+  (setq attach (urb:ppto-attach-excel path)
+        app (nth 0 attach) wb (nth 1 attach) propia (nth 2 attach))
+  (if (null wb)
+    (alert (strcat "No se pudo abrir el libro:\n\n"
+      (urb:safe-string (nth 2 attach) "?")))
+    (progn
+      (setq result
+        (vl-catch-all-apply
+          '(lambda ()
+            (if (null (urb:ppto-vocab-candidatas-b wb))
+              (alert "Este libro no tiene hojas de formato por secciones (sin NIVEL); este boton no aplica aqui.")
+              (progn
+                (setq sel (urb:ppto-elegir-red-dialog))
+                (if sel
+                  (progn
+                    (urb:ppto-cfg-set wb "RED_FORMATO_PLANO" sel)
+                    (vl-catch-all-apply
+                      '(lambda () (vlax-invoke-method wb 'Save)))))))
+            T)))
+      (if propia
+        (progn
+          (vl-catch-all-apply
+            '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
+          (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
+          (vlax-release-object wb)
+          (vlax-release-object app)))
+      (if (vl-catch-all-error-p result)
+        (alert (strcat "PROBLEMA eligiendo la red:\n\n"
+          (vl-catch-all-error-message result))))))
+  (princ))
+
+(defun c:PPTOVINCULAR (/ path datos done nuevo seguir)
+  (vl-load-com)
+  (setq seguir T)
+  (while seguir
+    (setq path (urb:ppto-config-read))
+    (setq datos
+      (cond
+        ((= path "")
+          (list "Use \"Cambiar libro...\" para elegir el archivo de Excel del presupuesto." "" nil))
+        ((null (findfile path))
+          (list "PROBLEMA: el archivo configurado NO existe en esa ruta." "" nil))
+        (T
+          (prompt "\nLeyendo el libro (se abre un Excel oculto un momento)...")
+          (urb:ppto-vinc-info path))))
+    (setq done (urb:ppto-vinc-dialog path datos))
+    (cond
+      ((= done 2)
+        (setq nuevo
+          (getfiled "Seleccione el libro del presupuesto (Excel)"
+            (if (/= path "") path "") "xlsx;xlsm" 0))
+        (if nuevo
+          (progn
+            (urb:ppto-config-write nuevo)
+            (prompt (strcat "\nLibro vinculado en este PC: " nuevo)))))
+      ((= done 4)
+        (if (and (/= path "") (findfile path))
+          (urb:ppto-libro-elegir-hoja path)
+          (alert "Primero vincule un libro (\"Cambiar libro...\").")))
+      ((= done 5)
+        (if (and (/= path "") (findfile path))
+          (urb:ppto-vinc-elegir-red path)
+          (alert "Primero vincule un libro (\"Cambiar libro...\").")))
+      ((= done 3)
+        (urb:ppto-config-write "")
+        (prompt "\nLibro DESVINCULADO de este PC (el archivo no se toco).")
+        (alert
+          (strcat "Libro desvinculado de este PC."
+            "\n\nEl archivo de Excel NO se modifico: conserva su tabla"
+            "\nMEMORIAS, las asignaciones y las parametricas."))
+        (setq seguir nil))
+      (T (setq seguir nil))))
   (princ))
 
 (defun urb:unique-enames (entities / result ename)
