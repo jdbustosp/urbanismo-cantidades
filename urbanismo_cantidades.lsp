@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.32.0")
+(setq *urb-version* "4.33.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -22577,61 +22577,80 @@
   *urb-ppto-last-summary*)
 
 ;; ---------- comando unico ----------
-(defun c:PPTOEXPORTAR (/ path attach app wb propia result)
+;; Unico comando expuesto en la cinta (pedido 2026-08-18: quitar el
+;; desplegable con 7 items, dejar solo "Exportar al PRESUPUESTO"). Cuando
+;; el libro NO se puede abrir por cualquier motivo -- sin configurar, ruta
+;; rota, o bloqueado por otra sesion -- ya no se queda en un simple alert
+;; sin salida: abre la MISMA ventana de gestion de PPTOLIBRO (cambiar
+;; libro, elegir hoja, desvincular, reintentar) para que el usuario pueda
+;; resolverlo ahi mismo. Si elige "Reintentar abrir" (o cambia el libro/la
+;; hoja y despues Reintentar), se vuelve a intentar sin salir del comando.
+(defun c:PPTOEXPORTAR (/ path attach app wb propia result seguir gestion
+                       mensaje)
   (vl-load-com)
-  (setq path (urb:ppto-config-read))
-  (if (or (= path "") (null (findfile path)))
-    (progn
-      (setq path
-        (getfiled "Seleccione el libro del presupuesto (MEMORIAS)"
-          (if (/= path "") path "") "" 0))
-      (if path (urb:ppto-config-write path))))
-  (cond
-    ((null path) (prompt "\nExportacion cancelada: sin libro configurado."))
-    ((null (findfile path))
-      (prompt (strcat "\nNo existe el libro: " path)))
-    (T
-      (setq *urb-ppto-path* path)
-      (setq attach (urb:ppto-attach-excel path)
-            app (nth 0 attach) wb (nth 1 attach) propia (nth 2 attach))
-      (if (null wb)
-        (progn
-          (setq *urb-ppto-last-summary*
-            (list 'SIN-EXCEL (urb:safe-string (nth 2 attach) "?")))
-          (prompt (strcat "\n" (urb:safe-string (nth 2 attach) "Sin Excel.")))
-          (if (not (and (boundp '*urb-ppto-sin-dialogo*)
-                        *urb-ppto-sin-dialogo*))
-            (alert
-              (strcat "NO se pudo abrir el libro del presupuesto:\n\n"
-                (urb:safe-string (nth 2 attach) "Sin Excel.")))))
-        (progn
-          ;; el nucleo va envuelto: pase lo que pase, la instancia PROPIA
-          ;; de Excel se cierra (sin esto, un error dejaba un EXCEL
-          ;; huerfano con el libro bloqueado -- visto 2026-08-17)
-          (setq result (vl-catch-all-apply 'urb:ppto-run (list wb)))
-          (if propia
-            (progn
-              (vl-catch-all-apply
-                '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
-              (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
-              (vlax-release-object wb)
-              (vlax-release-object app)))
-          (if (vl-catch-all-error-p result)
-            (progn
-              (setq *urb-ppto-last-summary*
-                (list 'ERROR (vl-catch-all-error-message result)
-                  'etapa (urb:safe-string *urb-ppto-stage* "?")))
-              (prompt (strcat "\nERROR EN EXPORTACION: "
-                (vl-catch-all-error-message result)
-                " -- revise y reintente (el libro pudo quedar sin guardar)."))
-              (if (not (and (boundp '*urb-ppto-sin-dialogo*)
-                            *urb-ppto-sin-dialogo*))
-                (alert
-                  (strcat "ERROR EN LA EXPORTACION (etapa: "
-                    (urb:safe-string *urb-ppto-stage* "?") "):\n\n"
-                    (vl-catch-all-error-message result)
-                    "\n\nNo se dio por buena: el libro pudo quedar sin"
-                    "\nguardar. Revise y reintente.")))))))))
+  (setq seguir T)
+  (setq *urb-ppto-headless*
+    (and (boundp '*urb-ppto-sin-dialogo*) *urb-ppto-sin-dialogo*))
+  (while seguir
+    (setq path (urb:ppto-config-read))
+    (cond
+      ((or (= path "") (null (findfile path)))
+        (if *urb-ppto-headless*
+          (progn
+            (prompt
+              (if (= path "") "\nExportacion cancelada: sin libro configurado."
+                (strcat "\nNo existe el libro: " path)))
+            (setq seguir nil))
+          (progn
+            (setq gestion
+              (urb:ppto-libro-gestionar
+                (if (= path "") nil
+                  "El archivo configurado ya no existe en esa ruta.")))
+            (if (not (eq gestion 'REINTENTAR)) (setq seguir nil)))))
+      (T
+        (setq *urb-ppto-path* path)
+        (setq attach (urb:ppto-attach-excel path)
+              app (nth 0 attach) wb (nth 1 attach) propia (nth 2 attach))
+        (cond
+          ((null wb)
+            (setq mensaje (urb:safe-string (nth 2 attach) "Sin Excel."))
+            (setq *urb-ppto-last-summary* (list 'SIN-EXCEL mensaje))
+            (prompt (strcat "\n" mensaje))
+            (if *urb-ppto-headless*
+              (setq seguir nil)
+              (progn
+                (setq gestion
+                  (urb:ppto-libro-gestionar
+                    (strcat "NO se pudo abrir el libro: " mensaje)))
+                (if (not (eq gestion 'REINTENTAR)) (setq seguir nil)))))
+          (T
+            (setq seguir nil)
+            ;; el nucleo va envuelto: pase lo que pase, la instancia PROPIA
+            ;; de Excel se cierra (sin esto, un error dejaba un EXCEL
+            ;; huerfano con el libro bloqueado -- visto 2026-08-17)
+            (setq result (vl-catch-all-apply 'urb:ppto-run (list wb)))
+            (if propia
+              (progn
+                (vl-catch-all-apply
+                  '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
+                (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
+                (vlax-release-object wb)
+                (vlax-release-object app)))
+            (if (vl-catch-all-error-p result)
+              (progn
+                (setq *urb-ppto-last-summary*
+                  (list 'ERROR (vl-catch-all-error-message result)
+                    'etapa (urb:safe-string *urb-ppto-stage* "?")))
+                (prompt (strcat "\nERROR EN EXPORTACION: "
+                  (vl-catch-all-error-message result)
+                  " -- revise y reintente (el libro pudo quedar sin guardar)."))
+                (if (not *urb-ppto-headless*)
+                  (alert
+                    (strcat "ERROR EN LA EXPORTACION (etapa: "
+                      (urb:safe-string *urb-ppto-stage* "?") "):\n\n"
+                      (vl-catch-all-error-message result)
+                      "\n\nNo se dio por buena: el libro pudo quedar sin"
+                      "\nguardar. Revise y reintente."))))))))))
   (princ))
 
 ;; ---------- gestion VISIBLE del vinculo con el libro (2026-08-18) ----------
@@ -22705,7 +22724,8 @@
     "urb_ppto_libro"
     '*urb-ppto-libro-dcl-ok*
     (list
-      "urb_ppto_libro : dialog { label = \"Libro del presupuesto vinculado en este PC\";"
+      "urb_ppto_libro : dialog { label = \"Presupuesto: libro vinculado\";"
+      ": text { key = \"extra\"; width = 130; }"
       ": text { key = \"ruta\"; width = 130; }"
       ": text { key = \"l1\"; width = 130; }"
       ": text { key = \"l2\"; width = 130; }"
@@ -22713,14 +22733,17 @@
       ": text { label = \"Desvincular solo hace que este PC olvide la ruta: el libro conserva su tabla MEMORIAS,\"; }"
       ": text { label = \"las asignaciones y las parametricas (viven dentro del archivo y viajan con el).\"; }"
       ": text { label = \"El presupuesto se relee EN VIVO en cada exportacion: editar una fila (renombrar, cambiar UM) se refleja solo.\"; }"
-      ": row { : button { key = \"cambiar\"; label = \"Cambiar libro...\"; } : button { key = \"hoja\"; label = \"Elegir hoja del presupuesto...\"; } : button { key = \"desvincular\"; label = \"Desvincular este PC\"; } }"
-      "ok_only; }")))
+      ": row { : button { key = \"cambiar\"; label = \"Cambiar libro...\"; } : button { key = \"hoja\"; label = \"Elegir hoja del presupuesto...\"; } : button { key = \"reintentar\"; label = \"Reintentar abrir\"; } : button { key = \"desvincular\"; label = \"Desvincular este PC\"; } }"
+      "ok_cancel; }")))
 
-(defun urb:ppto-libro-dialog (path lineas / dcl done)
+;; extra: linea opcional arriba de todo (p.ej. el motivo por el que se llego
+;; aqui -- un intento de exportacion fallido). nil/"" no la muestra.
+(defun urb:ppto-libro-dialog (path lineas extra / dcl done)
   (setq done 0)
   (setq dcl (load_dialog (urb:ppto-write-libro-dcl)))
   (if (and (> dcl 0) (new_dialog "urb_ppto_libro" dcl))
     (progn
+      (set_tile "extra" (urb:safe-string extra ""))
       (set_tile "ruta"
         (if (= path "") "SIN LIBRO VINCULADO en este PC."
           (strcat "Libro: " path)))
@@ -22730,6 +22753,7 @@
       (action_tile "cambiar" "(done_dialog 2)")
       (action_tile "hoja" "(done_dialog 4)")
       (action_tile "desvincular" "(done_dialog 3)")
+      (action_tile "reintentar" "(done_dialog 5)")
       (setq done (start_dialog))))
   (if (> dcl 0) (unload_dialog dcl))
   done)
@@ -22778,9 +22802,18 @@
           (vl-catch-all-error-message result))))
       elegida)))
 
-(defun c:PPTOLIBRO (/ path lineas done nuevo seguir)
-  (vl-load-com)
-  (setq seguir T)
+;; nucleo interactivo compartido entre PPTOLIBRO (standalone) y
+;; PPTOEXPORTAR (cuando el libro no se pudo abrir): SIEMPRE deja al usuario
+;; en una ventana con acciones -- nunca un mensaje sin salida (pedido
+;; 2026-08-18: "independientemente que abra o no el archivo, quiero que
+;; igual salga ese desplegable"). mensaje-extra (opcional) se muestra solo
+;; en la primera vuelta, arriba de todo -- para explicar POR QUE se llego
+;; aqui (p.ej. el error de un intento de exportacion fallido).
+;; Devuelve 'REINTENTAR (el usuario cambio algo y hay que reintentar abrir
+;; el libro), 'DESVINCULADO, o 'CERRADO (no hay nada mas que hacer).
+(defun urb:ppto-libro-gestionar (mensaje-extra / path lineas done nuevo
+                                 seguir resultado primera)
+  (setq seguir T resultado 'CERRADO primera T)
   (while seguir
     (setq path (urb:ppto-config-read))
     (setq lineas
@@ -22792,7 +22825,9 @@
         (T
           (prompt "\nValidando el libro (se abre un Excel oculto un momento)...")
           (urb:ppto-libro-info path))))
-    (setq done (urb:ppto-libro-dialog path lineas))
+    (setq done
+      (urb:ppto-libro-dialog path lineas (if primera mensaje-extra "")))
+    (setq primera nil)
     (cond
       ((= done 2)
         (setq nuevo
@@ -22810,6 +22845,7 @@
             (prompt "\nAbriendo el libro para elegir la hoja...")
             (urb:ppto-libro-elegir-hoja path))
           (alert "Primero vincule un libro (\"Cambiar libro...\").")))
+      ((= done 5) (setq resultado 'REINTENTAR seguir nil))
       ((= done 3)
         (urb:ppto-config-write "")
         (prompt "\nLibro DESVINCULADO de este PC (el archivo no se toco).")
@@ -22819,8 +22855,13 @@
             "\nMEMORIAS, las asignaciones y las parametricas."
             "\nAl volver a vincularlo (o vincular otro libro) todo"
             "\nfunciona igual, porque eso vive dentro del archivo."))
-        (setq seguir nil))
+        (setq resultado 'DESVINCULADO seguir nil))
       (T (setq seguir nil))))
+  resultado)
+
+(defun c:PPTOLIBRO ()
+  (vl-load-com)
+  (urb:ppto-libro-gestionar nil)
   (princ))
 
 ;; acceso directo al desvinculo desde la cinta (mismo efecto que el boton

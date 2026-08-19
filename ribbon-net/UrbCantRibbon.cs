@@ -473,34 +473,18 @@ namespace UrbanismoCantidades
             }
         }
 
-        // 2026-08-18 v4.31 (pedido del usuario): vuelve el desplegable
-        // "Excel" y adentro vive todo lo del PRESUPUESTO -- exportar,
-        // ver/cambiar el libro vinculado (PPTOLIBRO) y desvincular -- mas
-        // el sistema Excel generico viejo al final.
-        private static RibbonSplitButton MakeExcelGroup()
+        // 2026-08-18 v4.33 (pedido del usuario: el desplegable de v4.31 se
+        // volvio "extenso" con 7 items -- de vuelta a UN SOLO boton grande.
+        // Ver/cambiar libro y desvincular ya NO estan en la cinta: viven
+        // DENTRO de la ventana que abre PPTOEXPORTAR mismo -- si el libro
+        // no se puede abrir (sin configurar, ruta rota, bloqueado), el
+        // propio comando muestra esa ventana de gestion en vez de un
+        // mensaje sin salida. El sistema Excel generico viejo sigue
+        // disponible solo por comando (QEXCEL/QVINCULAR/QACTUALIZAR/
+        // QDESVINCULAR), fuera de la cinta.
+        private static RibbonButton MakeExcelGroup()
         {
-            RibbonSplitButton sb = new RibbonSplitButton();
-            sb.Text = "Excel";
-            sb.ShowText = true;
-            sb.ToolTip = "Presupuesto y Excel";
-            sb.Size = RibbonItemSize.Large;
-            sb.Orientation = System.Windows.Controls.Orientation.Vertical;
-            sb.IsSplit = false;
-            sb.IsSynchronizedWithCurrentItem = false;
-            sb.ListStyle = RibbonSplitButtonListStyle.List;
-            BitmapImage img16 = LoadIcon("cant_qexcel_16.png");
-            BitmapImage img32 = LoadIcon("cant_qexcel_32.png");
-            if (img16 != null) sb.Image = img16;
-            if (img32 != null) sb.LargeImage = img32;
-            sb.ShowImage = true;
-            sb.Items.Add(MakeBig("Exportar al PRESUPUESTO", "PPTOEXPORTAR", "ppto"));
-            sb.Items.Add(MakeBig("Ver o cambiar libro del PRESUPUESTO", "PPTOLIBRO", "qvincular"));
-            sb.Items.Add(MakeBig("Desvincular libro del PRESUPUESTO", "PPTODESVINCULAR", "qdesvincular"));
-            sb.Items.Add(MakeBig("Exportar Excel (generico)", "QEXCEL", "qexcel"));
-            sb.Items.Add(MakeBig("Actualizar Excel vinculado", "QACTUALIZAR", "qactualizar"));
-            sb.Items.Add(MakeBig("Vincular Excel maestro", "QVINCULAR", "qvincular"));
-            sb.Items.Add(MakeBig("Desvincular Excel", "QDESVINCULAR", "qdesvincular"));
-            return sb;
+            return MakeBig("Presupuesto", "PPTOEXPORTAR", "ppto");
         }
 
         // --- fabrica de paneles y botones -----------------------------
