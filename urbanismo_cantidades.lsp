@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.33.0")
+(setq *urb-version* "4.34.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -22378,7 +22378,7 @@
 ;; ---------- nucleo de la exportacion (lo envuelve c:PPTOEXPORTAR) ----------
 (defun urb:ppto-run (wb / lo vocab raw rows item m final huerfanas dwg total
                      borradas por-red red-count espec result resdlg
-                     decisiones d)
+                     decisiones d app calc-prev)
   (setq lo (urb:ppto-memorias-table wb))
   (setq vocab (if lo (urb:ppto-read-vocab wb) nil))
   (if (and lo vocab)
@@ -22507,8 +22507,43 @@
                           " | " (urb:safe-string (nth 1 item) "?")
                           " | " (urb:safe-string (nth 2 item) "?"))))))
                   ;; 3) escribir + guardar
+                  ;; OJO velocidad (2026-08-18): el libro real tiene SUMIFS
+                  ;; que dependen de TablaMemorias -- con calculo automatico,
+                  ;; CADA fila insertada (ListRows.Add) dispara un recalculo
+                  ;; completo, y una exportacion de ~110 filas tardaba
+                  ;; 15-30+ minutos. Se pone en manual solo durante la
+                  ;; escritura y se recalcula UNA vez antes de guardar.
+                  ;; -4135 = xlCalculationManual, -4105 = xlCalculationAutomatic
+                  ;; (constantes de Excel; AutoLISP no las trae predefinidas,
+                  ;; se usan los valores numericos como en xlSheetVeryHidden
+                  ;; ya usado arriba en el archivo).
                   (setq *urb-ppto-stage* "escritura en TablaMemorias")
+                  (setq app (vl-catch-all-apply
+                    '(lambda () (vlax-get-property wb 'Application))))
+                  (if (vl-catch-all-error-p app) (setq app nil))
+                  (setq calc-prev
+                    (if app
+                      (vl-catch-all-apply
+                        '(lambda () (vlax-get-property app 'Calculation)))
+                      nil))
+                  (if (and app (not (vl-catch-all-error-p calc-prev)))
+                    (vl-catch-all-apply
+                      '(lambda () (vlax-put-property app 'Calculation -4135))))
+                  ;; sin atrapar aqui: si esto lanza error, debe propagar
+                  ;; igual que antes hacia el catch-all de c:PPTOEXPORTAR
+                  ;; (no intentar Guardar sobre una escritura a medias). El
+                  ;; modo de calculo queda restaurado por la red de
+                  ;; seguridad en c:PPTOEXPORTAR aunque esto falle aqui.
                   (setq borradas (urb:ppto-write-rows lo final dwg))
+                  (if app
+                    (progn
+                      (vl-catch-all-apply
+                        '(lambda () (vlax-invoke-method app 'CalculateFull)))
+                      (vl-catch-all-apply
+                        '(lambda () (vlax-put-property app 'Calculation
+                          (if (and (not (vl-catch-all-error-p calc-prev))
+                                   calc-prev)
+                            calc-prev -4105))))))
                   (setq *urb-ppto-stage* "guardado del libro")
                   (setq result (vl-catch-all-apply
                     '(lambda () (vlax-invoke-method wb 'Save))))
@@ -22629,6 +22664,12 @@
             ;; de Excel se cierra (sin esto, un error dejaba un EXCEL
             ;; huerfano con el libro bloqueado -- visto 2026-08-17)
             (setq result (vl-catch-all-apply 'urb:ppto-run (list wb)))
+            ;; red de seguridad: si algo broto ANTES de que urb:ppto-run
+            ;; alcanzara a restaurar el modo de calculo (p.ej. error en la
+            ;; escritura misma), nunca dejar el libro del usuario en
+            ;; manual. -4105 = xlCalculationAutomatic. No-op si ya estaba.
+            (vl-catch-all-apply
+              '(lambda () (vlax-put-property app 'Calculation -4105)))
             (if propia
               (progn
                 (vl-catch-all-apply
