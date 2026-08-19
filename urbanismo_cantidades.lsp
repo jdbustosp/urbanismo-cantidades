@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.34.0")
+(setq *urb-version* "4.35.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -21636,13 +21636,15 @@
     "urb_ppto_param"
     '*urb-ppto-param-dcl-okB*
     (list
-      "urb_ppto_param : dialog { label = \"Parametros de medicion (como en Revit: nombre + formula + actividad)\";"
+      "urb_ppto_param : dialog { label = \"Parametros de medicion (como en Revit: nombre + formula)\";"
       ": list_box { key = \"lista\"; label = \"Parametros definidos (aplican a TODOS los elementos de su tipo)\"; width = 118; height = 6; }"
       ": boxed_column { label = \"Nuevo parametro\";"
-      ": row { : edit_box { key = \"nombre\"; label = \"1. Nombre\"; edit_width = 32; } : popup_list { key = \"tipo\"; label = \"2. Se mide de cada\"; width = 26; } : popup_list { key = \"mag\"; label = \"3. Magnitud\"; width = 34; } }"
-      ": row { : popup_list { key = \"oper\"; label = \"4. Operacion\"; width = 22; } : edit_box { key = \"factor\"; label = \"5. Factor\"; edit_width = 12; } : text { key = \"formula\"; width = 62; } }"
-      ": edit_box { key = \"fbusca\"; label = \"6. Buscar la actividad del presupuesto que recibe la cantidad\"; edit_width = 40; }"
-      ": list_box { key = \"act\"; label = \"Actividad destino (del capitulo del elemento; filtrada por el buscador)\"; width = 118; height = 9; }"
+      ": row { : edit_box { key = \"nombre\"; label = \"Nombre\"; edit_width = 30; } : popup_list { key = \"tipo\"; label = \"Se mide de cada\"; width = 24; } }"
+      ": row { : edit_box { key = \"formula\"; label = \"Formula\"; edit_width = 42; } }"
+      ": text { key = \"prevfor\"; width = 116; }"
+      ": list_box { key = \"campos\"; label = \"Campos disponibles (clic para insertarlos en la formula)\"; width = 118; height = 3; }"
+      ": edit_box { key = \"fbusca\"; label = \"Buscar la actividad del presupuesto que recibe la cantidad\"; edit_width = 40; }"
+      ": list_box { key = \"act\"; label = \"Actividad destino (del capitulo del elemento; filtrada por el buscador)\"; width = 118; height = 8; }"
       ": row { : button { key = \"agregar\"; label = \"Crear parametro\"; } : button { key = \"eliminar\"; label = \"Eliminar el seleccionado arriba\"; } }"
       "}"
       ": text { key = \"pinfo\"; width = 126; }"
@@ -21666,22 +21668,72 @@
     (add_list "(ninguno definido)"))
   (end_list))
 
-(defun urb:ppp-fill-mag (/ tdef m)
+;; lista de "campos" insertables (estilo Revit: boton Campos... del Valor
+;; calculado) -- las magnitudes disponibles del tipo elegido, en texto
+;; legible; el CLIC inserta el codigo real en la formula.
+(defun urb:ppp-fill-campos (/ tdef m)
   (setq tdef (urb:ppp-tipo))
-  (start_list "mag")
+  (start_list "campos")
   (foreach m (nth 2 tdef) (add_list (urb:ppto-mag-label m)))
   (end_list))
 
-;; formula en vivo: se actualiza con cada cambio de magnitud/operacion/factor
-(defun urb:ppp-formula (/ tdef mag oper factor)
+(defun urb:ppp-insertar-campo (/ tdef mags idx codigo actual)
   (setq tdef (urb:ppp-tipo))
-  (setq mag (nth (atoi (get_tile "mag")) (nth 2 tdef)))
-  (setq oper (if (= (get_tile "oper") "1") " / " " x "))
-  (setq factor (urb:parse-real (get_tile "factor")))
-  (set_tile "formula"
-    (strcat "Cantidad = " (urb:ppto-mag-label mag) oper
-      (if (and factor (> factor 0.0)) (rtos factor 2 4) "?")
-      "  (por cada " (nth 0 tdef) ")")))
+  (setq mags (nth 2 tdef))
+  (setq idx (atoi (get_tile "campos")))
+  (setq codigo (nth idx mags))
+  (if codigo
+    (progn
+      (setq actual (urb:safe-string (get_tile "formula") ""))
+      (set_tile "formula"
+        (strcat actual (if (= actual "") "" " ") codigo))
+      (urb:ppp-preview))))
+
+;; interpreta el texto de la formula: MAGNITUD * numero, MAGNITUD / numero,
+;; numero * MAGNITUD, o solo MAGNITUD (equivale a x 1.0). Es la MISMA
+;; expresividad que antes (magnitud OP factor) pero escrita como formula en
+;; vez de tres controles separados -- el modelo de datos no cambia.
+;; Devuelve (codigo-magnitud "X"/"D" factor) o nil si no se entiende.
+(defun urb:ppp-parse-formula (texto mags / s pos oper izq der mag-code
+                              num-val)
+  (setq s (vl-string-trim " " (urb:safe-string texto "")))
+  (cond
+    ((= s "") nil)
+    (T
+      (setq pos (vl-string-search "/" s))
+      (setq oper (if pos "D" nil))
+      (if (null pos)
+        (progn
+          (setq pos (vl-string-search "*" s))
+          (if pos (setq oper "X"))))
+      (cond
+        ((null pos)
+          (if (member (strcase s) mags) (list (strcase s) "X" 1.0) nil))
+        (T
+          (setq izq (vl-string-trim " " (substr s 1 pos)))
+          (setq der (vl-string-trim " " (substr s (+ pos 2))))
+          (cond
+            ((member (strcase izq) mags)
+              (setq mag-code (strcase izq) num-val (urb:parse-real der))
+              (if (and num-val (> num-val 0.0))
+                (list mag-code oper num-val) nil))
+            ((and (= oper "X") (member (strcase der) mags))
+              (setq mag-code (strcase der) num-val (urb:parse-real izq))
+              (if (and num-val (> num-val 0.0))
+                (list mag-code "X" num-val) nil))
+            (T nil)))))))
+
+;; interpretacion en vivo: se actualiza con cada cambio de tipo o formula
+(defun urb:ppp-preview (/ tdef mags parsed)
+  (setq tdef (urb:ppp-tipo))
+  (setq mags (nth 2 tdef))
+  (setq parsed (urb:ppp-parse-formula (get_tile "formula") mags))
+  (set_tile "prevfor"
+    (if parsed
+      (strcat "Cantidad = " (urb:ppto-mag-label (nth 0 parsed))
+        (if (= (nth 1 parsed) "D") " / " " x ")
+        (rtos (nth 2 parsed) 2 4) "  (por cada " (nth 0 tdef) ")")
+      "Formula no reconocida: escriba MAGNITUD * factor o MAGNITUD / factor (inserte el campo con un clic en la lista de abajo).")))
 
 ;; la lista de actividades se filtra con el buscador (normalizado: sin
 ;; acentos ni mayusculas); *urb-ppp-acts* SIEMPRE refleja lo visible para
@@ -21704,34 +21756,32 @@
     (add_list "(ninguna actividad del capitulo contiene ese texto)"))
   (end_list))
 
-(defun urb:ppp-agregar (/ tdef mags mag factor entry oper nombre)
+(defun urb:ppp-agregar (/ tdef mags parsed entry nombre)
   (setq tdef (urb:ppp-tipo))
   (setq mags (nth 2 tdef))
-  (setq mag (nth (atoi (get_tile "mag")) mags))
-  (setq oper (if (= (get_tile "oper") "1") "D" "X"))
-  (setq factor (urb:parse-real (get_tile "factor")))
+  (setq parsed (urb:ppp-parse-formula (get_tile "formula") mags))
   (setq entry (nth (atoi (get_tile "act")) *urb-ppp-acts*))
   (setq nombre (urb:safe-string (get_tile "nombre") ""))
   (cond
     ((null entry)
       (set_tile "pinfo" "Falta la actividad destino: busquela y seleccionela en la lista."))
-    ((or (null factor) (<= factor 0.0))
-      (set_tile "pinfo" "El factor debe ser un numero mayor que cero."))
-    ((null mag)
-      (set_tile "pinfo" "Seleccione la magnitud."))
+    ((null parsed)
+      (set_tile "pinfo" "La formula no se entiende: escriba MAGNITUD * factor o MAGNITUD / factor (inserte el campo con un clic en la lista de abajo)."))
     (T
       ;; sin nombre escrito, el parametro se llama como su actividad
       (if (= nombre "") (setq nombre (nth 2 entry)))
       (setq *urb-ppto-param*
         (append *urb-ppto-param*
-          (list (list (nth 0 tdef) mag factor (nth 2 entry) oper nombre))))
+          (list (list (nth 0 tdef) (nth 0 parsed) (nth 2 parsed)
+            (nth 2 entry) (nth 1 parsed) nombre))))
       (urb:ppto-param-write *urb-ppto-wb* *urb-ppto-param*)
       (setq *urb-ppto-param-dirty* T)
       (urb:ppp-fill-lista)
       (set_tile "pinfo"
         (strcat "Creado \"" nombre "\": cada " (nth 0 tdef) " exporta "
-          (urb:ppto-mag-label mag) (if (= oper "D") " / " " x ")
-          (rtos factor 2 4)
+          (urb:ppto-mag-label (nth 0 parsed))
+          (if (= (nth 1 parsed) "D") " / " " x ")
+          (rtos (nth 2 parsed) 2 4)
           " a esa actividad. Queda guardado en el libro; si la magnitud"
           " vale 0 hoy (no modelada aun), la fila aparece cuando exista.")))))
 
@@ -21780,7 +21830,7 @@
       (set_tile "pinfo" "Eliminado. Aplica al Aceptar la exportacion."))
     (set_tile "pinfo" "Seleccione arriba el parametro definido que quiere eliminar.")))
 
-(defun urb:ppto-param-dialog (/ dcl tdef i pre-idx entry act-um sug mag-idx)
+(defun urb:ppto-param-dialog (/ dcl tdef i pre-idx entry act-um sug)
   (setq dcl (load_dialog (urb:ppto-write-param-dcl)))
   (if (and (> dcl 0) (new_dialog "urb_ppto_param" dcl))
     (progn
@@ -21788,17 +21838,12 @@
       (foreach tdef *urb-ppto-param-tipos* (add_list (nth 0 tdef)))
       (end_list)
       (set_tile "tipo" "0")
-      (start_list "oper")
-      (add_list "x  multiplicar por el factor")
-      (add_list "/  dividir por el factor")
-      (end_list)
-      (set_tile "oper" "0")
-      (set_tile "factor" "1.0")
       (urb:ppp-fill-lista)
-      (urb:ppp-fill-mag)
+      (urb:ppp-fill-campos)
       (urb:ppp-fill-act)
       ;; preseleccion cuando se abre desde el arbol del presupuesto:
-      ;; elemento del capitulo de la actividad + la actividad marcada
+      ;; elemento del capitulo de la actividad + la actividad marcada +
+      ;; formula sugerida por el nombre de la actividad (v4.32)
       (if (and (boundp '*urb-ppp-pre-cap*) *urb-ppp-pre-cap*)
         (progn
           (setq i 0 pre-idx nil)
@@ -21811,38 +21856,36 @@
           (if pre-idx
             (progn
               (set_tile "tipo" (itoa pre-idx))
-              (urb:ppp-fill-mag)
+              (urb:ppp-fill-campos)
               (urb:ppp-fill-act)))
           (setq i 0 act-um nil)
           (foreach entry *urb-ppp-acts*
             (if (= (nth 2 entry) *urb-ppp-pre-act*)
               (progn (set_tile "act" (itoa i)) (setq act-um (nth 1 entry))))
             (setq i (1+ i)))
-          ;; adivina magnitud/operacion/factor por el nombre de la actividad
           (setq tdef (urb:ppp-tipo))
           (setq sug
             (urb:ppp-sugerir tdef (urb:safe-string *urb-ppp-pre-act* "")
               (urb:safe-string act-um "")))
           (if sug
             (progn
-              (setq mag-idx (vl-position (nth 0 sug) (nth 2 tdef)))
-              (if mag-idx (set_tile "mag" (itoa mag-idx)))
-              (set_tile "oper" (if (= (nth 1 sug) "D") "1" "0"))
-              (set_tile "factor" (rtos (nth 2 sug) 2 4))
+              (set_tile "formula"
+                (strcat (nth 0 sug) (if (= (nth 1 sug) "D") " / " " * ")
+                  (rtos (nth 2 sug) 2 4)))
               (setq *urb-ppp-sugerido* T))
             (setq *urb-ppp-sugerido* nil))))
-      (urb:ppp-formula)
+      (urb:ppp-preview)
       (set_tile "pinfo"
         (if (and (boundp '*urb-ppp-sugerido*) *urb-ppp-sugerido*)
-          "Sugerencia automatica por el nombre de la actividad (revise magnitud/factor si hace falta) -- pulse \"Crear parametro\" para guardarla."
-          (strcat "Ej: nombre \"Losetas toperol\", de cada ANDEN, magnitud"
-            " Franja toperol (ml), / 0.20 (ancho de la pieza) = unidades."
-            " O \"Riego de liga\", de cada VIA, Area (m2) x 0.05.")))
+          "Sugerencia automatica por el nombre de la actividad (revise la formula si hace falta) -- pulse \"Crear parametro\" para guardarla."
+          (strcat "Ej: nombre \"Losetas toperol\", de cada ANDEN, formula"
+            " TOPEROL_ML / 0.20 (ancho de la pieza) = unidades."
+            " O \"Riego de liga\", de cada VIA, formula AREA * 0.05."
+            " Clic en un campo de la lista para insertarlo en la formula.")))
       (action_tile "tipo"
-        "(urb:ppp-fill-mag) (urb:ppp-fill-act) (urb:ppp-formula)")
-      (action_tile "mag" "(urb:ppp-formula)")
-      (action_tile "oper" "(urb:ppp-formula)")
-      (action_tile "factor" "(urb:ppp-formula)")
+        "(urb:ppp-fill-campos) (urb:ppp-fill-act) (urb:ppp-preview)")
+      (action_tile "formula" "(urb:ppp-preview)")
+      (action_tile "campos" "(urb:ppp-insertar-campo)")
       (action_tile "fbusca" "(urb:ppp-fill-act)")
       (action_tile "agregar" "(urb:ppp-agregar)")
       (action_tile "eliminar" "(urb:ppp-eliminar)")
@@ -22155,7 +22198,8 @@
       ": list_box { key = \"cand\"; label = \"Conceptos del plano disponibles (misma unidad)\"; width = 56; height = 8; }"
       "}"
       "}"
-      ": row { : button { key = \"asignar\"; label = \"Asignar concepto\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : button { key = \"param\"; label = \"Nueva parametrica aqui\"; } : button { key = \"prever\"; label = \"Previsualizar (navegador)\"; } : button { key = \"actualizar\"; label = \"ACTUALIZAR del modelo\"; } : button { key = \"hoja\"; label = \"Cambiar hoja del presupuesto...\"; } }"
+      ": row { : button { key = \"asignar\"; label = \"Asignar concepto\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : button { key = \"param\"; label = \"Nueva parametrica aqui\"; } : button { key = \"prever\"; label = \"Previsualizar (navegador)\"; } : button { key = \"actualizar\"; label = \"ACTUALIZAR del modelo\"; } }"
+      ": row { : button { key = \"hoja\"; label = \"Cambiar hoja del presupuesto...\"; } : button { key = \"cambiarlibro\"; label = \"Cambiar libro...\"; } }"
       ": text { key = \"estado\"; width = 130; }"
       ": text { label = \"Aceptar = exportar al libro. Cancelar = NO exportar nada. Lo asignado queda guardado dentro del libro.\"; }"
       "ok_cancel; }")))
@@ -22340,8 +22384,7 @@
           "\" (" (itoa (length vocab)) " actividades)"
           "  |  Se relee en vivo cada corrida: si edita una fila del"
           " presupuesto, aparece con ACTUALIZAR."
-          "  |  Otra hoja: boton \"Cambiar hoja...\". Otro libro: icono"
-          " Excel > Ver o cambiar libro."))
+          "  |  Botones abajo: cambiar de hoja o de libro sin salir de aqui."))
       (set_tile "info1"
         (strcat "Las actividades con <== PLANO ya reciben cantidades. "
           (if (> pendientes 0)
@@ -22367,12 +22410,17 @@
       ;; (dialogo anidado); si eligio algo cierra con status 4 -> el run
       ;; relee el vocabulario de la hoja nueva y rehace el match.
       (action_tile "hoja" "(urb:pm2-elegir-hoja)")
+      ;; cambiar libro: cierra con status 6 -- lo maneja c:PPTOEXPORTAR
+      ;; (urb:ppto-run no es dueno del ciclo de vida de Excel.Application,
+      ;; asi que solo avisa hacia arriba con el sentinel del resumen)
+      (action_tile "cambiarlibro" "(done_dialog 6)")
       (setq done (start_dialog))))
   (if (> dcl 0) (unload_dialog dcl))
   (cond
     ((= done 1) (cons 'OK *urb-pmd-decisions*))
     ((= done 3) 'ACTUALIZAR)
     ((= done 4) 'CAMBIAR-HOJA)
+    ((= done 6) 'CAMBIAR-LIBRO)
     (T 'CANCELADO)))
 
 ;; ---------- nucleo de la exportacion (lo envuelve c:PPTOEXPORTAR) ----------
@@ -22452,7 +22500,8 @@
                       (progn
                         (prompt "\nOJO: la hoja elegida no se pudo leer; sigue con el vocabulario anterior.")
                         (setq resdlg 'ACTUALIZAR)))))) ; fuerza otra vuelta con lo anterior
-              (if (eq resdlg 'CANCELADO)
+              (cond
+                ((eq resdlg 'CANCELADO)
                 (progn
                   (prompt
                     "\nExportacion CANCELADA: no se escribio nada en el libro.")
@@ -22465,7 +22514,17 @@
                         "\nlibro se conservan; las nuevas de esta sesion"
                         "\nse descartaron.")))
                   (setq *urb-ppto-last-summary*
-                    (list 'CANCELADO-POR-USUARIO)))
+                    (list 'CANCELADO-POR-USUARIO))))
+                ;; el usuario pidio cambiar de LIBRO: urb:ppto-run no es
+                ;; dueno del ciclo de vida de Excel.Application (eso lo
+                ;; abre/cierra c:PPTOEXPORTAR), asi que aqui solo se avisa
+                ;; con un sentinel -- no se escribe nada y c:PPTOEXPORTAR
+                ;; se encarga de pedir el archivo nuevo y reintentar.
+                ((eq resdlg 'CAMBIAR-LIBRO)
+                  (prompt "\nSe pidio cambiar de libro desde la vinculacion.")
+                  (setq *urb-ppto-last-summary*
+                    (list 'CAMBIAR-LIBRO-SOLICITADO)))
+                (T
                 (progn
                   (setq decisiones (cdr resdlg))
                   (if decisiones
@@ -22604,7 +22663,7 @@
                             " (detalle en la linea de comandos).")
                           "")
                         "\n\nLas asignaciones y parametricas quedaron"
-                        "\nguardadas DENTRO del libro."))))))
+                        "\nguardadas DENTRO del libro.")))))))
     (setq *urb-ppto-last-summary*
       (list 'SIN-TABLA-O-VOCAB
         (if lo 'tabla-ok 'sin-tabla)
@@ -22621,7 +22680,7 @@
 ;; resolverlo ahi mismo. Si elige "Reintentar abrir" (o cambia el libro/la
 ;; hoja y despues Reintentar), se vuelve a intentar sin salir del comando.
 (defun c:PPTOEXPORTAR (/ path attach app wb propia result seguir gestion
-                       mensaje)
+                       mensaje nuevo)
   (vl-load-com)
   (setq seguir T)
   (setq *urb-ppto-headless*
@@ -22659,7 +22718,6 @@
                     (strcat "NO se pudo abrir el libro: " mensaje)))
                 (if (not (eq gestion 'REINTENTAR)) (setq seguir nil)))))
           (T
-            (setq seguir nil)
             ;; el nucleo va envuelto: pase lo que pase, la instancia PROPIA
             ;; de Excel se cierra (sin esto, un error dejaba un EXCEL
             ;; huerfano con el libro bloqueado -- visto 2026-08-17)
@@ -22677,8 +22735,8 @@
                 (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
                 (vlax-release-object wb)
                 (vlax-release-object app)))
-            (if (vl-catch-all-error-p result)
-              (progn
+            (cond
+              ((vl-catch-all-error-p result)
                 (setq *urb-ppto-last-summary*
                   (list 'ERROR (vl-catch-all-error-message result)
                     'etapa (urb:safe-string *urb-ppto-stage* "?")))
@@ -22691,7 +22749,22 @@
                       (urb:safe-string *urb-ppto-stage* "?") "):\n\n"
                       (vl-catch-all-error-message result)
                       "\n\nNo se dio por buena: el libro pudo quedar sin"
-                      "\nguardar. Revise y reintente."))))))))))
+                      "\nguardar. Revise y reintente.")))
+                (setq seguir nil))
+              ;; pidio "Cambiar libro..." desde la vinculacion: pregunta el
+              ;; archivo nuevo AQUI (c:PPTOEXPORTAR es quien controla el
+              ;; ciclo de vida de Excel.Application, no urb:ppto-run) y
+              ;; deja el bucle vivo para reintentar con la ruta nueva.
+              ((equal result (list 'CAMBIAR-LIBRO-SOLICITADO))
+                (setq nuevo
+                  (getfiled "Seleccione el nuevo libro del presupuesto (Excel)"
+                    (if (/= path "") path "") "xlsx;xlsm" 0))
+                (if nuevo
+                  (progn
+                    (urb:ppto-config-write nuevo)
+                    (prompt (strcat "\nLibro vinculado en este PC: " nuevo)))
+                  (setq seguir nil)))
+              (T (setq seguir nil))))))))
   (princ))
 
 ;; ---------- gestion VISIBLE del vinculo con el libro (2026-08-18) ----------

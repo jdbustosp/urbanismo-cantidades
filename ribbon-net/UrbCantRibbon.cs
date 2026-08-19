@@ -473,18 +473,34 @@ namespace UrbanismoCantidades
             }
         }
 
-        // 2026-08-18 v4.33 (pedido del usuario: el desplegable de v4.31 se
-        // volvio "extenso" con 7 items -- de vuelta a UN SOLO boton grande.
-        // Ver/cambiar libro y desvincular ya NO estan en la cinta: viven
-        // DENTRO de la ventana que abre PPTOEXPORTAR mismo -- si el libro
-        // no se puede abrir (sin configurar, ruta rota, bloqueado), el
-        // propio comando muestra esa ventana de gestion en vez de un
-        // mensaje sin salida. El sistema Excel generico viejo sigue
-        // disponible solo por comando (QEXCEL/QVINCULAR/QACTUALIZAR/
-        // QDESVINCULAR), fuera de la cinta.
-        private static RibbonButton MakeExcelGroup()
+        // 2026-08-18 v4.35 (pedido del usuario): el boton vuelve a llamarse
+        // "Excel" (v4.33 lo habia dejado como "Presupuesto" solo); adentro
+        // del desplegable esta "Presupuesto" como unico item -- ni el
+        // desplegable largo de v4.31 (7 items) ni el boton sin desplegar de
+        // v4.33/4.34. Ver/cambiar libro, elegir hoja y desvincular NO estan
+        // aqui: viven dentro de la propia ventana de vinculacion o de la
+        // ventana de gestion que abre PPTOEXPORTAR si el libro no se puede
+        // abrir. El sistema Excel generico viejo sigue disponible solo por
+        // comando (QEXCEL/QVINCULAR/QACTUALIZAR/QDESVINCULAR), fuera de la
+        // cinta.
+        private static RibbonSplitButton MakeExcelGroup()
         {
-            return MakeBig("Presupuesto", "PPTOEXPORTAR", "ppto");
+            RibbonSplitButton sb = new RibbonSplitButton();
+            sb.Text = "Excel";
+            sb.ShowText = true;
+            sb.ToolTip = "Presupuesto y Excel";
+            sb.Size = RibbonItemSize.Large;
+            sb.Orientation = System.Windows.Controls.Orientation.Vertical;
+            sb.IsSplit = false;
+            sb.IsSynchronizedWithCurrentItem = false;
+            sb.ListStyle = RibbonSplitButtonListStyle.List;
+            BitmapImage img16 = LoadIcon("cant_qexcel_16.png");
+            BitmapImage img32 = LoadIcon("cant_qexcel_32.png");
+            if (img16 != null) sb.Image = img16;
+            if (img32 != null) sb.LargeImage = img32;
+            sb.ShowImage = true;
+            sb.Items.Add(MakeBig("Presupuesto", "PPTOEXPORTAR", "ppto"));
+            return sb;
         }
 
         // --- fabrica de paneles y botones -----------------------------
