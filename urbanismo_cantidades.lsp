@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.41.0")
+(setq *urb-version* "4.42.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -173,8 +173,8 @@
 (setq *urb-ppto-prev-dcl-ok* nil)
 (setq *urb-ppto-libro-dcl-ok* nil)
 (setq *urb-ppto-hoja-dcl-ok* nil)
-(setq *urb-ppto-red-dcl-ok* nil)
 (setq *urb-ppto-vinc-dcl-ok* nil)
+(setq *urb-ppto-params-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -4958,6 +4958,14 @@
       (urb:add-invisible-attribute
         block-definition point "LOSETA_TOPEROL_ML" "Loseta toperol ml"
         (rtos (nth 3 finish-qty) 2 2))
+      ;; 2026-08-19 (pedido del usuario): unidades de pieza guia/toperol
+      ;; visibles en Propiedades -- ml de franja / ancho de pieza 0.20
+      (urb:add-invisible-attribute
+        block-definition point "LOSETA_GUIA_UND" "Loseta guia unidades"
+        (itoa (fix (+ 0.5 (/ (nth 2 finish-qty) 0.20)))))
+      (urb:add-invisible-attribute
+        block-definition point "LOSETA_TOPEROL_UND" "Loseta toperol unidades"
+        (itoa (fix (+ 0.5 (/ (nth 3 finish-qty) 0.20)))))
       (urb:add-invisible-attribute
         block-definition point "ADOQUIN_20X10_M2" "Area adoquin blanco 20x10 m2"
         (rtos (nth 4 finish-qty) 2 2))
@@ -20272,8 +20280,9 @@
   '(("VIA" "VIA"
       ("AREA" "AREA_SIN_SOBREANCHO" "LONGITUD" "CORTE" "RELLENO" "UNIDAD"))
     ("ANDEN" "ANDEN"
-      ("AREA" "TOPEROL_ML" "GUIA_ML" "PERIMETRO" "LOSETA_LISA_M2"
-       "LOSETA_LISA_UND" "ADOQUIN_M2" "ADOQUIN_UND" "UNIDAD"))
+      ("AREA" "TOPEROL_ML" "GUIA_ML" "TOPEROL_UND" "GUIA_UND" "PERIMETRO"
+       "LOSETA_LISA_M2" "LOSETA_LISA_UND" "ADOQUIN_M2" "ADOQUIN_UND"
+       "UNIDAD"))
     ("RAMPA" "RAMPA-PEATONAL"
       ("AREA" "TOPEROL_ML" "BORDILLO_ML" "UNIDAD"))
     ("SARDINEL" "VIA" ("LONGITUD" "UNIDAD"))
@@ -20298,6 +20307,8 @@
     ("PROFUNDIDAD" "Profundidad (m)")
     ("TOPEROL_ML" "Franja toperol (ml)")
     ("GUIA_ML" "Franja guia (ml)")
+    ("TOPEROL_UND" "Losetas toperol (unidades)")
+    ("GUIA_UND" "Losetas guia (unidades)")
     ("BORDILLO_ML" "Bordillo (ml)")
     ("PERIMETRO" "Perimetro (ml)")
     ("LOSETA_LISA_M2" "Area loseta lisa (m2)")
@@ -20371,10 +20382,10 @@
       T)))
 
 ;; UM real de una actividad del ppto (para la fila parametrica)
-(defun urb:ppto-param-um (red actividad / entry out)
-  (setq out "")
+(defun urb:ppto-param-um (red actividad / entry out cap)
+  (setq out "" cap (cdr (assoc red *urb-ppto-red-capitulo*)))
   (foreach entry *urb-ppto-vocab*
-    (if (and (= (nth 0 entry) (cdr (assoc red *urb-ppto-red-capitulo*)))
+    (if (and (urb:ppto-cap-match-p (nth 0 entry) cap)
              (= (nth 2 entry) actividad))
       (setq out (nth 1 entry))))
   out)
@@ -20473,14 +20484,21 @@
 ;; vocab: lista de (capitulo-norm um-mayuscula desc-original palabras fila)
 ;; devuelve (desc-original . fila) si hay UNA mejor candidata con score>=0.5;
 ;; si no, (list 'HUERFANA candidatas-con-score>=0.5)
+;; capitulo comodin "*" (2026-08-19): las actividades de presupuestos por
+;; secciones (sin NIVEL) valen para CUALQUIER red del plano -- una misma
+;; hoja puede traer anden + redes + mas, y la disciplina la decide el
+;; match por unidad+texto (o la asignacion manual), sin preguntar.
+(defun urb:ppto-cap-match-p (item-cap capitulo)
+  (or (= item-cap "*") (and capitulo (= item-cap capitulo))))
+
 (defun urb:ppto-match (red um concepto vocab / capitulo words best best-n
                        second item score exacto)
   (setq capitulo (cdr (assoc red *urb-ppto-red-capitulo*)))
   ;; igualdad EXACTA de descripcion (caso de las actividades parametricas,
   ;; cuyo concepto ES el texto del ppto): gana directo, sin scoring
   (foreach item vocab
-    (if (and capitulo (null exacto)
-             (= (nth 0 item) capitulo)
+    (if (and (null exacto)
+             (urb:ppto-cap-match-p (nth 0 item) capitulo)
              (= (nth 1 item) (strcase um))
              (= (nth 2 item) concepto))
       (setq exacto item)))
@@ -20493,8 +20511,7 @@
   (setq words (urb:ppto-words concepto))
   (setq best nil best-n 0 second 0.0)
   (foreach item vocab
-    (if (and capitulo
-             (= (nth 0 item) capitulo)
+    (if (and (urb:ppto-cap-match-p (nth 0 item) capitulo)
              (= (nth 1 item) (strcase um)))
       (progn
         (setq score (urb:ppto-score words (nth 3 item)))
@@ -21030,13 +21047,14 @@
 ;; distinta, son solo fases de obra dentro de la misma.
 ;; 2026-08-19: en bloques de 500 filas (una llamada COM por bloque) --
 ;; mismo motivo que urb:ppto-vocab-extraer (Formato A).
-(defun urb:ppto-vocab-extraer-b (ws col-desc col-um header-row capitulo
+(defun urb:ppto-vocab-extraer-b (ws col-desc col-um header-row
                                  / vocab empties r desc um limite bsize
                                  base fin chunk-rng bloque idx fila
                                  fila-rng)
   (setq vocab nil empties 0 r (1+ header-row) limite 8000)
+  ;; capitulo comodin "*": las actividades valen para cualquier red
   (setq *urb-ppto-outline*
-    (list (list 3 "" capitulo "" (urb:ppto-normalize capitulo))))
+    (list (list 3 "" "PRESUPUESTO (toda la hoja)" "" "*")))
   (setq bsize 500)
   (while (and (<= r limite) (< empties 200))
     (setq base r)
@@ -21064,73 +21082,23 @@
               (/= desc ""))
           (setq empties 0)
           (setq *urb-ppto-outline*
-            (cons (list 5 "" desc um (urb:ppto-normalize capitulo))
-              *urb-ppto-outline*))
+            (cons (list 5 "" desc um "*") *urb-ppto-outline*))
           (setq vocab
             (cons
-              (list (urb:ppto-normalize capitulo) um desc
-                    (urb:ppto-words desc) r "")
+              (list "*" um desc (urb:ppto-words desc) r "")
               vocab)))
         ((= desc "") (setq empties (1+ empties))))
       (setq r (1+ r) idx (1+ idx))))
   (setq *urb-ppto-outline* (reverse *urb-ppto-outline*))
   (reverse vocab))
 
-(defun urb:ppto-write-red-dcl ()
-  (urb:write-dialog-dcl
-    "urb_ppto_red"
-    '*urb-ppto-red-dcl-ok*
-    (list
-      "urb_ppto_red : dialog { label = \"Presupuesto sin columna NIVEL\";"
-      ": text { label = \"Esta hoja no tiene NIVEL: es un formato por secciones (titulos + actividades con unidad).\"; }"
-      ": text { label = \"Para poder vincular sus actividades, diga a que elemento/red del plano corresponde TODA la hoja:\"; }"
-      ": popup_list { key = \"red\"; label = \"Elemento / red\"; width = 40; }"
-      ": text { label = \"Queda guardado dentro del libro; no se vuelve a preguntar para esta hoja.\"; }"
-      "ok_cancel; }")))
-
-;; devuelve el codigo RED elegido (p.ej. "ANDEN") o nil si cancela
-(defun urb:ppto-elegir-red-dialog (/ dcl done sel dclfile entry)
-  (setq sel nil)
-  (setq dclfile (urb:ppto-write-red-dcl))
-  (if (null dclfile)
-    (alert "No se pudo preparar el dialogo (revise permisos de la carpeta temporal de Windows).")
-    (progn
-      (setq dcl (load_dialog dclfile))
-      (if (and (> dcl 0) (new_dialog "urb_ppto_red" dcl))
-        (progn
-          (start_list "red")
-          (foreach entry *urb-ppto-red-capitulo* (add_list (car entry)))
-          (end_list)
-          (set_tile "red" "0")
-          ;; seleccion capturada DENTRO del action_tile del OK: get_tile
-          ;; despues de start_dialog es invalido y devolvia nil ->
-          ;; "stringp nil" (causa raiz del crash en vivo 2026-08-19)
-          (setq *urb-ppto-red-sel* "0")
-          (action_tile "accept"
-            "(setq *urb-ppto-red-sel* (get_tile \"red\")) (done_dialog 1)")
-          (setq done (start_dialog))
-          (if (= done 1)
-            (setq sel
-              (car
-                (nth (atoi (urb:safe-string *urb-ppto-red-sel* "0"))
-                  *urb-ppto-red-capitulo*))))))
-      (if (and dcl (> dcl 0)) (unload_dialog dcl))))
-  sel)
-
-;; la eleccion de red se guarda DENTRO del libro (URB_CONFIG) para no
-;; preguntar otra vez; en headless sin eleccion previa, no se lee nada
-;; (no se puede clickear un dialogo sin usuario presente)
-(defun urb:ppto-elegir-red-formato-b (wb / guardada sel)
-  (setq guardada (urb:ppto-cfg-get wb "RED_FORMATO_PLANO"))
-  (cond
-    (guardada guardada)
-    ((and (boundp '*urb-ppto-sin-dialogo*) *urb-ppto-sin-dialogo*) nil)
-    (T
-      (setq sel (urb:ppto-elegir-red-dialog))
-      (if sel (urb:ppto-cfg-set wb "RED_FORMATO_PLANO" sel))
-      sel)))
-
-(defun urb:ppto-read-vocab-b (wb / candidatas entry ws red capitulo vocab)
+;; 2026-08-19 (pedido del usuario): las hojas por secciones YA NO se atan
+;; a UNA red -- una misma hoja puede traer anden + redes sanitarias + mas.
+;; Sus actividades entran con capitulo COMODIN "*": el matcher las acepta
+;; para CUALQUIER red del plano (misma unidad + texto), y la disciplina la
+;; decide el match automatico o la asignacion manual, sin desplegable.
+;; El dialogo "elegir elemento/red" se elimino por completo.
+(defun urb:ppto-read-vocab-b (wb / candidatas entry ws vocab)
   (setq candidatas (urb:ppto-vocab-candidatas-b wb))
   (if (null candidatas)
     (progn
@@ -21145,25 +21113,17 @@
           " hojas sin NIVEL parecen presupuesto; se usa la primera ("
           (caar candidatas) ").")))
       (setq entry (car candidatas))
-      (setq red (urb:ppto-elegir-red-formato-b wb))
-      (if (null red)
-        (progn
-          (setq *urb-ppto-vocab-hoja* nil)
-          (prompt "\nSin elemento/red asignado: no se leyo el presupuesto por secciones.")
-          nil)
-        (progn
-          (setq capitulo (cdr (assoc red *urb-ppto-red-capitulo*)))
-          (setq *urb-ppto-vocab-hoja* (car entry))
-          (setq ws (urb:ppto-obj
-            (vlax-get-property (vlax-get-property wb 'Worksheets) 'Item
-              (car entry))))
-          (setq vocab
-            (urb:ppto-vocab-extraer-b ws (nth 1 (cdr entry))
-              (nth 2 (cdr entry)) (nth 0 (cdr entry)) capitulo))
-          (prompt (strcat "\nPresupuesto por secciones (hoja \""
-            (car entry) "\", red " red "): " (itoa (length vocab))
-            " actividades leidas."))
-          vocab)))))
+      (setq *urb-ppto-vocab-hoja* (car entry))
+      (setq ws (urb:ppto-obj
+        (vlax-get-property (vlax-get-property wb 'Worksheets) 'Item
+          (car entry))))
+      (setq vocab
+        (urb:ppto-vocab-extraer-b ws (nth 1 (cdr entry))
+          (nth 2 (cdr entry)) (nth 0 (cdr entry))))
+      (prompt (strcat "\nPresupuesto por secciones (hoja \""
+        (car entry) "\", todas las disciplinas): " (itoa (length vocab))
+        " actividades leidas."))
+      vocab)))
 
 (defun urb:ppto-read-vocab (wb / entry target-name header-row vocab)
   (setq entry (urb:ppto-resolver-hoja wb))
@@ -21352,6 +21312,20 @@
               (cons "GUIA_ML"
                 (atof (urb:safe-string
                   (cdr (assoc "LOSETA_GUIA_ML" atts)) "0")))
+              ;; unidades de pieza (v4.42): del atributo si existe;
+              ;; respaldo = ml de franja / 0.20 (bloques viejos)
+              (cons "TOPEROL_UND"
+                (if (cdr (assoc "LOSETA_TOPEROL_UND" atts))
+                  (atof (urb:safe-string
+                    (cdr (assoc "LOSETA_TOPEROL_UND" atts)) "0"))
+                  (/ (atof (urb:safe-string
+                    (cdr (assoc "LOSETA_TOPEROL_ML" atts)) "0")) 0.20)))
+              (cons "GUIA_UND"
+                (if (cdr (assoc "LOSETA_GUIA_UND" atts))
+                  (atof (urb:safe-string
+                    (cdr (assoc "LOSETA_GUIA_UND" atts)) "0"))
+                  (/ (atof (urb:safe-string
+                    (cdr (assoc "LOSETA_GUIA_ML" atts)) "0")) 0.20)))
               (cons "PERIMETRO"
                 (atof (urb:safe-string
                   (cdr (assoc "PERIMETRO_M" atts)) "0")))
@@ -21678,7 +21652,7 @@
       (setq valido nil
             capitulo (cdr (assoc (nth 0 item) *urb-ppto-red-capitulo*)))
       (foreach entry vocab
-        (if (and (= (nth 0 entry) capitulo)
+        (if (and (urb:ppto-cap-match-p (nth 0 entry) capitulo)
                  (= (nth 1 entry) (strcase (nth 7 item)))
                  (= (nth 2 entry) evalue))
           (setq valido T)))
@@ -21882,10 +21856,13 @@
   (if d d (nth 5 m)))
 
 (defun urb:ppv-links (capitulo desc / m out)
+  ;; capitulo "*" (actividad de hoja por secciones): recibe de CUALQUIER red
   (setq out nil)
   (foreach m *urb-ppto-matches*
     (if (and (= (urb:ppv-espec m) desc)
-             (= (cdr (assoc (nth 1 m) *urb-ppto-red-capitulo*)) capitulo))
+             (or (= capitulo "*")
+                 (= (cdr (assoc (nth 1 m) *urb-ppto-red-capitulo*))
+                    capitulo)))
       (setq out (cons m out))))
   (reverse out))
 
@@ -21948,68 +21925,52 @@
   (if (> dcl 0) (unload_dialog dcl))
   (princ))
 
-;; ---------- dialogo de actividades PARAMETRICAS (estilo Revit) ----------
-;; Rediseno 2026-08-18 (pedido del usuario: "guiate mucho de la creacion de
-;; parametros de Revit, que uno le podia poner nombre al parametro"): el
-;; parametro tiene NOMBRE propio, las magnitudes se leen en lenguaje normal
-;; ("Franja toperol (ml)"), la formula se arma a la vista mientras se
-;; escoge, y la actividad destino se encuentra con un buscador.
+;; ---------- dialogo NUEVO PARAMETRO (estilo Valor calculado de Revit) ----------
+;; Rediseno 2026-08-19 (pantallazo del usuario con tachones): ventana
+;; MINIMA -- Nombre, "Se mide de cada", y una FORMULA con un desplegable
+;; [+] que inserta el campo elegido (longitud, area, franja toperol...);
+;; en el texto se agrega " / 0.20" o " * 2" a mano. La actividad destino
+;; YA NO se elige aqui: es la actividad seleccionada en el arbol (la
+;; ventana se abre desde Parametros, que es contextual a esa actividad).
 (defun urb:ppto-write-param-dcl ()
   (urb:write-dialog-dcl
     "urb_ppto_param"
-    '*urb-ppto-param-dcl-okB*
+    '*urb-ppto-param-dcl-okD*
     (list
-      "urb_ppto_param : dialog { label = \"Parametros de medicion (como en Revit: nombre + formula)\";"
-      ": list_box { key = \"lista\"; label = \"Parametros definidos (aplican a TODOS los elementos de su tipo)\"; width = 118; height = 6; }"
-      ": boxed_column { label = \"Nuevo parametro\";"
-      ": row { : edit_box { key = \"nombre\"; label = \"Nombre\"; edit_width = 30; } : popup_list { key = \"tipo\"; label = \"Se mide de cada\"; width = 24; } }"
-      ": row { : edit_box { key = \"formula\"; label = \"Formula\"; edit_width = 42; } }"
-      ": text { key = \"prevfor\"; width = 116; }"
-      ": list_box { key = \"campos\"; label = \"Campos disponibles (clic para insertarlos en la formula)\"; width = 118; height = 3; }"
-      ": edit_box { key = \"fbusca\"; label = \"Buscar la actividad del presupuesto que recibe la cantidad\"; edit_width = 40; }"
-      ": list_box { key = \"act\"; label = \"Actividad destino (del capitulo del elemento; filtrada por el buscador)\"; width = 118; height = 8; }"
-      ": row { : button { key = \"agregar\"; label = \"Crear parametro\"; } : button { key = \"eliminar\"; label = \"Eliminar el seleccionado arriba\"; } }"
-      "}"
-      ": text { key = \"pinfo\"; width = 126; }"
+      "urb_ppto_param : dialog { label = \"Nuevo parametro\";"
+      ": text { key = \"actx\"; width = 100; }"
+      ": row { : edit_box { key = \"nombre\"; label = \"Nombre\"; edit_width = 32; } : popup_list { key = \"tipo\"; label = \"Se mide de cada\"; width = 24; } }"
+      ": row { : edit_box { key = \"formula\"; label = \"Formula\"; edit_width = 44; } : popup_list { key = \"campos\"; label = \"+\"; width = 30; } }"
+      ": text { key = \"pinfo\"; width = 104; }"
+      ": row { : button { key = \"agregar\"; label = \"Crear parametro\"; } }"
       "ok_only; }")))
 
 (defun urb:ppp-tipo (/ idx)
   (setq idx (atoi (get_tile "tipo")))
   (nth idx *urb-ppto-param-tipos*))
 
-(defun urb:ppp-fill-lista (/ p nombre)
-  (start_list "lista")
-  (if *urb-ppto-param*
-    (foreach p *urb-ppto-param*
-      (setq nombre (urb:safe-string (nth 5 p) ""))
-      (add_list
-        (strcat
-          (if (/= nombre "") nombre (nth 3 p))
-          "  --  cada " (nth 0 p) ": " (urb:ppto-mag-label (nth 1 p))
-          (if (= (urb:safe-string (nth 4 p) "X") "D") " / " " x ")
-          (rtos (nth 2 p) 2 4) "  =>  " (nth 3 p))))
-    (add_list "(ninguno definido)"))
-  (end_list))
-
-;; lista de "campos" insertables (estilo Revit: boton Campos... del Valor
-;; calculado) -- las magnitudes disponibles del tipo elegido, en texto
-;; legible; el CLIC inserta el codigo real en la formula.
+;; desplegable [+]: las magnitudes del tipo elegido en lenguaje normal;
+;; elegir una INSERTA su codigo en la formula (luego se le agrega el
+;; operador y el numero a mano: "/ 0.20", "* 2"...)
 (defun urb:ppp-fill-campos (/ tdef m)
   (setq tdef (urb:ppp-tipo))
   (start_list "campos")
+  (add_list "(elegir campo...)")
   (foreach m (nth 2 tdef) (add_list (urb:ppto-mag-label m)))
-  (end_list))
+  (end_list)
+  (set_tile "campos" "0"))
 
 (defun urb:ppp-insertar-campo (/ tdef mags idx codigo actual)
   (setq tdef (urb:ppp-tipo))
   (setq mags (nth 2 tdef))
-  (setq idx (atoi (get_tile "campos")))
-  (setq codigo (nth idx mags))
+  (setq idx (1- (atoi (get_tile "campos"))))   ; 0 = "(elegir campo...)"
+  (setq codigo (if (>= idx 0) (nth idx mags) nil))
   (if codigo
     (progn
       (setq actual (urb:safe-string (get_tile "formula") ""))
       (set_tile "formula"
         (strcat actual (if (= actual "") "" " ") codigo))
+      (set_tile "campos" "0")
       (urb:ppp-preview))))
 
 ;; interpreta el texto de la formula: MAGNITUD * numero, MAGNITUD / numero,
@@ -22046,67 +22007,43 @@
                 (list mag-code "X" num-val) nil))
             (T nil)))))))
 
-;; interpretacion en vivo: se actualiza con cada cambio de tipo o formula
+;; interpretacion en vivo en la linea de info
 (defun urb:ppp-preview (/ tdef mags parsed)
   (setq tdef (urb:ppp-tipo))
   (setq mags (nth 2 tdef))
   (setq parsed (urb:ppp-parse-formula (get_tile "formula") mags))
-  (set_tile "prevfor"
+  (set_tile "pinfo"
     (if parsed
       (strcat "Cantidad = " (urb:ppto-mag-label (nth 0 parsed))
         (if (= (nth 1 parsed) "D") " / " " x ")
         (rtos (nth 2 parsed) 2 4) "  (por cada " (nth 0 tdef) ")")
-      "Formula no reconocida: escriba MAGNITUD * factor o MAGNITUD / factor (inserte el campo con un clic en la lista de abajo).")))
+      "Inserte un campo con el desplegable + y agregue el operador a mano: CAMPO / 0.20 o CAMPO * 2.")))
 
-;; la lista de actividades se filtra con el buscador (normalizado: sin
-;; acentos ni mayusculas); *urb-ppp-acts* SIEMPRE refleja lo visible para
-;; que el indice seleccionado apunte a la actividad correcta
-(defun urb:ppp-fill-act (/ tdef capitulo entry filtro)
-  (setq tdef (urb:ppp-tipo))
-  (setq capitulo (cdr (assoc (nth 1 tdef) *urb-ppto-red-capitulo*)))
-  (setq filtro (urb:ppto-normalize (get_tile "fbusca")))
-  (setq *urb-ppp-acts* nil)
-  (foreach entry *urb-ppto-vocab*
-    (if (and (= (nth 0 entry) capitulo)
-             (or (= filtro "")
-                 (vl-string-search filtro (urb:ppto-normalize (nth 2 entry)))))
-      (setq *urb-ppp-acts* (cons entry *urb-ppp-acts*))))
-  (setq *urb-ppp-acts* (reverse *urb-ppp-acts*))
-  (start_list "act")
-  (if *urb-ppp-acts*
-    (foreach entry *urb-ppp-acts*
-      (add_list (strcat (nth 2 entry) "  [" (nth 1 entry) "]")))
-    (add_list "(ninguna actividad del capitulo contiene ese texto)"))
-  (end_list))
-
-(defun urb:ppp-agregar (/ tdef mags parsed entry nombre)
+(defun urb:ppp-agregar (/ tdef mags parsed nombre)
   (setq tdef (urb:ppp-tipo))
   (setq mags (nth 2 tdef))
   (setq parsed (urb:ppp-parse-formula (get_tile "formula") mags))
-  (setq entry (nth (atoi (get_tile "act")) *urb-ppp-acts*))
   (setq nombre (urb:safe-string (get_tile "nombre") ""))
   (cond
-    ((null entry)
-      (set_tile "pinfo" "Falta la actividad destino: busquela y seleccionela en la lista."))
+    ((or (not (boundp '*urb-ppp-pre-act*)) (null *urb-ppp-pre-act*))
+      (set_tile "pinfo"
+        "Sin actividad destino: cierre y seleccione la actividad en el arbol antes de pulsar +."))
     ((null parsed)
-      (set_tile "pinfo" "La formula no se entiende: escriba MAGNITUD * factor o MAGNITUD / factor (inserte el campo con un clic en la lista de abajo)."))
+      (set_tile "pinfo"
+        "La formula no se entiende: inserte un campo con + y escriba CAMPO / 0.20 o CAMPO * 2."))
     (T
       ;; sin nombre escrito, el parametro se llama como su actividad
-      (if (= nombre "") (setq nombre (nth 2 entry)))
+      (if (= nombre "") (setq nombre *urb-ppp-pre-act*))
       (setq *urb-ppto-param*
         (append *urb-ppto-param*
           (list (list (nth 0 tdef) (nth 0 parsed) (nth 2 parsed)
-            (nth 2 entry) (nth 1 parsed) nombre))))
+            *urb-ppp-pre-act* (nth 1 parsed) nombre))))
       (urb:ppto-param-write *urb-ppto-wb* *urb-ppto-param*)
       (setq *urb-ppto-param-dirty* T)
-      (urb:ppp-fill-lista)
       (set_tile "pinfo"
-        (strcat "Creado \"" nombre "\": cada " (nth 0 tdef) " exporta "
-          (urb:ppto-mag-label (nth 0 parsed))
-          (if (= (nth 1 parsed) "D") " / " " x ")
-          (rtos (nth 2 parsed) 2 4)
-          " a esa actividad. Queda guardado en el libro; si la magnitud"
-          " vale 0 hoy (no modelada aun), la fila aparece cuando exista.")))))
+        (strcat "Creado \"" nombre "\" -> " *urb-ppp-pre-act*
+          ". Queda guardado en el libro; la cantidad se mide con"
+          " ACTUALIZAR (o al Aceptar la exportacion).")))))
 
 ;; sugerencia automatica (pedido 2026-08-18: "ese parametro deberia ya
 ;; estar creado pero no aparece" -- toperol/guia/adoquin/loseta/bordillo
@@ -22119,8 +22056,14 @@
   (setq norm (urb:ppto-normalize texto))
   (setq um2 (strcase (urb:safe-string um "")))
   (cond
+    ((and (vl-string-search "toperol" norm) (= um2 "UN")
+          (member "TOPEROL_UND" mags))
+      (list "TOPEROL_UND" "X" 1.0))
     ((and (vl-string-search "toperol" norm) (member "TOPEROL_ML" mags))
       (list "TOPEROL_ML" "D" 0.20))
+    ((and (vl-string-search "guia" norm) (= um2 "UN")
+          (member "GUIA_UND" mags))
+      (list "GUIA_UND" "X" 1.0))
     ((and (vl-string-search "guia" norm) (member "GUIA_ML" mags))
       (list "GUIA_ML" "D" 0.20))
     ((and (vl-string-search "adoquin" norm) (= um2 "UN")
@@ -22140,80 +22083,57 @@
       (list "LONGITUD" "X" 1.0))
     (T nil)))
 
-(defun urb:ppp-eliminar (/ idx p)
-  (setq idx (atoi (get_tile "lista")))
-  (setq p (nth idx *urb-ppto-param*))
-  (if p
+(defun urb:ppto-param-dialog (/ dcl dclfile tdef i pre-idx sug)
+  (setq dclfile (urb:ppto-write-param-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar la ventana de nuevo parametro (revise permisos de la carpeta temporal de Windows).")
     (progn
-      (setq *urb-ppto-param*
-        (vl-remove p *urb-ppto-param*))
-      (urb:ppto-param-write *urb-ppto-wb* *urb-ppto-param*)
-      (setq *urb-ppto-param-dirty* T)
-      (urb:ppp-fill-lista)
-      (set_tile "pinfo" "Eliminado. Aplica al Aceptar la exportacion."))
-    (set_tile "pinfo" "Seleccione arriba el parametro definido que quiere eliminar.")))
-
-(defun urb:ppto-param-dialog (/ dcl tdef i pre-idx entry act-um sug)
-  (setq dcl (load_dialog (urb:ppto-write-param-dcl)))
-  (if (and (> dcl 0) (new_dialog "urb_ppto_param" dcl))
-    (progn
-      (start_list "tipo")
-      (foreach tdef *urb-ppto-param-tipos* (add_list (nth 0 tdef)))
-      (end_list)
-      (set_tile "tipo" "0")
-      (urb:ppp-fill-lista)
-      (urb:ppp-fill-campos)
-      (urb:ppp-fill-act)
-      ;; preseleccion cuando se abre desde el arbol del presupuesto:
-      ;; elemento del capitulo de la actividad + la actividad marcada +
-      ;; formula sugerida por el nombre de la actividad (v4.32)
-      (if (and (boundp '*urb-ppp-pre-cap*) *urb-ppp-pre-cap*)
+      (setq dcl (load_dialog dclfile))
+      (if (and dcl (> dcl 0) (new_dialog "urb_ppto_param" dcl))
         (progn
-          (setq i 0 pre-idx nil)
-          (foreach tdef *urb-ppto-param-tipos*
-            (if (and (null pre-idx)
-                     (= (cdr (assoc (nth 1 tdef) *urb-ppto-red-capitulo*))
-                        *urb-ppp-pre-cap*))
-              (setq pre-idx i))
-            (setq i (1+ i)))
-          (if pre-idx
+          (set_tile "actx"
+            (strcat "La cantidad va a la actividad: "
+              (urb:safe-string
+                (if (boundp '*urb-ppp-pre-act*) *urb-ppp-pre-act* nil)
+                "(seleccione una actividad en el arbol)")
+              (if (and (boundp '*urb-ppp-pre-um*) *urb-ppp-pre-um*)
+                (strcat " [" *urb-ppp-pre-um* "]") "")))
+          (start_list "tipo")
+          (foreach tdef *urb-ppto-param-tipos* (add_list (nth 0 tdef)))
+          (end_list)
+          (set_tile "tipo" "0")
+          ;; preseleccion del tipo por el capitulo de la actividad (con
+          ;; capitulo comodin "*" no hay pista: queda el primero)
+          (if (and (boundp '*urb-ppp-pre-cap*) *urb-ppp-pre-cap*)
             (progn
-              (set_tile "tipo" (itoa pre-idx))
-              (urb:ppp-fill-campos)
-              (urb:ppp-fill-act)))
-          (setq i 0 act-um nil)
-          (foreach entry *urb-ppp-acts*
-            (if (= (nth 2 entry) *urb-ppp-pre-act*)
-              (progn (set_tile "act" (itoa i)) (setq act-um (nth 1 entry))))
-            (setq i (1+ i)))
+              (setq i 0 pre-idx nil)
+              (foreach tdef *urb-ppto-param-tipos*
+                (if (and (null pre-idx)
+                         (= (cdr (assoc (nth 1 tdef) *urb-ppto-red-capitulo*))
+                            *urb-ppp-pre-cap*))
+                  (setq pre-idx i))
+                (setq i (1+ i)))
+              (if pre-idx (set_tile "tipo" (itoa pre-idx)))))
+          (urb:ppp-fill-campos)
+          ;; formula sugerida por el nombre de la actividad destino
           (setq tdef (urb:ppp-tipo))
           (setq sug
-            (urb:ppp-sugerir tdef (urb:safe-string *urb-ppp-pre-act* "")
-              (urb:safe-string act-um "")))
+            (urb:ppp-sugerir tdef
+              (urb:safe-string
+                (if (boundp '*urb-ppp-pre-act*) *urb-ppp-pre-act* nil) "")
+              (urb:safe-string
+                (if (boundp '*urb-ppp-pre-um*) *urb-ppp-pre-um* nil) "")))
           (if sug
-            (progn
-              (set_tile "formula"
-                (strcat (nth 0 sug) (if (= (nth 1 sug) "D") " / " " * ")
-                  (rtos (nth 2 sug) 2 4)))
-              (setq *urb-ppp-sugerido* T))
-            (setq *urb-ppp-sugerido* nil))))
-      (urb:ppp-preview)
-      (set_tile "pinfo"
-        (if (and (boundp '*urb-ppp-sugerido*) *urb-ppp-sugerido*)
-          "Sugerencia automatica por el nombre de la actividad (revise la formula si hace falta) -- pulse \"Crear parametro\" para guardarla."
-          (strcat "Ej: nombre \"Losetas toperol\", de cada ANDEN, formula"
-            " TOPEROL_ML / 0.20 (ancho de la pieza) = unidades."
-            " O \"Riego de liga\", de cada VIA, formula AREA * 0.05."
-            " Clic en un campo de la lista para insertarlo en la formula.")))
-      (action_tile "tipo"
-        "(urb:ppp-fill-campos) (urb:ppp-fill-act) (urb:ppp-preview)")
-      (action_tile "formula" "(urb:ppp-preview)")
-      (action_tile "campos" "(urb:ppp-insertar-campo)")
-      (action_tile "fbusca" "(urb:ppp-fill-act)")
-      (action_tile "agregar" "(urb:ppp-agregar)")
-      (action_tile "eliminar" "(urb:ppp-eliminar)")
-      (start_dialog)))
-  (if (> dcl 0) (unload_dialog dcl))
+            (set_tile "formula"
+              (strcat (nth 0 sug) (if (= (nth 1 sug) "D") " / " " * ")
+                (rtos (nth 2 sug) 2 4))))
+          (urb:ppp-preview)
+          (action_tile "tipo" "(urb:ppp-fill-campos) (urb:ppp-preview)")
+          (action_tile "formula" "(urb:ppp-preview)")
+          (action_tile "campos" "(urb:ppp-insertar-campo)")
+          (action_tile "agregar" "(urb:ppp-agregar)")
+          (start_dialog)))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))))
   (princ))
 
 ;; ---------- previsualizacion de la tabla a exportar ----------
@@ -22506,33 +22426,55 @@
 ;; conceptos disponibles para asignar. Desde aqui tambien se crean
 ;; parametricas apuntando a la actividad seleccionada y se previsualiza la
 ;; tabla a exportar. Aceptar exporta; Cancelar ABORTA.
+;; Rediseno 2026-08-19 (pedido del usuario, pantallazos marcados): fuera
+;; las lineas de trazabilidad/estado y los botones de cambiar hoja/libro
+;; (viven en el boton Vinculacion de la cinta); fuera la lista de
+;; "Conceptos del plano disponibles" -- ahora un boton [+] junto a
+;; "Vinculado desde el plano" abre la ventana PARAMETROS, donde se asigna,
+;; se quita y se crean parametricas (que aparecen ahi con su NOMBRE).
 (defun urb:ppto-write-match2-dcl ()
   (urb:write-dialog-dcl
     "urb_ppto_match2"
-    '*urb-ppto-match2-dcl-okB*
+    '*urb-ppto-match2-dcl-okC*
     (list
       "urb_ppto_match2 : dialog { label = \"Vinculacion con el presupuesto\";"
-      ": text { key = \"libro\"; width = 130; }"
-      ": text { key = \"info1\"; width = 130; }"
       ": row {"
-      ": list_box { key = \"arbol\"; label = \"Presupuesto: codigo | actividad [unidad]\"; width = 76; height = 21; }"
+      ": list_box { key = \"arbol\"; label = \"Presupuesto: codigo | actividad [unidad]\"; width = 76; height = 22; }"
       ": column {"
-      ": list_box { key = \"vinc\"; label = \"Vinculado desde el plano\"; width = 56; height = 10; }"
-      ": list_box { key = \"cand\"; label = \"Conceptos del plano disponibles (misma unidad)\"; width = 56; height = 8; }"
+      ": row { : text { label = \"Vinculado desde el plano\"; } : spacer { width = 24; } : button { key = \"mas\"; label = \"+\"; width = 6; } }"
+      ": list_box { key = \"vinc\"; width = 56; height = 20; }"
       "}"
       "}"
-      ": row { : button { key = \"asignar\"; label = \"Asignar concepto\"; } : button { key = \"quitar\"; label = \"Quitar asignacion\"; } : button { key = \"param\"; label = \"Nueva parametrica aqui\"; } : button { key = \"prever\"; label = \"Previsualizar (navegador)\"; } : button { key = \"actualizar\"; label = \"ACTUALIZAR del modelo\"; } }"
-      ": row { : button { key = \"hoja\"; label = \"Cambiar hoja del presupuesto...\"; } : button { key = \"cambiarlibro\"; label = \"Cambiar libro...\"; } }"
-      ": text { key = \"estado\"; width = 130; }"
-      ": text { label = \"Aceptar = exportar al libro. Cancelar = NO exportar nada. Lo asignado queda guardado dentro del libro.\"; }"
+      ": row { : button { key = \"prever\"; label = \"Previsualizar (navegador)\"; } : button { key = \"actualizar\"; label = \"ACTUALIZAR del modelo\"; } }"
       "ok_cancel; }")))
+
+;; ---------- ventana PARAMETROS (se abre con el boton [+]) ----------
+;; Lista los "parametros" del plano asignables a la actividad seleccionada
+;; (conceptos medidos de la misma unidad + parametricas definidas hacia esa
+;; actividad, con su NOMBRE). Desde aqui se asigna, se quita y se crean
+;; parametricas nuevas.
+(defun urb:ppto-write-params-dcl ()
+  (urb:write-dialog-dcl
+    "urb_ppto_params"
+    '*urb-ppto-params-dcl-ok*
+    (list
+      "urb_ppto_params : dialog { label = \"Parametros\";"
+      ": text { key = \"pact\"; width = 100; }"
+      ": list_box { key = \"plist\"; label = \"Parametros del plano (misma unidad que la actividad)\"; width = 100; height = 14; }"
+      ": row { : button { key = \"pasignar\"; label = \"Asignar a esta actividad\"; } : button { key = \"pquitar\"; label = \"Quitar asignacion\"; } : button { key = \"pnuevo\"; label = \"Nuevo parametro...\"; } : button { key = \"pborrar\"; label = \"Eliminar parametrica\"; } }"
+      ": text { key = \"pestado\"; width = 100; }"
+      "ok_only; }")))
 
 ;; grupos de conceptos del plano candidatos para una actividad
 ;; (mismo capitulo y misma UM); cada uno con su etiqueta de estado
 (defun urb:pm2-cands (capitulo um / m out espec-ef)
+  ;; capitulo "*" (actividad de hoja por secciones): acepta conceptos de
+  ;; CUALQUIER red del plano con la misma unidad
   (setq out nil)
   (foreach m *urb-ppto-matches*
-    (if (and (= (cdr (assoc (nth 1 m) *urb-ppto-red-capitulo*)) capitulo)
+    (if (and (or (= capitulo "*")
+                 (= (cdr (assoc (nth 1 m) *urb-ppto-red-capitulo*))
+                    capitulo))
              (= (nth 3 m) (strcase um)))
       (setq out (cons m out))))
   (reverse out))
@@ -22565,22 +22507,12 @@
   (end_list)
   (if (/= pos "") (set_tile "arbol" pos)))
 
-(defun urb:pm2-estado (/ m pendientes)
-  (setq pendientes 0)
-  (foreach m *urb-ppto-matches*
-    (if (and (= (nth 4 m) "PENDIENTE")
-             (not (assoc (nth 0 m) *urb-pmd-decisions*)))
-      (setq pendientes (1+ pendientes))))
-  (set_tile "estado"
-    (strcat (itoa (length *urb-ppto-matches*))
-      " concepto(s) del plano en la corrida; "
-      (itoa pendientes) " sin actividad (saldran [SIN MATCH]); "
-      (itoa (length *urb-pmd-decisions*)) " asignacion(es) nueva(s).")))
+;; (urb:pm2-estado se elimino en v4.42: la linea de estado salio del
+;; dialogo principal a pedido del usuario)
 
-(defun urb:pm2-select (idx / o links m total)
+(defun urb:pm2-select (idx / links m total)
   (setq *urb-pm2-act* (urb:pm2-fila-actividad idx))
   (start_list "vinc")
-  (setq *urb-pm2-cands* nil)
   (if *urb-pm2-act*
     (progn
       (setq links
@@ -22592,104 +22524,155 @@
           (add_list
             (strcat (nth 1 m) " | " (nth 2 m) "  =  "
               (rtos (nth 6 m) 2 2) " " (nth 3 m))))
-        (add_list "(sin aportes del plano)"))
-      (end_list)
-      (start_list "cand")
-      (setq *urb-pm2-cands*
-        (urb:pm2-cands (nth 4 *urb-pm2-act*) (nth 3 *urb-pm2-act*)))
-      (if *urb-pm2-cands*
-        (foreach m *urb-pm2-cands*
-          (add_list (urb:pm2-cand-label m)))
-        (add_list "(no hay conceptos del plano con esta unidad)"))
-      (end_list))
-    (progn
-      (end_list)
-      (start_list "cand")
-      (end_list))))
+        (add_list "(sin aportes del plano; use el boton + para vincular)"))))
+  (end_list))
 
 (defun urb:pm2-idx-actual (/ v)
   (setq v (get_tile "arbol"))
   (if (/= v "") (atoi v) -1))
 
-(defun urb:pm2-asignar (cand-idx / m)
-  (setq m (nth cand-idx *urb-pm2-cands*))
+;; ---------- logica de la ventana PARAMETROS ----------
+;; *urb-pm2-plist* corre paralela a la lista visible: cada entrada es
+;; (M . match) para un concepto MEDIDO del plano, o (P . parametrica)
+;; para una parametrica definida hacia esta actividad que aun no tiene
+;; fila medida en la corrida (su cantidad entra con ACTUALIZAR).
+(defun urb:pm2-param-de-concepto (m / p out)
+  ;; parametrica cuyo destino es exactamente este concepto (las filas
+  ;; parametricas llevan concepto = texto de la actividad destino)
+  (foreach p *urb-ppto-param*
+    (if (and (null out) (= (nth 3 p) (nth 2 m)))
+      (setq out p)))
+  out)
+
+(defun urb:pm2-params-fill (/ m p etiqueta nombre cubiertas)
+  (setq *urb-pm2-plist* nil cubiertas nil)
+  (start_list "plist")
+  (foreach m (urb:pm2-cands (nth 4 *urb-pm2-act*) (nth 3 *urb-pm2-act*))
+    (setq p (urb:pm2-param-de-concepto m))
+    (if p (setq cubiertas (cons (nth 3 p) cubiertas)))
+    (setq etiqueta
+      (if (and p (/= (urb:safe-string (nth 5 p) "") ""))
+        (strcat (urb:pm2-cand-label m) "  [parametrica: " (nth 5 p) "]")
+        (urb:pm2-cand-label m)))
+    (add_list etiqueta)
+    (setq *urb-pm2-plist* (cons (cons 'M m) *urb-pm2-plist*)))
+  ;; parametricas definidas hacia ESTA actividad sin fila medida aun
+  (foreach p *urb-ppto-param*
+    (if (and (= (nth 3 p) (nth 2 *urb-pm2-act*))
+             (not (member (nth 3 p) cubiertas)))
+      (progn
+        (setq nombre (urb:safe-string (nth 5 p) ""))
+        (add_list
+          (strcat "[PARAMETRICA] "
+            (if (/= nombre "") nombre (nth 3 p))
+            "  --  " (urb:ppto-mag-label (nth 1 p))
+            (if (= (urb:safe-string (nth 4 p) "X") "D") " / " " x ")
+            (rtos (nth 2 p) 2 4)
+            "  (cantidad entra con ACTUALIZAR)"))
+        (setq *urb-pm2-plist* (cons (cons 'P p) *urb-pm2-plist*)))))
+  (if (null *urb-pm2-plist*)
+    (add_list "(no hay parametros del plano con esta unidad; cree uno con Nuevo parametro...)"))
+  (end_list)
+  (setq *urb-pm2-plist* (reverse *urb-pm2-plist*)))
+
+(defun urb:pm2-params-sel (/ v)
+  (setq v (get_tile "plist"))
+  (if (/= v "") (nth (atoi v) *urb-pm2-plist*) nil))
+
+(defun urb:pm2-params-asignar (/ sel m)
+  (setq sel (urb:pm2-params-sel))
   (cond
-    ((null *urb-pm2-act*)
-      (set_tile "estado"
-        "Seleccione primero una actividad del presupuesto (fila con codigo)."))
-    ((null m)
-      (set_tile "estado" "Seleccione el concepto del plano a asignar."))
+    ((null sel)
+      (set_tile "pestado" "Seleccione un parametro de la lista."))
+    ((eq (car sel) 'P)
+      (set_tile "pestado"
+        "Esa parametrica ya apunta a esta actividad; su cantidad entra con ACTUALIZAR."))
     (T
+      (setq m (cdr sel))
       (setq *urb-pmd-decisions*
         (cons (cons (nth 0 m) (nth 2 *urb-pm2-act*))
           (vl-remove (assoc (nth 0 m) *urb-pmd-decisions*)
             *urb-pmd-decisions*)))
-      (urb:pm2-refill-arbol)
-      (urb:pm2-select (urb:pm2-idx-actual))
-      (urb:pm2-estado))))
+      (urb:pm2-params-fill)
+      (set_tile "pestado"
+        (strcat "Asignado a: " (nth 2 *urb-pm2-act*))))))
 
-(defun urb:pm2-quitar (cand-idx / m)
-  (setq m (nth cand-idx *urb-pm2-cands*))
+(defun urb:pm2-params-quitar (/ sel m)
+  (setq sel (urb:pm2-params-sel))
   (cond
-    ((null m)
-      (set_tile "estado"
-        "Seleccione en la lista de disponibles el concepto cuya asignacion NUEVA quiere quitar."))
-    ((not (assoc (nth 0 m) *urb-pmd-decisions*))
-      (set_tile "estado"
+    ((or (null sel) (not (eq (car sel) 'M)))
+      (set_tile "pestado"
+        "Seleccione el concepto medido cuya asignacion NUEVA quiere quitar."))
+    ((not (assoc (nth 0 (cdr sel)) *urb-pmd-decisions*))
+      (set_tile "pestado"
         "Ese concepto no tiene asignacion nueva en esta sesion (los AUTO se corrigen reasignandolos a otra actividad)."))
     (T
+      (setq m (cdr sel))
       (setq *urb-pmd-decisions*
         (vl-remove (assoc (nth 0 m) *urb-pmd-decisions*)
           *urb-pmd-decisions*))
-      (urb:pm2-refill-arbol)
-      (urb:pm2-select (urb:pm2-idx-actual))
-      (urb:pm2-estado))))
+      (urb:pm2-params-fill)
+      (set_tile "pestado" "Asignacion quitada."))))
 
-;; boton "Cambiar hoja del presupuesto..." (pedido 2026-08-18: el presupuesto
-;; puede estar en otra hoja distinta de POR EJECUTAR, y debe poder elegirse
-;; sin salir del dialogo de vinculacion)
-;; Blindado (2026-08-18): esta funcion dispara varias llamadas COM
-;; (recorrer TODAS las hojas del libro, incluidas las muy ocultas) sin
-;; envoltura -- a diferencia de urb:ppto-libro-elegir-hoja (que si esta
-;; protegida). Un hipo COM transitorio aqui tumbaba TODO el comando
-;; PPTOEXPORTAR en vez de mostrar un mensaje y dejar seguir en el dialogo.
-(defun urb:pm2-elegir-hoja (/ candidatas elegida result)
-  (setq result
-    (vl-catch-all-apply
-      '(lambda ()
-        (setq candidatas (urb:ppto-vocab-candidatas *urb-ppto-wb*))
-        (cond
-          ((null candidatas)
-            (set_tile "estado"
-              "Ninguna hoja del libro tiene encabezados NIVEL/DESCRIPCION/UM arriba de la fila 15."))
-          (T
-            (setq elegida
-              (urb:ppto-elegir-hoja-dialog candidatas
-                (strcat "Hoja actual: \""
-                  (urb:safe-string *urb-ppto-vocab-hoja* "?")
-                  "\". Elija la hoja del presupuesto a usar de aqui en adelante"
-                  " (queda guardada en el libro).")))
-            (if elegida
-              (progn
-                (urb:ppto-cfg-set *urb-ppto-wb* "HOJA_PRESUPUESTO" (car elegida))
-                (done_dialog 4))
-              (set_tile "estado" "Cambio de hoja cancelado; sigue igual."))))
-        T)))
-  (if (vl-catch-all-error-p result)
-    (set_tile "estado"
-      (strcat "PROBLEMA eligiendo la hoja: " (vl-catch-all-error-message result)
-        " -- no se cambio nada, puede reintentar o seguir con la hoja actual."))))
+(defun urb:pm2-params-nuevo ()
+  (setq *urb-ppp-pre-cap* (nth 4 *urb-pm2-act*)
+        *urb-ppp-pre-act* (nth 2 *urb-pm2-act*)
+        *urb-ppp-pre-um* (nth 3 *urb-pm2-act*))
+  (urb:ppto-param-dialog)
+  (setq *urb-ppp-pre-cap* nil *urb-ppp-pre-act* nil *urb-ppp-pre-um* nil)
+  (urb:pm2-params-fill)
+  (set_tile "pestado"
+    "Si creo un parametro, ya aparece en la lista con su nombre; la cantidad se mide con ACTUALIZAR."))
 
-(defun urb:pm2-parametrica ()
-  (if *urb-pm2-act*
+(defun urb:pm2-params-borrar (/ sel p)
+  (setq sel (urb:pm2-params-sel))
+  (setq p
+    (cond
+      ((null sel) nil)
+      ((eq (car sel) 'P) (cdr sel))
+      (T (urb:pm2-param-de-concepto (cdr sel)))))
+  (if (null p)
+    (set_tile "pestado"
+      "Seleccione una parametrica (las marcadas [PARAMETRICA] o [parametrica: ...]).")
     (progn
-      (setq *urb-ppp-pre-cap* (nth 4 *urb-pm2-act*)
-            *urb-ppp-pre-act* (nth 2 *urb-pm2-act*))
-      (urb:ppto-param-dialog)
-      (setq *urb-ppp-pre-cap* nil *urb-ppp-pre-act* nil)
-      (urb:pm2-estado))
-    (set_tile "estado"
-      "Seleccione primero la actividad destino de la parametrica.")))
+      (setq *urb-ppto-param* (vl-remove p *urb-ppto-param*))
+      (urb:ppto-param-write *urb-ppto-wb* *urb-ppto-param*)
+      (setq *urb-ppto-param-dirty* T)
+      (urb:pm2-params-fill)
+      (set_tile "pestado" "Parametrica eliminada."))))
+
+;; abre la ventana PARAMETROS para la actividad seleccionada en el arbol
+(defun urb:pm2-params-window (/ dclfile dcl)
+  (cond
+    ((null *urb-pm2-act*)
+      (alert "Seleccione primero una actividad del presupuesto (fila con codigo y unidad) y luego pulse +."))
+    (T
+      (setq dclfile (urb:ppto-write-params-dcl))
+      (if (null dclfile)
+        (alert "No se pudo preparar la ventana de parametros (revise permisos de la carpeta temporal de Windows).")
+        (progn
+          (setq dcl (load_dialog dclfile))
+          (if (and dcl (> dcl 0) (new_dialog "urb_ppto_params" dcl))
+            (progn
+              (set_tile "pact"
+                (strcat "Actividad: " (nth 2 *urb-pm2-act*)
+                  " [" (nth 3 *urb-pm2-act*) "]"))
+              (urb:pm2-params-fill)
+              (set_tile "pestado"
+                "Asigne un parametro medido, o cree uno nuevo con formula.")
+              (action_tile "pasignar" "(urb:pm2-params-asignar)")
+              (action_tile "pquitar" "(urb:pm2-params-quitar)")
+              (action_tile "pnuevo" "(urb:pm2-params-nuevo)")
+              (action_tile "pborrar" "(urb:pm2-params-borrar)")
+              (start_dialog)))
+          (if (and dcl (> dcl 0)) (unload_dialog dcl))
+          ;; refrescar el dialogo principal con lo decidido
+          (urb:pm2-refill-arbol)
+          (urb:pm2-select (urb:pm2-idx-actual)))))))
+
+;; (urb:pm2-elegir-hoja y urb:pm2-parametrica se eliminaron en v4.42:
+;; cambiar hoja/libro vive en el boton Vinculacion de la cinta, y las
+;; parametricas se crean desde la ventana Parametros del boton [+])
 
 ;; Devuelve (cons 'OK decisiones) si el usuario Acepta (decisiones puede
 ;; ser nil), o 'CANCELADO si cancela -- en ese caso NO se exporta nada.
@@ -22710,61 +22693,24 @@
     (setq dcl (load_dialog dclfile)))
   (if (and dcl (> dcl 0) (new_dialog "urb_ppto_match2" dcl))
     (progn
-      (setq pendientes 0)
-      (foreach m *urb-ppto-matches*
-        (if (= (nth 4 m) "PENDIENTE") (setq pendientes (1+ pendientes))))
-      ;; trazabilidad (pedido 2026-08-18): que se VEA que libro, que tabla
-      ;; y que hoja de presupuesto estan detras de esta corrida
-      (set_tile "libro"
-        (strcat "Libro: "
-          (if (and (boundp '*urb-ppto-path*) *urb-ppto-path*)
-            (strcat (vl-filename-base *urb-ppto-path*)
-              (urb:safe-string (vl-filename-extension *urb-ppto-path*) ""))
-            "?")
-          "  |  Se escribe en: hoja MEMORIAS, tabla TablaMemorias"
-          "  |  Presupuesto leido: hoja \""
-          (urb:safe-string
-            (if (boundp '*urb-ppto-vocab-hoja*) *urb-ppto-vocab-hoja* "?") "?")
-          "\" (" (itoa (length vocab)) " actividades)"
-          "  |  Se relee en vivo cada corrida: si edita una fila del"
-          " presupuesto, aparece con ACTUALIZAR."
-          "  |  Botones abajo: cambiar de hoja o de libro sin salir de aqui."))
-      (set_tile "info1"
-        (strcat "Las actividades con <== PLANO ya reciben cantidades. "
-          (if (> pendientes 0)
-            (strcat "HAY " (itoa pendientes)
-              " concepto(s) del plano SIN actividad: ubique la actividad"
-              " correcta, seleccionela y asigneselos.")
-            "Todos los conceptos del plano tienen actividad.")))
       (urb:pm2-refill-arbol)
-      (urb:pm2-estado)
       (action_tile "arbol" "(urb:pm2-select (atoi $value))")
-      (action_tile "asignar" "(urb:pm2-asignar (atoi (get_tile \"cand\")))")
-      (action_tile "quitar" "(urb:pm2-quitar (atoi (get_tile \"cand\")))")
-      (action_tile "param" "(urb:pm2-parametrica)")
+      ;; [+]: ventana PARAMETROS de la actividad seleccionada (asignar,
+      ;; quitar, crear parametrica, eliminar parametrica)
+      (action_tile "mas" "(urb:pm2-params-window)")
       ;; previsualizacion: se genera la pagina HTML y se abre en el
       ;; navegador SIN cerrar este dialogo (es solo vista)
       (action_tile "prever"
-        "(if (urb:ppto-prev-abrir) (set_tile \"estado\" (strcat \"Previsualizacion abierta en el navegador (\" (itoa (length *urb-ppto-final-prev*)) \" filas). Refleja las asignaciones de esta sesion; parametricas nuevas y elementos recien modelados entran con ACTUALIZAR.\")) (set_tile \"estado\" \"No se pudo generar la pagina de previsualizacion.\"))")
+        "(if (not (urb:ppto-prev-abrir)) (alert \"No se pudo generar la pagina de previsualizacion.\"))")
       ;; ACTUALIZAR: cierra con status 3 -> urb:ppto-run re-mide el MODELO
       ;; (elementos nuevos), rehace el match conservando las asignaciones
       ;; de la sesion y reabre este dialogo.
       (action_tile "actualizar" "(done_dialog 3)")
-      ;; cambiar hoja: elige y guarda la preferencia EN el propio boton
-      ;; (dialogo anidado); si eligio algo cierra con status 4 -> el run
-      ;; relee el vocabulario de la hoja nueva y rehace el match.
-      (action_tile "hoja" "(urb:pm2-elegir-hoja)")
-      ;; cambiar libro: cierra con status 6 -- lo maneja c:PPTOEXPORTAR
-      ;; (urb:ppto-run no es dueno del ciclo de vida de Excel.Application,
-      ;; asi que solo avisa hacia arriba con el sentinel del resumen)
-      (action_tile "cambiarlibro" "(done_dialog 6)")
       (setq done (start_dialog))))
   (if (and dcl (> dcl 0)) (unload_dialog dcl))
   (cond
     ((= done 1) (cons 'OK *urb-pmd-decisions*))
     ((= done 3) 'ACTUALIZAR)
-    ((= done 4) 'CAMBIAR-HOJA)
-    ((= done 6) 'CAMBIAR-LIBRO)
     (T 'CANCELADO)))
 
 ;; ---------- nucleo de la exportacion (lo envuelve c:PPTOEXPORTAR) ----------
@@ -23375,7 +23321,7 @@
       ": text { key = \"l1\"; width = 130; }"
       ": text { key = \"l2\"; width = 130; }"
       ": list_box { key = \"arbol\"; label = \"Previsualizacion: asi se leera el presupuesto (capitulos y actividades con su unidad)\"; width = 130; height = 20; }"
-      ": row { : button { key = \"cambiar\"; label = \"Cambiar libro...\"; } : button { key = \"hoja\"; label = \"Elegir hoja...\"; } : button { key = \"red\"; label = \"Elegir elemento-red (hoja sin NIVEL)...\"; } : button { key = \"desvincular\"; label = \"Desvincular este PC\"; } }"
+      ": row { : button { key = \"cambiar\"; label = \"Cambiar libro...\"; } : button { key = \"hoja\"; label = \"Elegir hoja...\"; } : button { key = \"desvincular\"; label = \"Desvincular este PC\"; } }"
       ": text { label = \"Aqui solo se prepara y revisa el vinculo; exportar cantidades es el boton Presupuesto.\"; }"
       "ok_cancel; }")))
 
@@ -23457,45 +23403,10 @@
           (end_list)
           (action_tile "cambiar" "(done_dialog 2)")
           (action_tile "hoja" "(done_dialog 4)")
-          (action_tile "red" "(done_dialog 5)")
           (action_tile "desvincular" "(done_dialog 3)")
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))))
   done)
-
-;; elegir la red de una hoja sin NIVEL desde la vinculacion: borra la
-;; eleccion guardada y deja que el flujo normal la pregunte de nuevo
-(defun urb:ppto-vinc-elegir-red (path / attach app wb propia sel result)
-  (setq attach (urb:ppto-attach-excel path)
-        app (nth 0 attach) wb (nth 1 attach) propia (nth 2 attach))
-  (if (null wb)
-    (alert (strcat "No se pudo abrir el libro:\n\n"
-      (urb:safe-string (nth 2 attach) "?")))
-    (progn
-      (setq result
-        (vl-catch-all-apply
-          '(lambda ()
-            (if (null (urb:ppto-vocab-candidatas-b wb))
-              (alert "Este libro no tiene hojas de formato por secciones (sin NIVEL); este boton no aplica aqui.")
-              (progn
-                (setq sel (urb:ppto-elegir-red-dialog))
-                (if sel
-                  (progn
-                    (urb:ppto-cfg-set wb "RED_FORMATO_PLANO" sel)
-                    (vl-catch-all-apply
-                      '(lambda () (vlax-invoke-method wb 'Save)))))))
-            T)))
-      (if propia
-        (progn
-          (vl-catch-all-apply
-            '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
-          (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
-          (vlax-release-object wb)
-          (vlax-release-object app)))
-      (if (vl-catch-all-error-p result)
-        (alert (strcat "PROBLEMA eligiendo la red:\n\n"
-          (vl-catch-all-error-message result))))))
-  (princ))
 
 (defun c:PPTOVINCULAR (/ path datos done nuevo seguir)
   (vl-load-com)
@@ -23524,10 +23435,6 @@
       ((= done 4)
         (if (and (/= path "") (findfile path))
           (urb:ppto-libro-elegir-hoja path)
-          (alert "Primero vincule un libro (\"Cambiar libro...\").")))
-      ((= done 5)
-        (if (and (/= path "") (findfile path))
-          (urb:ppto-vinc-elegir-red path)
           (alert "Primero vincule un libro (\"Cambiar libro...\").")))
       ((= done 3)
         (urb:ppto-config-write "")
