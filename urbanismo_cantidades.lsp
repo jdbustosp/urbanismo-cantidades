@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.37.0")
+(setq *urb-version* "4.38.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -173,6 +173,7 @@
 (setq *urb-ppto-prev-dcl-ok* nil)
 (setq *urb-ppto-libro-dcl-ok* nil)
 (setq *urb-ppto-hoja-dcl-ok* nil)
+(setq *urb-ppto-red-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -20851,13 +20852,179 @@
       (if (and dcl (> dcl 0)) (unload_dialog dcl))))
   sel)
 
+;; ---------- presupuesto SIN columna NIVEL, "por secciones" (2026-08-19) ----------
+;; Pedido del usuario tras probar con "PEATONAL 3 Y 4.xlsx": ese formato no
+;; tiene NIVEL/CODIGO -- la jerarquia se lee por que columna trae texto:
+;; fila de SECCION = una sola columna con texto y la de unidad vacia (ej.
+;; "Descapote y nivelacion subrasante" solo en la columna del "codigo",
+;; sin unidad); fila de ACTIVIDAD = descripcion + una unidad reconocida
+;; (M2, M3, ML, UN...) en la columna que el encabezado marco como
+;; UM/UN/UND. Solo se activa como RESPALDO, cuando el escaneo normal (con
+;; NIVEL) no encuentra nada -- el camino ya probado no se toca.
+(setq *urb-ppto-unidades-conocidas*
+  '("M2" "M3" "ML" "M" "UN" "UND" "KG" "TON" "GL" "GLB" "HA" "L" "DIA"
+    "VJ" "PAR" "JGO" "KM"))
+
+;; busca, en una hoja, una fila (1-15) con DESCRIPCION en alguna columna
+;; (1-12) y UM/UN/UND en otra de la MISMA fila. Devuelve (fila col-desc
+;; col-um) o nil. No exige NIVEL -- por eso encuentra "PPTO" (COD |
+;; DESCRIPCION | UN | CANT) ademas de books con NIVEL.
+(defun urb:ppto-header-scan-b (ws / rng r c col-desc col-um encontrado
+                               txt)
+  (setq rng (urb:ppto-obj (vlax-get-property ws 'Range "A1:L15")))
+  (setq encontrado nil r 1)
+  (while (and (<= r 15) (null encontrado))
+    (setq col-desc nil col-um nil c 1)
+    (while (<= c 12)
+      (setq txt (strcase (urb:ppto-cell-text rng r c)))
+      (cond
+        ((wcmatch txt "DESCRIPCION*") (setq col-desc c))
+        ((member txt '("UM" "UN" "UND")) (setq col-um c)))
+      (setq c (1+ c)))
+    (if (and col-desc col-um) (setq encontrado (list r col-desc col-um)))
+    (setq r (1+ r)))
+  (vlax-release-object rng)
+  encontrado)
+
+;; candidatas formato-B en TODO el libro: (("Hoja1" . (fila col-desc
+;; col-um)) ...)
+(defun urb:ppto-vocab-candidatas-b (wb / sheets count i ws info out
+                                    nombre)
+  (setq sheets (vlax-get-property wb 'Worksheets))
+  (setq count (vlax-get-property sheets 'Count) i 1 out nil)
+  (while (<= i count)
+    (setq ws (urb:ppto-obj (vlax-get-property sheets 'Item i)))
+    (setq info (urb:ppto-header-scan-b ws))
+    (if info
+      (progn
+        (setq nombre (vl-catch-all-apply
+          '(lambda () (vlax-get-property ws 'Name))))
+        (if (not (vl-catch-all-error-p nombre))
+          (setq out (cons (cons nombre info) out)))))
+    (setq i (1+ i)))
+  (reverse out))
+
+;; extrae el vocabulario de una hoja formato-B. capitulo = el valor de
+;; *urb-ppto-red-capitulo* de la red elegida por el usuario para TODA la
+;; hoja (no hay disciplinas separadas dentro de un archivo asi). El arbol
+;; (*urb-ppto-outline*) se sintetiza con un solo nivel 3 (el nombre de la
+;; red) y las actividades directo debajo como nivel 5 -- sin nivel 4,
+;; porque los titulos de seccion del archivo no corresponden a una red
+;; distinta, son solo fases de obra dentro de la misma.
+(defun urb:ppto-vocab-extraer-b (ws col-desc col-um header-row capitulo
+                                 / rng vocab empties r desc um limite)
+  (setq rng (vlax-get-property ws 'Range "A1:P8000"))
+  (setq vocab nil empties 0 r (1+ header-row) limite 8000)
+  (setq *urb-ppto-outline*
+    (list (list 3 "" capitulo "" (urb:ppto-normalize capitulo))))
+  (while (and (<= r limite) (< empties 200))
+    (setq desc (urb:ppto-cell-text rng r col-desc)
+          um (strcase (urb:ppto-cell-text rng r col-um)))
+    (cond
+      ((and (/= um "") (member um *urb-ppto-unidades-conocidas*)
+            (/= desc ""))
+        (setq empties 0)
+        (setq *urb-ppto-outline*
+          (cons (list 5 "" desc um (urb:ppto-normalize capitulo))
+            *urb-ppto-outline*))
+        (setq vocab
+          (cons
+            (list (urb:ppto-normalize capitulo) um desc
+                  (urb:ppto-words desc) r "")
+            vocab)))
+      ((= desc "") (setq empties (1+ empties))))
+    (setq r (1+ r)))
+  (setq *urb-ppto-outline* (reverse *urb-ppto-outline*))
+  (vlax-release-object rng)
+  (reverse vocab))
+
+(defun urb:ppto-write-red-dcl ()
+  (urb:write-dialog-dcl
+    "urb_ppto_red"
+    '*urb-ppto-red-dcl-ok*
+    (list
+      "urb_ppto_red : dialog { label = \"Presupuesto sin columna NIVEL\";"
+      ": text { label = \"Esta hoja no tiene NIVEL: es un formato por secciones (titulos + actividades con unidad).\"; }"
+      ": text { label = \"Para poder vincular sus actividades, diga a que elemento/red del plano corresponde TODA la hoja:\"; }"
+      ": popup_list { key = \"red\"; label = \"Elemento / red\"; width = 40; }"
+      ": text { label = \"Queda guardado dentro del libro; no se vuelve a preguntar para esta hoja.\"; }"
+      "ok_cancel; }")))
+
+;; devuelve el codigo RED elegido (p.ej. "ANDEN") o nil si cancela
+(defun urb:ppto-elegir-red-dialog (/ dcl done sel dclfile entry)
+  (setq sel nil)
+  (setq dclfile (urb:ppto-write-red-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar el dialogo (revise permisos de la carpeta temporal de Windows).")
+    (progn
+      (setq dcl (load_dialog dclfile))
+      (if (and (> dcl 0) (new_dialog "urb_ppto_red" dcl))
+        (progn
+          (start_list "red")
+          (foreach entry *urb-ppto-red-capitulo* (add_list (car entry)))
+          (end_list)
+          (set_tile "red" "0")
+          (setq done (start_dialog))
+          (if (= done 1)
+            (setq sel
+              (car (nth (atoi (get_tile "red")) *urb-ppto-red-capitulo*))))))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))))
+  sel)
+
+;; la eleccion de red se guarda DENTRO del libro (URB_CONFIG) para no
+;; preguntar otra vez; en headless sin eleccion previa, no se lee nada
+;; (no se puede clickear un dialogo sin usuario presente)
+(defun urb:ppto-elegir-red-formato-b (wb / guardada sel)
+  (setq guardada (urb:ppto-cfg-get wb "RED_FORMATO_PLANO"))
+  (cond
+    (guardada guardada)
+    ((and (boundp '*urb-ppto-sin-dialogo*) *urb-ppto-sin-dialogo*) nil)
+    (T
+      (setq sel (urb:ppto-elegir-red-dialog))
+      (if sel (urb:ppto-cfg-set wb "RED_FORMATO_PLANO" sel))
+      sel)))
+
+(defun urb:ppto-read-vocab-b (wb / candidatas entry ws red capitulo vocab)
+  (setq candidatas (urb:ppto-vocab-candidatas-b wb))
+  (if (null candidatas)
+    (progn
+      (setq *urb-ppto-vocab-hoja* nil)
+      (prompt "\nNo se encontro ninguna hoja de presupuesto (ni con NIVEL ni por secciones DESCRIPCION/UM).")
+      nil)
+    (progn
+      ;; varias candidatas formato-B es raro (la mayoria de estos archivos
+      ;; son de una sola hoja) -- se usa la primera y se avisa
+      (if (> (length candidatas) 1)
+        (prompt (strcat "\nOJO: " (itoa (length candidatas))
+          " hojas sin NIVEL parecen presupuesto; se usa la primera ("
+          (caar candidatas) ").")))
+      (setq entry (car candidatas))
+      (setq red (urb:ppto-elegir-red-formato-b wb))
+      (if (null red)
+        (progn
+          (setq *urb-ppto-vocab-hoja* nil)
+          (prompt "\nSin elemento/red asignado: no se leyo el presupuesto por secciones.")
+          nil)
+        (progn
+          (setq capitulo (cdr (assoc red *urb-ppto-red-capitulo*)))
+          (setq *urb-ppto-vocab-hoja* (car entry))
+          (setq ws (urb:ppto-obj
+            (vlax-get-property (vlax-get-property wb 'Worksheets) 'Item
+              (car entry))))
+          (setq vocab
+            (urb:ppto-vocab-extraer-b ws (nth 1 (cdr entry))
+              (nth 2 (cdr entry)) (nth 0 (cdr entry)) capitulo))
+          (prompt (strcat "\nPresupuesto por secciones (hoja \""
+            (car entry) "\", red " red "): " (itoa (length vocab))
+            " actividades leidas."))
+          vocab)))))
+
 (defun urb:ppto-read-vocab (wb / entry target-name header-row vocab)
   (setq entry (urb:ppto-resolver-hoja wb))
   (if (null entry)
-    (progn
-      (setq *urb-ppto-vocab-hoja* nil)
-      (prompt "\nNo se encontro ninguna hoja de presupuesto (NIVEL/DESCRIPCION/UM).")
-      nil)
+    ;; sin NIVEL en ninguna hoja: intentar el formato por secciones antes
+    ;; de rendirse (2026-08-19)
+    (urb:ppto-read-vocab-b wb)
     (progn
       (setq target-name (car entry) header-row (cdr entry))
       ;; nombre de la hoja para mostrarlo en los dialogos (trazabilidad
