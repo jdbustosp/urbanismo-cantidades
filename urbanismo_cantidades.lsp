@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.42.0")
+(setq *urb-version* "4.43.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20279,8 +20279,11 @@
 (setq *urb-ppto-param-tipos*
   '(("VIA" "VIA"
       ("AREA" "AREA_SIN_SOBREANCHO" "LONGITUD" "CORTE" "RELLENO" "UNIDAD"))
+    ;; PERIMETRO se retiro del catalogo ANDEN (2026-08-19): el bloque no
+    ;; guarda PERIMETRO_M como atributo, asi que la magnitud siempre daba
+    ;; 0 -- una opcion muerta que enganaba en el desplegable [+]
     ("ANDEN" "ANDEN"
-      ("AREA" "TOPEROL_ML" "GUIA_ML" "TOPEROL_UND" "GUIA_UND" "PERIMETRO"
+      ("AREA" "TOPEROL_ML" "GUIA_ML" "TOPEROL_UND" "GUIA_UND"
        "LOSETA_LISA_M2" "LOSETA_LISA_UND" "ADOQUIN_M2" "ADOQUIN_UND"
        "UNIDAD"))
     ("RAMPA" "RAMPA-PEATONAL"
@@ -20337,8 +20340,14 @@
           (setq out
             (cons
               (list (strcase tipo) (strcase mag)
-                (if (numberp factor) factor
-                  (atof (urb:safe-string factor "1")))
+                ;; factor: numero, o CODIGO de una segunda magnitud
+                ;; (v4.43: formulas MAGNITUD x MAGNITUD)
+                (cond
+                  ((numberp factor) factor)
+                  ((and (= (type factor) 'STR)
+                        (assoc (strcase factor) *urb-ppto-mag-labels*))
+                    (strcase factor))
+                  (T (atof (urb:safe-string factor "1"))))
                 act
                 ;; col E: operacion X (multiplicar, default y compatible
                 ;; con lo guardado antes) o D (dividir)
@@ -20392,22 +20401,28 @@
 
 ;; filas parametricas de UN elemento: mags = alist (MAGNITUD . valor)
 (defun urb:ppto-param-rows (tipo red mags id desde hasta etapa sub handle
-                            / p qty um fila out)
+                            / p qty um fila out factor)
   (setq out nil)
   (if (boundp '*urb-ppto-param*)
     (foreach p *urb-ppto-param*
       (if (= (nth 0 p) tipo)
         (progn
-          ;; operacion: X = magnitud x factor; D = magnitud / factor
-          ;; (ej. loseta toperol UN = TOPEROL_ML / 0.20 de ancho de pieza)
+          ;; operacion: X = magnitud x factor; D = magnitud / factor.
+          ;; El factor puede ser un NUMERO o el codigo de una SEGUNDA
+          ;; magnitud del mismo elemento (v4.43: LONGITUD x EXCAVACION)
           (setq qty
             (if (cdr (assoc (nth 1 p) mags))
               (cdr (assoc (nth 1 p) mags)) 0.0))
+          (setq factor
+            (if (numberp (nth 2 p))
+              (nth 2 p)
+              (if (cdr (assoc (nth 2 p) mags))
+                (cdr (assoc (nth 2 p) mags)) 0.0)))
           (setq qty
             (if (and (= (urb:safe-string (nth 4 p) "X") "D")
-                     (> (nth 2 p) 0.0))
-              (/ qty (nth 2 p))
-              (* qty (nth 2 p))))
+                     (> factor 0.0))
+              (/ qty factor)
+              (* qty factor)))
           (setq um (urb:ppto-param-um red (nth 3 p)))
           (if (= um "") (setq um "?"))
           (setq fila
@@ -21974,10 +21989,12 @@
       (urb:ppp-preview))))
 
 ;; interpreta el texto de la formula: MAGNITUD * numero, MAGNITUD / numero,
-;; numero * MAGNITUD, o solo MAGNITUD (equivale a x 1.0). Es la MISMA
-;; expresividad que antes (magnitud OP factor) pero escrita como formula en
-;; vez de tres controles separados -- el modelo de datos no cambia.
-;; Devuelve (codigo-magnitud "X"/"D" factor) o nil si no se entiende.
+;; numero * MAGNITUD, solo MAGNITUD (= x 1.0), y desde v4.43 tambien
+;; MAGNITUD * MAGNITUD o MAGNITUD / MAGNITUD (el segundo operando es OTRA
+;; magnitud del mismo elemento -- pedido del usuario con el ejemplo
+;; LONGITUD * EXCAVACION). Devuelve (codigo-magnitud "X"/"D" factor) donde
+;; factor es un NUMERO o el CODIGO de la segunda magnitud; nil si no se
+;; entiende.
 (defun urb:ppp-parse-formula (texto mags / s pos oper izq der mag-code
                               num-val)
   (setq s (vl-string-trim " " (urb:safe-string texto "")))
@@ -21997,6 +22014,8 @@
           (setq izq (vl-string-trim " " (substr s 1 pos)))
           (setq der (vl-string-trim " " (substr s (+ pos 2))))
           (cond
+            ((and (member (strcase izq) mags) (member (strcase der) mags))
+              (list (strcase izq) oper (strcase der)))
             ((member (strcase izq) mags)
               (setq mag-code (strcase izq) num-val (urb:parse-real der))
               (if (and num-val (> num-val 0.0))
@@ -22007,6 +22026,10 @@
                 (list mag-code "X" num-val) nil))
             (T nil)))))))
 
+;; representa el factor de una parametrica (numero o segunda magnitud)
+(defun urb:ppp-factor-str (factor)
+  (if (numberp factor) (rtos factor 2 4) (urb:ppto-mag-label factor)))
+
 ;; interpretacion en vivo en la linea de info
 (defun urb:ppp-preview (/ tdef mags parsed)
   (setq tdef (urb:ppp-tipo))
@@ -22016,8 +22039,9 @@
     (if parsed
       (strcat "Cantidad = " (urb:ppto-mag-label (nth 0 parsed))
         (if (= (nth 1 parsed) "D") " / " " x ")
-        (rtos (nth 2 parsed) 2 4) "  (por cada " (nth 0 tdef) ")")
-      "Inserte un campo con el desplegable + y agregue el operador a mano: CAMPO / 0.20 o CAMPO * 2.")))
+        (urb:ppp-factor-str (nth 2 parsed))
+        "  (por cada " (nth 0 tdef) ")")
+      "Inserte campos con el desplegable + y arme la formula: CAMPO / 0.20, CAMPO * 2, o CAMPO * CAMPO.")))
 
 (defun urb:ppp-agregar (/ tdef mags parsed nombre)
   (setq tdef (urb:ppp-tipo))
@@ -22034,6 +22058,12 @@
     (T
       ;; sin nombre escrito, el parametro se llama como su actividad
       (if (= nombre "") (setq nombre *urb-ppp-pre-act*))
+      ;; modo EDICION: reemplaza la version vieja en vez de agregar otra
+      (if (and (boundp '*urb-ppp-editando*) *urb-ppp-editando*)
+        (progn
+          (setq *urb-ppto-param*
+            (vl-remove *urb-ppp-editando* *urb-ppto-param*))
+          (setq *urb-ppp-editando* nil)))
       (setq *urb-ppto-param*
         (append *urb-ppto-param*
           (list (list (nth 0 tdef) (nth 0 parsed) (nth 2 parsed)
@@ -22041,8 +22071,8 @@
       (urb:ppto-param-write *urb-ppto-wb* *urb-ppto-param*)
       (setq *urb-ppto-param-dirty* T)
       (set_tile "pinfo"
-        (strcat "Creado \"" nombre "\" -> " *urb-ppp-pre-act*
-          ". Queda guardado en el libro; la cantidad se mide con"
+        (strcat "Guardado \"" nombre "\" -> " *urb-ppp-pre-act*
+          ". Queda en el libro; la cantidad se mide con"
           " ACTUALIZAR (o al Aceptar la exportacion).")))))
 
 ;; sugerencia automatica (pedido 2026-08-18: "ese parametro deberia ya
@@ -22115,18 +22145,40 @@
                 (setq i (1+ i)))
               (if pre-idx (set_tile "tipo" (itoa pre-idx)))))
           (urb:ppp-fill-campos)
-          ;; formula sugerida por el nombre de la actividad destino
-          (setq tdef (urb:ppp-tipo))
-          (setq sug
-            (urb:ppp-sugerir tdef
-              (urb:safe-string
-                (if (boundp '*urb-ppp-pre-act*) *urb-ppp-pre-act* nil) "")
-              (urb:safe-string
-                (if (boundp '*urb-ppp-pre-um*) *urb-ppp-pre-um* nil) "")))
-          (if sug
-            (set_tile "formula"
-              (strcat (nth 0 sug) (if (= (nth 1 sug) "D") " / " " * ")
-                (rtos (nth 2 sug) 2 4))))
+          (cond
+            ;; modo EDICION: precargar nombre/tipo/formula del existente
+            ((and (boundp '*urb-ppp-editando*) *urb-ppp-editando*)
+              (setq i 0 pre-idx nil)
+              (foreach tdef *urb-ppto-param-tipos*
+                (if (and (null pre-idx)
+                         (= (nth 0 tdef) (nth 0 *urb-ppp-editando*)))
+                  (setq pre-idx i))
+                (setq i (1+ i)))
+              (if pre-idx
+                (progn (set_tile "tipo" (itoa pre-idx))
+                  (urb:ppp-fill-campos)))
+              (set_tile "nombre"
+                (urb:safe-string (nth 5 *urb-ppp-editando*) ""))
+              (set_tile "formula"
+                (strcat (nth 1 *urb-ppp-editando*)
+                  (if (= (urb:safe-string (nth 4 *urb-ppp-editando*) "X") "D")
+                    " / " " * ")
+                  (if (numberp (nth 2 *urb-ppp-editando*))
+                    (rtos (nth 2 *urb-ppp-editando*) 2 4)
+                    (nth 2 *urb-ppp-editando*)))))
+            (T
+              ;; formula sugerida por el nombre de la actividad destino
+              (setq tdef (urb:ppp-tipo))
+              (setq sug
+                (urb:ppp-sugerir tdef
+                  (urb:safe-string
+                    (if (boundp '*urb-ppp-pre-act*) *urb-ppp-pre-act* nil) "")
+                  (urb:safe-string
+                    (if (boundp '*urb-ppp-pre-um*) *urb-ppp-pre-um* nil) "")))
+              (if sug
+                (set_tile "formula"
+                  (strcat (nth 0 sug) (if (= (nth 1 sug) "D") " / " " * ")
+                    (rtos (nth 2 sug) 2 4))))))
           (urb:ppp-preview)
           (action_tile "tipo" "(urb:ppp-fill-campos) (urb:ppp-preview)")
           (action_tile "formula" "(urb:ppp-preview)")
@@ -22461,7 +22513,7 @@
       "urb_ppto_params : dialog { label = \"Parametros\";"
       ": text { key = \"pact\"; width = 100; }"
       ": list_box { key = \"plist\"; label = \"Parametros del plano (misma unidad que la actividad)\"; width = 100; height = 14; }"
-      ": row { : button { key = \"pasignar\"; label = \"Asignar a esta actividad\"; } : button { key = \"pquitar\"; label = \"Quitar asignacion\"; } : button { key = \"pnuevo\"; label = \"Nuevo parametro...\"; } : button { key = \"pborrar\"; label = \"Eliminar parametrica\"; } }"
+      ": row { : button { key = \"pasignar\"; label = \"Asignar a esta actividad\"; } : button { key = \"pquitar\"; label = \"Quitar asignacion\"; } : button { key = \"pnuevo\"; label = \"Nuevo parametro...\"; } : button { key = \"peditar\"; label = \"Editar parametro...\"; } : button { key = \"pborrar\"; label = \"Eliminar parametrica\"; } }"
       ": text { key = \"pestado\"; width = 100; }"
       "ok_only; }")))
 
@@ -22510,20 +22562,38 @@
 ;; (urb:pm2-estado se elimino en v4.42: la linea de estado salio del
 ;; dialogo principal a pedido del usuario)
 
-(defun urb:pm2-select (idx / links m total)
+(defun urb:pm2-select (idx / links m total p nombre con-link algo)
   (setq *urb-pm2-act* (urb:pm2-fila-actividad idx))
   (start_list "vinc")
   (if *urb-pm2-act*
     (progn
       (setq links
         (urb:ppv-links (nth 4 *urb-pm2-act*) (nth 2 *urb-pm2-act*))
-        total 0.0)
-      (if links
-        (foreach m links
-          (setq total (+ total (nth 6 m)))
-          (add_list
-            (strcat (nth 1 m) " | " (nth 2 m) "  =  "
-              (rtos (nth 6 m) 2 2) " " (nth 3 m))))
+        total 0.0 algo nil)
+      (foreach m links
+        (setq total (+ total (nth 6 m)) algo T)
+        (add_list
+          (strcat (nth 1 m) " | " (nth 2 m) "  =  "
+            (rtos (nth 6 m) 2 2) " " (nth 3 m))))
+      ;; parametricas hacia esta actividad SIN fila medida (magnitud 0 en
+      ;; el modelo): antes desaparecian en silencio y el usuario creia que
+      ;; la asignacion se habia perdido (reporte 2026-08-19)
+      (foreach p *urb-ppto-param*
+        (if (= (nth 3 p) (nth 2 *urb-pm2-act*))
+          (progn
+            (setq con-link nil)
+            (foreach m links
+              (if (= (nth 2 m) (nth 3 p)) (setq con-link T)))
+            (if (not con-link)
+              (progn
+                (setq algo T)
+                (setq nombre (urb:safe-string (nth 5 p) ""))
+                (add_list
+                  (strcat "[PARAMETRICA] "
+                    (if (/= nombre "") nombre (nth 3 p))
+                    "  =  0 (la magnitud vale 0 en el modelo hoy;"
+                    " la cantidad entra al modelarla + ACTUALIZAR)")))))))
+      (if (not algo)
         (add_list "(sin aportes del plano; use el boton + para vincular)"))))
   (end_list))
 
@@ -22567,7 +22637,7 @@
             (if (/= nombre "") nombre (nth 3 p))
             "  --  " (urb:ppto-mag-label (nth 1 p))
             (if (= (urb:safe-string (nth 4 p) "X") "D") " / " " x ")
-            (rtos (nth 2 p) 2 4)
+            (urb:ppp-factor-str (nth 2 p))
             "  (cantidad entra con ACTUALIZAR)"))
         (setq *urb-pm2-plist* (cons (cons 'P p) *urb-pm2-plist*)))))
   (if (null *urb-pm2-plist*)
@@ -22617,12 +22687,37 @@
 (defun urb:pm2-params-nuevo ()
   (setq *urb-ppp-pre-cap* (nth 4 *urb-pm2-act*)
         *urb-ppp-pre-act* (nth 2 *urb-pm2-act*)
-        *urb-ppp-pre-um* (nth 3 *urb-pm2-act*))
+        *urb-ppp-pre-um* (nth 3 *urb-pm2-act*)
+        *urb-ppp-editando* nil)
   (urb:ppto-param-dialog)
   (setq *urb-ppp-pre-cap* nil *urb-ppp-pre-act* nil *urb-ppp-pre-um* nil)
   (urb:pm2-params-fill)
   (set_tile "pestado"
     "Si creo un parametro, ya aparece en la lista con su nombre; la cantidad se mide con ACTUALIZAR."))
+
+;; editar una parametrica existente (pedido 2026-08-19): abre la misma
+;; ventana precargada (nombre, tipo, formula); al Crear se REEMPLAZA la
+;; version vieja en vez de agregar otra
+(defun urb:pm2-params-editar (/ sel p)
+  (setq sel (urb:pm2-params-sel))
+  (setq p
+    (cond
+      ((null sel) nil)
+      ((eq (car sel) 'P) (cdr sel))
+      (T (urb:pm2-param-de-concepto (cdr sel)))))
+  (if (null p)
+    (set_tile "pestado"
+      "Seleccione una parametrica (las marcadas [PARAMETRICA] o [parametrica: ...]).")
+    (progn
+      (setq *urb-ppp-pre-cap* (nth 4 *urb-pm2-act*)
+            *urb-ppp-pre-act* (nth 3 p)
+            *urb-ppp-pre-um* (nth 3 *urb-pm2-act*)
+            *urb-ppp-editando* p)
+      (urb:ppto-param-dialog)
+      (setq *urb-ppp-pre-cap* nil *urb-ppp-pre-act* nil
+            *urb-ppp-pre-um* nil *urb-ppp-editando* nil)
+      (urb:pm2-params-fill)
+      (set_tile "pestado" "Edicion aplicada (si pulso Crear parametro)."))))
 
 (defun urb:pm2-params-borrar (/ sel p)
   (setq sel (urb:pm2-params-sel))
@@ -22663,6 +22758,7 @@
               (action_tile "pasignar" "(urb:pm2-params-asignar)")
               (action_tile "pquitar" "(urb:pm2-params-quitar)")
               (action_tile "pnuevo" "(urb:pm2-params-nuevo)")
+              (action_tile "peditar" "(urb:pm2-params-editar)")
               (action_tile "pborrar" "(urb:pm2-params-borrar)")
               (start_dialog)))
           (if (and dcl (> dcl 0)) (unload_dialog dcl))
