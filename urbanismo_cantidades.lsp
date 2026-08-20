@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.44.0")
+(setq *urb-version* "4.45.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -175,6 +175,7 @@
 (setq *urb-ppto-hoja-dcl-ok* nil)
 (setq *urb-ppto-vinc-dcl-ok* nil)
 (setq *urb-ppto-params-dcl-ok* nil)
+(setq *urb-mob-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -20126,6 +20127,165 @@
   '("de" "del" "la" "el" "los" "las" "y" "e" "o" "u" "a" "en"
     "con" "para" "por" "un" "una" "al" "incluye" "tipo"))
 
+;; ---------- MOBILIARIO URBANO (2026-08-19, pedido del usuario) ----------
+;; Bloques LIVIANOS por tipo (forma simple en planta, reutilizados entre
+;; instancias) que se insertan con clics repetidos y se CUENTAN solos en
+;; la exportacion (una fila UN por tipo+etapa+subetapa, capitulo ANDENES).
+;; La actividad de cada tipo es el TEXTO EXACTO del presupuesto real
+;; (match directo por igualdad; si renombran la actividad cae al score).
+;; catalogo: (codigo etiqueta actividad-ppto forma ancho largo)
+(setq *urb-mob-tipos*
+  '(("CANECA" "Caneca doble M-121"
+      "Suministro e instalación de dos canecas M-121" "CIRC" 0.50 0.50)
+    ("BANCA-M30" "Banca en concreto M-30"
+      "Suministro e instalación de banca en concreto con espaldar M-30"
+      "RECT" 2.00 0.70)
+    ("BANCA-L206" "Banca L=2,06m"
+      "Suministro e instalación de banca L=2,06m (CIO106682)"
+      "RECT" 2.06 0.60)
+    ("PARADERO" "Paradero de buses M-10"
+      "Suministro e instalación de paradero de buses Tipo M-10"
+      "RECT" 3.00 1.50)
+    ("PROTECTOR-ARBOL" "Protector de arbol M-91"
+      "Suministro e instalación de protector de árbol de dos tubos Tipo M-91"
+      "CIRC" 1.00 1.00)
+    ("ARBOL" "Arbol"
+      "Suministro e instalación de árbol" "ARBOL" 1.20 1.20)
+    ("SENAL-SITP" "Senal paradero SITP SI-08"
+      "Señal vertical Paradero SITP SI-08 / Plaqueta" "CIRC" 0.30 0.30)
+    ;; el bolardo vive en los capitulos de RAMPA del ppto (verificado
+    ;; 2026-08-20 contra el libro), no en ANDENES -- red propia (campo 7)
+    ("BOLARDO" "Bolardo alto M-63"
+      "Suministro e instalación de bolardo alto en hierro Tipo M-63"
+      "CIRC" 0.25 0.25 "RAMPA-PEATONAL")
+    ("CONT-RAICES" "Contenedor raices 2,0x1,2"
+      "Suministro y construcción de contenedor de raíces (Dimensiones: 2,0x1,2m). Incluye tierra negra"
+      "RECT" 2.00 1.20)
+    ("CONT-A" "Contenedor raices Tipo A (2,00x2,20)"
+      "Suministro y construcción de contenedor de raíces Tipo A (2,00x2,20)m"
+      "RECT" 2.00 2.20)
+    ("CONT-B" "Contenedor raices Tipo B (1,50x2,20)"
+      "Suministro y construcción de contenedor de raíces Tipo B (1,50x2,20)m"
+      "RECT" 1.50 2.20)
+    ("CONT-C" "Contenedor raices Tipo C (1,20x2,20)"
+      "Suministro y construcción de contenedor de raíces Tipo C (1,20x2,20)m"
+      "RECT" 1.20 2.20)
+    ("CONT-D" "Contenedor raices Tipo D (0,84x4,20)"
+      "Suministro y construcción de contenedor de raíces Tipo D (0,84x4,20)m"
+      "RECT" 0.84 4.20)
+    ("CONT-E" "Contenedor raices Tipo E (0,70x4,20)"
+      "Suministro y construcción de contenedor de raíces Tipo E (0,70x4,20)m"
+      "RECT" 0.70 4.20)
+    ("CONT-F" "Contenedor raices Tipo F (0,70x4,20)"
+      "Suministro y construcción de contenedor de raíces Tipo F (0,70x4,20)m"
+      "RECT" 0.70 4.20)))
+
+;; definicion del bloque liviano de un tipo (si no existe): geometria
+;; simple en planta -- circulo doble (caneca/bolardo/senal), rectangulo
+;; con diagonal (bancas/paradero/contenedores) o circulo con cruz (arbol)
+(defun urb:mob-ensure-block (entry / nombre bdef a l a2 l2)
+  (setq nombre (strcat "URB_MOB_" (nth 0 entry)))
+  (if (not (tblsearch "BLOCK" nombre))
+    (progn
+      (setq bdef
+        (vla-Add (vla-get-Blocks (urb:doc))
+          (vlax-3d-point '(0.0 0.0 0.0)) nombre))
+      (setq a (nth 4 entry) l (nth 5 entry))
+      (setq a2 (/ a 2.0) l2 (/ l 2.0))
+      (cond
+        ((= (nth 3 entry) "CIRC")
+          (vla-AddCircle bdef (vlax-3d-point '(0.0 0.0 0.0)) a2)
+          (vla-AddCircle bdef (vlax-3d-point '(0.0 0.0 0.0)) (* a2 0.6)))
+        ((= (nth 3 entry) "ARBOL")
+          (vla-AddCircle bdef (vlax-3d-point '(0.0 0.0 0.0)) a2)
+          (vla-AddLine bdef
+            (vlax-3d-point (list (- a2) 0.0 0.0))
+            (vlax-3d-point (list a2 0.0 0.0)))
+          (vla-AddLine bdef
+            (vlax-3d-point (list 0.0 (- a2) 0.0))
+            (vlax-3d-point (list 0.0 a2 0.0))))
+        (T   ; RECT centrado con una diagonal para que se lea la forma
+          (vla-AddLine bdef
+            (vlax-3d-point (list (- a2) (- l2) 0.0))
+            (vlax-3d-point (list a2 (- l2) 0.0)))
+          (vla-AddLine bdef
+            (vlax-3d-point (list a2 (- l2) 0.0))
+            (vlax-3d-point (list a2 l2 0.0)))
+          (vla-AddLine bdef
+            (vlax-3d-point (list a2 l2 0.0))
+            (vlax-3d-point (list (- a2) l2 0.0)))
+          (vla-AddLine bdef
+            (vlax-3d-point (list (- a2) l2 0.0))
+            (vlax-3d-point (list (- a2) (- l2) 0.0)))
+          (vla-AddLine bdef
+            (vlax-3d-point (list (- a2) (- l2) 0.0))
+            (vlax-3d-point (list a2 l2 0.0)))))
+      (urb:add-invisible-attribute bdef '(0.0 0.0 0.0)
+        "TIPO" "Tipo de mobiliario" (nth 0 entry))
+      (urb:add-invisible-attribute bdef '(0.0 0.0 0.0)
+        "ETAPA" "Etapa" "1")
+      (urb:add-invisible-attribute bdef '(0.0 0.0 0.0)
+        "SUBETAPA" "Subetapa" "GEN")))
+  nombre)
+
+(defun urb:mob-write-dcl ()
+  (urb:write-dialog-dcl
+    "urb_mobiliario"
+    '*urb-mob-dcl-ok*
+    (list
+      "urb_mobiliario : dialog { label = \"Mobiliario urbano\";"
+      ": list_box { key = \"tipo\"; label = \"Tipo (con su actividad del presupuesto)\"; width = 96; height = 17; }"
+      ": text { label = \"Aceptar y luego CLIC por cada pieza (Enter o Escape termina). Rotar despues con ROTATE si hace falta.\"; }"
+      ": text { label = \"Cada pieza cuenta 1 UN hacia su actividad al exportar; etapa/subetapa editables en Propiedades.\"; }"
+      "ok_cancel; }")))
+
+(defun urb:mobiliario-command (/ dclfile dcl done entry nombre pt ref n)
+  (vl-load-com)
+  (setq dclfile (urb:mob-write-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar la ventana de mobiliario (revise permisos de la carpeta temporal de Windows).")
+    (progn
+      (setq dcl (load_dialog dclfile))
+      (if (and dcl (> dcl 0) (new_dialog "urb_mobiliario" dcl))
+        (progn
+          (start_list "tipo")
+          (foreach entry *urb-mob-tipos*
+            (add_list (strcat (nth 1 entry) "   ->  " (nth 2 entry))))
+          (end_list)
+          (set_tile "tipo" "0")
+          ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
+          (setq *urb-mob-sel* "0")
+          (action_tile "accept"
+            "(setq *urb-mob-sel* (get_tile \"tipo\")) (done_dialog 1)")
+          (setq done (start_dialog))))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))
+      (if (= done 1)
+        (progn
+          (setq entry
+            (nth (atoi (urb:safe-string *urb-mob-sel* "0")) *urb-mob-tipos*))
+          (urb:ensure-layer "URB-MOBILIARIO" 92 T)
+          (setq nombre (urb:mob-ensure-block entry))
+          (setq n 0)
+          (while (setq pt
+                   (getpoint (strcat "\nPunto para " (nth 1 entry)
+                     " (Enter termina): ")))
+            (setq ref
+              (vl-catch-all-apply
+                '(lambda ()
+                  (vla-InsertBlock (urb:space)
+                    (vlax-3d-point (trans pt 1 0)) nombre 1.0 1.0 1.0 0.0))))
+            (if (vl-catch-all-error-p ref)
+              (prompt (strcat "\nNo se pudo insertar: "
+                (vl-catch-all-error-message ref)))
+              (progn
+                (vla-put-Layer ref "URB-MOBILIARIO")
+                (urb:set-xdata-strings (vlax-vla-object->ename ref)
+                  "URB_MOBILIARIO" (list (nth 0 entry)))
+                (setq n (1+ n)))))
+          (prompt (strcat "\n" (itoa n) " pieza(s) de " (nth 1 entry)
+            " insertada(s). Cuentan solas al exportar el presupuesto."))))))
+  (princ))
+
 ;; ---------- configuracion por maquina ----------
 (defun urb:ppto-config-file (/ folder)
   (setq folder (strcat (getenv "APPDATA") "\\UrbanismoCantidades"))
@@ -21387,6 +21547,44 @@
       (foreach r rows (if r (setq out (cons r out))))
       (setq i (1+ i))))
   out)
+
+;; MOBILIARIO (v4.45): agrupa los bloques URB_MOB_* por tipo+etapa+sub y
+;; emite UNA fila UN por grupo con el conteo; el concepto es el texto
+;; exacto de la actividad del catalogo (match directo por igualdad)
+(defun urb:ppto-rows-mobiliario (/ ss i be atts tipo etapa sub key grupos
+                                 g entry fila out handle)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "URB_MOB_*"))))
+  (setq grupos nil out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq be (ssname ss i))
+      (setq atts (urb:block-attribute-values be))
+      (setq tipo (urb:safe-string (cdr (assoc "TIPO" atts)) ""))
+      (setq etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) ""))
+      (setq sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) ""))
+      (setq handle (urb:safe-string (cdr (assoc 5 (entget be))) ""))
+      (setq key (strcat tipo "|" etapa "|" sub))
+      (setq g (assoc key grupos))
+      (if g
+        (setq grupos
+          (subst (list key tipo etapa sub (1+ (nth 4 g)) (nth 5 g))
+            g grupos))
+        (setq grupos (cons (list key tipo etapa sub 1 handle) grupos)))
+      (setq i (1+ i))))
+  (foreach g (reverse grupos)
+    (setq entry (assoc (nth 1 g) *urb-mob-tipos*))
+    (if entry
+      (progn
+        ;; red del tipo: campo 7 opcional del catalogo (default ANDEN;
+        ;; p.ej. el bolardo pertenece a los capitulos de rampa)
+        (setq fila
+          (urb:ppto-row
+            (if (nth 6 entry) (nth 6 entry) "ANDEN")
+            (nth 2 entry)
+            "" "" "" (nth 2 g) (nth 3 g) "UN"
+            (float (nth 4 g)) (nth 5 g)))
+        (if fila (setq out (cons fila out))))))
+  (reverse out))
 
 (defun urb:ppto-rows-prefabs (/ ss i be atts tipo lng etapa sub handle red
                               rows out r)
@@ -22868,7 +23066,8 @@
                   (urb:ppto-rows-prefabs)
                   (urb:ppto-rows-rampas)
                   (urb:ppto-rows-tramos)
-                  (urb:ppto-rows-puntos)))
+                  (urb:ppto-rows-puntos)
+                  (urb:ppto-rows-mobiliario)))
               ;; 2) match contra el vocabulario vivo (equivalencias del
               ;; LIBRO primero, cascada automatica despues)
               (setq *urb-ppto-stage* "match contra vocabulario")
@@ -22904,7 +23103,8 @@
                         (urb:ppto-rows-prefabs)
                         (urb:ppto-rows-rampas)
                         (urb:ppto-rows-tramos)
-                        (urb:ppto-rows-puntos)))
+                        (urb:ppto-rows-puntos)
+                  (urb:ppto-rows-mobiliario)))
                     (setq final (urb:ppto-match-all raw vocab dwg))
                     (setq *urb-ppto-final-prev* final))
                   ;; el usuario eligio otra hoja del presupuesto (boton
@@ -22972,7 +23172,8 @@
                           (urb:ppto-rows-prefabs)
                           (urb:ppto-rows-rampas)
                           (urb:ppto-rows-tramos)
-                          (urb:ppto-rows-puntos)))
+                          (urb:ppto-rows-puntos)
+                  (urb:ppto-rows-mobiliario)))
                       (setq final (urb:ppto-match-all raw vocab dwg))))
                   (setq huerfanas *urb-ppto-huerfanas*
                         total *urb-ppto-total*
@@ -23927,6 +24128,7 @@
 (defun c:RAMPA () (urb:create-ramp-command) (princ))
 (defun c:ZONAVERDE () (urb:create-green-zone-command) (princ))
 (defun c:PREFABRICADO () (urb:create-precast-command) (princ))
+(defun c:URBMOBILIARIO () (urb:mobiliario-command) (princ))
 ;; Redes
 (defun c:TSANITARIO () (urb:create-network-segment-direct "segment_sanitary") (princ))
 (defun c:TPLUVIAL () (urb:create-network-segment-direct "segment_storm") (princ))

@@ -383,6 +383,9 @@ namespace UrbanismoCantidades
                 AddBigCmd("Rampa", "RAMPA", "rampa");
                 AddBigCmd("Zona verde", "ZONAVERDE", "zonaverde");
                 AddBigCmd("Prefabricado", "PREFABRICADO", "prefabricado");
+                // 2026-08-19 v4.45: mobiliario urbano (canecas, bancas,
+                // contenedores de raices por tipologia, etc.)
+                AddBigCmd("Mobiliario", "URBMOBILIARIO", "prefabricado");
             }
             else if (which == "hum")
             {
