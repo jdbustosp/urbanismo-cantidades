@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.48.1")
+(setq *urb-version* "4.49.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -178,6 +178,7 @@
 (setq *urb-mob-dcl-ok* nil)
 (setq *urb-send-dcl-ok* nil)
 (setq *urb-rampa-dcl-ok* nil)
+(setq *urb-loc-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -17448,6 +17449,12 @@
       (urb:set-xdata-strings ename "URB_RAMPA_BLOCK"
         (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data)))
       (setq category "Rampas"))
+    ;; senderos/ciclorrutas/bioswales (v4.49): etapa y subetapa viven en
+    ;; la xdata URB_SENDERO (posiciones 1 y 2)
+    ((setq data (urb:get-xdata-strings ename "URB_SENDERO"))
+      (urb:set-xdata-strings ename "URB_SENDERO"
+        (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data)))
+      (setq category "Senderos"))
     ((and obj (assoc "ETAPA" (urb:block-attribute-values obj)))
       (setq category "Redes / otros bloques")))
   (if (and category obj)
@@ -20461,8 +20468,8 @@
 ;; marcar la ZONA (parque) de elementos por seleccion: el nombre debe
 ;; aparecer en el capitulo o la seccion del presupuesto (p.ej. "PARQUE 3",
 ;; "PQ14", "PL3"); nombre vacio QUITA la marca. Aplica a vias, andenes,
-;; prefabricados, zonas verdes y mobiliario.
-(defun urb:zona-parque-command (/ selection entities nombre ename n)
+;; prefabricados, zonas verdes, mobiliario y senderos.
+(defun urb:loc-marcar (/ selection entities nombre ename n)
   (prompt "\nSeleccione los elementos que pertenecen al parque/zona: ")
   (setq selection (ssget))
   (if (null selection)
@@ -20495,6 +20502,215 @@
               nombre "\": sus cantidades buscaran las actividades del"
               " capitulo o seccion del presupuesto que contenga ese"
               " nombre."))))))))
+
+;; ---------- LOCALIZACION (2026-08-21 v4.49, pedido del usuario) ----------
+;; Ventana dinamica: muestra las zonas YA marcadas con su conteo (antes no
+;; habia forma de saber que quedo marcado), permite seleccionarlas en
+;; pantalla, quitar la marca o marcar una nueva; y trae el FILTRO por
+;; etapa/subetapa que SELECCIONA en pantalla los elementos de esa etapa en
+;; TODAS las especialidades (vias, andenes, rampas, prefabricados, zonas
+;; verdes, senderos, redes, mobiliario).
+
+;; zonas marcadas del dibujo: alist (nombre ename1 ename2 ...)
+(defun urb:loc-collect-zonas (/ ss i e z out entry)
+  (setq out nil)
+  (if (and (tblsearch "APPID" "URB_ZONA")
+           (setq ss (ssget "_X" '((-3 ("URB_ZONA"))))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq e (ssname ss i))
+        (setq z (urb:ppto-zona-de e))
+        (if (/= z "")
+          (progn
+            (setq entry (assoc z out))
+            (setq out
+              (if entry
+                (subst (cons z (cons e (cdr entry))) entry out)
+                (cons (list z e) out)))))
+        (setq i (1+ i)))))
+  (reverse out))
+
+;; lee (categoria etapa subetapa) de cualquier elemento del programa --
+;; espejo de LECTURA de urb:apply-etapa-subetapa (mismas posiciones)
+(defun urb:element-etapa (ename / obj data atts)
+  (cond
+    ((setq data (urb:get-xdata-strings ename "URB_ANDEN_BLOCK"))
+      (list "Andenes" (urb:safe-string (nth 2 data) "")
+        (urb:safe-string (nth 3 data) "")))
+    ((setq data (urb:get-xdata-strings ename "URB_VIA"))
+      (list "Vias" (urb:safe-string (nth 2 data) "")
+        (urb:safe-string (nth 3 data) "")))
+    ((setq data (urb:get-xdata-strings ename "URB_PREFAB_BLOCK"))
+      (list "Prefabricados" (urb:safe-string (nth 1 data) "")
+        (urb:safe-string (nth 2 data) "")))
+    ((setq data (urb:get-xdata-strings ename "URB_GREEN_BLOCK"))
+      (list "Zonas verdes" (urb:safe-string (nth 1 data) "")
+        (urb:safe-string (nth 2 data) "")))
+    ((setq data (urb:get-xdata-strings ename "URB_RAMPA_BLOCK"))
+      (list "Rampas" (urb:safe-string (nth 1 data) "")
+        (urb:safe-string (nth 2 data) "")))
+    ((setq data (urb:get-xdata-strings ename "URB_SENDERO"))
+      (list "Senderos" (urb:safe-string (nth 1 data) "")
+        (urb:safe-string (nth 2 data) "")))
+    ((and (setq obj (urb:as-vla-object ename))
+          (setq atts (urb:block-attribute-values obj))
+          (assoc "ETAPA" atts))
+      (list "Redes / otros"
+        (urb:safe-string (cdr (assoc "ETAPA" atts)) "")
+        (urb:safe-string (cdr (assoc "SUBETAPA" atts)) "")))))
+
+;; todos los elementos del programa con esa etapa (y subetapa si sub no
+;; es nil), en todas las especialidades
+(defun urb:loc-collect-etapa (etapa sub / apps sets a ss i e seen out info)
+  (setq apps '("URB_ANDEN_BLOCK" "URB_VIA" "URB_PREFAB_BLOCK"
+               "URB_GREEN_BLOCK" "URB_RAMPA_BLOCK" "URB_SENDERO"))
+  (setq sets nil)
+  (foreach a apps
+    (if (and (tblsearch "APPID" a)
+             (setq ss (ssget "_X" (list (list -3 (list a))))))
+      (setq sets (cons ss sets))))
+  (if (setq ss (ssget "_X" '((0 . "INSERT")
+                             (2 . "URB_MOB_*,MP_TRAMO_*,MP_PUNTO_*"))))
+    (setq sets (cons ss sets)))
+  (setq seen nil out nil)
+  (foreach ss sets
+    (setq i 0)
+    (repeat (sslength ss)
+      (setq e (ssname ss i))
+      (if (not (member e seen))
+        (progn
+          (setq seen (cons e seen))
+          (setq info (vl-catch-all-apply 'urb:element-etapa (list e)))
+          (if (and (not (vl-catch-all-error-p info)) info
+                   (= (strcase (urb:safe-string (nth 1 info) ""))
+                      (strcase etapa))
+                   (or (null sub)
+                       (= (strcase (urb:safe-string (nth 2 info) ""))
+                          (strcase sub))))
+            (setq out (cons e out)))))
+      (setq i (1+ i))))
+  out)
+
+(defun urb:loc-fill-fsub (idx)
+  (start_list "fsub")
+  (add_list "(todas)")
+  (foreach s (urb:subetapas-for (nth idx *urb-etapa-list*)) (add_list s))
+  (end_list)
+  (set_tile "fsub" "0"))
+
+(defun urb:loc-write-dcl ()
+  (urb:write-dialog-dcl
+    "urb_localizacion"
+    '*urb-loc-dcl-ok*
+    (list
+      "urb_localizacion : dialog { label = \"Localizacion\";"
+      ": boxed_column { label = \"Zonas / parques marcados en el dibujo\";"
+      ": list_box { key = \"zonas\"; width = 54; height = 8; }"
+      ": row {"
+      ": button { label = \"Seleccionar\"; key = \"selz\"; width = 15; }"
+      ": button { label = \"Quitar marca\"; key = \"quitarz\"; width = 15; }"
+      ": button { label = \"Marcar zona...\"; key = \"marcar\"; width = 17; } } }"
+      ": boxed_column { label = \"Filtro por etapa y subetapa (todas las especialidades)\";"
+      ": popup_list { label = \"Etapa\"; key = \"fetapa\"; }"
+      ": popup_list { label = \"Subetapa\"; key = \"fsub\"; }"
+      ": button { label = \"Seleccionar elementos de esa etapa/subetapa\"; key = \"self\"; } }"
+      "cancel_button; }")))
+
+(defun urb:zona-parque-command (/ dclfile dcl done zonas z zsel etapa subs
+                                sub elems ss e n)
+  (vl-load-com)
+  (setq zonas (urb:loc-collect-zonas))
+  (setq dclfile (urb:loc-write-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar la ventana de localizacion (revise permisos de la carpeta temporal de Windows).")
+    (progn
+      (setq dcl (load_dialog dclfile))
+      (if (and dcl (> dcl 0) (new_dialog "urb_localizacion" dcl))
+        (progn
+          (start_list "zonas")
+          (if zonas
+            (foreach z zonas
+              (add_list (strcat (car z) "   (" (itoa (length (cdr z)))
+                " elemento" (if (= (length (cdr z)) 1) "" "s") ")")))
+            (add_list "(sin zonas marcadas todavia)"))
+          (end_list)
+          (set_tile "zonas" "0")
+          (start_list "fetapa")
+          (foreach e *urb-etapa-list* (add_list e))
+          (end_list)
+          (set_tile "fetapa" "0")
+          (urb:loc-fill-fsub 0)
+          (action_tile "fetapa" "(urb:loc-fill-fsub (atoi $value))")
+          ;; cada boton captura DENTRO de su action y cierra con su codigo
+          ;; (regla de oro DCL v4.41)
+          (action_tile "selz"
+            "(setq *urb-loc-zsel* (get_tile \"zonas\")) (done_dialog 2)")
+          (action_tile "quitarz"
+            "(setq *urb-loc-zsel* (get_tile \"zonas\")) (done_dialog 3)")
+          (action_tile "marcar" "(done_dialog 4)")
+          (action_tile "self"
+            (strcat
+              "(setq *urb-loc-fetapa* (get_tile \"fetapa\")"
+              " *urb-loc-fsub* (get_tile \"fsub\")) (done_dialog 5)"))
+          (setq done (start_dialog))))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))
+      (cond
+        ((= done 2)
+          (setq zsel
+            (nth (atoi (urb:safe-string *urb-loc-zsel* "0")) zonas))
+          (if zsel
+            (progn
+              (setq ss (ssadd) n 0)
+              (foreach e (cdr zsel)
+                (if (and e (entget e)) (progn (ssadd e ss) (setq n (1+ n)))))
+              (sssetfirst nil ss)
+              (prompt (strcat "\n" (itoa n)
+                " elemento(s) de la zona \"" (car zsel)
+                "\" quedaron seleccionados en pantalla.")))
+            (prompt "\nNo hay zonas marcadas todavia (use Marcar zona...).")))
+        ((= done 3)
+          (setq zsel
+            (nth (atoi (urb:safe-string *urb-loc-zsel* "0")) zonas))
+          (if zsel
+            (progn
+              (setq n 0)
+              (foreach e (cdr zsel)
+                (if (and e (entget e))
+                  (progn
+                    (urb:set-xdata-strings e "URB_ZONA" (list ""))
+                    (setq n (1+ n)))))
+              (prompt (strcat "\nMarca de zona quitada de " (itoa n)
+                " elemento(s) de \"" (car zsel) "\".")))
+            (prompt "\nNo hay zonas marcadas todavia.")))
+        ((= done 4) (urb:loc-marcar))
+        ((= done 5)
+          (setq etapa
+            (urb:safe-string
+              (nth (atoi (urb:safe-string *urb-loc-fetapa* "0"))
+                *urb-etapa-list*) "1"))
+          (setq subs (cons "(todas)" (urb:subetapas-for etapa)))
+          (setq sub
+            (urb:safe-string
+              (nth (atoi (urb:safe-string *urb-loc-fsub* "0")) subs)
+              "(todas)"))
+          (setq elems
+            (urb:loc-collect-etapa etapa
+              (if (= sub "(todas)") nil sub)))
+          (if elems
+            (progn
+              (setq ss (ssadd))
+              (foreach e elems (ssadd e ss))
+              (sssetfirst nil ss)
+              (prompt (strcat "\n" (itoa (length elems))
+                " elemento(s) de etapa " etapa
+                (if (/= sub "(todas)") (strcat " subetapa " sub) "")
+                " quedaron seleccionados (todas las especialidades).")))
+            (prompt
+              (strcat "\nNingun elemento del programa tiene etapa " etapa
+                (if (/= sub "(todas)") (strcat " subetapa " sub) "")
+                ".")))))))
+  (princ))
 
 ;; bloques de mobiliario dentro de una seleccion
 (defun urb:mob-selected (selection / i be out nom)
@@ -20581,26 +20797,38 @@
 ;; en PQ10A cae en su seccion CICLORUTA, un sendero en SENDEROS
 ;; PEATONALES. El bioswale pertenece a la RED PLUVIAL (pedido explicito)
 ;; y su receta es ajustable (composicion aun no definida por el usuario).
-;; catalogo: (codigo etiqueta red color hint receta)
+;; catalogo: (codigo etiqueta red color hint receta capa espesor-estructura)
+;; capa: cada tipo dibuja en SU capa (pedido del usuario 2026-08-21);
+;; espesor-estructura: profundidad de excavacion (area x espesor) que se
+;; muestra en la ventana y alimenta la fila de excavacion de la receta.
 (setq *urb-send-tipos*
   '(("SEND-TROTE" "Sendero de trote" "SENDERO" 40 "TROTE"
       (("Concreto 3000 psi" "M3" "AREA" 0.10)
        ("Malla electrosoldada" "KG" "AREA" 2.36)
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
-       ("MO Escobillado concreto" "M2" "AREA" 1.0)))
+       ("MO Escobillado concreto" "M2" "AREA" 1.0)
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+         "M3" "AREA" 0.40))
+      "URB-SENDERO-TROTE" 0.40)
     ("SEND-ECO" "Sendero ecologico" "SENDERO" 74 "SENDERO"
       (("Concreto 3000 psi" "M3" "AREA" 0.10)
        ("Malla electrosoldada" "KG" "AREA" 2.36)
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
-       ("MO Escobillado concreto" "M2" "AREA" 1.0)))
+       ("MO Escobillado concreto" "M2" "AREA" 1.0)
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+         "M3" "AREA" 0.40))
+      "URB-SENDERO-ECOLOGICO" 0.40)
     ("PLAZOLETA" "Plazoleta en concreto" "SENDERO" 253 "SENDERO"
       (("Concreto 3000 psi" "M3" "AREA" 0.10)
        ("Malla electrosoldada" "KG" "AREA" 2.36)
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
-       ("MO Escobillado concreto" "M2" "AREA" 1.0)))
+       ("MO Escobillado concreto" "M2" "AREA" 1.0)
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+         "M3" "AREA" 0.40))
+      "URB-PLAZOLETA" 0.40)
     ("CICLORRUTA" "Ciclorruta" "CICLORRUTA" 150 "CICLOR"
       (("Descapote mecánico de material vegetal (Incluye cargue y retiro externo)"
          "M2" "AREA" 1.0)
@@ -20612,7 +20840,8 @@
        ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.38)
        ("Bordillo prefabricado A-80" "UN" "PER" 1.25)
-       ("M.O. instalación de bordillo prefabricado" "ML" "PER" 1.0)))
+       ("M.O. instalación de bordillo prefabricado" "ML" "PER" 1.0))
+      "URB-CICLORRUTA" 0.38)
     ("RAMPA-CONC" "Rampa en concreto (ancho variable)" "RAMPA-PEATONAL" 31 ""
       (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
        ("Suministro y construcción de remate de rampa en concreto fundido en sitio"
@@ -20620,28 +20849,52 @@
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
-         "M3" "AREA" 0.40)))
+         "M3" "AREA" 0.40))
+      "URB-RAMPA-CONCRETO" 0.40)
     ("BIOSWALE" "Bioswale / biorretenedor" "ALC-PLUVIAL" 140 "HUMEDAS"
       (("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.60)
        ("Dren filtro 200 mm (filtro frances)" "ML" "PER" 0.5)
-       ("Jardineria" "M2" "AREA" 1.0)))))
+       ("Jardineria" "M2" "AREA" 1.0))
+      "URB-BIOSWALE" 0.60)))
 
+;; ventana ESTILO ANDEN (pedido del usuario 2026-08-21): desplegables de
+;; tipo/etapa/subetapa y seccion de movimiento de tierras que muestra el
+;; espesor de estructura del tipo (excavacion = area x espesor, sale sola
+;; al presupuesto como fila de la receta).
 (defun urb:send-write-dcl ()
   (urb:write-dialog-dcl
     "urb_sendero"
     '*urb-send-dcl-ok*
     (list
-      "urb_sendero : dialog { label = \"Senderos y zonas de parque\";"
-      ": list_box { key = \"tipo\"; label = \"Tipo de elemento\"; width = 60; height = 8; }"
-      ": row { : edit_box { label = \"Etapa\"; key = \"etapa\"; edit_width = 8; } : edit_box { label = \"Subetapa\"; key = \"sub\"; edit_width = 10; } }"
+      "urb_sendero : dialog { label = \"Sendero / Ciclorruta / Bioswale\";"
+      ": boxed_column { label = \"Datos del elemento\";"
+      ": popup_list { label = \"Tipo\"; key = \"tipo\"; }"
+      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
+      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; } }"
+      ": boxed_column { label = \"Movimiento de tierras\";"
+      ": text { key = \"estructura\"; width = 58; }"
+      ": text { label = \"La excavacion sale sola al presupuesto: area x espesor de la estructura.\"; } }"
       ": text { label = \"Aceptar y CERRAR EL POLIGONO del contorno (como una via o un anden).\"; }"
       ": text { label = \"Puede dibujar varios contornos seguidos; Enter sin dibujar termina.\"; }"
-      ": text { label = \"Dentro de un parque: marquelo despues con Zona parque para que sume alla.\"; }"
+      ": text { label = \"Dentro de un parque: marquelo despues con Localizacion para que sume alla.\"; }"
       "ok_cancel; }")))
 
+(defun urb:send-fill-sub (idx)
+  (start_list "subetapa")
+  (foreach s (urb:subetapas-for (nth idx *urb-etapa-list*)) (add_list s))
+  (end_list)
+  (set_tile "subetapa" "0"))
+
+(defun urb:send-show-estructura (idx / entry)
+  (setq entry (nth idx *urb-send-tipos*))
+  (if entry
+    (set_tile "estructura"
+      (strcat "Espesor de estructura del tipo: "
+        (rtos (nth 7 entry) 2 2) " m (capa " (nth 6 entry) ")"))))
+
 (defun urb:sendero-command (/ dclfile dcl done entry ename obj hatch n
-                            etapa sub)
+                            etapa sub subs capa)
   (vl-load-com)
   (setq dclfile (urb:send-write-dcl))
   (if (null dclfile)
@@ -20654,15 +20907,21 @@
           (foreach entry *urb-send-tipos* (add_list (nth 1 entry)))
           (end_list)
           (set_tile "tipo" "0")
-          (set_tile "etapa" "1")
-          (set_tile "sub" "GEN")
+          (start_list "etapa")
+          (foreach entry *urb-etapa-list* (add_list entry))
+          (end_list)
+          (set_tile "etapa" "0")
+          (urb:send-fill-sub 0)
+          (urb:send-show-estructura 0)
+          (action_tile "etapa" "(urb:send-fill-sub (atoi $value))")
+          (action_tile "tipo" "(urb:send-show-estructura (atoi $value))")
           ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
-          (setq *urb-send-sel* "0" *urb-send-etapa* "1" *urb-send-sub* "GEN")
+          (setq *urb-send-sel* "0" *urb-send-etapa* "0" *urb-send-sub* "0")
           (action_tile "accept"
             (strcat
               "(setq *urb-send-sel* (get_tile \"tipo\")"
               " *urb-send-etapa* (get_tile \"etapa\")"
-              " *urb-send-sub* (get_tile \"sub\"))"
+              " *urb-send-sub* (get_tile \"subetapa\"))"
               "(done_dialog 1)"))
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))
@@ -20671,28 +20930,36 @@
           (setq entry
             (nth (atoi (urb:safe-string *urb-send-sel* "0"))
               *urb-send-tipos*))
-          (setq etapa (urb:safe-string *urb-send-etapa* "1")
-                sub (urb:safe-string *urb-send-sub* "GEN"))
-          (urb:ensure-layer "URB-SENDERO" 92 T)
+          (setq etapa
+            (urb:safe-string
+              (nth (atoi (urb:safe-string *urb-send-etapa* "0"))
+                *urb-etapa-list*) "1"))
+          (setq subs (urb:subetapas-for etapa))
+          (setq sub
+            (urb:safe-string
+              (nth (atoi (urb:safe-string *urb-send-sub* "0")) subs)
+              etapa))
+          ;; capa PROPIA por tipo (pedido del usuario): el color vive en
+          ;; la capa y las entidades quedan ByLayer
+          (setq capa (nth 6 entry))
+          (urb:ensure-layer capa (nth 3 entry) T)
           (setq n 0)
           (prompt (strcat "\n" (nth 1 entry)
             ": cierre el poligono del contorno (Enter sin dibujar termina)."))
           (while (setq ename (urb:draw-closed-polyline))
             (setq obj (vlax-ename->vla-object ename))
-            (vla-put-Layer obj "URB-SENDERO")
-            (vla-put-Color obj (nth 3 entry))
+            (vla-put-Layer obj capa)
             (urb:set-xdata-strings ename "URB_SENDERO"
               (list (nth 0 entry) etapa sub))
-            ;; relleno solido del mismo color para que se LEA el area
-            ;; (la ciclorruta azul como la referencia del usuario)
+            ;; relleno solido en la capa del tipo (color ByLayer) para que
+            ;; se LEA el area -- la ciclorruta azul como la referencia
             (setq hatch
               (vl-catch-all-apply
                 '(lambda ()
                   (setq hatch
                     (vla-AddHatch (urb:space) 1 "SOLID" :vlax-true))
                   (vla-AppendOuterLoop hatch (urb:make-loop-array obj))
-                  (vla-put-Layer hatch "URB-SENDERO")
-                  (vla-put-Color hatch (nth 3 entry))
+                  (vla-put-Layer hatch capa)
                   (vla-Evaluate hatch)
                   hatch)))
             (if (not (vl-catch-all-error-p hatch))
