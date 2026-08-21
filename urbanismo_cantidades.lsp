@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.46.0")
+(setq *urb-version* "4.47.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -21562,9 +21562,51 @@
       (setq i (1+ i))))
   out)
 
+;; area total de contenedores de raices cuyo punto de insercion cae
+;; dentro de la caja del anden (2026-08-21, pedido del usuario: el
+;; contenedor CORTA el anden tambien en CANTIDADES, no solo visualmente).
+;; La pertenencia se decide por bounding box del bloque del anden --
+;; suficiente para franjas de anden; si dos andenes se traslapan, el
+;; contenedor solo descuenta en el primero que lo contiene.
+(defun urb:anden-area-contenedores (be usados / ss j ce nom atts tipo entry
+                                    minpt maxpt lo hi p total)
+  (setq total 0.0)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "URB_MOB_CONT*"))))
+  (if ss
+    (progn
+      (vl-catch-all-apply
+        '(lambda ()
+          (vla-GetBoundingBox (vlax-ename->vla-object be)
+            'minpt 'maxpt)))
+      (if (and minpt maxpt)
+        (progn
+          (setq lo (vlax-safearray->list minpt)
+                hi (vlax-safearray->list maxpt))
+          (setq j 0)
+          (repeat (sslength ss)
+            (setq ce (ssname ss j))
+            (setq p (cdr (assoc 10 (entget ce))))
+            (if (and p
+                     (not (member ce (eval usados)))
+                     (>= (car p) (car lo)) (<= (car p) (car hi))
+                     (>= (cadr p) (cadr lo)) (<= (cadr p) (cadr hi)))
+              (progn
+                (setq atts (urb:block-attribute-values ce))
+                (setq tipo (urb:safe-string (cdr (assoc "TIPO" atts)) ""))
+                (setq entry (assoc tipo *urb-mob-tipos*))
+                (if entry
+                  (progn
+                    (setq total
+                      (+ total (* (nth 4 entry) (nth 5 entry))))
+                    (set usados (cons ce (eval usados)))))))
+            (setq j (1+ j)))))))
+  total)
+
 (defun urb:ppto-rows-andenes (/ ss i be d atts area material etapa sub handle
-                              corte relleno loseta-und adoq-und rows out r)
+                              corte relleno loseta-und adoq-und rows out r
+                              cont-usados area-cont)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) out nil i 0)
+  (setq cont-usados nil)
   (if ss
     (repeat (sslength ss)
       (setq be (ssname ss i)
@@ -21579,6 +21621,17 @@
               (cdr (assoc "ANDEN_CORTE_M3" atts)) "0"))
             relleno (atof (urb:safe-string
               (cdr (assoc "ANDEN_RELLENO_M3" atts)) "0")))
+      ;; CORTE por contenedores de raices: su area (dimensiones reales
+      ;; del catalogo) se DESCUENTA del area del anden y de todo lo
+      ;; derivado de ella (descapote, subbase, geotextil, arena, M.O.,
+      ;; parametricas por AREA...). OJO limites documentados: los
+      ;; CONTEOS de piezas guardados al crear el anden (losetas lisas,
+      ;; adoquines) y las franjas toperol/guia en ML no se recalculan --
+      ;; si el contenedor se agrega despues de crear el anden, re-EDITE
+      ;; el anden para regenerar esos conteos sobre la geometria real.
+      (setq area-cont (urb:anden-area-contenedores be 'cont-usados))
+      (if (> area-cont 0.0)
+        (setq area (max 0.0 (- area area-cont))))
       (if (<= corte 0.0) (setq corte (* area *urb-anden-depth*)))
       (setq rows
         (list

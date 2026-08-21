@@ -214,6 +214,22 @@ New-Icon "urbanismo" { param($g, $s)
     $g.FillRectangle($b, 14*$s, $y*$s, 2*$s, 2*$s)
     $g.FillRectangle($b, 17*$s, $y*$s, 2*$s, 2*$s) }
 }
+# 2026-08-21 v4.47: iconos propios de mobiliario y zona parque (antes
+# reutilizaban prefabricado/zonaverde y el usuario pidio no repetir)
+New-Icon "mobiliario" { param($g, $s)
+  # banca en planta (respaldo + asiento) con arbol al lado
+  $g.FillRectangle((B $cNara), 4*$s, 18*$s, 16*$s, 5*$s)
+  $g.FillRectangle((B $cGrisOs), 4*$s, 24*$s, 16*$s, 3*$s)
+  $g.FillEllipse((B $cVerde), 19*$s, 3*$s, 11*$s, 11*$s)
+  $g.FillRectangle((B $cNara), 23.5*$s, 13*$s, 2*$s, 6*$s)
+}
+New-Icon "zonaparque" { param($g, $s)
+  # marco de zona punteado con arbol adentro
+  $pen = P $cAzul (1.6*$s); $pen.DashStyle = 'Dash'
+  $g.DrawRectangle($pen, 3*$s, 3*$s, 26*$s, 26*$s)
+  $g.FillEllipse((B $cVerde), 10*$s, 7*$s, 12*$s, 12*$s)
+  $g.FillRectangle((B $cNara), 15*$s, 18*$s, 2.5*$s, 7*$s)
+}
 New-Icon "mediatension" { param($g, $s)
   $g.DrawLine((P $cGris (2*$s)), 16*$s, 6*$s, 16*$s, 28*$s)
   $g.DrawLine((P $cGris (2*$s)), 7*$s, 9*$s, 25*$s, 9*$s)

@@ -337,7 +337,7 @@ namespace UrbanismoCantidades
                     new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" },
                     // 2026-08-20 v4.46: marcar elementos como parte de un
                     // parque/zona (sus cantidades van al capitulo del parque)
-                    new string[] { "Zona parque", "ZONAPARQUE", "zonaverde", "L" } });
+                    new string[] { "Zona parque", "ZONAPARQUE", "zonaparque", "L" } });
                 cantPanel.Source.Items.Add(MakeExcelGroup());
                 tab.Panels.Add(cantPanel);
                 // solo Ajustes (2026-08-11 v4: "Perfiles" duplicaba la
@@ -388,7 +388,7 @@ namespace UrbanismoCantidades
                 AddBigCmd("Prefabricado", "PREFABRICADO", "prefabricado");
                 // 2026-08-19 v4.45: mobiliario urbano (canecas, bancas,
                 // contenedores de raices por tipologia, etc.)
-                AddBigCmd("Mobiliario", "URBMOBILIARIO", "prefabricado");
+                AddBigCmd("Mobiliario", "URBMOBILIARIO", "mobiliario");
             }
             else if (which == "hum")
             {
@@ -1144,3 +1144,4 @@ namespace UrbanismoCantidades
 #endif
     }
 }
+

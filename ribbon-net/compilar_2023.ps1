@@ -8,7 +8,7 @@ $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $src = Join-Path $dir "UrbCantRibbon.cs"
 $outDir = Join-Path (Split-Path -Parent $dir) "bundle\net"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-$out = Join-Path $outDir "UrbCantRibbon2023_v4460.dll"
+$out = Join-Path $outDir "UrbCantRibbon2023_v4470.dll"
 
 $acad = "C:\Program Files\Autodesk\AutoCAD 2023"
 if (-not (Test-Path (Join-Path $acad "acmgd.dll"))) {
@@ -36,4 +36,5 @@ $wpf = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF"
 if ($LASTEXITCODE -ne 0) { throw "csc fallo con codigo $LASTEXITCODE" }
 Write-Output "Compilado:"
 Get-Item $out | Select-Object Name, Length, LastWriteTime
+
 
