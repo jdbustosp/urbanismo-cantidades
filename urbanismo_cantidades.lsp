@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.45.0")
+(setq *urb-version* "4.46.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20160,31 +20160,46 @@
       "CIRC" 0.25 0.25 "RAMPA-PEATONAL")
     ("CONT-RAICES" "Contenedor raices 2,0x1,2"
       "Suministro y construcción de contenedor de raíces (Dimensiones: 2,0x1,2m). Incluye tierra negra"
-      "RECT" 2.00 1.20)
+      "CONTEN" 2.00 1.20)
     ("CONT-A" "Contenedor raices Tipo A (2,00x2,20)"
       "Suministro y construcción de contenedor de raíces Tipo A (2,00x2,20)m"
-      "RECT" 2.00 2.20)
+      "CONTEN" 2.00 2.20)
     ("CONT-B" "Contenedor raices Tipo B (1,50x2,20)"
       "Suministro y construcción de contenedor de raíces Tipo B (1,50x2,20)m"
-      "RECT" 1.50 2.20)
+      "CONTEN" 1.50 2.20)
     ("CONT-C" "Contenedor raices Tipo C (1,20x2,20)"
       "Suministro y construcción de contenedor de raíces Tipo C (1,20x2,20)m"
-      "RECT" 1.20 2.20)
+      "CONTEN" 1.20 2.20)
     ("CONT-D" "Contenedor raices Tipo D (0,84x4,20)"
       "Suministro y construcción de contenedor de raíces Tipo D (0,84x4,20)m"
-      "RECT" 0.84 4.20)
+      "CONTEN" 0.84 4.20)
     ("CONT-E" "Contenedor raices Tipo E (0,70x4,20)"
       "Suministro y construcción de contenedor de raíces Tipo E (0,70x4,20)m"
-      "RECT" 0.70 4.20)
+      "CONTEN" 0.70 4.20)
     ("CONT-F" "Contenedor raices Tipo F (0,70x4,20)"
       "Suministro y construcción de contenedor de raíces Tipo F (0,70x4,20)m"
-      "RECT" 0.70 4.20)))
+      "CONTEN" 0.70 4.20)))
 
 ;; definicion del bloque liviano de un tipo (si no existe): geometria
 ;; simple en planta -- circulo doble (caneca/bolardo/senal), rectangulo
 ;; con diagonal (bancas/paradero/contenedores) o circulo con cruz (arbol)
-(defun urb:mob-ensure-block (entry / nombre bdef a l a2 l2)
-  (setq nombre (strcat "URB_MOB_" (nth 0 entry)))
+;; polilinea rectangular CERRADA dentro de una definicion de bloque
+(defun urb:mob-rect-poly (bdef x1 y1 x2 y2 / poly)
+  (setq poly
+    (vla-AddLightWeightPolyline bdef
+      (urb:double-array-variant (list x1 y1 x2 y1 x2 y2 x1 y2))))
+  (vla-put-Closed poly :vlax-true)
+  poly)
+
+(defun urb:mob-ensure-block (entry / nombre bdef a l a2 l2 marco interior
+                             hatch mtx etiqueta th)
+  ;; los contenedores llevan sufijo _C2 (2026-08-20: la forma paso de
+  ;; rectangulo simple a marco doble + relleno verde + texto, como el
+  ;; detalle real del proyecto; el sufijo obliga a regenerar la
+  ;; definicion en dibujos donde ya existia la vieja)
+  (setq nombre
+    (strcat "URB_MOB_" (nth 0 entry)
+      (if (= (nth 3 entry) "CONTEN") "_C2" "")))
   (if (not (tblsearch "BLOCK" nombre))
     (progn
       (setq bdef
@@ -20193,6 +20208,40 @@
       (setq a (nth 4 entry) l (nth 5 entry))
       (setq a2 (/ a 2.0) l2 (/ l 2.0))
       (cond
+        ;; contenedor de raices como el detalle del proyecto: marco doble,
+        ;; relleno solido verde que TAPA el patron del anden debajo, y el
+        ;; texto "Cont. Raices / Tipo X" centrado. Dimensiones reales.
+        ((= (nth 3 entry) "CONTEN")
+          (setq marco (urb:mob-rect-poly bdef (- a2) (- l2) a2 l2))
+          (vla-put-Color marco 5)
+          (setq interior
+            (urb:mob-rect-poly bdef
+              (+ (- a2) 0.06) (+ (- l2) 0.06)
+              (- a2 0.06) (- l2 0.06)))
+          (vla-put-Color interior 5)
+          (setq hatch
+            (vl-catch-all-apply
+              '(lambda ()
+                (setq hatch (vla-AddHatch bdef 1 "SOLID" :vlax-true))
+                (vla-AppendOuterLoop hatch (urb:make-loop-array interior))
+                (vla-put-Color hatch 121)
+                (vla-Evaluate hatch)
+                hatch)))
+          (setq etiqueta
+            (cond
+              ((= (nth 0 entry) "CONT-RAICES") "Cont. Raices\\P2,0x1,2")
+              (T (strcat "Cont. Raices\\PTipo "
+                   (substr (nth 0 entry) 6)))))
+          (setq th (min 0.25 (* (min a l) 0.22)))
+          (setq mtx
+            (vla-AddMText bdef (vlax-3d-point '(0.0 0.0 0.0))
+              (* (max a l) 0.9) etiqueta))
+          (vla-put-Height mtx th)
+          (vla-put-AttachmentPoint mtx 5)   ; centro
+          (vla-put-InsertionPoint mtx (vlax-3d-point '(0.0 0.0 0.0)))
+          ;; el texto siempre a lo LARGO de la pieza: si es mas alta que
+          ;; ancha, rotarlo 90 grados
+          (if (> l a) (vla-put-Rotation mtx (/ pi 2.0))))
         ((= (nth 3 entry) "CIRC")
           (vla-AddCircle bdef (vlax-3d-point '(0.0 0.0 0.0)) a2)
           (vla-AddCircle bdef (vlax-3d-point '(0.0 0.0 0.0)) (* a2 0.6)))
@@ -20239,7 +20288,56 @@
       ": text { label = \"Cada pieza cuenta 1 UN hacia su actividad al exportar; etapa/subetapa editables en Propiedades.\"; }"
       "ok_cancel; }")))
 
-(defun urb:mobiliario-command (/ dclfile dcl done entry nombre pt ref n)
+;; marcar la ZONA (parque) de elementos por seleccion: el nombre debe
+;; aparecer en el capitulo o la seccion del presupuesto (p.ej. "PARQUE 3",
+;; "PQ14", "PL3"); nombre vacio QUITA la marca. Aplica a vias, andenes,
+;; prefabricados, zonas verdes y mobiliario.
+(defun urb:zona-parque-command (/ selection entities nombre ename n)
+  (prompt "\nSeleccione los elementos que pertenecen al parque/zona: ")
+  (setq selection (ssget))
+  (if (null selection)
+    (prompt "\nNo se seleccionaron elementos.")
+    (progn
+      (setq entities
+        (urb:unique-enames
+          (append
+            (urb:selected-roads selection)
+            (urb:selected-anden-parents selection)
+            (urb:selected-prefabs selection)
+            (urb:selected-green-zones selection)
+            (urb:mob-selected selection))))
+      (if (null entities)
+        (prompt "\nLa seleccion no contiene vias, andenes, prefabricados, zonas verdes ni mobiliario reconocidos.")
+        (progn
+          (setq nombre
+            (getstring T
+              (strcat "\nNombre de la zona tal como aparece en el presupuesto"
+                " (ej. PARQUE 3, PQ14; Enter vacio QUITA la marca): ")))
+          (setq nombre (vl-string-trim " " (urb:safe-string nombre "")))
+          (setq n 0)
+          (foreach ename entities
+            (urb:set-xdata-strings ename "URB_ZONA" (list nombre))
+            (setq n (1+ n)))
+          (if (= nombre "")
+            (prompt (strcat "\nZona QUITADA de " (itoa n) " elemento(s)."))
+            (prompt (strcat "\n" (itoa n) " elemento(s) marcados en la zona \""
+              nombre "\": sus cantidades buscaran las actividades del"
+              " capitulo o seccion del presupuesto que contenga ese"
+              " nombre."))))))))
+
+;; bloques de mobiliario dentro de una seleccion
+(defun urb:mob-selected (selection / i be out nom)
+  (setq out nil i 0)
+  (if selection
+    (repeat (sslength selection)
+      (setq be (ssname selection i))
+      (setq nom (cdr (assoc 2 (entget be))))
+      (if (and nom (wcmatch nom "URB_MOB_*"))
+        (setq out (cons be out)))
+      (setq i (1+ i))))
+  (reverse out))
+
+(defun urb:mobiliario-command (/ dclfile dcl done entry nombre pt ref n ang)
   (vl-load-com)
   (setq dclfile (urb:mob-write-dcl))
   (if (null dclfile)
@@ -20269,11 +20367,17 @@
           (while (setq pt
                    (getpoint (strcat "\nPunto para " (nth 1 entry)
                      " (Enter termina): ")))
+            ;; direccion: segundo clic sobre el eje del anden alinea la
+            ;; pieza (Enter = sin rotacion). Pedido 2026-08-20 para los
+            ;; contenedores de raices sobre el eje del anden.
+            (setq ang (getangle pt
+              "\nDireccion sobre el eje (clic segundo punto, Enter=0): "))
+            (if (null ang) (setq ang 0.0))
             (setq ref
               (vl-catch-all-apply
                 '(lambda ()
                   (vla-InsertBlock (urb:space)
-                    (vlax-3d-point (trans pt 1 0)) nombre 1.0 1.0 1.0 0.0))))
+                    (vlax-3d-point (trans pt 1 0)) nombre 1.0 1.0 1.0 ang))))
             (if (vl-catch-all-error-p ref)
               (prompt (strcat "\nNo se pudo insertar: "
                 (vl-catch-all-error-message ref)))
@@ -20281,6 +20385,13 @@
                 (vla-put-Layer ref "URB-MOBILIARIO")
                 (urb:set-xdata-strings (vlax-vla-object->ename ref)
                   "URB_MOBILIARIO" (list (nth 0 entry)))
+                ;; contenedores: al FRENTE para que su relleno tape el
+                ;; patron del anden (corte visual, sin editar el anden)
+                (if (= (nth 3 entry) "CONTEN")
+                  (vl-catch-all-apply
+                    '(lambda ()
+                      (command "_.DRAWORDER"
+                        (vlax-vla-object->ename ref) "" "_Front"))))
                 (setq n (1+ n)))))
           (prompt (strcat "\n" (itoa n) " pieza(s) de " (nth 1 entry)
             " insertada(s). Cuentan solas al exportar el presupuesto."))))))
@@ -21042,10 +21153,14 @@
 ;; llamadas COM en vez de miles. Si el bloque falla en un tramo puntual,
 ;; ESE tramo cae de vuelta a leer celda por celda (nunca se pierden filas
 ;; por un fallo del atajo).
-(defun urb:ppto-vocab-extraer (ws header-row / capitulo vocab empties r
-                               nivel-txt codigo desc um limite bsize base
-                               fin chunk-rng bloque idx fila nivel rr tmp)
-  (setq capitulo "" vocab nil empties 0 r (+ header-row 2) limite 8000)
+(defun urb:ppto-vocab-extraer (ws header-row / capitulo seccion vocab
+                               empties r nivel-txt codigo desc um limite
+                               bsize base fin chunk-rng bloque idx fila
+                               nivel rr tmp)
+  ;; seccion = titulo nivel 4 vigente (v4.46: para el match por ZONA de
+  ;; parque -- campo 7 de cada entrada del vocabulario)
+  (setq capitulo "" seccion "" vocab nil empties 0
+        r (+ header-row 2) limite 8000)
   (setq *urb-ppto-outline* nil)
   (setq bsize 500)
   (while (and (<= r limite) (< empties 80))
@@ -21081,7 +21196,11 @@
           (if nivel
             (progn
               (if (= (fix nivel) 3)
-                (setq capitulo (urb:ppto-normalize desc)))
+                (progn
+                  (setq capitulo (urb:ppto-normalize desc))
+                  (setq seccion "")))
+              (if (= (fix nivel) 4)
+                (setq seccion (urb:ppto-normalize desc)))
               (if (and (>= (fix nivel) 3) (/= desc ""))
                 (setq *urb-ppto-outline*
                   (cons
@@ -21091,7 +21210,7 @@
                 (setq vocab
                   (cons
                     (list capitulo (strcase um) desc
-                          (urb:ppto-words desc) r codigo)
+                          (urb:ppto-words desc) r codigo seccion)
                     vocab)))))))
       (setq r (1+ r) idx (1+ idx))))
   (setq *urb-ppto-outline* (reverse *urb-ppto-outline*))
@@ -21438,6 +21557,7 @@
               (cons "RELLENO" relleno)
               (cons "UNIDAD" 1.0))
             nombre "" "" etapa sub handle)))
+      (setq rows (urb:ppto-rows+zona rows (urb:ppto-zona-de be)))
       (foreach r rows (if r (setq out (cons r out))))
       (setq i (1+ i))))
   out)
@@ -21544,6 +21664,7 @@
               (cons "ADOQUIN_UND" adoq-und)
               (cons "UNIDAD" 1.0))
             "" "" "" etapa sub handle)))
+      (setq rows (urb:ppto-rows+zona rows (urb:ppto-zona-de be)))
       (foreach r rows (if r (setq out (cons r out))))
       (setq i (1+ i))))
   out)
@@ -21551,8 +21672,8 @@
 ;; MOBILIARIO (v4.45): agrupa los bloques URB_MOB_* por tipo+etapa+sub y
 ;; emite UNA fila UN por grupo con el conteo; el concepto es el texto
 ;; exacto de la actividad del catalogo (match directo por igualdad)
-(defun urb:ppto-rows-mobiliario (/ ss i be atts tipo etapa sub key grupos
-                                 g entry fila out handle)
+(defun urb:ppto-rows-mobiliario (/ ss i be atts tipo etapa sub zona key
+                                 grupos g entry fila out handle)
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "URB_MOB_*"))))
   (setq grupos nil out nil i 0)
   (if ss
@@ -21562,14 +21683,17 @@
       (setq tipo (urb:safe-string (cdr (assoc "TIPO" atts)) ""))
       (setq etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) ""))
       (setq sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) ""))
+      (setq zona (urb:ppto-zona-de be))
       (setq handle (urb:safe-string (cdr (assoc 5 (entget be))) ""))
-      (setq key (strcat tipo "|" etapa "|" sub))
+      ;; la ZONA separa el grupo: los arboles del parque suman al parque
+      (setq key (strcat tipo "|" etapa "|" sub "|" zona))
       (setq g (assoc key grupos))
       (if g
         (setq grupos
-          (subst (list key tipo etapa sub (1+ (nth 4 g)) (nth 5 g))
+          (subst
+            (list key tipo etapa sub (1+ (nth 4 g)) (nth 5 g) zona)
             g grupos))
-        (setq grupos (cons (list key tipo etapa sub 1 handle) grupos)))
+        (setq grupos (cons (list key tipo etapa sub 1 handle zona) grupos)))
       (setq i (1+ i))))
   (foreach g (reverse grupos)
     (setq entry (assoc (nth 1 g) *urb-mob-tipos*))
@@ -21583,7 +21707,11 @@
             (nth 2 entry)
             "" "" "" (nth 2 g) (nth 3 g) "UN"
             (float (nth 4 g)) (nth 5 g)))
-        (if fila (setq out (cons fila out))))))
+        (if fila
+          (progn
+            (if (/= (urb:safe-string (nth 6 g) "") "")
+              (setq fila (append fila (list (nth 6 g)))))
+            (setq out (cons fila out)))))))
   (reverse out))
 
 (defun urb:ppto-rows-prefabs (/ ss i be atts tipo lng etapa sub handle red
@@ -21616,6 +21744,7 @@
             (if (wcmatch tipo "*SARDINEL*") "SARDINEL" "BORDILLO") red
             (list (cons "LONGITUD" lng) (cons "UNIDAD" 1.0))
             "" "" "" etapa sub handle)))
+      (setq rows (urb:ppto-rows+zona rows (urb:ppto-zona-de be)))
       (foreach r rows (if r (setq out (cons r out))))
       (setq i (1+ i))))
   out)
@@ -21652,6 +21781,7 @@
                 (atof (urb:safe-string (cdr (assoc "BORDILLO_ML" atts)) "0")))
               (cons "UNIDAD" 1.0))
             "" "" "" etapa sub handle)))
+      (setq rows (urb:ppto-rows+zona rows (urb:ppto-zona-de be)))
       (foreach r rows (if r (setq out (cons r out))))
       (setq i (1+ i))))
   out)
@@ -21886,16 +22016,80 @@
 ;; en el dialogo pre-export); una equivalencia solo vale si su descripcion
 ;; sigue VIVA en el capitulo+UM del presupuesto (si la renombraron, el
 ;; concepto vuelve a salir como pendiente).
+;; ---------- ZONAS (parques) 2026-08-20 ----------
+;; Un elemento marcado con ZONA (xdata URB_ZONA, p.ej. "PARQUE 3" o
+;; "PQ14") deja de matchear contra su capitulo general y matchea SOLO
+;; contra las partes del presupuesto cuyo CAPITULO (nivel 3) o SECCION
+;; (nivel 4) contienen ese nombre -- asi las cantidades del anden o
+;; bordillo DENTRO de un parque suman al capitulo del parque con sus
+;; propios codigos, sin tocar los andenes normales.
+(defun urb:ppto-zona-de (ename / d)
+  (setq d (urb:get-xdata-strings ename "URB_ZONA"))
+  (if (and d (car d)) (urb:safe-string (car d) "") ""))
+
+(defun urb:ppto-rows+zona (rows zona)
+  (if (= zona "") rows
+    (mapcar '(lambda (f) (if f (append f (list zona)) f)) rows)))
+
+;; el item del vocabulario aplica a la zona si su capitulo o su seccion
+;; (campo 7, nivel 4) contienen el nombre normalizado de la zona
+(defun urb:ppto-zona-aplica-p (entry zn)
+  (or (vl-string-search zn (nth 0 entry))
+      (and (nth 6 entry)
+           (vl-string-search zn (nth 6 entry)))))
+
+(defun urb:ppto-match-zona (zona um concepto vocab / zn words best best-n
+                            second item score exacto)
+  (setq zn (urb:ppto-normalize zona))
+  (foreach item vocab
+    (if (and (null exacto)
+             (urb:ppto-zona-aplica-p item zn)
+             (= (nth 1 item) (strcase um))
+             (= (nth 2 item) concepto))
+      (setq exacto item)))
+  (if exacto
+    (cons (nth 2 exacto) (nth 4 exacto))
+    (progn
+      (setq words (urb:ppto-words concepto))
+      (setq best nil best-n 0 second 0.0)
+      (foreach item vocab
+        (if (and (urb:ppto-zona-aplica-p item zn)
+                 (= (nth 1 item) (strcase um)))
+          (progn
+            (setq score (urb:ppto-score words (nth 3 item)))
+            (if (>= score 0.5)
+              (progn
+                (setq best-n (1+ best-n))
+                (cond
+                  ((or (null best) (> score (cadr best)))
+                    (setq second (if best (cadr best) 0.0))
+                    (setq best (list item score)))
+                  ((> score second) (setq second score))))))))
+      (if (and best (or (= best-n 1) (> (cadr best) second)))
+        (cons (nth 2 (car best)) (nth 4 (car best)))
+        (list 'HUERFANA best-n)))))
+
 (defun urb:ppto-process-item (item vocab dwg / m espec red-count ekey evalue
-                              valido capitulo entry)
-  (setq ekey (urb:ppto-equiv-key (nth 0 item) (nth 1 item)))
+                              valido capitulo entry zona zn)
+  (setq zona
+    (if (> (length item) 10) (urb:safe-string (nth 10 item) "") ""))
+  ;; clave con zona: el mismo concepto dentro y fuera del parque son
+  ;; vinculaciones DISTINTAS (decisiones y equivalencias separadas)
+  (setq ekey
+    (if (= zona "")
+      (urb:ppto-equiv-key (nth 0 item) (nth 1 item))
+      (strcat (nth 0 item) "|" (urb:ppto-normalize zona) "|"
+        (urb:ppto-normalize (nth 1 item)))))
   (setq evalue (cdr (assoc ekey *urb-ppto-equiv*)))
   (if evalue
     (progn
       (setq valido nil
-            capitulo (cdr (assoc (nth 0 item) *urb-ppto-red-capitulo*)))
+            capitulo (cdr (assoc (nth 0 item) *urb-ppto-red-capitulo*))
+            zn (if (= zona "") nil (urb:ppto-normalize zona)))
       (foreach entry vocab
-        (if (and (urb:ppto-cap-match-p (nth 0 entry) capitulo)
+        (if (and (if zn
+                   (urb:ppto-zona-aplica-p entry zn)
+                   (urb:ppto-cap-match-p (nth 0 entry) capitulo))
                  (= (nth 1 entry) (strcase (nth 7 item)))
                  (= (nth 2 entry) evalue))
           (setq valido T)))
@@ -21904,7 +22098,9 @@
     (setq espec evalue)
     (progn
       (setq m
-        (urb:ppto-match (nth 0 item) (nth 7 item) (nth 1 item) vocab))
+        (if (= zona "")
+          (urb:ppto-match (nth 0 item) (nth 7 item) (nth 1 item) vocab)
+          (urb:ppto-match-zona zona (nth 7 item) (nth 1 item) vocab)))
       (if (eq (car m) 'HUERFANA)
         (progn
           (setq espec
@@ -21926,7 +22122,12 @@
         entry *urb-ppto-matches*))
     (setq *urb-ppto-matches*
       (cons
-        (list ekey (nth 0 item) (nth 1 item) (strcase (nth 7 item))
+        (list ekey (nth 0 item)
+          ;; con zona, el concepto se muestra con su parque para
+          ;; distinguirlo del mismo concepto fuera del parque
+          (if (= zona "") (nth 1 item)
+            (strcat (nth 1 item) " @ " zona))
+          (strcase (nth 7 item))
           (cond
             (evalue "ASIGNADA")
             ((wcmatch espec "`[SIN MATCH*") "PENDIENTE")
@@ -21938,7 +22139,12 @@
   (setq *urb-ppto-por-red*
     (cons (cons (nth 0 item) (1+ (if red-count (cdr red-count) 0)))
       (vl-remove red-count *urb-ppto-por-red*)))
-  (list (nth 0 item) (nth 1 item) espec (nth 2 item) (nth 3 item)
+  ;; con zona, la columna ID (si esta libre) lleva el nombre de la zona
+  ;; para trazabilidad en el libro
+  (list (nth 0 item) (nth 1 item) espec
+    (if (and (/= zona "") (= (urb:safe-string (nth 2 item) "") ""))
+      zona (nth 2 item))
+    (nth 3 item)
     (nth 4 item) (nth 5 item) (nth 6 item) (nth 7 item) (nth 8 item)
     dwg (nth 9 item)))
 
@@ -24129,6 +24335,7 @@
 (defun c:ZONAVERDE () (urb:create-green-zone-command) (princ))
 (defun c:PREFABRICADO () (urb:create-precast-command) (princ))
 (defun c:URBMOBILIARIO () (urb:mobiliario-command) (princ))
+(defun c:ZONAPARQUE () (urb:zona-parque-command) (princ))
 ;; Redes
 (defun c:TSANITARIO () (urb:create-network-segment-direct "segment_sanitary") (princ))
 (defun c:TPLUVIAL () (urb:create-network-segment-direct "segment_storm") (princ))

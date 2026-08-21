@@ -334,7 +334,10 @@ namespace UrbanismoCantidades
                 RibbonPanel cantPanel = MakePanel("Cantidades", new string[][] {
                     new string[] { "Cuadro", "QCUADRO", "qcuadro", "L" },
                     new string[] { "Memoria", "QMEMORIA", "qmemoria", "L" },
-                    new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" } });
+                    new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" },
+                    // 2026-08-20 v4.46: marcar elementos como parte de un
+                    // parque/zona (sus cantidades van al capitulo del parque)
+                    new string[] { "Zona parque", "ZONAPARQUE", "zonaverde", "L" } });
                 cantPanel.Source.Items.Add(MakeExcelGroup());
                 tab.Panels.Add(cantPanel);
                 // solo Ajustes (2026-08-11 v4: "Perfiles" duplicaba la
