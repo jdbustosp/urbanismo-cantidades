@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.49.0")
+(setq *urb-version* "4.50.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -63,6 +63,9 @@
 (setq *urb-anden-grade-source-list*
   '("Via creada" "Cotas seleccionadas" "Alineamiento + cotas"))
 (setq *urb-prefab-list* '("Bordillo" "Sardinel" "Canuela"))
+;; anillo perimetral de anden/sendero (v4.50)
+(setq *urb-anillo-prefab-list* '("Ninguno" "Bordillo" "Sardinel" "Canuela"))
+(setq *urb-anillo-pos-list* '("Externo" "Interno"))
 (setq *urb-prefab-mode-list* '("Interior" "Exterior"))
 (setq *urb-unit-warning-dwg* nil)
 (setq *urb-current-tactile-side-point* nil)
@@ -566,6 +569,14 @@
       ": boxed_column { label = \"Movimiento de tierras\";"
       ": popup_list { label = \"Superficie TN\"; key = \"superficie\"; }"
       ": popup_list { label = \"Rasante desde\"; key = \"rasante\"; }"
+      "}"
+      ;; 2026-08-21 v4.50 (pedido del usuario): anillo de prefabricado
+      ;; alrededor del contorno -- Externo (fuera del area dibujada) o
+      ;; Interno (dentro; el area del anden lo descuenta).
+      ": boxed_column { label = \"Prefabricado perimetral\";"
+      ": popup_list { label = \"Tipo\"; key = \"prefab\"; }"
+      ": popup_list { label = \"Posicion\"; key = \"prefpos\"; }"
+      ": edit_box { label = \"Ancho m\"; key = \"prefancho\"; edit_width = 8; }"
       "} ok_cancel; }"))
 )
 
@@ -637,6 +648,9 @@
       (urb:fill-popup
         "rasante" *urb-anden-grade-source-list*
         (urb:index-of current-grade-source *urb-anden-grade-source-list*))
+      (urb:fill-popup "prefab" *urb-anillo-prefab-list* 0)
+      (urb:fill-popup "prefpos" *urb-anillo-pos-list* 0)
+      (set_tile "prefancho" "0.20")
       (action_tile
         "accept"
         (strcat
@@ -650,7 +664,10 @@
           " *urb-dialog-guia-index* (atoi (get_tile \"guia\"))"
           " *urb-dialog-toperol-index* (atoi (get_tile \"toperol\"))"
           " *urb-dialog-surface-index* (atoi (get_tile \"superficie\"))"
-          " *urb-dialog-grade-index* (atoi (get_tile \"rasante\")))"
+          " *urb-dialog-grade-index* (atoi (get_tile \"rasante\"))"
+          " *urb-dialog-anillo-index* (atoi (get_tile \"prefab\"))"
+          " *urb-dialog-anillo-pos-index* (atoi (get_tile \"prefpos\"))"
+          " *urb-dialog-anillo-ancho* (get_tile \"prefancho\"))"
           "(done_dialog 1)"))
       (setq accepted (= 1 (start_dialog)))
       (unload_dialog dcl-id)
@@ -680,11 +697,21 @@
           ;; Modulacion eliminada del dialogo: la orientacion y el extremo
           ;; conservan lo que paso el llamador (creacion = "Automatico"/
           ;; "Normal"; EDITAR = "Conservar").
+          ;; v4.50: al final van prefab perimetral, posicion y ancho
+          ;; (indices 11-13); los llamadores viejos los ignoran.
           (setq result
             (list current-material current-format current-etapa current-subetapa
                   current-guia current-toperol current-calculate
                   current-surface current-grade-source
-                  current-orientation current-start)))))
+                  current-orientation current-start
+                  (nth *urb-dialog-anillo-index* *urb-anillo-prefab-list*)
+                  (nth *urb-dialog-anillo-pos-index* *urb-anillo-pos-list*)
+                  (max 0.05
+                    (if (distof
+                          (urb:safe-string *urb-dialog-anillo-ancho* "") 2)
+                      (distof
+                        (urb:safe-string *urb-dialog-anillo-ancho* "") 2)
+                      0.20)))))))
   )
   result
 )
@@ -5781,7 +5808,8 @@
   (/ data material format etapa subetapa guia toperol calculate surface
    grade-source ename result block-ref anden-points anden-area
    earthworks-ok orientation-choice start-choice pattern-mode
-   old-fillmode doc undo-open undo-result *error* mod-p1 mod-p2 mod-angle)
+   old-fillmode doc undo-open undo-result *error* mod-p1 mod-p2 mod-angle
+   anillo-ref)
   (setq doc (urb:doc) old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
     (setq *urb-current-tactile-side-point* nil
@@ -5870,8 +5898,31 @@
       (urb:set-anden-pattern-mode ename pattern-mode)
       (setq result
         (urb:build-anden-finish ename material guia toperol format))
+      ;; v4.50: anillo de prefabricado perimetral opcional (Externo =
+      ;; fuera del area; Interno = franja dentro, que el area del anden
+      ;; descuenta al exportar). Se construye ANTES de empaquetar para
+      ;; usar el contorno real (incluye arcos).
+      (setq anillo-ref nil)
+      (if (and result (> (length data) 11)
+               (not (urb:string-equal-p (nth 11 data) "Ninguno")))
+        (progn
+          (setq anillo-ref
+            (vl-catch-all-apply 'urb:build-prefab-anillo
+              (list ename (nth 11 data) (nth 13 data)
+                etapa subetapa (nth 12 data))))
+          (if (vl-catch-all-error-p anillo-ref) (setq anillo-ref nil))))
       (if result
         (setq block-ref (urb:package-anden ename)))
+      ;; vinculo anillo->anden para el descuento de area cuando es Interno
+      (if (and anillo-ref block-ref)
+        (vl-catch-all-apply
+          '(lambda ()
+            (urb:set-xdata-strings
+              (vlax-vla-object->ename anillo-ref)
+              "URB_PREFAB_ANILLO"
+              (list
+                (vla-get-Handle (urb:as-vla-object block-ref))
+                (nth 12 data))))))
       (setvar "FILLMODE" 1)
       (vla-Regen (urb:doc) 1)
       (if block-ref
@@ -7404,6 +7455,88 @@
     (urb:safe-delete source))
   block-ref
 )
+
+;; ---------- prefabricado PERIMETRAL (2026-08-21 v4.50, pedido del
+;; usuario): anillo de prefabricado alrededor de un contorno CERRADO de
+;; anden o sendero. Posicion Externo = el anillo crece hacia AFUERA (el
+;; area dibujada queda intacta); Interno = el anillo ocupa una franja
+;; DENTRO del area dibujada (y el area del anden/sendero la descuenta).
+
+;; offset de un contorno cerrado controlado por AREA: hacia afuera el
+;; area crece y hacia adentro decrece, sin depender del sentido de giro
+(defun urb:offset-anillo (obj width hacia-afuera / a0 pos neg sel)
+  (setq a0 (vla-get-Area obj))
+  (setq pos (urb:offset-candidate obj width))
+  (setq neg (urb:offset-candidate obj (- width)))
+  (cond
+    ((and pos neg)
+      (if (eq (> (vla-get-Area pos) a0) hacia-afuera)
+        (progn (setq sel pos) (urb:safe-delete neg))
+        (progn (setq sel neg) (urb:safe-delete pos))))
+    (pos
+      (if (eq (> (vla-get-Area pos) a0) hacia-afuera)
+        (setq sel pos)
+        (urb:safe-delete pos)))
+    (neg
+      (if (eq (> (vla-get-Area neg) a0) hacia-afuera)
+        (setq sel neg)
+        (urb:safe-delete neg))))
+  sel)
+
+;; construye el anillo como bloque prefabricado estandar (mismas capas,
+;; roles xdata y atributos que un prefabricado normal: cuenta solo al
+;; presupuesto como ML por su longitud). contour NO se consume.
+(defun urb:build-prefab-anillo (contour prefab width etapa subetapa posicion
+                                / src base ring inner outer externo layer
+                                color hatch objects per block-ref)
+  (setq externo (urb:string-equal-p posicion "Externo"))
+  (urb:prepare-prefab-layers prefab)
+  (setq layer (urb:prefab-layer prefab)
+        color (urb:prefab-color prefab))
+  (setq src (vlax-ename->vla-object contour))
+  (setq per (vla-get-Length src))
+  (setq base (vl-catch-all-apply 'vla-Copy (list src)))
+  (if (vl-catch-all-error-p base)
+    nil
+    (progn
+      (setq ring (urb:offset-anillo base width externo))
+      (if (null ring)
+        (progn (urb:safe-delete base) nil)
+        (progn
+          (if externo
+            (setq inner base outer ring)
+            (setq inner ring outer base))
+          (vla-put-Layer inner layer)
+          (vla-put-Layer outer layer)
+          ;; convencion prefab: la arista interior en verde (3)
+          (vla-put-Color inner 3)
+          (vla-put-Color outer color)
+          (urb:tag-generated-role inner (vla-get-Handle base) "INTERIOR")
+          (urb:tag-generated-role outer (vla-get-Handle base) "EXTERIOR")
+          (setq hatch
+            (vl-catch-all-apply
+              '(lambda ()
+                (setq hatch
+                  (vla-AddHatch (urb:space) 1 "SOLID" :vlax-true))
+                (vla-AppendOuterLoop hatch
+                  (urb:object-array-variant (list outer)))
+                (vla-AppendInnerLoop hatch
+                  (urb:object-array-variant (list inner)))
+                (vla-put-Layer hatch layer)
+                (vla-put-Color hatch color)
+                (vla-Evaluate hatch)
+                hatch)))
+          (if (vl-catch-all-error-p hatch)
+            (setq hatch nil)
+            (urb:tag-generated-role hatch (vla-get-Handle base) "RELLENO"))
+          (setq objects
+            (append (list inner outer) (if hatch (list hatch))))
+          (setq block-ref
+            (urb:package-prefab-block objects base prefab width etapa
+              subetapa (if externo "Exterior" "Interior") per))
+          (if (not block-ref)
+            (foreach src objects (urb:safe-delete src)))
+          block-ref)))))
 
 (defun urb:create-prefabricado
   (/ data prefab width etapa subetapa mode ename side-point block-ref)
@@ -20875,6 +21008,11 @@
       ": boxed_column { label = \"Movimiento de tierras\";"
       ": text { key = \"estructura\"; width = 58; }"
       ": text { label = \"La excavacion sale sola al presupuesto: area x espesor de la estructura.\"; } }"
+      ": boxed_column { label = \"Prefabricado perimetral\";"
+      ": popup_list { label = \"Tipo\"; key = \"prefab\"; }"
+      ": popup_list { label = \"Posicion\"; key = \"prefpos\"; }"
+      ": edit_box { label = \"Ancho m\"; key = \"prefancho\"; edit_width = 8; }"
+      ": text { label = \"Externo = fuera del area dibujada; Interno = franja dentro (se descuenta).\"; } }"
       ": text { label = \"Aceptar y CERRAR EL POLIGONO del contorno (como una via o un anden).\"; }"
       ": text { label = \"Puede dibujar varios contornos seguidos; Enter sin dibujar termina.\"; }"
       ": text { label = \"Dentro de un parque: marquelo despues con Localizacion para que sume alla.\"; }"
@@ -20894,7 +21032,7 @@
         (rtos (nth 7 entry) 2 2) " m (capa " (nth 6 entry) ")"))))
 
 (defun urb:sendero-command (/ dclfile dcl done entry ename obj hatch n
-                            etapa sub subs capa)
+                            etapa sub subs capa prefab prefpos prefancho)
   (vl-load-com)
   (setq dclfile (urb:send-write-dcl))
   (if (null dclfile)
@@ -20913,15 +21051,29 @@
           (set_tile "etapa" "0")
           (urb:send-fill-sub 0)
           (urb:send-show-estructura 0)
+          (start_list "prefab")
+          (foreach entry *urb-anillo-prefab-list* (add_list entry))
+          (end_list)
+          (set_tile "prefab" "0")
+          (start_list "prefpos")
+          (foreach entry *urb-anillo-pos-list* (add_list entry))
+          (end_list)
+          (set_tile "prefpos" "0")
+          (set_tile "prefancho" "0.20")
           (action_tile "etapa" "(urb:send-fill-sub (atoi $value))")
           (action_tile "tipo" "(urb:send-show-estructura (atoi $value))")
           ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
-          (setq *urb-send-sel* "0" *urb-send-etapa* "0" *urb-send-sub* "0")
+          (setq *urb-send-sel* "0" *urb-send-etapa* "0" *urb-send-sub* "0"
+                *urb-send-prefab* "0" *urb-send-prefpos* "0"
+                *urb-send-prefancho* "0.20")
           (action_tile "accept"
             (strcat
               "(setq *urb-send-sel* (get_tile \"tipo\")"
               " *urb-send-etapa* (get_tile \"etapa\")"
-              " *urb-send-sub* (get_tile \"subetapa\"))"
+              " *urb-send-sub* (get_tile \"subetapa\")"
+              " *urb-send-prefab* (get_tile \"prefab\")"
+              " *urb-send-prefpos* (get_tile \"prefpos\")"
+              " *urb-send-prefancho* (get_tile \"prefancho\"))"
               "(done_dialog 1)"))
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))
@@ -20943,6 +21095,18 @@
           ;; la capa y las entidades quedan ByLayer
           (setq capa (nth 6 entry))
           (urb:ensure-layer capa (nth 3 entry) T)
+          ;; anillo perimetral opcional (v4.50)
+          (setq prefab
+            (nth (atoi (urb:safe-string *urb-send-prefab* "0"))
+              *urb-anillo-prefab-list*))
+          (setq prefpos
+            (nth (atoi (urb:safe-string *urb-send-prefpos* "0"))
+              *urb-anillo-pos-list*))
+          (setq prefancho
+            (max 0.05
+              (if (distof (urb:safe-string *urb-send-prefancho* "") 2)
+                (distof (urb:safe-string *urb-send-prefancho* "") 2)
+                0.20)))
           (setq n 0)
           (prompt (strcat "\n" (nth 1 entry)
             ": cierre el poligono del contorno (Enter sin dibujar termina)."))
@@ -20950,7 +21114,16 @@
             (setq obj (vlax-ename->vla-object ename))
             (vla-put-Layer obj capa)
             (urb:set-xdata-strings ename "URB_SENDERO"
-              (list (nth 0 entry) etapa sub))
+              (if (urb:string-equal-p prefab "Ninguno")
+                (list (nth 0 entry) etapa sub)
+                ;; con anillo: tipo, posicion y ancho viajan en la xdata
+                ;; (las cantidades saltan las filas PER de la receta y,
+                ;; si es Interno, descuentan la franja del area)
+                (list (nth 0 entry) etapa sub prefab prefpos
+                  (rtos prefancho 2 3))))
+            (if (not (urb:string-equal-p prefab "Ninguno"))
+              (vl-catch-all-apply 'urb:build-prefab-anillo
+                (list ename prefab prefancho etapa sub prefpos)))
             ;; relleno solido en la capa del tipo (color ByLayer) para que
             ;; se LEA el area -- la ciclorruta azul como la referencia
             (setq hatch
@@ -20999,7 +21172,8 @@
 
 ;; filas de presupuesto de los senderos/ciclorrutas/bioswales del plano
 (defun urb:ppto-rows-senderos (/ ss i be entry datos codigo etapa sub area
-                               per obj rows out zona handle receta fila qty)
+                               per obj rows out zona handle receta fila qty
+                               con-anillo)
   (setq ss (ssget "_X" '((0 . "LWPOLYLINE") (-3 ("URB_SENDERO"))))
         out nil i 0)
   (if ss
@@ -21018,6 +21192,18 @@
                 handle (cdr (assoc 5 (entget be)))
                 zona (urb:ppto-zona-de be)
                 rows nil)
+          ;; v4.50: con anillo de prefabricado (xdata pos 4-6) las filas
+          ;; PER de la receta se SALTAN (el prefab cuenta su propio ML) y
+          ;; si el anillo es Interno su franja se descuenta del area
+          (setq con-anillo
+            (/= (urb:safe-string (nth 3 datos) "") ""))
+          (if (and con-anillo
+                   (urb:string-equal-p
+                     (urb:safe-string (nth 4 datos) "") "Interno"))
+            (setq area
+              (max 0.0
+                (- area
+                   (* per (atof (urb:safe-string (nth 5 datos) "0")))))))
           (foreach receta (nth 5 entry)
             (setq qty
               (* (nth 3 receta)
@@ -21025,10 +21211,13 @@
                    ((= (nth 2 receta) "PER") per)
                    ((= (nth 2 receta) "UN") 1.0)
                    (T area))))
-            (setq fila
-              (urb:ppto-row (nth 2 entry) (nth 0 receta)
-                (nth 1 entry) "" "" etapa sub (nth 1 receta) qty handle))
-            (if fila (setq rows (cons fila rows))))
+            (if (not (and con-anillo (= (nth 2 receta) "PER")))
+              (progn
+                (setq fila
+                  (urb:ppto-row (nth 2 entry) (nth 0 receta)
+                    (nth 1 entry) "" "" etapa sub (nth 1 receta) qty
+                    handle))
+                (if fila (setq rows (cons fila rows))))))
           ;; parametricas de la familia (SENDERO o BIOSWALE): AREA,
           ;; PERIMETRO y UNIDAD disponibles para actividades del usuario
           (setq rows
@@ -22222,6 +22411,31 @@
       (setq i (1+ i))))
   out)
 
+;; area de los anillos de prefabricado INTERNOS vinculados a este anden
+;; (xdata URB_PREFAB_ANILLO = handle-del-anden + posicion): su franja
+;; ancho x longitud se descuenta del area del anden -- el prefabricado
+;; ya cuenta su propio ML al presupuesto.
+(defun urb:anden-area-anillos (be / h ss i ce d total)
+  (setq total 0.0
+        h (cdr (assoc 5 (entget be))))
+  (if (and (tblsearch "APPID" "URB_PREFAB_ANILLO")
+           (setq ss (ssget "_X"
+             '((0 . "INSERT") (-3 ("URB_PREFAB_ANILLO"))))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq ce (ssname ss i))
+        (setq d (urb:get-xdata-strings ce "URB_PREFAB_ANILLO"))
+        (if (and d (= (urb:safe-string (car d) "") h)
+                 (urb:string-equal-p
+                   (urb:safe-string (cadr d) "") "Interno"))
+          (setq total
+            (+ total
+               (atof (urb:safe-string
+                 (cdr (assoc "AREA_M2" (mp:att-alist ce))) "0")))))
+        (setq i (1+ i)))))
+  total)
+
 ;; area total de contenedores de raices cuyo punto de insercion cae
 ;; dentro de la caja del anden (2026-08-21, pedido del usuario: el
 ;; contenedor CORTA el anden tambien en CANTIDADES, no solo visualmente).
@@ -22290,6 +22504,11 @@
       ;; si el contenedor se agrega despues de crear el anden, re-EDITE
       ;; el anden para regenerar esos conteos sobre la geometria real.
       (setq area-cont (urb:anden-area-contenedores be 'cont-usados))
+      (if (> area-cont 0.0)
+        (setq area (max 0.0 (- area area-cont))))
+      ;; v4.50: los anillos de prefabricado INTERNOS tambien descuentan
+      ;; su franja del area del anden (el prefab ya cuenta su propio ML)
+      (setq area-cont (urb:anden-area-anillos be))
       (if (> area-cont 0.0)
         (setq area (max 0.0 (- area area-cont))))
       (if (<= corte 0.0) (setq corte (* area *urb-anden-depth*)))
