@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.50.0")
+(setq *urb-version* "4.50.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -10197,8 +10197,23 @@
               "PENDIENTE_PARAMETROS")))
   (mp:validate-tramo-values base vals))
 
+;; Recorte VISUAL del tramo hasta el borde del circulo del pozo (pedido
+;; del usuario 2026-08-21: que se vea el numero del pozo). Solo aplica
+;; cuando AMBOS extremos estan vinculados a un pozo/caja: los flujos de
+;; edicion reconstruyen la geometria desde esos bloques (no desde el
+;; dibujo), asi que el recorte nunca toca las CANTIDADES -- la longitud
+;; real p1-p2 sigue siendo la de presupuesto.
+(defun mp:tramo-visual-gap (vals dist / r)
+  (setq r (max 2.0 *mp-vis-radius*))
+  (if (and (/= (mp:getval "HANDLE_EXTREMO_INI" vals "") "")
+           (/= (mp:getval "HANDLE_EXTREMO_FIN" vals "") "")
+           (> dist (+ (* 2.0 r) 1.0)))
+    r
+    0.0))
+
 (defun mp:insert-cant-tramo
-  (baseb p1 p2 vals / doc ms dist ang blk br vals2 en lay added sync-result)
+  (baseb p1 p2 vals / doc ms dist ang blk br vals2 en lay added sync-result
+   gap p1v distv)
   (vl-load-com)
   ;; La referencia grafica siempre se dibuja en planta. La longitud 3D se
   ;; conserva por separado para trazabilidad, evitando que un desnivel Z
@@ -10216,9 +10231,18 @@
         (mp:alist-set vals2 "ETIQUETA" (mp:label-tramo baseb vals2)))
       (setq vals2
         (mp:alist-set vals2 "PENDIENTE_VIS" (mp:pendiente-label vals2)))
-      (setq blk (mp:tramo-block-name baseb dist))
+      ;; recorte visual: el bloque arranca en el borde del pozo, no en su
+      ;; centro (las cantidades ya quedaron derivadas con p1-p2 reales)
+      (setq gap (mp:tramo-visual-gap vals2 dist))
+      (setq p1v
+        (if (> gap 0.0)
+          (list (+ (car p1) (* gap (cos ang)))
+                (+ (cadr p1) (* gap (sin ang))))
+          p1))
+      (setq distv (if (> gap 0.0) (- dist (* 2.0 gap)) dist))
+      (setq blk (mp:tramo-block-name baseb distv))
       (if (not (tblsearch "BLOCK" blk))
-        (mp:make-cant-tramo-block blk baseb dist vals2))
+        (mp:make-cant-tramo-block blk baseb distv vals2))
       (setq added (mp:ensure-block-schema blk baseb T))
       (if (> added 0)
         (setq sync-result
@@ -10226,7 +10250,7 @@
             (list "_.ATTSYNC" "_N" blk))))
       (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
       (setq ms (vla-get-ModelSpace doc))
-      (setq br (vla-InsertBlock ms (mp:3d p1) blk 1.0 1.0 1.0 (float ang)))
+      (setq br (vla-InsertBlock ms (mp:3d p1v) blk 1.0 1.0 1.0 (float ang)))
       (setq en (vlax-vla-object->ename br))
       (setq lay (mp:vis-layer baseb))
       (if (tblsearch "LAYER" lay) (vla-put-Layer br lay))
@@ -11040,7 +11064,7 @@
 (defun mp:sync-tramo-values
   (ename obj base vals
    / reference p1 p2 span handle-ini handle-fin endpoint-ini endpoint-fin
-   linked-p1 linked-p2 length-2d scale derived)
+   linked-p1 linked-p2 length-2d scale derived gap p1v)
   (setq reference (mp:reference-plan-points obj))
   (if reference
     (progn
@@ -11068,8 +11092,19 @@
                 length-2d (mp:distance-2d p1 p2))
           (if (and (> span 1e-9) (> length-2d 1e-9))
             (progn
-              (setq scale (/ length-2d span))
-              (vla-put-InsertionPoint obj (mp:3d p1))
+              ;; recorte visual hasta el borde del pozo tambien al
+              ;; re-sincronizar (EDITAR): la insercion arranca en el
+              ;; borde y la escala usa la longitud visual, pero p1/p2
+              ;; reales siguen mandando en derive (cantidades intactas)
+              (setq gap (mp:tramo-visual-gap vals length-2d))
+              (setq p1v
+                (if (> gap 0.0)
+                  (list
+                    (+ (car p1) (* gap (cos (angle p1 p2))))
+                    (+ (cadr p1) (* gap (sin (angle p1 p2)))))
+                  p1))
+              (setq scale (/ (- length-2d (* 2.0 gap)) span))
+              (vla-put-InsertionPoint obj (mp:3d p1v))
               (vla-put-Rotation obj (angle p1 p2))
               (vla-put-XScaleFactor obj (float scale))))))
       (setq vals (mp:auto-terrain-values vals p1 p2)
