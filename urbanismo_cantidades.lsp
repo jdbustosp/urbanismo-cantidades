@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.48.0")
+(setq *urb-version* "4.48.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -177,6 +177,7 @@
 (setq *urb-ppto-params-dcl-ok* nil)
 (setq *urb-mob-dcl-ok* nil)
 (setq *urb-send-dcl-ok* nil)
+(setq *urb-rampa-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -16945,10 +16946,80 @@
   (entlast)
 )
 
+;; ---------- ventana previa de RAMPA (2026-08-21, pedido del usuario:
+;; "no me sale ninguna ventana ni siquiera para elegir etapa o
+;; subetapa") -- etapa, subetapa, ancho de banda central y fondo ----------
+(defun urb:rampa-write-dcl ()
+  (urb:write-dialog-dcl
+    "urb_rampa"
+    '*urb-rampa-dcl-ok*
+    (list
+      "urb_rampa : dialog { label = \"Rampa peatonal\";"
+      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
+      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+      ": popup_list { label = \"Ancho banda central m\"; key = \"ancho\"; }"
+      ": edit_box { label = \"Fondo (ancho del anden) m\"; key = \"fondo\"; edit_width = 10; }"
+      ": text { label = \"Despues: punto inicial, direccion del borde y clic al bordillo.\"; }"
+      ": text { label = \"El clic sobre el bordillo puede redefinir el fondo.\"; }"
+      "ok_cancel; }")))
+
+(defun urb:rampa-fill-sub (idx)
+  (start_list "subetapa")
+  (foreach s (urb:subetapas-for (nth idx *urb-etapa-list*)) (add_list s))
+  (end_list)
+  (set_tile "subetapa" "0"))
+
+;; devuelve (etapa subetapa ancho fondo) o nil si cancela
+(defun urb:rampa-dialog (/ dclfile dcl done etapa subs fondo width)
+  (setq dclfile (urb:rampa-write-dcl))
+  (if (null dclfile)
+    (progn
+      (alert "No se pudo preparar la ventana de rampa (revise permisos de la carpeta temporal de Windows).")
+      nil)
+    (progn
+      (setq dcl (load_dialog dclfile))
+      (if (and dcl (> dcl 0) (new_dialog "urb_rampa" dcl))
+        (progn
+          (start_list "etapa")
+          (foreach e *urb-etapa-list* (add_list e))
+          (end_list)
+          (set_tile "etapa" "0")
+          (urb:rampa-fill-sub 0)
+          (start_list "ancho")
+          (add_list "2.00")
+          (add_list "3.00")
+          (end_list)
+          (set_tile "ancho" "0")
+          (set_tile "fondo" (rtos *urb-anden-default-width* 2 2))
+          (action_tile "etapa" "(urb:rampa-fill-sub (atoi $value))")
+          ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
+          (action_tile "accept"
+            (strcat
+              "(setq *urb-rampa-sel* (list (get_tile \"etapa\")"
+              " (get_tile \"subetapa\") (get_tile \"ancho\")"
+              " (get_tile \"fondo\"))) (done_dialog 1)"))
+          (setq done (start_dialog))))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))
+      (if (= done 1)
+        (progn
+          (setq etapa
+            (urb:safe-string
+              (nth (atoi (nth 0 *urb-rampa-sel*)) *urb-etapa-list*) "1"))
+          (setq subs (urb:subetapas-for etapa))
+          (setq width (if (= (nth 2 *urb-rampa-sel*) "1") 3.00 2.00))
+          (setq fondo (distof (nth 3 *urb-rampa-sel*) 2))
+          (if (or (null fondo) (< fondo 0.5))
+            (setq fondo *urb-anden-default-width*))
+          (list etapa
+            (urb:safe-string
+              (nth (atoi (nth 1 *urb-rampa-sel*)) subs) "1")
+            width fondo))
+        nil))))
+
 (defun urb:create-ramp-command
   (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
    depth etapa subetapa axis-angle side-sign block-ref center-pt total-half done
-   ext ext-pt ext-sel ext-cp vproj)
+   ext ext-pt ext-sel ext-cp vproj dlg)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
   ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
   ;; laterales de 0.65 m con adoquin 20x10, fondo = ancho del anden
@@ -16971,35 +17042,22 @@
   ;; Etapa/subetapa arrancan en 1/1 (cambiables en lote).
   (setq depth *urb-anden-default-width*
         side-sign 1.0 width 2.00 etapa "1" subetapa "1" ext 0.0)
-  ;; 2026-08-12 v6: FLUJO MANUAL DIRECTO (pedido del usuario -- el
-  ;; selector de bordillo se elimino porque no reconocia el fondo hasta
-  ;; el bordillo y tocaba digitarlo igual): punto inicial sobre el borde
-  ;; de la via, direccion, ancho/fondo (el fondo se digita si el anden no
-  ;; es de 3.50) y lado del anden.
+  ;; 2026-08-21 v4.48.1 (pedido del usuario): VENTANA previa con etapa,
+  ;; subetapa, ancho de banda y fondo -- el ancho por getkword de la
+  ;; linea de comandos desaparece; el resto del flujo (punto inicial,
+  ;; direccion, clic al bordillo) queda igual.
+  (setq dlg (urb:rampa-dialog))
+  (if dlg
+    (setq etapa (nth 0 dlg) subetapa (nth 1 dlg)
+          width (nth 2 dlg) depth (nth 3 dlg)))
   (setq base-pt
-    (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: "))
+    (if dlg
+      (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: ")))
   (if base-pt
     (setq dir-pt (getpoint base-pt "\nDireccion del borde (eje de la rampa): ")))
   (if dir-pt (setq axis-angle (angle base-pt dir-pt)))
   (if (and base-pt dir-pt axis-angle)
     (progn
-      (setq done nil)
-      (while (not done)
-        (initget "2.00 3.00 Fondo")
-        (setq kw
-          (getkword
-            (strcat "\nAncho de la rampa [2.00/3.00/Fondo]"
-                    " (fondo " (rtos depth 2 2) ") <2.00>: ")))
-        (cond
-          ((= kw "Fondo")
-            (setq depth
-              (getreal
-                (strcat "\nFondo (ancho del anden) en metros <"
-                  (rtos *urb-anden-default-width* 2 2) ">: ")))
-            (if (or (null depth) (< depth 0.5))
-              (setq depth *urb-anden-default-width*)))
-          ((= kw "3.00") (setq width 3.00) (setq done T))
-          (T (setq width 2.00) (setq done T))))
       ;; 2026-08-12 v7 (pedido del usuario): el MISMO clic define el lado
       ;; del anden Y hasta donde llega el FONDO. Se clickea SOBRE el
       ;; BORDILLO donde termina la rampa (con osnap Nearest cae exacto);

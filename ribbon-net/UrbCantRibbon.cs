@@ -326,18 +326,24 @@ namespace UrbanismoCantidades
                 tab.Panels.Add(crearPanel);
                 ShowCrearRoot();
 
-                tab.Panels.Add(MakePanel("Editar", new string[][] {
-                    new string[] { "Editar", "EDITAR", "editar", "L" },
-                    new string[] { "Etapas", "ETAPAS", "etapas", "L" } }));
+                // 2026-08-21 v4.48.1 (pedido del usuario): el panel pasa a
+                // llamarse Elemento (con el boton Editar renombrado a
+                // Elemento) y Etapas se convierte en el desplegable
+                // Ubicacion, que agrupa Etapas y Localizacion (el antiguo
+                // Zona parque, que sale del panel Cantidades).
+                RibbonPanelSource elemSrc = new RibbonPanelSource();
+                elemSrc.Title = "Elemento";
+                elemSrc.Items.Add(MakeBig("Elemento", "EDITAR", "editar"));
+                elemSrc.Items.Add(MakeUbicacionGroup());
+                RibbonPanel elemPanel = new RibbonPanel();
+                elemPanel.Source = elemSrc;
+                tab.Panels.Add(elemPanel);
                 // Cantidades absorbe Excel agrupado en UN boton desplegable
                 // (2026-08-11 v3, pedido del usuario)
                 RibbonPanel cantPanel = MakePanel("Cantidades", new string[][] {
                     new string[] { "Cuadro", "QCUADRO", "qcuadro", "L" },
                     new string[] { "Memoria", "QMEMORIA", "qmemoria", "L" },
-                    new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" },
-                    // 2026-08-20 v4.46: marcar elementos como parte de un
-                    // parque/zona (sus cantidades van al capitulo del parque)
-                    new string[] { "Zona parque", "ZONAPARQUE", "zonaparque", "L" } });
+                    new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" } });
                 cantPanel.Source.Items.Add(MakeExcelGroup());
                 tab.Panels.Add(cantPanel);
                 // solo Ajustes (2026-08-11 v4: "Perfiles" duplicaba la
@@ -492,6 +498,30 @@ namespace UrbanismoCantidades
         // abrir. El sistema Excel generico viejo sigue disponible solo por
         // comando (QEXCEL/QVINCULAR/QACTUALIZAR/QDESVINCULAR), fuera de la
         // cinta.
+        // 2026-08-21 v4.48.1 (pedido del usuario): desplegable Ubicacion en
+        // el panel Elemento -- agrupa Etapas y Localizacion (el comando
+        // ZONAPARQUE, antes boton "Zona parque" en Cantidades).
+        private static RibbonSplitButton MakeUbicacionGroup()
+        {
+            RibbonSplitButton sb = new RibbonSplitButton();
+            sb.Text = "Ubicacion";
+            sb.ShowText = true;
+            sb.ToolTip = "Etapas y localizacion (zona o parque)";
+            sb.Size = RibbonItemSize.Large;
+            sb.Orientation = System.Windows.Controls.Orientation.Vertical;
+            sb.IsSplit = false;
+            sb.IsSynchronizedWithCurrentItem = false;
+            sb.ListStyle = RibbonSplitButtonListStyle.List;
+            BitmapImage img16 = LoadIcon("cant_etapas_16.png");
+            BitmapImage img32 = LoadIcon("cant_etapas_32.png");
+            if (img16 != null) sb.Image = img16;
+            if (img32 != null) sb.LargeImage = img32;
+            sb.ShowImage = true;
+            sb.Items.Add(MakeBig("Etapas", "ETAPAS", "etapas"));
+            sb.Items.Add(MakeBig("Localizacion", "ZONAPARQUE", "zonaparque"));
+            return sb;
+        }
+
         private static RibbonSplitButton MakeExcelGroup()
         {
             RibbonSplitButton sb = new RibbonSplitButton();
