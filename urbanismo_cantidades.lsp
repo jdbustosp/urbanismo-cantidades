@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.47.0")
+(setq *urb-version* "4.48.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -176,6 +176,7 @@
 (setq *urb-ppto-vinc-dcl-ok* nil)
 (setq *urb-ppto-params-dcl-ok* nil)
 (setq *urb-mob-dcl-ok* nil)
+(setq *urb-send-dcl-ok* nil)
 
 (defun urb:safe-string (value default)
   (cond
@@ -7820,7 +7821,7 @@
 (setq *mp-dcl-editar-ok* nil)
 
 (setq *mp-blocks*
-  '("TRAMO_E_MT" "TRAMO_E_BT_AP" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281"
+  '("TRAMO_E_MT" "TRAMO_E_BT_AP" "CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281"
     "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "LUMINARIA_AP" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E"
     "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS" "TRAMO_ACUEDUCTO" "POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO"
     "ACCESORIO_ACUEDUCTO"))
@@ -7830,9 +7831,18 @@
 (setq *mp-extremo-hidro-list*
   '("NINGUNO" "POZO" "SUMIDERO" "ACCESORIO_ACUEDUCTO"))
 (setq *mp-extremo-elec-list*
-  '("NINGUNO" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281"
-    "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "TRANSFORMADOR_AP"
-    "PUNTO_CONEXION_E"))
+  '("NINGUNO" "CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280"
+    "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E"
+    "TRANSFORMADOR_AP" "PUNTO_CONEXION_E"))
+;; Cajas y camaras electricas CODENSA (Likinormas):
+;; CS274 doble para AP/BT (acometidas), CS275 sencilla, CS276 doble MT,
+;; CS280 camara de paso MT, CS281 caja para barraje.
+(setq *mp-caja-elec-list*
+  '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280"
+    "CAJA_BARRAJE_CS281"))
+;; Ubicacion del banco de ductos: define el recubrimiento normativo
+;; (CODENSA CS203/CS207: 0.60 m bajo anden o zona verde, 0.80 m bajo calzada).
+(setq *mp-ubic-elec-list* '("Anden o zona verde" "Calzada"))
 (setq *mp-diam-alc-list* '("6" "8" "10" "12" "14" "15" "16" "18" "20" "24" "27" "30" "33" "36" "48" "51" "54" "64"))
 (setq *mp-diam-acu-list* '("4" "6" "8" "10" "12" "18" "24"))
 (setq *mp-material-acu-list* '("PVC" "WSP" "CCP" "PE" "ACERO" "HDPE" "OTRO"))
@@ -7850,8 +7860,8 @@
 (setq *mp-diam-ducto-list* '("2\"" "3\"" "4\"" "6\""))
 (setq *mp-mat-ducto-list* '("PVC" "IMC" "RMC" "EMT" "OTRO"))
 (setq *mp-cond-bt-list* '("3x4+4 THW" "3x6+6 THW" "3x8+8 THW" "2x4 THW" "2x6 THW" "1x4 THW" "1x6 THW" "OTRO"))
-(setq *mp-elem-elec-list* '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "LUMINARIA_AP" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E"))
-(setq *mp-lum-list* '("RALED II" "AREALED II" "OTRA"))
+(setq *mp-elem-elec-list* '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "LUMINARIA_AP" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E"))
+(setq *mp-lum-list* '("DECOLED 100 W" "RALED II" "AREALED II" "OTRA"))
 (setq *mp-led-list* '("32 LED" "48 LED" "64 LED" "160 LED" "OTRO"))
 
 (defun mp:layer (name color / doc layers lay)
@@ -8104,7 +8114,7 @@
     "POZO_INI" "POZO_FIN" "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
     "DIAMETRO" "DIAMETRO_SALIDA" "MATERIAL" "LONGITUD" "PENDIENTE" "SERIE" "CIRCUITO" "CIRCUITO_AP"
     "DESDE" "HASTA" "CONDUCTORES" "CONDUCTOR" "CALIBRE" "MATERIAL_COND" "DUCTOS" "DIAM_DUCTO"
-    "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD" "TIPO_CAJA" "TIPO_LUMINARIA" "FUENTE_LED"
+    "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD" "UBICACION" "TIPO_CAJA" "TIPO_LUMINARIA" "FUENTE_LED"
     "ALTURA_M" "BRAZO_M" "AVANCE_M" "TIPO_SE" "LOTE" "CD" "PF" "ENTRADAS" "SALIDAS" "CELDAS"
     "TIPO_ACCESORIO" "TIPO_EXTREMO_INI" "TIPO_EXTREMO_FIN"
     "HANDLE_EXTREMO_INI" "HANDLE_EXTREMO_FIN" "LONGITUD_2D" "LONGITUD_3D"
@@ -8198,7 +8208,7 @@
       "CIRCUITO_AP" "DESDE" "HASTA" "POZO_INI" "POZO_FIN"
       "DIAMETRO" "MATERIAL" "PENDIENTE" "CONDUCTORES" "CONDUCTOR"
       "DUCTOS" "DIAM_DUCTO" "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD"
-      "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
+      "UBICACION" "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
       "LONGITUD" "ANCHO_ZANJA" "EXCAVACION_M3" "CAMA_M3"
       "VOLUMEN_ELEMENTO_M3" "RELLENO_M3" "TRITURADO_M3" "RECEBO_M3"
       "ENTIBADO_LE3_M2" "ENTIBADO_GT3_M2" "SOBRANTE_M3"
@@ -8222,6 +8232,7 @@
           ("MATERIAL_DUCTO" "Material ducto" "PVC")
           ("LIBRES" "Ductos libres" "")
           ("PROFUNDIDAD" "Profundidad m" "")
+          ("UBICACION" "Ubicacion ducteria" "Anden o zona verde")
           ("COTA_TN_INI" "Cota terreno ini" "")
           ("COTA_TN_FIN" "Cota terreno fin" "")))
       ((= bname "TRAMO_E_BT_AP")
@@ -8236,6 +8247,7 @@
           ("MATERIAL_DUCTO" "Material ducto" "PVC")
           ("LIBRES" "Ductos libres" "")
           ("PROFUNDIDAD" "Profundidad m" "")
+          ("UBICACION" "Ubicacion ducteria" "Anden o zona verde")
           ("COTA_TN_INI" "Cota terreno ini" "")
           ("COTA_TN_FIN" "Cota terreno fin" "")))
       (T
@@ -8263,7 +8275,7 @@
 (defun mp:write-dcl (/ fn f)
   (mp:reset-dialog-capture)
   (setq *mp-dialog-edit-mode* nil)
-  (setq fn (urb:temp-file "maipore_listas_v10" ".dcl"))
+  (setq fn (urb:temp-file "maipore_listas_v11" ".dcl"))
   (if (and *mp-dcl-listas-ok* (findfile fn))
     fn
     (progn
@@ -8284,17 +8296,16 @@
   (write-line ": text { label = \"Las cotas TN se toman de SUP_TN al marcar los extremos.\"; } ok_cancel; }" f)
 
   (write-line "maipore_tramo_mt : dialog { label = \"Maipore - Tramo MT PPTO\"; : boxed_column {" f)
-  (write-line ": edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; }" f)
   (write-line (mp:dcl-etapa-str) f)
-  (write-line ": edit_box { label = \"Circuito\"; key = \"circuito\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
+  (write-line ": popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; }" f)
-  (write-line ": edit_box { label = \"Ductos libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad de zanja m\"; key = \"prof\"; edit_width = 12; } : text { label = \"Cotas TN: automaticas desde SUP_TN al marcar los extremos.\"; } : text { label = \"Cantidades de construccion: pendientes de parametros.\"; } } ok_cancel; }" f)
+  (write-line ": popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : text { label = \"Excavacion y relleno automaticos (norma CODENSA CS203).\"; } } ok_cancel; }" f)
 
   (write-line "maipore_tramo_bt : dialog { label = \"Maipore - Tramo BT/AP PPTO\"; : boxed_column {" f)
-  (write-line ": edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; }" f)
   (write-line (mp:dcl-etapa-str) f)
-  (write-line ": edit_box { label = \"Circuito AP/BT\"; key = \"circuito\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
-  (write-line ": popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : edit_box { label = \"Ductos libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad de zanja m\"; key = \"prof\"; edit_width = 12; } : text { label = \"Cotas TN: automaticas desde SUP_TN al marcar los extremos.\"; } : text { label = \"Cantidades de construccion: pendientes de parametros.\"; } } ok_cancel; }" f)
+  (write-line ": popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
+  (write-line ": popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; }" f)
+  (write-line ": popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : text { label = \"Excavacion y relleno automaticos (norma CODENSA CS203).\"; } } ok_cancel; }" f)
 
   ;; Se mantienen los formularios de puntos/accesorios para compatibilidad con los comandos existentes.
   (write-line (strcat "maipore_elem_elec : dialog { label = \"Maipore - Elemento electrico\"; : boxed_column { : popup_list { label = \"Tipo elemento\"; key = \"blk\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 26; } : edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } " (mp:dcl-etapa-str) " : edit_box { label = \"Lote / circuito\"; key = \"lote\"; edit_width = 26; } : edit_box { label = \"CD\"; key = \"cd\"; edit_width = 20; } : edit_box { label = \"PF\"; key = \"pf\"; edit_width = 20; } : popup_list { label = \"Luminaria\"; key = \"lum\"; } : popup_list { label = \"Fuente LED\"; key = \"led\"; } : edit_box { label = \"Altura montaje m\"; key = \"altura\"; edit_width = 12; } : edit_box { label = \"Brazo m\"; key = \"brazo\"; edit_width = 12; } : edit_box { label = \"Avance m\"; key = \"avance\"; edit_width = 12; } } ok_cancel; }") f)
@@ -8361,16 +8372,15 @@
 (defun mp:dialog-tramo-mt (/ dcl ok res etapa)
   (setq dcl (load_dialog (mp:write-dcl)))
   (if (not (new_dialog "maipore_tramo_mt" dcl)) (exit))
-  (set_tile "serie" "1")
   (mp:fill-popup "etapa" *mp-etapa-list* 0)
   (mp:update-subetapa)
   (mp:fill-popup "cond" *mp-cond-mt-list* 3)
   (mp:fill-popup "ductos" *mp-ductos-list* 5)
   (mp:fill-popup "diamducto" *mp-diam-ducto-list* 3)
   (mp:fill-popup "matducto" *mp-mat-ducto-list* 0)
-  (mp:fill-popup "tipo_ini" *mp-extremo-elec-list* 1)
-  (mp:fill-popup "tipo_fin" *mp-extremo-elec-list* 1)
-  (set_tile "libres" "0")
+  (mp:fill-popup "tipo_ini" *mp-extremo-elec-list* 3)
+  (mp:fill-popup "tipo_fin" *mp-extremo-elec-list* 3)
+  (mp:fill-popup "ubic" *mp-ubic-elec-list* 0)
   (action_tile "etapa" "(mp:update-subetapa)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
   (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
@@ -8379,12 +8389,12 @@
     (progn
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
       (setq res
-        (list (cons "SERIE" (mp:gettile "serie")) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-              (cons "CIRCUITO" (mp:gettile "circuito")) (cons "DESDE" "") (cons "HASTA" "")
+        (list (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
+              (cons "DESDE" "") (cons "HASTA" "")
               (cons "CONDUCTORES" (mp:item *mp-cond-mt-list* "cond")) (cons "CONDUCTOR" (mp:item *mp-cond-mt-list* "cond"))
               (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos")) (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto"))
-              (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto")) (cons "LIBRES" (mp:gettile "libres"))
-              (cons "PROFUNDIDAD" (mp:gettile "prof"))
+              (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto"))
+              (cons "UBICACION" (mp:item *mp-ubic-elec-list* "ubic"))
               (cons "TIPO_EXTREMO_INI" (mp:item *mp-extremo-elec-list* "tipo_ini"))
               (cons "TIPO_EXTREMO_FIN" (mp:item *mp-extremo-elec-list* "tipo_fin"))))))
   (unload_dialog dcl)
@@ -8393,16 +8403,15 @@
 (defun mp:dialog-tramo-bt (/ dcl ok res etapa)
   (setq dcl (load_dialog (mp:write-dcl)))
   (if (not (new_dialog "maipore_tramo_bt" dcl)) (exit))
-  (set_tile "serie" "6")
   (mp:fill-popup "etapa" *mp-etapa-list* 0)
   (mp:update-subetapa)
   (mp:fill-popup "cond" *mp-cond-bt-list* 0)
   (mp:fill-popup "ductos" *mp-ductos-list* 0)
   (mp:fill-popup "diamducto" *mp-diam-ducto-list* 1)
   (mp:fill-popup "matducto" *mp-mat-ducto-list* 0)
-  (mp:fill-popup "tipo_ini" *mp-extremo-elec-list* 1)
-  (mp:fill-popup "tipo_fin" *mp-extremo-elec-list* 1)
-  (set_tile "libres" "0")
+  (mp:fill-popup "tipo_ini" *mp-extremo-elec-list* 3)
+  (mp:fill-popup "tipo_fin" *mp-extremo-elec-list* 3)
+  (mp:fill-popup "ubic" *mp-ubic-elec-list* 0)
   (action_tile "etapa" "(mp:update-subetapa)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
   (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
@@ -8411,12 +8420,11 @@
     (progn
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
       (setq res
-        (list (cons "SERIE" (mp:gettile "serie")) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-              (cons "CIRCUITO_AP" (mp:gettile "circuito")) (cons "DESDE" "") (cons "HASTA" "")
+        (list (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
+              (cons "DESDE" "") (cons "HASTA" "")
               (cons "CONDUCTOR" (mp:item *mp-cond-bt-list* "cond")) (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos"))
               (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto")) (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto"))
-              (cons "LIBRES" (mp:gettile "libres"))
-              (cons "PROFUNDIDAD" (mp:gettile "prof"))
+              (cons "UBICACION" (mp:item *mp-ubic-elec-list* "ubic"))
               (cons "TIPO_EXTREMO_INI" (mp:item *mp-extremo-elec-list* "tipo_ini")) (cons "TIPO_EXTREMO_FIN" (mp:item *mp-extremo-elec-list* "tipo_fin"))))))
   (unload_dialog dcl)
   res)
@@ -8429,7 +8437,7 @@
     ((= base "SUMIDERO") "PPTO-ALC-PLUVIAL")
     ((= base "ACCESORIO_ACUEDUCTO") "PPTO-ACCESORIOS-ACUEDUCTO")
     ((= base "LUMINARIA_AP") "PPTO-ELECTRICA-BT-AP")
-    ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E")) "PPTO-EQUIPOS-ELECTRICOS")
+    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E")) "PPTO-EQUIPOS-ELECTRICOS")
     (T "PPTO-EQUIPOS-ELECTRICOS")))
 
 (defun mp:point-color (base)
@@ -8439,7 +8447,7 @@
     ((= base "SUMIDERO") 3)
     ((= base "ACCESORIO_ACUEDUCTO") 5)
     ((= base "LUMINARIA_AP") 2)
-    ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E")) 6)
+    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E")) 6)
     (T 7)))
 
 
@@ -8453,7 +8461,7 @@
         ("SUPERFICIE_TN" "Superficie de terreno" "SUP_TN")
         ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE")
         ("ORIGEN_CREACION" "Origen de creacion" "MANUAL")))
-    ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281"))
+    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281"))
       '(("ETAPA" "Etapa" "") ("SUBETAPA" "Subetapa" "") ("ID" "ID / Codigo" "")
         ("TIPO_CAJA" "Tipo caja" "") ("DUCTOS" "Ductos" "") ("LIBRES" "Libres" "")
         ("PROFUNDIDAD" "Profundidad" "") ("CD" "CD" "") ("PF" "PF" "")
@@ -8498,7 +8506,7 @@
   (setq lab (mp:label-point base vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
   (cond
-    ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "SUBESTACION_E" "CDMT_E"))
+    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "SUBESTACION_E" "CDMT_E"))
       (setq pl (vla-AddLightWeightPolyline blk (mp:var-dbls (list (- r) (- r) r (- r) r r (- r) r))))
       (vla-put-Closed pl :vlax-true) (vla-put-Layer pl lay) (vla-put-Color pl col) (vla-put-ConstantWidth pl (float (/ r 3.0))))
     ((= base "SUMIDERO")
@@ -8562,10 +8570,62 @@
   (unload_dialog dcl)
   res)
 
+;; ---------- Numeracion automatica de elementos electricos ----------
+;; MT no traia numeracion (alumbrado si): al abrir el dialogo se propone
+;; el siguiente ID libre por tipo, escaneando los bloques ya insertados
+;; en el dibujo. El usuario puede sobreescribirlo si quiere otro codigo.
+(defun mp:elec-id-prefix (base)
+  (cond
+    ((= base "CAMARA_CS274") "C274-")
+    ((= base "CAMARA_CS275") "C275-")
+    ((= base "CAMARA_CS276") "C276-")
+    ((= base "CAMARA_CS280") "C280-")
+    ((= base "CAJA_BARRAJE_CS281") "B281-")
+    ((= base "POSTE_ELEC") "P-")
+    ((= base "SUBESTACION_E") "SE-")
+    ((= base "CDMT_E") "CD-")
+    ((= base "TRANSFORMADOR_AP") "TR-")
+    ((= base "PUNTO_CONEXION_E") "PC-")
+    ((= base "LUMINARIA_AP") "AP-")
+    (T "")))
+
+(defun mp:next-elec-id (base / pref ss i en atts id num mx)
+  (setq pref (mp:elec-id-prefix base) mx 0)
+  (if (= pref "")
+    ""
+    (progn
+      (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_*"))))
+      (if ss
+        (progn
+          (setq i 0)
+          (repeat (sslength ss)
+            (setq en (ssname ss i))
+            (if (= (mp:point-reference-base en) base)
+              (progn
+                (setq atts (mp:att-alist en))
+                (setq id
+                  (strcase
+                    (urb:safe-string
+                      (cdr (assoc
+                        (if (= base "LUMINARIA_AP") "CODIGO" "ID") atts))
+                      "")))
+                (if (= (strcase pref) (substr id 1 (strlen pref)))
+                  (progn
+                    (setq num (atoi (substr id (1+ (strlen pref)))))
+                    (if (> num mx) (setq mx num))))))
+            (setq i (1+ i)))))
+      (strcat pref
+        (if (< (1+ mx) 10)
+          (strcat "0" (itoa (1+ mx)))
+          (itoa (1+ mx)))))))
+
 (defun mp:dialog-caja-electrica (/ dcl ok etapa res tipo)
   (setq dcl (load_dialog (mp:write-dcl-puntos)))
   (if (not (new_dialog "maipore_caja_elec" dcl)) (exit))
-  (mp:fill-popup "tipo" '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281") 0)
+  (mp:fill-popup "tipo" *mp-caja-elec-list* 2)
+  (set_tile "id" (mp:next-elec-id (nth 2 *mp-caja-elec-list*)))
+  (action_tile "tipo"
+    "(set_tile \"id\" (mp:next-elec-id (nth (atoi (get_tile \"tipo\")) *mp-caja-elec-list*)))")
   (mp:fill-popup "etapa" *mp-etapa-list* 0)
   (mp:update-subetapa)
   (action_tile "etapa" "(mp:update-subetapa)")
@@ -8575,10 +8635,10 @@
   (if ok
     (progn
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
-      (setq tipo (mp:item '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281") "tipo"))
+      (setq tipo (mp:item *mp-caja-elec-list* "tipo"))
       (setq res
         (list (cons "BLK" tipo) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-              (cons "ID" (mp:gettile "id")) (cons "TIPO_CAJA" (cond ((= tipo "CAMARA_CS276") "CS276") ((= tipo "CAMARA_CS280") "CS280") (T "CS281")))
+              (cons "ID" (mp:gettile "id")) (cons "TIPO_CAJA" (mp:tipo-caja-de tipo))
               (cons "DUCTOS" (mp:gettile "ductos")) (cons "LIBRES" (mp:gettile "libres")) (cons "PROFUNDIDAD" (mp:gettile "prof"))
               (cons "CD" (mp:gettile "cd")) (cons "PF" (mp:gettile "pf"))))))
   (unload_dialog dcl)
@@ -8669,7 +8729,7 @@
   ;; dialogos de EDICION: los tiles etapa/subetapa se conservan siempre
   ;; (grises si las etapas estan deshabilitadas)
   (setq *mp-dialog-edit-mode* T)
-  (setq fn (urb:temp-file "maipore_editar_v12" ".dcl"))
+  (setq fn (urb:temp-file "maipore_editar_v13" ".dcl"))
   (if (and *mp-dcl-editar-ok* (findfile fn))
     fn
     (progn
@@ -8681,9 +8741,9 @@
   (write-line ": boxed_column { label = \"Cotas\"; : edit_box { label = \"Cota terreno inicial (automatica SUP_TN)\"; key = \"ctni\"; edit_width = 12; } : edit_box { label = \"Cota terreno final (automatica SUP_TN)\"; key = \"ctnf\"; edit_width = 12; } : edit_box { label = \"Cota clave inicial\"; key = \"ccini\"; edit_width = 12; } : edit_box { label = \"Cota clave final\"; key = \"ccfin\"; edit_width = 12; } }" f)
   (write-line ": boxed_column { label = \"Cantidades de construccion\"; : edit_box { label = \"Ancho de zanja m\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama m\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion m\"; key = \"repos\"; edit_width = 12; } } ok_cancel; }" f)
 
-  (write-line "edit_tramo_mt : dialog { label = \"Editar PPTO - Media tension\"; : boxed_column { : edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Circuito\"; key = \"circuito\"; edit_width = 26; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : edit_box { label = \"Ductos libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad\"; key = \"prof\"; edit_width = 12; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } } ok_cancel; }" f)
+  (write-line "edit_tramo_mt : dialog { label = \"Editar PPTO - Media tension\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : text { label = \"Profundidad y excavacion: automaticas por norma CODENSA.\"; } } ok_cancel; }" f)
 
-  (write-line "edit_tramo_bt : dialog { label = \"Editar PPTO - Alumbrado / BT\"; : boxed_column { : edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Circuito AP/BT\"; key = \"circuito\"; edit_width = 26; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : edit_box { label = \"Ductos libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad\"; key = \"prof\"; edit_width = 12; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } } ok_cancel; }" f)
+  (write-line "edit_tramo_bt : dialog { label = \"Editar PPTO - Alumbrado / BT\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : text { label = \"Profundidad y excavacion: automaticas por norma CODENSA.\"; } } ok_cancel; }" f)
 
   (write-line "edit_punto_hidro : dialog { label = \"Editar PPTO - Pozo / Sumidero\"; : boxed_column { : text { key = \"redtxt\"; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Diametro\"; key = \"diam\"; } : edit_box { label = \"Cota terreno (automatica SUP_TN)\"; key = \"ctn\"; edit_width = 12; } : edit_box { label = \"Cota clave\"; key = \"cclave\"; edit_width = 12; } : edit_box { label = \"Profundidad\"; key = \"prof\"; edit_width = 12; } } ok_cancel; }" f)
 
@@ -8743,16 +8803,16 @@
   (setq dcl (load_dialog (mp:write-dcl-editar)))
   (if (not (new_dialog "edit_tramo_mt" dcl)) (exit))
   (setq *mp-edit-subetapa-current* (mp:attval atts "SUBETAPA" ""))
-  (set_tile "serie" (mp:attval atts "SERIE" "1"))
   (mp:fill-popup-val "etapa" *mp-etapa-list* (mp:attval atts "ETAPA" "1")) (mp:subetapa-fill-current)
-  (set_tile "circuito" (mp:attval atts "CIRCUITO" "")) (set_tile "desde" (mp:attval atts "DESDE" "")) (set_tile "hasta" (mp:attval atts "HASTA" ""))
+  (set_tile "desde" (mp:attval atts "DESDE" "")) (set_tile "hasta" (mp:attval atts "HASTA" ""))
   (mp:fill-popup-val "tipo_ini" *mp-extremo-elec-list* (mp:attval atts "TIPO_EXTREMO_INI" "CAMARA_CS276"))
   (mp:fill-popup-val "tipo_fin" *mp-extremo-elec-list* (mp:attval atts "TIPO_EXTREMO_FIN" "CAMARA_CS276"))
   (mp:fill-popup-val "cond" *mp-cond-mt-list* (mp:attval atts "CONDUCTOR" (mp:attval atts "CONDUCTORES" "")))
   (mp:fill-popup-val "ductos" *mp-ductos-list* (mp:attval atts "DUCTOS" "6"))
   (mp:fill-popup-val "diamducto" *mp-diam-ducto-list* (mp:attval atts "DIAM_DUCTO" "6\""))
   (mp:fill-popup-val "matducto" *mp-mat-ducto-list* (mp:attval atts "MATERIAL_DUCTO" "PVC"))
-  (set_tile "libres" (mp:attval atts "LIBRES" "")) (set_tile "prof" (mp:attval atts "PROFUNDIDAD" "")) (set_tile "long" (mp:attval atts "LONGITUD" "")) (mode_tile "long" 1)
+  (mp:fill-popup-val "ubic" *mp-ubic-elec-list* (mp:attval atts "UBICACION" "Anden o zona verde"))
+  (set_tile "long" (mp:attval atts "LONGITUD" "")) (mode_tile "long" 1)
   (set_tile "anchoz" (mp:attval atts "ANCHO_ZANJA" ""))
   (set_tile "cama" (mp:attval atts "ESPESOR_CAMA" "0.10"))
   (set_tile "repos" (mp:attval atts "ANCHO_REPOSICION" ""))
@@ -8760,12 +8820,13 @@
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)") (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
   (start_dialog)
   (if ok (progn (setq etapa (mp:item *mp-etapa-list* "etapa"))
-    (setq res (list (cons "SERIE" (mp:gettile "serie")) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-                    (cons "TIPO_RED" "MT") (cons "CIRCUITO" (mp:gettile "circuito")) (cons "DESDE" (mp:gettile "desde")) (cons "HASTA" (mp:gettile "hasta"))
+    (setq res (list (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
+                    (cons "TIPO_RED" "MT") (cons "DESDE" (mp:gettile "desde")) (cons "HASTA" (mp:gettile "hasta"))
                     (cons "CONDUCTORES" (mp:item *mp-cond-mt-list* "cond")) (cons "CONDUCTOR" (mp:item *mp-cond-mt-list* "cond"))
                     (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos")) (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto"))
-                    (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto")) (cons "LIBRES" (mp:gettile "libres"))
-                    (cons "PROFUNDIDAD" (mp:gettile "prof"))
+                    (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto"))
+                    (cons "UBICACION" (mp:item *mp-ubic-elec-list* "ubic"))
+                    (cons "PROFUNDIDAD" "")
                     (cons "ANCHO_ZANJA" (mp:gettile "anchoz"))
                     (cons "ESPESOR_CAMA" (mp:gettile "cama"))
                     (cons "ANCHO_REPOSICION" (mp:gettile "repos"))
@@ -8777,17 +8838,15 @@
   (setq dcl (load_dialog (mp:write-dcl-editar)))
   (if (not (new_dialog "edit_tramo_bt" dcl)) (exit))
   (setq *mp-edit-subetapa-current* (mp:attval atts "SUBETAPA" ""))
-  (set_tile "serie" (mp:attval atts "SERIE" "6"))
   (mp:fill-popup-val "etapa" *mp-etapa-list* (mp:attval atts "ETAPA" "1")) (mp:subetapa-fill-current)
-  (set_tile "circuito" (mp:attval atts "CIRCUITO_AP" "")) (set_tile "desde" (mp:attval atts "DESDE" "")) (set_tile "hasta" (mp:attval atts "HASTA" ""))
+  (set_tile "desde" (mp:attval atts "DESDE" "")) (set_tile "hasta" (mp:attval atts "HASTA" ""))
   (mp:fill-popup-val "tipo_ini" *mp-extremo-elec-list* (mp:attval atts "TIPO_EXTREMO_INI" "CAMARA_CS276"))
   (mp:fill-popup-val "tipo_fin" *mp-extremo-elec-list* (mp:attval atts "TIPO_EXTREMO_FIN" "CAMARA_CS276"))
   (mp:fill-popup-val "cond" *mp-cond-bt-list* (mp:attval atts "CONDUCTOR" ""))
   (mp:fill-popup-val "ductos" *mp-ductos-list* (mp:attval atts "DUCTOS" "1"))
   (mp:fill-popup-val "diamducto" *mp-diam-ducto-list* (mp:attval atts "DIAM_DUCTO" "3\""))
   (mp:fill-popup-val "matducto" *mp-mat-ducto-list* (mp:attval atts "MATERIAL_DUCTO" "PVC"))
-  (set_tile "libres" (mp:attval atts "LIBRES" "0"))
-  (set_tile "prof" (mp:attval atts "PROFUNDIDAD" ""))
+  (mp:fill-popup-val "ubic" *mp-ubic-elec-list* (mp:attval atts "UBICACION" "Anden o zona verde"))
   (set_tile "anchoz" (mp:attval atts "ANCHO_ZANJA" ""))
   (set_tile "cama" (mp:attval atts "ESPESOR_CAMA" "0.10"))
   (set_tile "repos" (mp:attval atts "ANCHO_REPOSICION" ""))
@@ -8796,12 +8855,12 @@
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)") (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
   (start_dialog)
   (if ok (progn (setq etapa (mp:item *mp-etapa-list* "etapa"))
-    (setq res (list (cons "SERIE" (mp:gettile "serie")) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-                    (cons "TIPO_RED" (mp:attval atts "TIPO_RED" "BT")) (cons "CIRCUITO_AP" (mp:gettile "circuito")) (cons "DESDE" (mp:gettile "desde")) (cons "HASTA" (mp:gettile "hasta"))
+    (setq res (list (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
+                    (cons "TIPO_RED" (mp:attval atts "TIPO_RED" "BT")) (cons "DESDE" (mp:gettile "desde")) (cons "HASTA" (mp:gettile "hasta"))
                     (cons "CONDUCTOR" (mp:item *mp-cond-bt-list* "cond")) (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos"))
                     (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto")) (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto"))
-                    (cons "LIBRES" (mp:gettile "libres"))
-                    (cons "PROFUNDIDAD" (mp:gettile "prof"))
+                    (cons "UBICACION" (mp:item *mp-ubic-elec-list* "ubic"))
+                    (cons "PROFUNDIDAD" "")
                     (cons "ANCHO_ZANJA" (mp:gettile "anchoz"))
                     (cons "ESPESOR_CAMA" (mp:gettile "cama"))
                     (cons "ANCHO_REPOSICION" (mp:gettile "repos"))
@@ -8852,7 +8911,7 @@
 (defun mp:edit-dialog-caja-elec (atts base / dcl ok etapa res typelist)
   (setq dcl (load_dialog (mp:write-dcl-editar)))
   (if (not (new_dialog "edit_caja_elec" dcl)) (exit))
-  (setq typelist '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281"))
+  (setq typelist *mp-caja-elec-list*)
   (mp:fill-popup-val "tipo" typelist base)
   (setq *mp-edit-subetapa-current* (mp:attval atts "SUBETAPA" ""))
   (mp:fill-popup-val "etapa" *mp-etapa-list* (mp:attval atts "ETAPA" "1")) (mp:subetapa-fill-current)
@@ -8864,7 +8923,7 @@
   (if ok (progn (setq etapa (mp:item *mp-etapa-list* "etapa"))
     (setq base (mp:item typelist "tipo"))
     (setq res (list (cons "BLOQUE_BASE" base) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-                    (cons "ID" (mp:gettile "id")) (cons "TIPO_CAJA" (cond ((= base "CAMARA_CS276") "CS276") ((= base "CAMARA_CS280") "CS280") (T "CS281")))
+                    (cons "ID" (mp:gettile "id")) (cons "TIPO_CAJA" (mp:tipo-caja-de base))
                     (cons "DUCTOS" (mp:gettile "ductos")) (cons "LIBRES" (mp:gettile "libres"))
                     (cons "PROFUNDIDAD" (mp:gettile "prof")) (cons "CD" (mp:gettile "cd")) (cons "PF" (mp:gettile "pf"))))))
   (unload_dialog dcl) res)
@@ -8897,8 +8956,8 @@
       '("TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS" "TRAMO_ACUEDUCTO"
         "TRAMO_E_MT" "TRAMO_E_BT_AP" "POZO_SANITARIO"
         "POZO_PLUVIAL" "SUMIDERO" "ACCESORIO_ACUEDUCTO"
-        "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281"
-        "LUMINARIA_AP"))))
+        "CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280"
+        "CAJA_BARRAJE_CS281" "LUMINARIA_AP"))))
 
 (defun mp:editable-entity-p (en / obj bname atts base)
   (and en
@@ -8924,7 +8983,7 @@
           ((= base "TRAMO_E_BT_AP") (mp:edit-dialog-tramo-bt atts))
           ((member base '("POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO")) (mp:edit-dialog-punto-hidro atts base))
           ((= base "ACCESORIO_ACUEDUCTO") (mp:edit-dialog-acc-acu atts))
-          ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281")) (mp:edit-dialog-caja-elec atts base))
+          ((member base *mp-caja-elec-list*) (mp:edit-dialog-caja-elec atts base))
           ((= base "LUMINARIA_AP") (mp:edit-dialog-luminaria atts))
           (T nil)))
       (if vals
@@ -9069,13 +9128,23 @@
     (progn
       (setq last-char (substr p (strlen p) 1))
       (if (= last-char "%") p (strcat p "%")))))
+;; Codigo corto de norma (CS274..CS281) a partir del nombre de bloque base.
+(defun mp:tipo-caja-de (base)
+  (cond
+    ((= base "CAMARA_CS274") "CS274")
+    ((= base "CAMARA_CS275") "CS275")
+    ((= base "CAMARA_CS276") "CS276")
+    ((= base "CAMARA_CS280") "CS280")
+    ((= base "CAJA_BARRAJE_CS281") "CS281")
+    (T base)))
+
 (defun mp:label-point (base vals / id)
   (setq id (mp:getval "ID" vals (mp:getval "CODIGO" vals "")))
   (cond
     ((= base "POZO_SANITARIO") id)
     ((= base "POZO_PLUVIAL") id)
     ((= base "SUMIDERO") (strcat "SUM " id))
-    ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281")) (strcat (mp:getval "TIPO_CAJA" vals base) " " id))
+    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281")) (strcat (mp:getval "TIPO_CAJA" vals base) " " id))
     ((= base "ACCESORIO_ACUEDUCTO") (strcat (mp:getval "TIPO_ACCESORIO" vals "ACC") " D" (mp:getval "DIAMETRO" vals "") " " id))
     ((= base "LUMINARIA_AP") (strcat "LUM " (mp:getval "CODIGO" vals id)))
     (T (strcat base " " id))))
@@ -9549,6 +9618,21 @@
     (if valid (setq result (append result (list item)))))
   (if (> (length result) 1) result nil))
 
+;; Profundidad normativa de zanja electrica (CODENSA Likinormas CS203/CS207):
+;; recubrimiento minimo sobre el banco de ductos de 0.60 m bajo anden o
+;; zona verde y 0.80 m bajo calzada, mas la altura del banco. El banco se
+;; arma en columnas (mismas columnas que mp:default-trench-width:
+;; ceil(sqrt(ductos))), con 0.05 m de separacion entre filas y 0.05 m de
+;; base de asiento.
+(defun mp:elec-normative-depth (vals ducts duct-d / ubic recub columns filas altura)
+  (setq ubic (strcase (mp:safe-str (mp:getval "UBICACION" vals ""))))
+  (setq recub (if (vl-string-search "CALZADA" ubic) 0.80 0.60))
+  (setq ducts (max 1.0 ducts))
+  (setq columns (max 1 (fix (+ (sqrt ducts) 0.999999))))
+  (setq filas (max 1 (fix (+ (/ ducts (float columns)) 0.999999))))
+  (setq altura (+ 0.05 (* filas duct-d) (* (1- filas) 0.05)))
+  (+ recub altura))
+
 (defun mp:default-trench-width
   (base vals depth / diameter ducts columns width minimum diameter-in table-width)
   (if (mp:hydro-tramo-p base)
@@ -9859,15 +9943,23 @@
       (if (<= width 1e-9)
         (setq width (mp:default-trench-width base vals critical-depth))))
     (progn
-      (setq depth-mean
-        (max 0.0 (mp:number-or (mp:getval "PROFUNDIDAD" vals "0") 0.0))
-            depth-ini depth-mean
-            depth-fin depth-mean
-            ducts (max 0.0 (mp:number-or (mp:getval "DUCTOS" vals "0") 0.0))
+      (setq ducts (max 0.0 (mp:number-or (mp:getval "DUCTOS" vals "0") 0.0))
             duct-diameter
               (* 0.0254 (mp:number-or (mp:getval "DIAM_DUCTO" vals "0") 0.0))
             element-volume
               (* ducts pi 0.25 duct-diameter duct-diameter length-value))
+      ;; Tramos electricos: profundidad SIEMPRE normativa (CODENSA) a
+      ;; partir de la ubicacion (anden/calzada) y el banco de ductos.
+      ;; Antes dependia de un dato manual que casi nunca se digitaba y la
+      ;; excavacion salia en 0.
+      (setq depth-mean
+        (if (and (> ducts 0.0) (> duct-diameter 0.0))
+          (mp:elec-normative-depth vals ducts duct-diameter)
+          (max 0.0 (mp:number-or (mp:getval "PROFUNDIDAD" vals "0") 0.0))))
+      (setq depth-ini depth-mean
+            depth-fin depth-mean)
+      (setq vals (mp:alist-set vals "PROFUNDIDAD"
+                   (if (> depth-mean 0.0) (rtos depth-mean 2 3) "")))
       (setq vals (mp:alist-set vals "PROFUNDIDAD_INI"
                    (if (> depth-mean 0.0) (rtos depth-mean 2 3) ""))
             vals (mp:alist-set vals "PROFUNDIDAD_FIN"
@@ -10052,7 +10144,10 @@
   (setq dcl (load_dialog (mp:write-dcl)))
   (if (and dcl (new_dialog "maipore_elem_elec" dcl))
     (progn
-      (mp:fill-popup "blk" *mp-elem-elec-list* 0)
+      (mp:fill-popup "blk" *mp-elem-elec-list* 2)
+      (set_tile "id" (mp:next-elec-id (nth 2 *mp-elem-elec-list*)))
+      (action_tile "blk"
+        "(set_tile \"id\" (mp:next-elec-id (nth (atoi (get_tile \"blk\")) *mp-elem-elec-list*)))")
       (mp:fill-popup "etapa" *mp-etapa-list* 0)
       (mp:update-subetapa)
       (mp:fill-popup "lum" *mp-lum-list* 0)
@@ -10431,15 +10526,10 @@
         (list
           (cons "COTA_TN_INI" (mp:getval "COTA_TN_INI" vals ""))
           (cons "COTA_CLAVE_INI" (mp:getval "COTA_CLAVE_INI" vals ""))))))
-  (if (member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281"))
+  (if (member base *mp-caja-elec-list*)
     (setq result
       (append result
-        (list
-          (cons "TIPO_CAJA"
-            (cond
-              ((= base "CAMARA_CS276") "CS276")
-              ((= base "CAMARA_CS280") "CS280")
-              (T "CS281")))))))
+        (list (cons "TIPO_CAJA" (mp:tipo-caja-de base))))))
   (if (= base "ACCESORIO_ACUEDUCTO")
     (setq result
       (append result
@@ -10688,6 +10778,8 @@
       (progn
         (setq base (cdr (assoc "BLK" data)))
         (setq vals (vl-remove (assoc "BLK" data) data))
+        (if (= (urb:safe-string (cdr (assoc "ID" vals)) "") "")
+          (setq vals (mp:alist-set vals "ID" (mp:next-elec-id base))))
         (mp:insert-cant-point base p vals))))
   (princ))
 
@@ -10705,6 +10797,10 @@
       (progn
         (setq base (cdr (assoc "BLK" data)))
         (setq vals (vl-remove (assoc "BLK" data) data))
+        (if (= (urb:safe-string (cdr (assoc "ID" vals)) "") "")
+          (progn
+            (setq vals (mp:alist-set vals "ID" (mp:next-elec-id base)))
+            (setq vals (mp:alist-set vals "CODIGO" (mp:next-elec-id base)))))
         (mp:insert-cant-point base p vals))))
   (princ))
 
@@ -18289,7 +18385,7 @@
         (mp:getval "TIPO_RED" atts base)
         " | Diam. " (mp:getval "DIAMETRO" atts "-")
         " | profundidad " (mp:getval "PROFUNDIDAD" atts "-") " m"))
-    ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281"))
+    ((member base *mp-caja-elec-list*)
       (strcat
         (mp:getval "TIPO_CAJA" atts base)
         " | serie " (mp:getval "SERIE" atts "-")
@@ -20121,7 +20217,23 @@
     ("ALC-PLUVIAL" . "red de alcantarillado pluvial")
     ("RED-GAS" . "red de gas")
     ("ELECTRICA-MT" . "red de media tension")
-    ("ELECTRICA-BT-AP" . "red de baja tension")))
+    ("ELECTRICA-BT-AP" . "red de baja tension")
+    ("SENDERO" . "parques y zonas verdes")))
+
+;; Capitulos ADICIONALES que tambien pertenecen a una red: presupuestos
+;; que separan la misma disciplina en varios capitulos de nivel 3
+;; (p.ej. alumbrado publico va en RED DE ALUMBRADO PUBLICO, no en
+;; "red de baja tension"; la subterranizacion MT va en OBRAS ELECTRICAS).
+(setq *urb-ppto-red-capitulo-alias*
+  '(("ELECTRICA-MT" "obras electricas")
+    ("ELECTRICA-BT-AP" "red de alumbrado publico")))
+
+;; lista completa de capitulos (principal + alias) de una red
+(defun urb:ppto-caps-de (red / base)
+  (setq base (cdr (assoc red *urb-ppto-red-capitulo*)))
+  (if base
+    (cons base (cdr (assoc red *urb-ppto-red-capitulo-alias*)))
+    nil))
 
 (setq *urb-ppto-stopwords*
   '("de" "del" "la" "el" "los" "las" "y" "e" "o" "u" "a" "en"
@@ -20305,9 +20417,10 @@
             (urb:selected-anden-parents selection)
             (urb:selected-prefabs selection)
             (urb:selected-green-zones selection)
-            (urb:mob-selected selection))))
+            (urb:mob-selected selection)
+            (urb:send-selected selection))))
       (if (null entities)
-        (prompt "\nLa seleccion no contiene vias, andenes, prefabricados, zonas verdes ni mobiliario reconocidos.")
+        (prompt "\nLa seleccion no contiene vias, andenes, prefabricados, zonas verdes, mobiliario ni senderos reconocidos.")
         (progn
           (setq nombre
             (getstring T
@@ -20396,6 +20509,217 @@
           (prompt (strcat "\n" (itoa n) " pieza(s) de " (nth 1 entry)
             " insertada(s). Cuentan solas al exportar el presupuesto."))))))
   (princ))
+
+;; ---------- SENDEROS, CICLORRUTA, PLAZOLETA, RAMPA Y BIOSWALE ----------
+;; (2026-08-21, pedido del usuario) Elementos modelados IGUAL que una via
+;; o un anden: se CIERRA EL POLIGONO del contorno (nada de eje + ancho,
+;; correccion explicita del usuario). Cada tipo lleva su receta de
+;; actividades con textos del presupuesto real:
+;;   modo AREA -> cantidad = area x factor (espesores, kg/m2, m2)
+;;   modo PER  -> cantidad = perimetro x factor (bordillos, drenes)
+;; La ciclorruta usa su capitulo propio CICLORRUTA; senderos y plazoleta
+;; viven en los capitulos de parques (marcar con Zona parque). El HINT es
+;; la palabra de la SECCION preferida dentro del parque: una ciclorruta
+;; en PQ10A cae en su seccion CICLORUTA, un sendero en SENDEROS
+;; PEATONALES. El bioswale pertenece a la RED PLUVIAL (pedido explicito)
+;; y su receta es ajustable (composicion aun no definida por el usuario).
+;; catalogo: (codigo etiqueta red color hint receta)
+(setq *urb-send-tipos*
+  '(("SEND-TROTE" "Sendero de trote" "SENDERO" 40 "TROTE"
+      (("Concreto 3000 psi" "M3" "AREA" 0.10)
+       ("Malla electrosoldada" "KG" "AREA" 2.36)
+       ("Subabase granular SBG-B" "M3" "AREA" 0.30)
+       ("Bordillo de confinamiento" "ML" "PER" 1.0)
+       ("MO Escobillado concreto" "M2" "AREA" 1.0)))
+    ("SEND-ECO" "Sendero ecologico" "SENDERO" 74 "SENDERO"
+      (("Concreto 3000 psi" "M3" "AREA" 0.10)
+       ("Malla electrosoldada" "KG" "AREA" 2.36)
+       ("Subabase granular SBG-B" "M3" "AREA" 0.30)
+       ("Bordillo de confinamiento" "ML" "PER" 1.0)
+       ("MO Escobillado concreto" "M2" "AREA" 1.0)))
+    ("PLAZOLETA" "Plazoleta en concreto" "SENDERO" 253 "SENDERO"
+      (("Concreto 3000 psi" "M3" "AREA" 0.10)
+       ("Malla electrosoldada" "KG" "AREA" 2.36)
+       ("Subabase granular SBG-B" "M3" "AREA" 0.30)
+       ("Bordillo de confinamiento" "ML" "PER" 1.0)
+       ("MO Escobillado concreto" "M2" "AREA" 1.0)))
+    ("CICLORRUTA" "Ciclorruta" "CICLORRUTA" 150 "CICLOR"
+      (("Descapote mecánico de material vegetal (Incluye cargue y retiro externo)"
+         "M2" "AREA" 1.0)
+       ("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
+       ("Suministro, extendida y compactación de Rodadura Asfáltica MD-13"
+         "M3" "AREA" 0.08)
+       ("Subbase granular SBG" "M3" "AREA" 0.30)
+       ("Geotextil tejido 2100" "M2" "AREA" 1.0)
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+         "M3" "AREA" 0.38)
+       ("Bordillo prefabricado A-80" "UN" "PER" 1.25)
+       ("M.O. instalación de bordillo prefabricado" "ML" "PER" 1.0)))
+    ("RAMPA-CONC" "Rampa en concreto (ancho variable)" "RAMPA-PEATONAL" 31 ""
+      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
+       ("Suministro y construcción de remate de rampa en concreto fundido en sitio"
+         "M2" "AREA" 1.0)
+       ("Subbase granular SBG" "M3" "AREA" 0.30)
+       ("Geotextil tejido 2100" "M2" "AREA" 1.0)
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+         "M3" "AREA" 0.40)))
+    ("BIOSWALE" "Bioswale / biorretenedor" "ALC-PLUVIAL" 140 "HUMEDAS"
+      (("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+         "M3" "AREA" 0.60)
+       ("Dren filtro 200 mm (filtro frances)" "ML" "PER" 0.5)
+       ("Jardineria" "M2" "AREA" 1.0)))))
+
+(defun urb:send-write-dcl ()
+  (urb:write-dialog-dcl
+    "urb_sendero"
+    '*urb-send-dcl-ok*
+    (list
+      "urb_sendero : dialog { label = \"Senderos y zonas de parque\";"
+      ": list_box { key = \"tipo\"; label = \"Tipo de elemento\"; width = 60; height = 8; }"
+      ": row { : edit_box { label = \"Etapa\"; key = \"etapa\"; edit_width = 8; } : edit_box { label = \"Subetapa\"; key = \"sub\"; edit_width = 10; } }"
+      ": text { label = \"Aceptar y CERRAR EL POLIGONO del contorno (como una via o un anden).\"; }"
+      ": text { label = \"Puede dibujar varios contornos seguidos; Enter sin dibujar termina.\"; }"
+      ": text { label = \"Dentro de un parque: marquelo despues con Zona parque para que sume alla.\"; }"
+      "ok_cancel; }")))
+
+(defun urb:sendero-command (/ dclfile dcl done entry ename obj hatch n
+                            etapa sub)
+  (vl-load-com)
+  (setq dclfile (urb:send-write-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar la ventana de senderos (revise permisos de la carpeta temporal de Windows).")
+    (progn
+      (setq dcl (load_dialog dclfile))
+      (if (and dcl (> dcl 0) (new_dialog "urb_sendero" dcl))
+        (progn
+          (start_list "tipo")
+          (foreach entry *urb-send-tipos* (add_list (nth 1 entry)))
+          (end_list)
+          (set_tile "tipo" "0")
+          (set_tile "etapa" "1")
+          (set_tile "sub" "GEN")
+          ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
+          (setq *urb-send-sel* "0" *urb-send-etapa* "1" *urb-send-sub* "GEN")
+          (action_tile "accept"
+            (strcat
+              "(setq *urb-send-sel* (get_tile \"tipo\")"
+              " *urb-send-etapa* (get_tile \"etapa\")"
+              " *urb-send-sub* (get_tile \"sub\"))"
+              "(done_dialog 1)"))
+          (setq done (start_dialog))))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))
+      (if (= done 1)
+        (progn
+          (setq entry
+            (nth (atoi (urb:safe-string *urb-send-sel* "0"))
+              *urb-send-tipos*))
+          (setq etapa (urb:safe-string *urb-send-etapa* "1")
+                sub (urb:safe-string *urb-send-sub* "GEN"))
+          (urb:ensure-layer "URB-SENDERO" 92 T)
+          (setq n 0)
+          (prompt (strcat "\n" (nth 1 entry)
+            ": cierre el poligono del contorno (Enter sin dibujar termina)."))
+          (while (setq ename (urb:draw-closed-polyline))
+            (setq obj (vlax-ename->vla-object ename))
+            (vla-put-Layer obj "URB-SENDERO")
+            (vla-put-Color obj (nth 3 entry))
+            (urb:set-xdata-strings ename "URB_SENDERO"
+              (list (nth 0 entry) etapa sub))
+            ;; relleno solido del mismo color para que se LEA el area
+            ;; (la ciclorruta azul como la referencia del usuario)
+            (setq hatch
+              (vl-catch-all-apply
+                '(lambda ()
+                  (setq hatch
+                    (vla-AddHatch (urb:space) 1 "SOLID" :vlax-true))
+                  (vla-AppendOuterLoop hatch (urb:make-loop-array obj))
+                  (vla-put-Layer hatch "URB-SENDERO")
+                  (vla-put-Color hatch (nth 3 entry))
+                  (vla-Evaluate hatch)
+                  hatch)))
+            (if (not (vl-catch-all-error-p hatch))
+              (progn
+                (urb:set-xdata-strings
+                  (vlax-vla-object->ename hatch)
+                  "URB_SENDERO_GEN"
+                  (list (cdr (assoc 5 (entget ename)))))
+                (vl-catch-all-apply
+                  '(lambda ()
+                    (command "_.DRAWORDER"
+                      (vlax-vla-object->ename hatch) "" "_Back")))))
+            (setq n (1+ n))
+            (prompt (strcat "\n" (nth 1 entry) " " (itoa n)
+              " creado. Otro contorno (Enter termina): ")))
+          (prompt (strcat "\n" (itoa n) " elemento(s) de " (nth 1 entry)
+            " creados. Sus cantidades salen solas al exportar."))))))
+  (princ))
+
+;; senderos dentro de una seleccion (contorno directo o su relleno)
+(defun urb:send-selected (selection / i be out datos parent)
+  (setq out nil i 0)
+  (if selection
+    (repeat (sslength selection)
+      (setq be (ssname selection i))
+      (cond
+        ((urb:get-xdata-strings be "URB_SENDERO")
+          (setq out (cons be out)))
+        ((setq datos (urb:get-xdata-strings be "URB_SENDERO_GEN"))
+          (setq parent
+            (vl-catch-all-apply 'handent
+              (list (urb:safe-string (car datos) ""))))
+          (if (and (not (vl-catch-all-error-p parent)) parent)
+            (setq out (cons parent out)))))
+      (setq i (1+ i))))
+  (reverse out))
+
+;; filas de presupuesto de los senderos/ciclorrutas/bioswales del plano
+(defun urb:ppto-rows-senderos (/ ss i be entry datos codigo etapa sub area
+                               per obj rows out zona handle receta fila qty)
+  (setq ss (ssget "_X" '((0 . "LWPOLYLINE") (-3 ("URB_SENDERO"))))
+        out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq be (ssname ss i)
+            datos (urb:get-xdata-strings be "URB_SENDERO")
+            codigo (urb:safe-string (car datos) "")
+            entry (assoc codigo *urb-send-tipos*))
+      (if entry
+        (progn
+          (setq etapa (urb:safe-string (cadr datos) "1")
+                sub (urb:safe-string (caddr datos) "GEN")
+                obj (vlax-ename->vla-object be)
+                area (vla-get-Area obj)
+                per (vla-get-Length obj)
+                handle (cdr (assoc 5 (entget be)))
+                zona (urb:ppto-zona-de be)
+                rows nil)
+          (foreach receta (nth 5 entry)
+            (setq qty
+              (* (nth 3 receta)
+                 (cond
+                   ((= (nth 2 receta) "PER") per)
+                   ((= (nth 2 receta) "UN") 1.0)
+                   (T area))))
+            (setq fila
+              (urb:ppto-row (nth 2 entry) (nth 0 receta)
+                (nth 1 entry) "" "" etapa sub (nth 1 receta) qty handle))
+            (if fila (setq rows (cons fila rows))))
+          ;; parametricas de la familia (SENDERO o BIOSWALE): AREA,
+          ;; PERIMETRO y UNIDAD disponibles para actividades del usuario
+          (setq rows
+            (append rows
+              (urb:ppto-param-rows
+                (if (= codigo "BIOSWALE") "BIOSWALE" "SENDERO")
+                (nth 2 entry)
+                (list (cons "AREA" area) (cons "PERIMETRO" per)
+                      (cons "UNIDAD" 1.0))
+                (nth 1 entry) "" "" etapa sub handle)))
+          (setq rows (urb:ppto-rows+zona rows zona))
+          (if (/= zona "")
+            (setq rows (urb:ppto-rows+hint rows (nth 4 entry))))
+          (foreach r rows (if r (setq out (cons r out))))))
+      (setq i (1+ i))))
+  out)
 
 ;; ---------- configuracion por maquina ----------
 (defun urb:ppto-config-file (/ folder)
@@ -20567,7 +20891,9 @@
     ("TRAMO ACUEDUCTO" "ACUEDUCTO" ("LONGITUD" "EXCAVACION" "UNIDAD"))
     ("POZO SANITARIO" "ALC-SANITARIO" ("PROFUNDIDAD" "UNIDAD"))
     ("POZO PLUVIAL" "ALC-PLUVIAL" ("PROFUNDIDAD" "UNIDAD"))
-    ("SUMIDERO" "ALC-PLUVIAL" ("UNIDAD"))))
+    ("SUMIDERO" "ALC-PLUVIAL" ("UNIDAD"))
+    ("SENDERO" "SENDERO" ("AREA" "PERIMETRO" "UNIDAD"))
+    ("BIOSWALE" "ALC-PLUVIAL" ("AREA" "PERIMETRO" "UNIDAD"))))
 
 ;; etiquetas legibles de las magnitudes (pedido 2026-08-18: la creacion de
 ;; parametros debe leerse como en Revit, no en clave interna)
@@ -20666,7 +20992,7 @@
 
 ;; UM real de una actividad del ppto (para la fila parametrica)
 (defun urb:ppto-param-um (red actividad / entry out cap)
-  (setq out "" cap (cdr (assoc red *urb-ppto-red-capitulo*)))
+  (setq out "" cap (urb:ppto-caps-de red))
   (foreach entry *urb-ppto-vocab*
     (if (and (urb:ppto-cap-match-p (nth 0 entry) cap)
              (= (nth 2 entry) actividad))
@@ -20780,12 +21106,17 @@
 ;; secciones (sin NIVEL) valen para CUALQUIER red del plano -- una misma
 ;; hoja puede traer anden + redes + mas, y la disciplina la decide el
 ;; match por unidad+texto (o la asignacion manual), sin preguntar.
+;; capitulo puede ser una CADENA o una LISTA de capitulos (red con alias)
 (defun urb:ppto-cap-match-p (item-cap capitulo)
-  (or (= item-cap "*") (and capitulo (= item-cap capitulo))))
+  (or (= item-cap "*")
+      (and capitulo
+        (if (listp capitulo)
+          (member item-cap capitulo)
+          (= item-cap capitulo)))))
 
 (defun urb:ppto-match (red um concepto vocab / capitulo words best best-n
                        second item score exacto)
-  (setq capitulo (cdr (assoc red *urb-ppto-red-capitulo*)))
+  (setq capitulo (urb:ppto-caps-de red))
   ;; igualdad EXACTA de descripcion (caso de las actividades parametricas,
   ;; cuyo concepto ES el texto del ppto): gana directo, sin scoring
   (foreach item vocab
@@ -20814,6 +21145,10 @@
               ((or (null best) (> score (cadr best)))
                 (setq second (if best (cadr best) 0.0))
                 (setq best (list item score)))
+              ;; misma actividad DUPLICADA en otra seccion del ppto
+              ;; (texto identico): no es ambiguedad real, no bloquea
+              ((and (= score (cadr best))
+                    (= (nth 2 item) (nth 2 (car best)))) nil)
               ((> score second) (setq second score))))))))
   (cond
     ((and best (> (cadr best) second))
@@ -21876,8 +22211,21 @@
         (T (setq e2 (* 2.0 lng prof-media))))))
   (list e1a e1b e2))
 
+;; "3x185mm2 Al XLPE 15kV" -> "3x185 mm2 Al XLPE 15 kV": separa los
+;; tokens numericos igual que los escribe el presupuesto, para que el
+;; match distinga 3x120 de 3x185 de 3x240.
+(defun urb:elec-cond-tokens (cond)
+  (setq cond (urb:safe-string cond ""))
+  (if (vl-string-search "mm2" cond)
+    (setq cond (vl-string-subst " mm2" "mm2" cond)))
+  (if (vl-string-search "kV" cond)
+    (setq cond (vl-string-subst " kV" "kV" cond)))
+  cond)
+
 (defun urb:ppto-rows-tramos (/ ss i be atts red lng diam mat etapa sub handle
-                             pini pfin id ent rows out r)
+                             pini pfin id ent rows out r ductos-n diam-d
+                             mat-d ctok exc prof anchoz vol-ductos recub
+                             env-banco arena base-gran)
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "TRAMO_*,MP_TRAMO_*")))
         out nil i 0)
   (if ss
@@ -21948,23 +22296,83 @@
           (foreach r rows (if r (setq out (cons r out))))))
       (if (member red '("ELECTRICA-MT" "ELECTRICA-BT-AP"))
         (progn
-          (setq rows
-            (list
-              (urb:ppto-row red
-                (strcat "Ducteria "
-                  (urb:safe-string (cdr (assoc "DIAM_DUCTO" atts)) "") " "
-                  (urb:safe-string (cdr (assoc "MATERIAL_DUCTO" atts)) ""))
-                id "" "" etapa sub "ML"
-                (* lng (atof (urb:safe-string
-                  (cdr (assoc "DUCTOS" atts)) "0"))) handle)
-              (urb:ppto-row red
-                (strcat "Tendido de conductor "
+          ;; datos comunes del banco de ductos
+          (setq ductos-n (urb:safe-string (cdr (assoc "DUCTOS" atts)) "0")
+                diam-d (urb:safe-string (cdr (assoc "DIAM_DUCTO" atts)) "")
+                mat-d (urb:safe-string
+                  (cdr (assoc "MATERIAL_DUCTO" atts)) "PVC")
+                ctok (urb:elec-cond-tokens
                   (urb:safe-string (cdr (assoc "CONDUCTOR" atts)) ""))
-                id "" "" etapa sub "ML" lng handle)
-              (urb:ppto-row red "Excavacion mecanica en material comun"
-                id "" "" etapa sub "M3"
-                (atof (urb:safe-string
-                  (cdr (assoc "EXCAVACION_M3" atts)) "0")) handle)))
+                exc (atof (urb:safe-string
+                  (cdr (assoc "EXCAVACION_M3" atts)) "0"))
+                prof (atof (urb:safe-string
+                  (cdr (assoc "PROFUNDIDAD" atts)) "0"))
+                anchoz (atof (urb:safe-string
+                  (cdr (assoc "ANCHO_ZANJA" atts)) "0"))
+                vol-ductos (atof (urb:safe-string
+                  (cdr (assoc "VOLUMEN_ELEMENTO_M3" atts)) "0"))
+                recub (if (vl-string-search "CALZADA"
+                        (strcase (urb:safe-string
+                          (cdr (assoc "UBICACION" atts)) "")))
+                        0.80 0.60)
+                ;; envolvente de arena = altura del banco x ancho x longitud
+                ;; (CS203: los ductos van embebidos en arena; encima va el
+                ;; relleno compactado hasta la rasante)
+                env-banco (max 0.0 (* (- prof recub) anchoz lng))
+                arena (max 0.0 (- (min exc env-banco) vol-ductos))
+                base-gran (max 0.0 (- exc env-banco)))
+          (if (= red "ELECTRICA-MT")
+            ;; MT: el ppto separa excavacion, arena, base granular,
+            ;; sobrantes, reposicion, banco de ductos, cinta y mandrilado
+            (setq rows
+              (list
+                (urb:ppto-row red
+                  (strcat "Suministro e instalación de banco de ductos "
+                    mat-d "-TDP " ductos-n (chr 216) diam-d)
+                  id "" "" etapa sub "ML" lng handle)
+                (urb:ppto-row red (strcat "Suministro cable " ctok)
+                  id "" "" etapa sub "ML" lng handle)
+                (urb:ppto-row red
+                  (strcat
+                    "Tendido, conexionado e identificación cable " ctok)
+                  id "" "" etapa sub "ML" lng handle)
+                (urb:ppto-row red
+                  "Excavación para canalización MT, incluye cargue"
+                  id "" "" etapa sub "M3" exc handle)
+                (urb:ppto-row red
+                  "Relleno en arena limpia para protección de ductos"
+                  id "" "" etapa sub "M3" arena handle)
+                (urb:ppto-row red
+                  "Relleno y compactación con base granular clase B"
+                  id "" "" etapa sub "M3" base-gran handle)
+                (urb:ppto-row red
+                  "Transporte y disposición final de sobrantes"
+                  id "" "" etapa sub "M3"
+                  (atof (urb:safe-string
+                    (cdr (assoc "SOBRANTE_M3" atts)) "0")) handle)
+                (urb:ppto-row red
+                  "Reposición de pavimento, andén o zona dura afectada"
+                  id "" "" etapa sub "M2"
+                  (atof (urb:safe-string
+                    (cdr (assoc "REPOSICION_M2" atts)) "0")) handle)
+                (urb:ppto-row red
+                  "Cinta de señalización para red de media tensión"
+                  id "" "" etapa sub "ML" lng handle)
+                (urb:ppto-row red
+                  "Limpieza, mandrilado y verificación de ductos MT"
+                  id "" "" etapa sub "ML"
+                  (* lng (atof ductos-n)) handle)))
+            ;; BT / alumbrado: la canalizacion del ppto es todo incluido
+            ;; (excavacion, retiro y relleno dentro del APU de tuberia)
+            (setq rows
+              (list
+                (urb:ppto-row red
+                  (strcat "Suministro e instalación de tuberia "
+                    ductos-n " " diam-d " TDP")
+                  id "" "" etapa sub "ML" lng handle)
+                (urb:ppto-row red
+                  (strcat "Suministro e instalación de cable " ctok)
+                  id "" "" etapa sub "ML" lng handle))))
           (foreach r rows (if r (setq out (cons r out))))))
       (setq i (1+ i))))
   out)
@@ -22010,6 +22418,36 @@
               (strcat
                 (urb:safe-string (cdr (assoc "TIPO_ACCESORIO" atts)) "Accesorio")
                 " " (urb:safe-string (cdr (assoc "DIAMETRO" atts)) ""))
+              id "" "" etapa sub "UN" 1.0 handle))))
+        ;; cajas y camaras electricas: 1 UN a su actividad de norma.
+        ;; CS276/CS280 pertenecen a MT; CS274/CS275/CS281 a alumbrado/BT.
+        ((member base *mp-caja-elec-list*)
+          (setq rows
+            (list (urb:ppto-row
+              (if (member base '("CAMARA_CS276" "CAMARA_CS280"))
+                "ELECTRICA-MT" "ELECTRICA-BT-AP")
+              (cond
+                ((= base "CAMARA_CS274")
+                  "Suministro e instalación Caja de paso en mamposteria según norma CS-274")
+                ((= base "CAMARA_CS275")
+                  "Suministro e instalación Caja de paso en mamposteria según norma CS-275")
+                ((= base "CAMARA_CS276")
+                  "Construcción de caja de inspección doble norma CS276")
+                ((= base "CAMARA_CS280")
+                  "Construcción de cámara de paso MT norma CS280")
+                (T "Caja para barraje norma CS281"))
+              id "" "" etapa sub "UN" 1.0 handle))))
+        ((= base "LUMINARIA_AP")
+          (setq rows
+            (list (urb:ppto-row "ELECTRICA-BT-AP"
+              (strcat "Suministro e instalación de luminaria LED "
+                (urb:safe-string (cdr (assoc "TIPO_LUMINARIA" atts)) ""))
+              (urb:safe-string (cdr (assoc "CODIGO" atts)) id)
+              "" "" etapa sub "UN" 1.0 handle))))
+        ((= base "POSTE_ELEC")
+          (setq rows
+            (list (urb:ppto-row "ELECTRICA-BT-AP"
+              "Suministro e instalación poste de concreto Tipo recto AP"
               id "" "" etapa sub "UN" 1.0 handle)))))
       (cond
         ((= base "POZO_SANITARIO")
@@ -22084,6 +22522,11 @@
   (if (= zona "") rows
     (mapcar '(lambda (f) (if f (append f (list zona)) f)) rows)))
 
+;; hint de seccion (campo 12) -- SOLO sobre filas que ya llevan zona
+(defun urb:ppto-rows+hint (rows hint)
+  (if (= (urb:safe-string hint "") "") rows
+    (mapcar '(lambda (f) (if f (append f (list hint)) f)) rows)))
+
 ;; el item del vocabulario aplica a la zona si su capitulo o su seccion
 ;; (campo 7, nivel 4) contienen el nombre normalizado de la zona
 (defun urb:ppto-zona-aplica-p (entry zn)
@@ -22091,36 +22534,63 @@
       (and (nth 6 entry)
            (vl-string-search zn (nth 6 entry)))))
 
-(defun urb:ppto-match-zona (zona um concepto vocab / zn words best best-n
-                            second item score exacto)
-  (setq zn (urb:ppto-normalize zona))
-  (foreach item vocab
-    (if (and (null exacto)
-             (urb:ppto-zona-aplica-p item zn)
-             (= (nth 1 item) (strcase um))
-             (= (nth 2 item) concepto))
+;; la seccion (nivel 4) del item contiene el hint normalizado
+(defun urb:ppto-hint-aplica-p (item hn)
+  (and (nth 6 item) (vl-string-search hn (nth 6 item))))
+
+;; match (exacto primero, score despues) sobre una lista de candidatas
+(defun urb:ppto-match-zona-1 (cands um concepto / words best best-n second
+                              item score exacto)
+  (foreach item cands
+    (if (and (null exacto) (= (nth 2 item) concepto))
       (setq exacto item)))
   (if exacto
     (cons (nth 2 exacto) (nth 4 exacto))
     (progn
       (setq words (urb:ppto-words concepto))
       (setq best nil best-n 0 second 0.0)
-      (foreach item vocab
-        (if (and (urb:ppto-zona-aplica-p item zn)
-                 (= (nth 1 item) (strcase um)))
+      (foreach item cands
+        (setq score (urb:ppto-score words (nth 3 item)))
+        (if (>= score 0.5)
           (progn
-            (setq score (urb:ppto-score words (nth 3 item)))
-            (if (>= score 0.5)
-              (progn
-                (setq best-n (1+ best-n))
-                (cond
-                  ((or (null best) (> score (cadr best)))
-                    (setq second (if best (cadr best) 0.0))
-                    (setq best (list item score)))
-                  ((> score second) (setq second score))))))))
+            (setq best-n (1+ best-n))
+            (cond
+              ((or (null best) (> score (cadr best)))
+                (setq second (if best (cadr best) 0.0))
+                (setq best (list item score)))
+              ;; texto identico duplicado en otra seccion: no bloquea
+              ((and (= score (cadr best))
+                    (= (nth 2 item) (nth 2 (car best)))) nil)
+              ((> score second) (setq second score))))))
       (if (and best (or (= best-n 1) (> (cadr best) second)))
         (cons (nth 2 (car best)) (nth 4 (car best)))
         (list 'HUERFANA best-n)))))
+
+;; match restringido a la zona; hint (opcional) = palabra de la SECCION
+;; preferida dentro del parque (p.ej. "CICLOR" para que una ciclorruta
+;; dentro de PQ10A caiga en su seccion CICLORUTA y no en SENDEROS).
+;; Si la seccion del hint no puede resolver el concepto, se reintenta
+;; sobre toda la zona (el hint es preferencia, no jaula).
+(defun urb:ppto-match-zona (zona um concepto vocab hint / zn hn item cands
+                            cands-h r)
+  (setq zn (urb:ppto-normalize zona)
+        hn (urb:ppto-normalize (urb:safe-string hint "")))
+  (foreach item vocab
+    (if (and (urb:ppto-zona-aplica-p item zn)
+             (= (nth 1 item) (strcase um)))
+      (setq cands (cons item cands))))
+  (setq cands (reverse cands))
+  (if (/= hn "")
+    (setq cands-h
+      (vl-remove-if-not '(lambda (it) (urb:ppto-hint-aplica-p it hn))
+        cands)))
+  (if cands-h
+    (progn
+      (setq r (urb:ppto-match-zona-1 cands-h um concepto))
+      (if (and (eq (car r) 'HUERFANA) (= (cadr r) 0))
+        (urb:ppto-match-zona-1 cands um concepto)
+        r))
+    (urb:ppto-match-zona-1 cands um concepto)))
 
 (defun urb:ppto-process-item (item vocab dwg / m espec red-count ekey evalue
                               valido capitulo entry zona zn)
@@ -22137,7 +22607,7 @@
   (if evalue
     (progn
       (setq valido nil
-            capitulo (cdr (assoc (nth 0 item) *urb-ppto-red-capitulo*))
+            capitulo (urb:ppto-caps-de (nth 0 item))
             zn (if (= zona "") nil (urb:ppto-normalize zona)))
       (foreach entry vocab
         (if (and (if zn
@@ -22153,7 +22623,9 @@
       (setq m
         (if (= zona "")
           (urb:ppto-match (nth 0 item) (nth 7 item) (nth 1 item) vocab)
-          (urb:ppto-match-zona zona (nth 7 item) (nth 1 item) vocab)))
+          (urb:ppto-match-zona zona (nth 7 item) (nth 1 item) vocab
+            (if (> (length item) 11)
+              (urb:safe-string (nth 11 item) "") ""))))
       (if (eq (car m) 'HUERFANA)
         (progn
           (setq espec
@@ -22299,10 +22771,10 @@
   (setq g (nth idx *urb-pmd-vista*))
   (if g
     (progn
-      (setq capitulo (cdr (assoc (nth 1 g) *urb-ppto-red-capitulo*)))
+      (setq capitulo (urb:ppto-caps-de (nth 1 g)))
       (setq *urb-pmd-cands* nil)
       (foreach entry *urb-pmd-vocab*
-        (if (and (= (nth 0 entry) capitulo)
+        (if (and (urb:ppto-cap-match-p (nth 0 entry) capitulo)
                  (= (nth 1 entry) (nth 3 g)))
           (setq *urb-pmd-cands* (cons (nth 2 entry) *urb-pmd-cands*))))
       (setq *urb-pmd-cands* (reverse *urb-pmd-cands*))
@@ -22363,8 +22835,7 @@
   (foreach m *urb-ppto-matches*
     (if (and (= (urb:ppv-espec m) desc)
              (or (= capitulo "*")
-                 (= (cdr (assoc (nth 1 m) *urb-ppto-red-capitulo*))
-                    capitulo)))
+                 (member capitulo (urb:ppto-caps-de (nth 1 m)))))
       (setq out (cons m out))))
   (reverse out))
 
@@ -22632,8 +23103,8 @@
               (setq i 0 pre-idx nil)
               (foreach tdef *urb-ppto-param-tipos*
                 (if (and (null pre-idx)
-                         (= (cdr (assoc (nth 1 tdef) *urb-ppto-red-capitulo*))
-                            *urb-ppp-pre-cap*))
+                         (member *urb-ppp-pre-cap*
+                           (urb:ppto-caps-de (nth 1 tdef))))
                   (setq pre-idx i))
                 (setq i (1+ i)))
               (if pre-idx (set_tile "tipo" (itoa pre-idx)))))
@@ -23018,8 +23489,7 @@
   (setq out nil)
   (foreach m *urb-ppto-matches*
     (if (and (or (= capitulo "*")
-                 (= (cdr (assoc (nth 1 m) *urb-ppto-red-capitulo*))
-                    capitulo))
+                 (member capitulo (urb:ppto-caps-de (nth 1 m))))
              (= (nth 3 m) (strcase um)))
       (setq out (cons m out))))
   (reverse out))
@@ -23326,7 +23796,8 @@
                   (urb:ppto-rows-rampas)
                   (urb:ppto-rows-tramos)
                   (urb:ppto-rows-puntos)
-                  (urb:ppto-rows-mobiliario)))
+                  (urb:ppto-rows-mobiliario)
+                  (urb:ppto-rows-senderos)))
               ;; 2) match contra el vocabulario vivo (equivalencias del
               ;; LIBRO primero, cascada automatica despues)
               (setq *urb-ppto-stage* "match contra vocabulario")
@@ -23363,7 +23834,8 @@
                         (urb:ppto-rows-rampas)
                         (urb:ppto-rows-tramos)
                         (urb:ppto-rows-puntos)
-                  (urb:ppto-rows-mobiliario)))
+                  (urb:ppto-rows-mobiliario)
+                  (urb:ppto-rows-senderos)))
                     (setq final (urb:ppto-match-all raw vocab dwg))
                     (setq *urb-ppto-final-prev* final))
                   ;; el usuario eligio otra hoja del presupuesto (boton
@@ -23432,7 +23904,8 @@
                           (urb:ppto-rows-rampas)
                           (urb:ppto-rows-tramos)
                           (urb:ppto-rows-puntos)
-                  (urb:ppto-rows-mobiliario)))
+                  (urb:ppto-rows-mobiliario)
+                  (urb:ppto-rows-senderos)))
                       (setq final (urb:ppto-match-all raw vocab dwg))))
                   (setq huerfanas *urb-ppto-huerfanas*
                         total *urb-ppto-total*
@@ -24388,6 +24861,7 @@
 (defun c:ZONAVERDE () (urb:create-green-zone-command) (princ))
 (defun c:PREFABRICADO () (urb:create-precast-command) (princ))
 (defun c:URBMOBILIARIO () (urb:mobiliario-command) (princ))
+(defun c:URBSENDERO () (urb:sendero-command) (princ))
 (defun c:ZONAPARQUE () (urb:zona-parque-command) (princ))
 ;; Redes
 (defun c:TSANITARIO () (urb:create-network-segment-direct "segment_sanitary") (princ))

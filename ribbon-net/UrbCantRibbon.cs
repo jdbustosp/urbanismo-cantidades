@@ -389,6 +389,9 @@ namespace UrbanismoCantidades
                 // 2026-08-19 v4.45: mobiliario urbano (canecas, bancas,
                 // contenedores de raices por tipologia, etc.)
                 AddBigCmd("Mobiliario", "URBMOBILIARIO", "mobiliario");
+                // 2026-08-21 v4.48: senderos/ciclorruta/plazoleta/rampa
+                // en concreto y bioswale por poligono cerrado
+                AddBigCmd("Sendero", "URBSENDERO", "sendero");
             }
             else if (which == "hum")
             {

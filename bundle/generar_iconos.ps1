@@ -230,6 +230,17 @@ New-Icon "zonaparque" { param($g, $s)
   $g.FillEllipse((B $cVerde), 10*$s, 7*$s, 12*$s, 12*$s)
   $g.FillRectangle((B $cNara), 15*$s, 18*$s, 2.5*$s, 7*$s)
 }
+New-Icon "sendero" { param($g, $s)
+  # camino curvo con borde y trazos de sendero, arbusto verde al lado
+  $g.DrawCurve((P $cGrisOs (6*$s)), @(
+    ([System.Drawing.PointF]::new(5*$s, 28*$s)), ([System.Drawing.PointF]::new(13*$s, 20*$s)),
+    ([System.Drawing.PointF]::new(12*$s, 11*$s)), ([System.Drawing.PointF]::new(22*$s, 4*$s))))
+  $penD = P $cAmar (1.4*$s); $penD.DashStyle = 'Dash'
+  $g.DrawCurve($penD, @(
+    ([System.Drawing.PointF]::new(5*$s, 28*$s)), ([System.Drawing.PointF]::new(13*$s, 20*$s)),
+    ([System.Drawing.PointF]::new(12*$s, 11*$s)), ([System.Drawing.PointF]::new(22*$s, 4*$s))))
+  $g.FillEllipse((B $cVerde), 21*$s, 19*$s, 8*$s, 8*$s)
+}
 New-Icon "mediatension" { param($g, $s)
   $g.DrawLine((P $cGris (2*$s)), 16*$s, 6*$s, 16*$s, 28*$s)
   $g.DrawLine((P $cGris (2*$s)), 7*$s, 9*$s, 25*$s, 9*$s)
