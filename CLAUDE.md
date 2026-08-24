@@ -35,5 +35,12 @@ El LSP legado `MAIPORE_BLOQUES_REDES_ELECT_...lsp` sigue en `VARIOS\BLOQUES PPTO
 ## Esquema CLAUDE (multi-PC)
 - Memoria compartida: `..\..\memoria\URBANISMO EXTERNO\` (junction por PC; bloque de
   conexión en `..\..\README.md`).
-- Handoff entre computadores: `..\..\handoffs\urbanismo-externo.md` — actualizarlo al
-  cerrar cada sesión de trabajo.
+- Handoff entre computadores: `..\..\handoffs\urbanismo-externo.md` — es el ÚNICO archivo
+  de continuidad del proyecto (estado actual, qué se consiguió, pendientes, cómo retomar
+  en otro PC). **Actualizarlo EN CADA momento en que se consiga o implemente algo** (una
+  versión nueva, un hallazgo, un cambio de rumbo) — no esperar al cierre de la sesión ni
+  acumular varios logros para documentarlos juntos al final. Si la sesión se corta a medio
+  camino, el handoff debe reflejar hasta dónde se llegó igual. No fragmentar esta bitácora
+  en otros archivos de memoria — todo el resumen de continuidad vive ahí; `PROGRESS.md`
+  sigue aparte como el changelog técnico git-tracked (un commit por versión), pero no
+  reemplaza al handoff para retomar el hilo.

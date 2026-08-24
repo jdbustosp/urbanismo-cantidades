@@ -26,8 +26,9 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows.Data;
 using Autodesk.Windows;
-#if URB_AEC_PROPERTY
 using AcDb = Autodesk.AutoCAD.DatabaseServices;
+using AcLm = Autodesk.AutoCAD.LayerManager;
+#if URB_AEC_PROPERTY
 using AecDb = Autodesk.Aec.DatabaseServices;
 using AecPropDb = Autodesk.Aec.PropertyData.DatabaseServices;
 #endif
@@ -79,7 +80,16 @@ namespace UrbanismoCantidades
                 // clic derecho -> "Mostrar/ocultar memorias" dispara
                 // QMEMORIASEL sobre la seleccion. API estable
                 // (ContextMenuExtension), sin relacion con la paleta.
+                // 2026-08-24: DESHABILITADO en el build .NET 8 (2025+) --
+                // RXObject.GetClass(typeof(AcDb.BlockReference)) crashea con
+                // Access Violation (0xC0000005) al cargar, probablemente por
+                // el desajuste de version AutoCAD.NET/AutoCAD.NET.Core del
+                // csproj (ver NU1608). En 2023 (.NET Framework 4.8) sigue
+                // andando bien. Pendiente investigar el paquete NuGet
+                // correcto antes de reactivar aqui.
+#if !NETCOREAPP
                 AddMemoriasContextMenu();
+#endif
                 if (ComponentManager.Ribbon == null)
                     ComponentManager.ItemInitialized += OnItemInitialized;
                 else
@@ -326,24 +336,30 @@ namespace UrbanismoCantidades
                 tab.Panels.Add(crearPanel);
                 ShowCrearRoot();
 
-                // 2026-08-21 v4.48.1 (pedido del usuario): el panel pasa a
+                // 2026-08-21 v4.48.1 (pedido del usuario): el panel paso a
                 // llamarse Elemento (con el boton Editar renombrado a
-                // Elemento) y Etapas se convierte en el desplegable
+                // Elemento) y Etapas se convirtio en el desplegable
                 // Ubicacion, que agrupa Etapas y Localizacion (el antiguo
                 // Zona parque, que sale del panel Cantidades).
+                // 2026-08-24 (pedido del usuario): el titulo del panel
+                // vuelve a ser Editar (el boton adentro sigue diciendo
+                // Elemento -- es lo que se edita).
                 RibbonPanelSource elemSrc = new RibbonPanelSource();
-                elemSrc.Title = "Elemento";
+                elemSrc.Title = "Editar";
                 elemSrc.Items.Add(MakeBig("Elemento", "EDITAR", "editar"));
                 elemSrc.Items.Add(MakeUbicacionGroup());
                 RibbonPanel elemPanel = new RibbonPanel();
                 elemPanel.Source = elemSrc;
                 tab.Panels.Add(elemPanel);
-                // Cantidades absorbe Excel agrupado en UN boton desplegable
-                // (2026-08-11 v3, pedido del usuario)
+                // 2026-08-24 (pedido del usuario): Cuadro/Memoria/
+                // Verificacion salen de la cinta (siguen disponibles por
+                // comando: QCUADRO/QMEMORIA/QVERIFICACION). Cantidades
+                // gana el boton Filtrar (filtro por etapa/subetapa +
+                // rastreo por texto del presupuesto, antes el filtro vivia
+                // dentro de Localizacion) y sigue absorbiendo Excel
+                // agrupado en UN boton desplegable (2026-08-11 v3).
                 RibbonPanel cantPanel = MakePanel("Cantidades", new string[][] {
-                    new string[] { "Cuadro", "QCUADRO", "qcuadro", "L" },
-                    new string[] { "Memoria", "QMEMORIA", "qmemoria", "L" },
-                    new string[] { "Verificacion", "QVERIFICACION", "qverificacion", "L" } });
+                    new string[] { "Filtrar", "FILTRAR", "filtrar", "L" } });
                 cantPanel.Source.Items.Add(MakeExcelGroup());
                 tab.Panels.Add(cantPanel);
                 // solo Ajustes (2026-08-11 v4: "Perfiles" duplicaba la
@@ -424,6 +440,10 @@ namespace UrbanismoCantidades
                 AddBigCmd("Tramo", "TPLUVIAL", "tpluvial");
                 AddBigCmd("Sumidero", "SUMIDERO", "sumidero");
                 AddBigCmd("Pozo", "POZOPLU", "pozoplu");
+                // 2026-08-24 (pedido del usuario): el bioswale es un
+                // elemento de la red pluvial, no de Sendero -- salio de
+                // ahi y entro aqui.
+                AddBigCmd("Bioswale", "URBBIOSWALE", "bioswale");
             }
             else if (which == "sec")
             {
@@ -652,6 +672,63 @@ namespace UrbanismoCantidades
                     DateTime.Now.ToString("HH:mm:ss") + " " + msg + "\r\n");
             }
             catch { }
+        }
+
+        // 2026-08-24 (pedido del usuario): filtro de capas "URBANISMO" en
+        // el arbol del Administrador de capas, agrupando SOLO las capas
+        // que crea el plugin (prefijo URB-) -- como el filtro nativo
+        // "All non-Xref Layers" que ya existe alli. LayerFilter vive en
+        // Autodesk.AutoCAD.LayerManager (confirmado por reflexion contra
+        // AcDbMgd.dll 25.0.0 -- NO en DatabaseServices.Filters como se
+        // asumio al principio) y solo esta expuesto por AutoCAD.NET (no
+        // hay equivalente en AutoLISP clasico); por eso vive aqui y
+        // Ajustes lo dispara con (command "_URBLAYERFILTER"). Todo en
+        // try/catch: si la API no se comporta como se espera en esta
+        // version, avisa por la linea de comandos en vez de arriesgar el
+        // resto de la cinta.
+        [CommandMethod("URBLAYERFILTER")]
+        public static void CreateLayerFilterCommand()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+            try
+            {
+                AcDb.Database db = doc.Database;
+                AcLm.LayerFilterTree tree = db.LayerFilters;
+                AcLm.LayerFilterCollection root = tree.Root.NestedFilters;
+                AcLm.LayerFilter existing = null;
+                foreach (AcLm.LayerFilter f in root)
+                {
+                    if (string.Equals(f.Name, "URBANISMO",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        existing = f;
+                        break;
+                    }
+                }
+                if (existing == null)
+                {
+                    AcLm.LayerFilter nuevo = new AcLm.LayerFilter();
+                    nuevo.Name = "URBANISMO";
+                    nuevo.FilterExpression = "NAME==\"URB-*\"";
+                    root.Add(nuevo);
+                }
+                else
+                {
+                    existing.FilterExpression = "NAME==\"URB-*\"";
+                }
+                db.LayerFilters = tree;
+                doc.Editor.WriteMessage(
+                    "\nFiltro de capas \"URBANISMO\" listo -- abralo en el"
+                    + " Administrador de capas, arbol de filtros de la"
+                    + " izquierda.");
+            }
+            catch (System.Exception ex)
+            {
+                Log("ERROR URBLAYERFILTER: " + ex.Message);
+                doc.Editor.WriteMessage(
+                    "\nNo se pudo crear el filtro de capas: " + ex.Message);
+            }
         }
 
 #if URB_AEC_PROPERTY

@@ -251,4 +251,31 @@ New-Icon "mediatension" { param($g, $s)
     ([System.Drawing.PointF]::new(18*$s, 22*$s)), ([System.Drawing.PointF]::new(16*$s, 29*$s)),
     ([System.Drawing.PointF]::new(24*$s, 19*$s)), ([System.Drawing.PointF]::new(20*$s, 19*$s))))
 }
+# 2026-08-24 v4.52 (pedido del usuario): el bioswale salio de Sendero y
+# entro a Pluvial como boton propio -- icono propio (celda de biofiltro:
+# ondas azules de agua + relleno verde de vegetacion)
+New-Icon "bioswale" { param($g, $s)
+  $g.FillPolygon((B $cAzul), @(
+    ([System.Drawing.PointF]::new(4*$s, 22*$s)), ([System.Drawing.PointF]::new(28*$s, 22*$s)),
+    ([System.Drawing.PointF]::new(28*$s, 29*$s)), ([System.Drawing.PointF]::new(4*$s, 29*$s))))
+  $pen = P $cVerde (2.4*$s)
+  $g.DrawArc($pen, 3*$s, 2*$s, 10*$s, 10*$s, 200, 140)
+  $g.DrawArc($pen, 11*$s, 2*$s, 10*$s, 10*$s, 200, 140)
+  $g.DrawArc($pen, 19*$s, 2*$s, 10*$s, 10*$s, 200, 140)
+  $g.FillEllipse((B $cVerde), 6*$s, 10*$s, 7*$s, 7*$s)
+  $g.FillEllipse((B $cVerde), 14*$s, 10*$s, 7*$s, 7*$s)
+  $g.FillEllipse((B $cVerde), 20*$s, 12*$s, 6*$s, 6*$s)
+}
+# 2026-08-24 v4.51 (pedido del usuario): icono propio para el boton
+# Filtrar (filtro por etapa/subetapa + rastreo por texto del presupuesto)
+New-Icon "filtrar" { param($g, $s)
+  # lupa: aro azul + mango, con un embudo de filtro adentro
+  $pen = P $cAzul (2.6*$s); $pen.StartCap = 'Round'; $pen.EndCap = 'Round'
+  $g.DrawEllipse($pen, 3*$s, 3*$s, 16*$s, 16*$s)
+  $g.DrawLine($pen, 16*$s, 16*$s, 28*$s, 28*$s)
+  $g.FillPolygon((B $cAmar), @(
+    ([System.Drawing.PointF]::new(6*$s, 7*$s)), ([System.Drawing.PointF]::new(14*$s, 7*$s)),
+    ([System.Drawing.PointF]::new(11*$s, 12*$s)), ([System.Drawing.PointF]::new(11*$s, 16*$s)),
+    ([System.Drawing.PointF]::new(9*$s, 16*$s)), ([System.Drawing.PointF]::new(9*$s, 12*$s))))
+}
 Write-Output "Iconos generados en $dir"

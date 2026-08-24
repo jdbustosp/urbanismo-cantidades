@@ -59,8 +59,16 @@ if (Test-Path $icoDir) {
     Copy-Item $_.FullName (Join-Path $contents ("net\iconos\" + $_.Name)) -Force }
 }
 
-# TRUSTEDPATHS en todos los perfiles de AutoCAD/Civil 3D del usuario
-$trustAdd = $contents
+# TRUSTEDPATHS en todos los perfiles de AutoCAD/Civil 3D del usuario.
+# OJO (2026-08-24): TRUSTEDPATHS solo confia en el nivel EXACTO de la
+# carpeta -- para que incluya subcarpetas (el DLL del ribbon vive en
+# Contents\net\, no en Contents\ directo) hace falta el sufijo "\..." que
+# usa AutoCAD para "esta carpeta y sus subcarpetas" (el mismo que arma el
+# dialogo Opciones > Archivos > Ubicaciones de confianza con "Incluir
+# subcarpetas"). Sin esto, el .lsp (directo en Contents) cargaba sin
+# aviso pero el .dll (en Contents\net) mostraba "Unsigned Executable
+# File" cada vez que se recompilaba.
+$trustAdd = @($contents, ($contents + "\..."))
 $updated = 0
 try {
   Get-ChildItem 'HKCU:\Software\Autodesk\AutoCAD' -ErrorAction Stop | Get-ChildItem | ForEach-Object {
@@ -71,11 +79,13 @@ try {
         if (Test-Path $vars) {
           $tp = (Get-ItemProperty $vars -ErrorAction SilentlyContinue).TRUSTEDPATHS
           if ($null -eq $tp) { $tp = '' }
-          if ($tp.ToLower().IndexOf($trustAdd.ToLower()) -lt 0) {
-            $new = if ($tp -eq '' -or $tp.EndsWith(';')) { $tp + $trustAdd } else { $tp + ';' + $trustAdd }
-            Set-ItemProperty $vars -Name TRUSTEDPATHS -Value $new
-            $updated++
+          foreach ($add in $trustAdd) {
+            if ($tp.ToLower().IndexOf($add.ToLower()) -lt 0) {
+              $tp = if ($tp -eq '' -or $tp.EndsWith(';')) { $tp + $add } else { $tp + ';' + $add }
+              $updated++
+            }
           }
+          Set-ItemProperty $vars -Name TRUSTEDPATHS -Value $tp
         }
       }
     }
