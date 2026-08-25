@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.54.0")
+(setq *urb-version* "4.55.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -11970,6 +11970,58 @@
     (prompt "\nEspesores y anchos guardados para este dibujo."))
   (princ))
 
+;; 2026-08-24 (pedido del usuario): hub "Movimiento de tierras" -- una
+;; sola ventana en Ajustes que reune lo que antes eran 3 botones sueltos:
+;; los sobreanchos/bombeo/intervalo/ancho de anden editables DIRECTO en
+;; la ventana, mas dos botones que abren los administradores complejos
+;; (perfiles estratigraficos y referencia de relleno de redes) y VUELVEN
+;; a esta ventana al cerrar. Reutiliza urb:geometric-settings-capture y
+;; los mismos tiles del dialogo urb_geometria viejo (que sigue existiendo
+;; por codigo pero salio del menu).
+(defun urb:earthworks-config-command (/ filename dcl done again)
+  (setq again T)
+  (while again
+    (setq again nil done nil)
+    (urb:load-geometric-settings)
+    (setq filename (urb:write-main-menu-dcl)
+          dcl (if filename (load_dialog filename) -1))
+    (if (and (> dcl 0) (new_dialog "urb_earthworks" dcl))
+      (progn
+        (set_tile "road_left" (rtos *urb-road-overwidth-left* 2 3))
+        (set_tile "road_right" (rtos *urb-road-overwidth-right* 2 3))
+        (set_tile "road_cross" (rtos (* 100.0 *urb-road-crossfall*) 2 2))
+        (set_tile "road_interval" (rtos *urb-road-earthwork-interval* 2 2))
+        (set_tile "anden_width" (rtos *urb-anden-default-width* 2 2))
+        (action_tile "accept"
+          "(if (urb:geometric-settings-capture) (done_dialog 1))")
+        (action_tile "cancel" "(done_dialog 0)")
+        (action_tile "perfiles" "(done_dialog 2)")
+        (action_tile "fillref" "(done_dialog 3)")
+        (setq done (start_dialog))))
+    (if (> dcl 0) (unload_dialog dcl))
+    (cond
+      ((= done 1)
+        (prompt "\nSobreanchos y parametros de calculo guardados para este dibujo."))
+      ((= done 2) (urb:manage-road-profiles) (setq again T))
+      ((= done 3) (mp:network-fill-reference-command) (setq again T))))
+  (princ))
+
+;; 2026-08-24 (pedido del usuario: "el modelo ya tiene muchas cosas
+;; basura y se esta poniendo lento"): depuracion con el -PURGE nativo.
+;; Varias pasadas de "All" (los bloques anidados solo se liberan cuando
+;; su contenedor ya se purgo) + una de Regapps (las appid huerfanas de
+;; xdata NO caen con All y pesan en dibujos viejos). No toca nada en
+;; uso: -PURGE solo elimina definiciones sin referencias.
+(defun urb:purge-command ()
+  (prompt "\nDepurando definiciones sin uso (3 pasadas)...")
+  (repeat 3
+    (vl-catch-all-apply
+      '(lambda () (command "_.-PURGE" "_A" "*" "_N"))))
+  (vl-catch-all-apply
+    '(lambda () (command "_.-PURGE" "_R" "*" "_N")))
+  (prompt "\nDepuracion terminada: bloques, capas, estilos, grupos y regapps sin uso eliminados. Guarde el dibujo para que el archivo baje de peso.")
+  (princ))
+
 (defun mp:load-tramo-appearance-settings (/ value)
   ;; Ajustes por DWG: al abrir otro proyecto se respetan sus escalas y el
   ;; valor predeterminado sigue disponible en dibujos nuevos.
@@ -17820,18 +17872,27 @@
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
         "urb_config : dialog { label = \"Configuracion de urbanismo\";"
         ": boxed_column { label = \"Bibliotecas\";"
-        ": button { label = \"Perfiles estratigraficos de vias\"; key = \"road_profiles\"; height = 2; width = 40; }"
-        ": button { label = \"Tabla de anchos, bombeo e intervalo\"; key = \"geometry_table\"; height = 2; width = 40; }"
-        ": button { label = \"Etapas y subetapas\"; key = \"etapas_config\"; height = 2; width = 40; }"
-        ": button { label = \"Senderos y prefabricados: espesores y anchos\"; key = \"sendero_config\"; height = 2; width = 40; } }"
+        ": button { label = \"Etapas y subetapas\"; key = \"etapas_config\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Movimiento de tierras\";"
-        ": button { label = \"Referencia de relleno de tramos de red\"; key = \"network_fill_ref\"; height = 2; width = 40; }"
-        ": button { label = \"Recalcular tramos existentes con la referencia actual\"; key = \"recalc_tramos\"; height = 2; width = 40; } }"
+        ": button { label = \"Movimiento de tierras (perfiles, sobreanchos, referencia)\"; key = \"earthworks_config\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Apariencia de redes\";"
         ": button { label = \"Espesor de linea y tamano de datos de tramos\"; key = \"tramo_appearance\"; height = 2; width = 40; } }"
-        ": boxed_column { label = \"Capas\";"
-        ": button { label = \"Organizar capas del plugin (filtro URBANISMO)\"; key = \"layers_organize\"; height = 2; width = 40; } }"
+        ": boxed_column { label = \"Capas y limpieza\";"
+        ": button { label = \"Organizar capas del plugin (filtro URBANISMO)\"; key = \"layers_organize\"; height = 2; width = 40; }"
+        ": button { label = \"Depurar dibujo (purgar elementos basura)\"; key = \"purge_dwg\"; height = 2; width = 40; } }"
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
+        "urb_earthworks : dialog { label = \"Movimiento de tierras\";"
+        ": boxed_column { label = \"Sobreanchos y calculo (vias y andenes)\";"
+        ": row { : text { label = \"Sobreancho izquierdo de via (m)\"; width = 38; } : edit_box { key = \"road_left\"; edit_width = 12; } }"
+        ": row { : text { label = \"Sobreancho derecho de via (m)\"; width = 38; } : edit_box { key = \"road_right\"; edit_width = 12; } }"
+        ": row { : text { label = \"Bombeo de la calzada (%)\"; width = 38; } : edit_box { key = \"road_cross\"; edit_width = 12; } }"
+        ": row { : text { label = \"Intervalo secciones movimiento (m)\"; width = 38; } : edit_box { key = \"road_interval\"; edit_width = 12; } }"
+        ": row { : text { label = \"Ancho predeterminado de anden (m)\"; width = 38; } : edit_box { key = \"anden_width\"; edit_width = 12; } } }"
+        ": boxed_column { label = \"Bibliotecas y referencias\";"
+        ": button { label = \"Perfiles estratigraficos (vias, andenes, redes)...\"; key = \"perfiles\"; height = 2; width = 46; }"
+        ": button { label = \"Referencia de relleno de tramos de red...\"; key = \"fillref\"; height = 2; width = 46; } }"
+        ": text { label = \"OK guarda los sobreanchos; los botones abren su propia ventana y vuelven aqui.\"; }"
+        "ok_cancel; }"
         "urb_etapas : dialog { label = \"Etapas y subetapas\";"
         ": toggle { key = \"activo\"; label = \"Habilitadas (etapa/subetapa activas en los dialogos de creacion)\"; }"
         ": boxed_column { label = \"Catalogo\";"
@@ -21511,7 +21572,7 @@
 ;; guardado en la xdata, pos 6, y aplicado por el colector de filas).
 (defun urb:poly-element-draw (entry etapa sub lado-der lado-izq posicion
                               appid / capa ename obj hatch n con-cost
-                              descuento)
+                              descuento grp)
   (setq capa (nth 6 entry))
   (urb:ensure-layer capa (nth 3 entry) T)
   (setq con-cost
@@ -21542,7 +21603,21 @@
         (vl-catch-all-apply
           '(lambda ()
             (command "_.DRAWORDER"
-              (vlax-vla-object->ename hatch) "" "_Back")))))
+              (vlax-vla-object->ename hatch) "" "_Back")))
+        ;; 2026-08-24 (pedido del usuario): contorno + relleno como UNA
+        ;; unidad de seleccion y borrado -- GRUPO nombrado, no bloque
+        ;; (un bloque romperia la lectura directa de area/perimetro y
+        ;; el match por xdata de los colectores; el grupo hace que un
+        ;; clic seleccione ambos y un Supr borre ambos, que es lo que
+        ;; se pidio). Los prefabricados de los costados NO entran al
+        ;; grupo: son bloques propios, cada uno se borra por separado.
+        (vl-catch-all-apply
+          '(lambda ()
+            (setq grp
+              (vla-Add (vla-get-Groups (urb:doc))
+                (strcat appid "_" (cdr (assoc 5 (entget ename))))))
+            (vla-AppendItems grp
+              (urb:object-array-variant (list obj hatch)))))))
     ;; prefabricado por costados automatico (bloques, sin trazar a mano)
     (setq descuento 0.0)
     (if con-cost
@@ -25763,26 +25838,22 @@
   ;; 2026-08-11: "Cargar perfiles base faltantes" y "Diagnosticar y migrar
   ;; redes" salieron del menu a pedido del usuario (las funciones siguen
   ;; existiendo por codigo); entro "Etapas y subetapas".
+  ;; 2026-08-24 (pedido del usuario): menu compactado -- Perfiles, Tabla
+  ;; de anchos y Referencia de relleno se unificaron en el hub
+  ;; "Movimiento de tierras"; "Senderos y prefabricados" y "Recalcular
+  ;; tramos" salieron del menu (redundantes -- las funciones siguen
+  ;; existiendo por codigo); entro "Depurar dibujo".
   (setq action
     (urb:simple-menu-dialog "urb_config"
-      '(("road_profiles" "road_profiles")
-        ("geometry_table" "geometry_table")
-        ("etapas_config" "etapas_config")
-        ("sendero_config" "sendero_config")
-        ("network_fill_ref" "network_fill_ref")
-        ("recalc_tramos" "recalc_tramos")
+      '(("etapas_config" "etapas_config")
+        ("earthworks_config" "earthworks_config")
         ("tramo_appearance" "tramo_appearance")
-        ("layers_organize" "layers_organize"))))
+        ("layers_organize" "layers_organize")
+        ("purge_dwg" "purge_dwg"))))
   (cond
     ((or (null action) (= action "back")) "back")
-    ((= action "road_profiles") (urb:manage-road-profiles))
-    ((= action "geometry_table") (urb:geometric-settings-command))
     ((= action "etapas_config") (urb:etapas-manager-command))
-    ((= action "sendero_config") (urb:send-config-command))
-    ((= action "network_fill_ref")
-      (mp:network-fill-reference-command))
-    ((= action "recalc_tramos")
-      (mp:recalc-tramos-earthworks-command))
+    ((= action "earthworks_config") (urb:earthworks-config-command))
     ((= action "tramo_appearance")
       (mp:tramo-appearance-command))
     ((= action "layers_organize")
@@ -25790,7 +25861,8 @@
       ;; COMMAND", detectado 2026-08-24) -- llamada directa dentro del
       ;; lambda, solo el catch-all pasa por apply
       (vl-catch-all-apply '(lambda () (command "_URBLAYERFILTER")) nil)
-      (princ)))
+      (princ))
+    ((= action "purge_dwg") (urb:purge-command)))
   (if (or (null action) (= action "back")) "back" nil))
 
 (defun c:URBANISMO (/ action done result)
