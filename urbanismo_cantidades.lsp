@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.57.1")
+(setq *urb-version* "4.57.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -16077,6 +16077,15 @@
 
 (defun urb:cota-stations-cover-p
   (records axis-start axis-end tolerance / item station min-station max-station)
+  ;; 2026-08-25: la tolerancia de borde ahora es 2 x intervalo, alineada
+  ;; con los margenes que YA usan la recoleccion y el snap (+-2
+  ;; intervalos). Caso real del usuario (VIA-02): cotas cada 10 m con
+  ;; intervalo de abscisas de 5 m -- la ultima cota quedaba a 9.84 m del
+  ;; final del tramo, el chequeo exigia <=5 m y DESCARTABA las 22
+  ;; estaciones detectadas, pidiendo cotas manuales. El tramo de borde
+  ;; sin cota se resuelve con la extrapolacion que urb:cota-at-axis-
+  ;; distance ya trae (valor del borde mas cercano).
+  (setq tolerance (* 2.0 tolerance))
   (if (>= (length records) 2)
     (progn
       (foreach item records
@@ -17310,7 +17319,8 @@
    left right width-total design-width geometry-width interval sample-interval direction texts radius span stations raw-stations
    station-start-number coverage
    samples old-mov old-cota0 old-cota-final grade-result totals metodo
-   cota0 cota-final cut fill skipped audit-result)
+   cota0 cota-final cut fill skipped audit-result
+   cov-min cov-max cov-it guard-records)
   (setq *urb-earthwork-stage* "inicio del calculo")
   (setq old-mov (urb:road-movement-data boundary))
   (setq old-cota0
@@ -17451,12 +17461,37 @@
           ;; no deben pedir cotas de nuevo ni cancelar la verificacion
           ;; (reporte del usuario: 7785 textos leidos, 0 cercanos,
           ;; "Function cancelled" en la construccion de la rasante).
+          ;; 2026-08-25: si hay estaciones pero la cobertura fallo,
+          ;; DECIR el hueco real de cada borde (el mensaje generico "No
+          ;; hay suficientes cotas" escondia que habia 22 estaciones
+          ;; buenas descartadas por 9.84 m sin cota en el extremo).
+          (if (and (not coverage) (>= (length stations) 2))
+            (progn
+              (setq cov-min nil cov-max nil)
+              (foreach cov-it stations
+                (if (or (null cov-min) (< (car cov-it) cov-min))
+                  (setq cov-min (car cov-it)))
+                (if (or (null cov-max) (> (car cov-it) cov-max))
+                  (setq cov-max (car cov-it))))
+              (prompt
+                (strcat
+                  "\nCobertura de cotas insuficiente: "
+                  (itoa (length stations)) " estaciones detectadas,"
+                  " hueco al inicio "
+                  (rtos (max 0.0 (- cov-min axis-start)) 2 2)
+                  " m y al final "
+                  (rtos (max 0.0 (- (+ axis-start span) cov-max)) 2 2)
+                  " m (tolerancia "
+                  (rtos (* 2.0 interval) 2 2) " m)."))))
           (if (not coverage)
             (progn
               (setq *urb-earthwork-stage* "rasante guardada")
-              (setq raw-stations
+              ;; 2026-08-25: variable PROPIA -- antes esta rama pisaba
+              ;; raw-stations y el mensaje de abajo mentia "candidatos
+              ;; cercanos: 0" aunque la proyeccion si habia encontrado
+              (setq guard-records
                 (urb:road-design-grade-records boundary data))
-              (if raw-stations
+              (if guard-records
                 (progn
                   ;; records en coordenada LOCAL (0..span) -> distancia
                   ;; RAW sobre el eje, respetando el sentido
@@ -17468,7 +17503,7 @@
                              (- (+ axis-start span) (car r))
                              (+ axis-start (car r)))
                            (cadr r)))
-                      raw-stations))
+                      guard-records))
                   (setq coverage T)
                   (prompt
                     (strcat
