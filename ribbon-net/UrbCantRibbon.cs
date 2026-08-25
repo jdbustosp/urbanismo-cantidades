@@ -674,18 +674,22 @@ namespace UrbanismoCantidades
             catch { }
         }
 
-        // 2026-08-24 (pedido del usuario): filtro de capas "URBANISMO" en
-        // el arbol del Administrador de capas, agrupando SOLO las capas
-        // que crea el plugin (prefijo URB-) -- como el filtro nativo
-        // "All non-Xref Layers" que ya existe alli. LayerFilter vive en
-        // Autodesk.AutoCAD.LayerManager (confirmado por reflexion contra
-        // AcDbMgd.dll 25.0.0 -- NO en DatabaseServices.Filters como se
-        // asumio al principio) y solo esta expuesto por AutoCAD.NET (no
-        // hay equivalente en AutoLISP clasico); por eso vive aqui y
-        // Ajustes lo dispara con (command "_URBLAYERFILTER"). Todo en
-        // try/catch: si la API no se comporta como se espera en esta
-        // version, avisa por la linea de comandos en vez de arriesgar el
-        // resto de la cinta.
+        // 2026-08-24 (pedido del usuario): arbol de filtros de capas en
+        // el Administrador de capas -- "Presupuestos" como carpeta raiz
+        // y adentro una carpeta por especialidad (Urbanismo / Redes
+        // humedas / Redes secas), igual que agrupa el propio panel Crear
+        // de la cinta. LayerFilter vive en Autodesk.AutoCAD.LayerManager
+        // (confirmado por reflexion contra AcDbMgd.dll 25.0.0 -- NO en
+        // DatabaseServices.Filters como se asumio al principio) y solo
+        // esta expuesto por AutoCAD.NET (no hay equivalente en AutoLISP
+        // clasico); por eso vive aqui y Ajustes lo dispara con
+        // (command "_URBLAYERFILTER"). v1 (un solo filtro plano
+        // "URBANISMO" con NAME=="URB-*") se confirmo funcionando en
+        // pantalla -- esta v2 reemplaza ese filtro plano por el arbol de
+        // 3 especialidades; la sintaxis de multiples terminos separados
+        // por coma (OR) todavia no se confirmo en vivo. Todo en
+        // try/catch: si la API no se comporta como se espera, avisa por
+        // la linea de comandos en vez de arriesgar el resto de la cinta.
         [CommandMethod("URBLAYERFILTER")]
         public static void CreateLayerFilterCommand()
         {
@@ -696,32 +700,52 @@ namespace UrbanismoCantidades
                 AcDb.Database db = doc.Database;
                 AcLm.LayerFilterTree tree = db.LayerFilters;
                 AcLm.LayerFilterCollection root = tree.Root.NestedFilters;
-                AcLm.LayerFilter existing = null;
-                foreach (AcLm.LayerFilter f in root)
+
+                // limpia el filtro plano de la v1 si existe (se reemplaza
+                // por el arbol de especialidades)
+                AcLm.LayerFilter viejo = FindLayerFilter(root, "URBANISMO");
+                if (viejo != null) root.Remove(viejo);
+
+                AcLm.LayerFilter presupuestos =
+                    FindLayerFilter(root, "Presupuestos");
+                if (presupuestos == null)
                 {
-                    if (string.Equals(f.Name, "URBANISMO",
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        existing = f;
-                        break;
-                    }
+                    presupuestos = new AcLm.LayerFilter();
+                    presupuestos.Name = "Presupuestos";
+                    root.Add(presupuestos);
                 }
-                if (existing == null)
-                {
-                    AcLm.LayerFilter nuevo = new AcLm.LayerFilter();
-                    nuevo.Name = "URBANISMO";
-                    nuevo.FilterExpression = "NAME==\"URB-*\"";
-                    root.Add(nuevo);
-                }
-                else
-                {
-                    existing.FilterExpression = "NAME==\"URB-*\"";
-                }
+                presupuestos.FilterExpression =
+                    "NAME==\"URB-*\",NAME==\"PPTO-*\",NAME==\"RED-*\","
+                    + "NAME==\"REDES-*\",NAME==\"ACCESORIOS-*\","
+                    + "NAME==\"EQUIPOS-*\"";
+
+                AcLm.LayerFilterCollection hijos = presupuestos.NestedFilters;
+                SetLayerFilterExpression(hijos, "Urbanismo",
+                    "NAME==\"URB-ANDEN*\",NAME==\"URB-VIA*\","
+                    + "NAME==\"URB-RAMPA*\",NAME==\"URB-BORDILLO*\","
+                    + "NAME==\"URB-SARDINEL*\",NAME==\"URB-CANUELA*\","
+                    + "NAME==\"URB-PREFAB*\",NAME==\"URB-ZONA*\","
+                    + "NAME==\"URB-MOBILIARIO*\",NAME==\"URB-SEL*\","
+                    + "NAME==\"URB-TEMP*\",NAME==\"URB-SENDERO*\","
+                    + "NAME==\"URB-PLAZOLETA*\",NAME==\"URB-CICLORRUTA*\","
+                    + "NAME==\"URB-Q-*\"");
+                SetLayerFilterExpression(hijos, "Redes humedas",
+                    "NAME==\"PPTO-ACUEDUCTO*\",NAME==\"PPTO-ALC*\","
+                    + "NAME==\"PPTO-ACCESORIOS*\","
+                    + "NAME==\"REDES-ACUEDUCTO*\","
+                    + "NAME==\"REDES-ALCANTARILLADO*\","
+                    + "NAME==\"ACCESORIOS-ACUEDUCTO*\","
+                    + "NAME==\"URB-BIOSWALE*\"");
+                SetLayerFilterExpression(hijos, "Redes secas",
+                    "NAME==\"PPTO-ELECTRICA*\",NAME==\"PPTO-EQUIPOS*\","
+                    + "NAME==\"RED-ELECTRICA*\","
+                    + "NAME==\"EQUIPOS-ELECTRICOS*\"");
+
                 db.LayerFilters = tree;
                 doc.Editor.WriteMessage(
-                    "\nFiltro de capas \"URBANISMO\" listo -- abralo en el"
-                    + " Administrador de capas, arbol de filtros de la"
-                    + " izquierda.");
+                    "\nFiltros de capas listos: Presupuestos > Urbanismo /"
+                    + " Redes humedas / Redes secas (Administrador de"
+                    + " capas, arbol de filtros de la izquierda).");
             }
             catch (System.Exception ex)
             {
@@ -729,6 +753,31 @@ namespace UrbanismoCantidades
                 doc.Editor.WriteMessage(
                     "\nNo se pudo crear el filtro de capas: " + ex.Message);
             }
+        }
+
+        private static AcLm.LayerFilter FindLayerFilter(
+            AcLm.LayerFilterCollection coll, string name)
+        {
+            foreach (AcLm.LayerFilter f in coll)
+            {
+                if (string.Equals(f.Name, name,
+                        StringComparison.OrdinalIgnoreCase))
+                    return f;
+            }
+            return null;
+        }
+
+        private static void SetLayerFilterExpression(
+            AcLm.LayerFilterCollection coll, string name, string expr)
+        {
+            AcLm.LayerFilter f = FindLayerFilter(coll, name);
+            if (f == null)
+            {
+                f = new AcLm.LayerFilter();
+                f.Name = name;
+                coll.Add(f);
+            }
+            f.FilterExpression = expr;
         }
 
 #if URB_AEC_PROPERTY
