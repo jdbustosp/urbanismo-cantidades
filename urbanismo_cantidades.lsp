@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.55.0")
+(setq *urb-version* "4.56.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -570,13 +570,13 @@
       ": popup_list { label = \"Superficie TN\"; key = \"superficie\"; }"
       ": popup_list { label = \"Rasante desde\"; key = \"rasante\"; }"
       "}"
-      ;; 2026-08-21 v4.50 (pedido del usuario): anillo de prefabricado
-      ;; alrededor del contorno -- Externo (fuera del area dibujada) o
-      ;; Interno (dentro; el area del anden lo descuenta).
-      ": boxed_column { label = \"Prefabricado perimetral\";"
-      ": popup_list { label = \"Tipo\"; key = \"prefab\"; }"
-      ": popup_list { label = \"Posicion\"; key = \"prefpos\"; }"
-      ": edit_box { label = \"Ancho m\"; key = \"prefancho\"; edit_width = 8; }"
+      ;; 2026-08-24 (pedido del usuario): igual que el sendero -- fuera
+      ;; el anillo perimetral, entran los COSTADOS automaticos (tipo por
+      ;; lado + posicion; el ancho es el predeterminado de cada pieza).
+      ": boxed_column { label = \"Prefabricado por costados (automatico, en bloque)\";"
+      ": popup_list { label = \"Derecha\"; key = \"lado_der\"; }"
+      ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
+      ": popup_list { label = \"Posicion\"; key = \"costpos\"; }"
       "} ok_cancel; }"))
 )
 
@@ -648,9 +648,12 @@
       (urb:fill-popup
         "rasante" *urb-anden-grade-source-list*
         (urb:index-of current-grade-source *urb-anden-grade-source-list*))
-      (urb:fill-popup "prefab" *urb-anillo-prefab-list* 0)
-      (urb:fill-popup "prefpos" *urb-anillo-pos-list* 0)
-      (set_tile "prefancho" "0.20")
+      (urb:fill-popup "lado_der" *urb-anillo-prefab-list*
+        (urb:list-index-ci (urb:send-costado-de 1) *urb-anillo-prefab-list*))
+      (urb:fill-popup "lado_izq" *urb-anillo-prefab-list*
+        (urb:list-index-ci (urb:send-costado-de 2) *urb-anillo-prefab-list*))
+      (urb:fill-popup "costpos" *urb-anillo-pos-list*
+        (urb:list-index-ci (urb:send-costpos-de) *urb-anillo-pos-list*))
       (action_tile
         "accept"
         (strcat
@@ -665,9 +668,9 @@
           " *urb-dialog-toperol-index* (atoi (get_tile \"toperol\"))"
           " *urb-dialog-surface-index* (atoi (get_tile \"superficie\"))"
           " *urb-dialog-grade-index* (atoi (get_tile \"rasante\"))"
-          " *urb-dialog-anillo-index* (atoi (get_tile \"prefab\"))"
-          " *urb-dialog-anillo-pos-index* (atoi (get_tile \"prefpos\"))"
-          " *urb-dialog-anillo-ancho* (get_tile \"prefancho\"))"
+          " *urb-dialog-lado-der-index* (atoi (get_tile \"lado_der\"))"
+          " *urb-dialog-lado-izq-index* (atoi (get_tile \"lado_izq\"))"
+          " *urb-dialog-costpos-index* (atoi (get_tile \"costpos\")))"
           "(done_dialog 1)"))
       (setq accepted (= 1 (start_dialog)))
       (unload_dialog dcl-id)
@@ -697,21 +700,24 @@
           ;; Modulacion eliminada del dialogo: la orientacion y el extremo
           ;; conservan lo que paso el llamador (creacion = "Automatico"/
           ;; "Normal"; EDITAR = "Conservar").
-          ;; v4.50: al final van prefab perimetral, posicion y ancho
-          ;; (indices 11-13); los llamadores viejos los ignoran.
+          ;; 2026-08-24: al final van los COSTADOS (11 = tipo derecha,
+          ;; 12 = tipo izquierda, 13 = posicion); los llamadores viejos
+          ;; los ignoran. La eleccion queda como default de la proxima
+          ;; vez (mismas claves que sendero/bioswale).
+          (urb:config-write "URB_SEND_COSTADO1"
+            (nth *urb-dialog-lado-der-index* *urb-anillo-prefab-list*))
+          (urb:config-write "URB_SEND_COSTADO2"
+            (nth *urb-dialog-lado-izq-index* *urb-anillo-prefab-list*))
+          (urb:config-write "URB_SEND_COSTPOS"
+            (nth *urb-dialog-costpos-index* *urb-anillo-pos-list*))
           (setq result
             (list current-material current-format current-etapa current-subetapa
                   current-guia current-toperol current-calculate
                   current-surface current-grade-source
                   current-orientation current-start
-                  (nth *urb-dialog-anillo-index* *urb-anillo-prefab-list*)
-                  (nth *urb-dialog-anillo-pos-index* *urb-anillo-pos-list*)
-                  (max 0.05
-                    (if (distof
-                          (urb:safe-string *urb-dialog-anillo-ancho* "") 2)
-                      (distof
-                        (urb:safe-string *urb-dialog-anillo-ancho* "") 2)
-                      0.20)))))))
+                  (nth *urb-dialog-lado-der-index* *urb-anillo-prefab-list*)
+                  (nth *urb-dialog-lado-izq-index* *urb-anillo-prefab-list*)
+                  (nth *urb-dialog-costpos-index* *urb-anillo-pos-list*))))))
   )
   result
 )
@@ -5809,7 +5815,7 @@
    grade-source ename result block-ref anden-points anden-area
    earthworks-ok orientation-choice start-choice pattern-mode
    old-fillmode doc undo-open undo-result *error* mod-p1 mod-p2 mod-angle
-   anillo-ref)
+   costados-res anillo-refs)
   (setq doc (urb:doc) old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
     (setq *urb-current-tactile-side-point* nil
@@ -5898,31 +5904,39 @@
       (urb:set-anden-pattern-mode ename pattern-mode)
       (setq result
         (urb:build-anden-finish ename material guia toperol format))
-      ;; v4.50: anillo de prefabricado perimetral opcional (Externo =
-      ;; fuera del area; Interno = franja dentro, que el area del anden
-      ;; descuenta al exportar). Se construye ANTES de empaquetar para
-      ;; usar el contorno real (incluye arcos).
-      (setq anillo-ref nil)
-      (if (and result (> (length data) 11)
-               (not (urb:string-equal-p (nth 11 data) "Ninguno")))
+      ;; 2026-08-24 (pedido del usuario): prefabricado por COSTADOS igual
+      ;; que el sendero -- se construyen solos sobre los dos lados largos
+      ;; del contorno (data 11 = tipo derecha, 12 = tipo izquierda,
+      ;; 13 = posicion), cada uno como bloque independiente. Se construye
+      ;; ANTES de empaquetar el anden para usar el contorno real.
+      (setq anillo-refs nil)
+      (if (and result (> (length data) 13)
+               (or (not (urb:string-equal-p (nth 11 data) "Ninguno"))
+                   (not (urb:string-equal-p (nth 12 data) "Ninguno"))))
         (progn
-          (setq anillo-ref
-            (vl-catch-all-apply 'urb:build-prefab-anillo
-              (list ename (nth 11 data) (nth 13 data)
-                etapa subetapa (nth 12 data))))
-          (if (vl-catch-all-error-p anillo-ref) (setq anillo-ref nil))))
+          (setq costados-res
+            (vl-catch-all-apply 'urb:poly-costados-build
+              (list ename (nth 11 data) (nth 12 data) (nth 13 data)
+                etapa subetapa)))
+          (if (vl-catch-all-error-p costados-res) (setq costados-res nil))
+          (setq anillo-refs (cadr costados-res))))
       (if result
         (setq block-ref (urb:package-anden ename)))
-      ;; vinculo anillo->anden para el descuento de area cuando es Interno
-      (if (and anillo-ref block-ref)
-        (vl-catch-all-apply
-          '(lambda ()
-            (urb:set-xdata-strings
-              (vlax-vla-object->ename anillo-ref)
-              "URB_PREFAB_ANILLO"
-              (list
-                (vla-get-Handle (urb:as-vla-object block-ref))
-                (nth 12 data))))))
+      ;; vinculo costado->anden para el descuento de area cuando es
+      ;; Interno: la MISMA xdata URB_PREFab_ANILLO de siempre (handle del
+      ;; anden + posicion) sobre CADA bloque de costado -- el descuento
+      ;; lo sigue haciendo urb:anden-area-anillos leyendo el AREA_M2 de
+      ;; cada bloque, sin cambios.
+      (if (and anillo-refs block-ref)
+        (foreach aref anillo-refs
+          (vl-catch-all-apply
+            '(lambda ()
+              (urb:set-xdata-strings
+                (vlax-vla-object->ename aref)
+                "URB_PREFAB_ANILLO"
+                (list
+                  (vla-get-Handle (urb:as-vla-object block-ref))
+                  (nth 13 data)))))))
       (setvar "FILLMODE" 1)
       (vla-Regen (urb:doc) 1)
       (if block-ref
@@ -11788,7 +11802,10 @@
       ("URB_ROAD_OVERWIDTH_RIGHT" *urb-road-overwidth-right* 0.0 20.0)
       ("URB_ROAD_CROSSFALL" *urb-road-crossfall* 0.0 0.20)
       ("URB_ROAD_EARTHWORK_INTERVAL" *urb-road-earthwork-interval* 0.25 20.0)
-      ("URB_ANDEN_DEFAULT_WIDTH" *urb-anden-default-width* 0.20 20.0))
+      ("URB_ANDEN_DEFAULT_WIDTH" *urb-anden-default-width* 0.20 20.0)
+      ;; 2026-08-24: editables desde la ventana Movimiento de tierras
+      ("URB_ANDEN_DEPTH" *urb-anden-depth* 0.10 3.0)
+      ("URB_TRIT_SOBRE_CLAVE" *mp-triturado-sobre-clave* 0.0 2.0))
     (setq value
       (urb:parse-real
         (urb:safe-string (urb:config-read (car pair)) "")))
@@ -11978,7 +11995,51 @@
 ;; a esta ventana al cerrar. Reutiliza urb:geometric-settings-capture y
 ;; los mismos tiles del dialogo urb_geometria viejo (que sigue existiendo
 ;; por codigo pero salio del menu).
-(defun urb:earthworks-config-command (/ filename dcl done again)
+;; captura de la ventana Movimiento de tierras (2026-08-24 v2, pedido
+;; del usuario): fuera el intervalo de secciones (2.5 m quedo fijo -- la
+;; sonda de la auditoria demostro que a 2.5 m el resultado es exacto; se
+;; puede seguir cambiando por codigo/config si algun dia hace falta) y
+;; fuera el ancho predeterminado de anden (el ancho real sale del
+;; poligono que se dibuja; el campo solo alimentaba el fondo de la rampa,
+;; que ya se pregunta en su propia ventana). Entran: espesor de
+;; estructura del anden (la excavacion del anden = area x este espesor,
+;; antes fijo en 0.60), triturado sobre la clave (cimentacion modelo 2
+;; de redes) y la referencia de relleno Terreno/Subrasante como popup.
+(defun urb:earthworks-capture (/ left right cross adepth trit relleno)
+  (setq left (urb:parse-real (get_tile "road_left"))
+        right (urb:parse-real (get_tile "road_right"))
+        cross (urb:parse-real (get_tile "road_cross"))
+        adepth (urb:parse-real (get_tile "anden_depth"))
+        trit (urb:parse-real (get_tile "trit_clave"))
+        relleno (atoi (urb:safe-string (get_tile "relleno_ref") "0")))
+  (cond
+    ((or (null left) (< left 0.0) (> left 20.0))
+      (alert "El sobreancho izquierdo debe estar entre 0 y 20 m.") nil)
+    ((or (null right) (< right 0.0) (> right 20.0))
+      (alert "El sobreancho derecho debe estar entre 0 y 20 m.") nil)
+    ((or (null cross) (< cross 0.0) (> cross 20.0))
+      (alert "El bombeo debe estar entre 0 y 20 %.") nil)
+    ((or (null adepth) (< adepth 0.10) (> adepth 3.0))
+      (alert "El espesor de estructura del anden debe estar entre 0.10 y 3.0 m.") nil)
+    ((or (null trit) (< trit 0.0) (> trit 2.0))
+      (alert "El triturado sobre la clave debe estar entre 0 y 2.0 m.") nil)
+    (T
+      (setq *urb-road-overwidth-left* left
+            *urb-road-overwidth-right* right
+            *urb-road-crossfall* (/ cross 100.0)
+            *urb-anden-road-crossfall* (/ cross 100.0)
+            *urb-anden-depth* adepth
+            *mp-triturado-sobre-clave* trit)
+      (urb:config-write "URB_ROAD_OVERWIDTH_LEFT" (rtos left 2 6))
+      (urb:config-write "URB_ROAD_OVERWIDTH_RIGHT" (rtos right 2 6))
+      (urb:config-write "URB_ROAD_CROSSFALL" (rtos (/ cross 100.0) 2 8))
+      (urb:config-write "URB_ANDEN_DEPTH" (rtos adepth 2 4))
+      (urb:config-write "URB_TRIT_SOBRE_CLAVE" (rtos trit 2 4))
+      (urb:config-write "MP_TRAMO_RELLENO_MODO"
+        (if (= relleno 1) "Subrasante" "Terreno"))
+      T)))
+
+(defun urb:earthworks-config-command (/ filename dcl done again modo)
   (setq again T)
   (while again
     (setq again nil done nil)
@@ -11990,20 +12051,26 @@
         (set_tile "road_left" (rtos *urb-road-overwidth-left* 2 3))
         (set_tile "road_right" (rtos *urb-road-overwidth-right* 2 3))
         (set_tile "road_cross" (rtos (* 100.0 *urb-road-crossfall*) 2 2))
-        (set_tile "road_interval" (rtos *urb-road-earthwork-interval* 2 2))
-        (set_tile "anden_width" (rtos *urb-anden-default-width* 2 2))
+        (set_tile "anden_depth" (rtos *urb-anden-depth* 2 2))
+        (set_tile "trit_clave" (rtos *mp-triturado-sobre-clave* 2 2))
+        (setq modo
+          (urb:safe-string (urb:config-read "MP_TRAMO_RELLENO_MODO")
+            "Terreno"))
+        (urb:fill-popup "relleno_ref"
+          '("Terreno natural" "Subrasante de via")
+          (if (= modo "Subrasante") 1 0))
         (action_tile "accept"
-          "(if (urb:geometric-settings-capture) (done_dialog 1))")
+          "(if (urb:earthworks-capture) (done_dialog 1))")
         (action_tile "cancel" "(done_dialog 0)")
         (action_tile "perfiles" "(done_dialog 2)")
-        (action_tile "fillref" "(done_dialog 3)")
+        (action_tile "senderos" "(done_dialog 4)")
         (setq done (start_dialog))))
     (if (> dcl 0) (unload_dialog dcl))
     (cond
       ((= done 1)
-        (prompt "\nSobreanchos y parametros de calculo guardados para este dibujo."))
+        (prompt "\nParametros de movimiento de tierras guardados para este dibujo."))
       ((= done 2) (urb:manage-road-profiles) (setq again T))
-      ((= done 3) (mp:network-fill-reference-command) (setq again T))))
+      ((= done 4) (urb:send-config-command) (setq again T))))
   (princ))
 
 ;; 2026-08-24 (pedido del usuario: "el modelo ya tiene muchas cosas
@@ -17882,16 +17949,19 @@
         ": button { label = \"Depurar dibujo (purgar elementos basura)\"; key = \"purge_dwg\"; height = 2; width = 40; } }"
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
         "urb_earthworks : dialog { label = \"Movimiento de tierras\";"
-        ": boxed_column { label = \"Sobreanchos y calculo (vias y andenes)\";"
+        ": boxed_column { label = \"Vias\";"
         ": row { : text { label = \"Sobreancho izquierdo de via (m)\"; width = 38; } : edit_box { key = \"road_left\"; edit_width = 12; } }"
         ": row { : text { label = \"Sobreancho derecho de via (m)\"; width = 38; } : edit_box { key = \"road_right\"; edit_width = 12; } }"
-        ": row { : text { label = \"Bombeo de la calzada (%)\"; width = 38; } : edit_box { key = \"road_cross\"; edit_width = 12; } }"
-        ": row { : text { label = \"Intervalo secciones movimiento (m)\"; width = 38; } : edit_box { key = \"road_interval\"; edit_width = 12; } }"
-        ": row { : text { label = \"Ancho predeterminado de anden (m)\"; width = 38; } : edit_box { key = \"anden_width\"; edit_width = 12; } } }"
-        ": boxed_column { label = \"Bibliotecas y referencias\";"
-        ": button { label = \"Perfiles estratigraficos (vias, andenes, redes)...\"; key = \"perfiles\"; height = 2; width = 46; }"
-        ": button { label = \"Referencia de relleno de tramos de red...\"; key = \"fillref\"; height = 2; width = 46; } }"
-        ": text { label = \"OK guarda los sobreanchos; los botones abren su propia ventana y vuelven aqui.\"; }"
+        ": row { : text { label = \"Bombeo de la calzada (%)\"; width = 38; } : edit_box { key = \"road_cross\"; edit_width = 12; } } }"
+        ": boxed_column { label = \"Andenes\";"
+        ": row { : text { label = \"Espesor estructura de anden (m)\"; width = 38; } : edit_box { key = \"anden_depth\"; edit_width = 12; } } }"
+        ": boxed_column { label = \"Redes\";"
+        ": popup_list { label = \"Relleno de tramos de red hasta\"; key = \"relleno_ref\"; }"
+        ": row { : text { label = \"Triturado sobre la clave (m)\"; width = 38; } : edit_box { key = \"trit_clave\"; edit_width = 12; } } }"
+        ": boxed_column { label = \"Perfiles estratigraficos\";"
+        ": button { label = \"Perfiles de vias (capas de pavimento)...\"; key = \"perfiles\"; height = 2; width = 46; }"
+        ": button { label = \"Estructura de senderos (espesores)...\"; key = \"senderos\"; height = 2; width = 46; } }"
+        ": text { label = \"OK guarda los valores; los botones abren su propia ventana y vuelven aqui.\"; }"
         "ok_cancel; }"
         "urb_etapas : dialog { label = \"Etapas y subetapas\";"
         ": toggle { key = \"activo\"; label = \"Habilitadas (etapa/subetapa activas en los dialogos de creacion)\"; }"
@@ -21465,8 +21535,9 @@
 ;; construye el prefabricado de UN costado como bloque. El lado de
 ;; crecimiento se decide solo: Interno = hacia el centroide del poligono,
 ;; Externo = alejandose de el (punto espejo del centroide respecto al
-;; medio de la cadena). Devuelve la longitud de la cadena si se creo,
-;; nil si no.
+;; medio de la cadena). Devuelve (longitud referencia-del-bloque) si se
+;; creo, nil si no (2026-08-24 v2: la referencia la necesita el anden
+;; para el vinculo de descuento URB_PREFAB_ANILLO).
 (defun urb:poly-costado-build (pts tipo posicion etapa sub centroid
                                / en mid side ancho ref len)
   (setq en (urb:poly-chain-polyline pts))
@@ -21491,21 +21562,22 @@
           (if (and en (entget en))
             (urb:safe-delete (vlax-ename->vla-object en)))
           nil)
-        len))))
+        (list len ref)))))
 
-;; construye los costados configurados de un poligono recien dibujado y
-;; devuelve el descuento de area (suma longitud x ancho de los costados
-;; INTERNOS; 0.0 si posicion Externo). Derecha/Izquierda se asignan por
-;; el lado geometrico respecto a la direccion de la primera cadena.
+;; construye los costados configurados de un poligono recien dibujado.
+;; Devuelve (descuento refs): descuento = suma longitud x ancho de los
+;; costados INTERNOS (0.0 si Externo), refs = lista de referencias de
+;; bloque creadas. Derecha/Izquierda se asignan por el lado geometrico
+;; respecto a la direccion de la primera cadena.
 (defun urb:poly-costados-build (ename lado-der lado-izq posicion etapa sub
                                 / chains ed pts n cx cy centroid ca cb
                                 d ma va cruz chain-der chain-izq
-                                descuento len)
+                                descuento r len refs)
   (setq chains (urb:poly-costado-chains ename))
   (if (null chains)
     (progn
       (prompt "\nNo se pudieron identificar los dos costados del contorno -- prefabricado omitido (use el boton Prefabricado para trazarlo a mano).")
-      0.0)
+      (list 0.0 nil))
     (progn
       ;; centroide simple = promedio de vertices del contorno
       (setq ed (entget ename) pts nil)
@@ -21525,14 +21597,15 @@
       (if (< cruz 0.0)
         (setq chain-der ca chain-izq cb)
         (setq chain-der cb chain-izq ca))
-      (setq descuento 0.0)
+      (setq descuento 0.0 refs nil)
       (if (not (urb:string-equal-p lado-der "Ninguno"))
         (progn
-          (setq len
+          (setq r
             (urb:poly-costado-build chain-der lado-der posicion etapa sub
               centroid))
-          (if len
+          (if r
             (progn
+              (setq len (car r) refs (cons (cadr r) refs))
               (prompt (strcat "\nCostado derecho: " lado-der " ("
                 (rtos len 2 2) " ML) como bloque."))
               (if (urb:string-equal-p posicion "Interno")
@@ -21543,11 +21616,12 @@
               " del costado derecho.")))))
       (if (not (urb:string-equal-p lado-izq "Ninguno"))
         (progn
-          (setq len
+          (setq r
             (urb:poly-costado-build chain-izq lado-izq posicion etapa sub
               centroid))
-          (if len
+          (if r
             (progn
+              (setq len (car r) refs (cons (cadr r) refs))
               (prompt (strcat "\nCostado izquierdo: " lado-izq " ("
                 (rtos len 2 2) " ML) como bloque."))
               (if (urb:string-equal-p posicion "Interno")
@@ -21556,7 +21630,7 @@
                      (* len (urb:prefab-default-ancho lado-izq))))))
             (prompt (strcat "\nNo fue posible crear el " lado-izq
               " del costado izquierdo.")))))
-      descuento)))
+      (list descuento refs))))
 
 ;; dibuja el contorno cerrado + relleno + xdata + prefabricado por
 ;; costados AUTOMATICO para UN elemento de la familia "poligono cerrado"
@@ -21622,8 +21696,8 @@
     (setq descuento 0.0)
     (if con-cost
       (setq descuento
-        (urb:poly-costados-build ename lado-der lado-izq posicion
-          etapa sub)))
+        (car (urb:poly-costados-build ename lado-der lado-izq posicion
+          etapa sub))))
     (urb:set-xdata-strings ename appid
       (if con-cost
         (list (nth 0 entry) etapa sub lado-der lado-izq posicion
