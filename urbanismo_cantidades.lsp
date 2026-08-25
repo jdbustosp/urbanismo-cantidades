@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.57.0")
+(setq *urb-version* "4.57.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -15591,9 +15591,37 @@
   (if entry
     (setq *urb-cota-layer-calibrations*
       (vl-remove entry *urb-cota-layer-calibrations*)))
+  ;; borra tambien la persistida en el dibujo (v4.57.1)
+  (vl-catch-all-apply 'urb:config-write
+    (list (urb:cota-calib-key layer) ""))
   nil
 )
 
+;; clave de config valida para el diccionario del dibujo: el nombre de
+;; la capa trae "|" (xref) y espacios -- con esos caracteres la entrada
+;; de diccionario fallaba EN SILENCIO y la persistencia no escribia
+;; nada (cazado por la suite r3 del 2026-08-25: set OK, get nil).
+;; Todo caracter fuera de [A-Z0-9-] se vuelve "_".
+(defun urb:cota-calib-key (layer / out i c)
+  (setq out "" i 1)
+  (setq layer (strcase (urb:safe-string layer "")))
+  (repeat (strlen layer)
+    (setq c (substr layer i 1))
+    (setq out
+      (strcat out
+        (if (vl-string-search c "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-")
+          c
+          "_")))
+    (setq i (1+ i)))
+  (strcat "URB_COTA_CALIB_" out))
+
+;; 2026-08-25: la calibracion ahora tambien se PERSISTE en el dibujo
+;; (urb:cota-calib-key via urb:config-write). Antes vivia solo en la
+;; memoria de la sesion: al reabrir el dibujo o recalcular una via
+;; existente el desfase de las etiquetas COGO volvia a dejar 0
+;; candidatos y el movimiento de tierras nunca se calculaba (reporte
+;; del usuario: 7785 textos leidos, 0 cercanos, desfase real 121-229 m
+;; medido en VIA-01/VIA-02 del master).
 (defun urb:set-cota-calibration (layer offset / key entry pair)
   (setq key (strcase (urb:safe-string layer "")))
   (setq pair (cons key offset))
@@ -15603,16 +15631,34 @@
       (subst pair entry *urb-cota-layer-calibrations*))
     (setq *urb-cota-layer-calibrations*
       (cons pair *urb-cota-layer-calibrations*)))
+  (vl-catch-all-apply 'urb:config-write
+    (list (urb:cota-calib-key layer) (urb:serialize-lisp offset)))
   offset
 )
 
-(defun urb:get-cota-calibration (layer / entry)
-  (setq entry
-    (assoc
-      (strcase (urb:safe-string layer ""))
-      *urb-cota-layer-calibrations*))
-  (if entry (cdr entry) nil)
-)
+(defun urb:get-cota-calibration (layer / key entry saved parsed)
+  (setq key (strcase (urb:safe-string layer "")))
+  (setq entry (assoc key *urb-cota-layer-calibrations*))
+  (cond
+    (entry (cdr entry))
+    (T
+      ;; respaldo persistido en el dibujo (sobrevive sesiones y EDITAR)
+      (setq saved
+        (vl-catch-all-apply 'urb:config-read
+          (list (urb:cota-calib-key layer))))
+      (if (vl-catch-all-error-p saved) (setq saved nil))
+      (if (and saved (/= (urb:safe-string saved "") ""))
+        (progn
+          (setq parsed (urb:read-lisp-safe saved))
+          (if (and (listp parsed)
+                   (= (length parsed) 3)
+                   (numberp (car parsed))
+                   (numberp (cadr parsed))
+                   (numberp (caddr parsed)))
+            (progn
+              (setq *urb-cota-layer-calibrations*
+                (cons (cons key parsed) *urb-cota-layer-calibrations*))
+              parsed)))))))
 
 (defun urb:apply-cota-calibration
   (layer texts / offset item point value source-id result)
@@ -15685,6 +15731,114 @@
       (prompt
         "\nNo se pudo calibrar la posicion visible de la cota seleccionada.")
       nil))
+)
+
+;; ---------- recalibracion VALIDADA CONTRA EL EJE (2026-08-25) ----------
+;; Las etiquetas COGO (V-NODE-TEXT) reportan su posicion con un desfase
+;; uniforme de cientos de metros (proxy del estilo); ademas el mismo
+;; VALOR de cota se repite en muchos puntos del plano, asi que calibrar
+;; con "el texto mas cercano al clic" puede elegir el punto equivocado y
+;; dejar un desfase igual de inutil. Este nucleo prueba, entre los
+;; textos cuyo valor coincide con el clickeado, los mas cercanos al clic
+;; (hasta 8) y se queda con el PRIMER desfase que deje cotas reales
+;; proyectando dentro del radio del eje de ESTA via -- validacion
+;; geometrica, no adivinanza. Headless-testeable (sin UI).
+(defun urb:cota-offset-por-pick
+  (layer texts-raw pick valor axis axis-start span radius interval
+   / cands item point iv c offset probe n proyectados)
+  (setq cands nil)
+  (foreach item texts-raw
+    (setq point (urb:point3d-list (car item)))
+    (setq iv
+      (cond
+        ((numberp (cadr item)) (cadr item))
+        (T nil)))
+    (if (and point (numberp iv) (< (abs (- iv valor)) 0.001))
+      (setq cands (cons (list (distance pick point) point) cands))))
+  (setq cands
+    (vl-sort cands '(lambda (a b) (< (car a) (car b)))))
+  (setq offset nil n 0)
+  (foreach c cands
+    (if (and (null offset) (< n 8))
+      (progn
+        (setq n (1+ n))
+        (setq probe (mapcar '- pick (cadr c)))
+        ;; probar el desfase SIN tocar la calibracion global
+        (setq proyectados
+          (urb:cota-stations-on-axis axis
+            (mapcar
+              '(lambda (it)
+                 (list
+                   (mapcar '+ (urb:point3d-list (car it)) probe)
+                   (cadr it)
+                   (if (> (length it) 2)
+                     (urb:safe-string (nth 2 it) "COTA") "COTA")))
+              texts-raw)
+            (- axis-start (* 2.0 interval))
+            (+ span (* 4.0 interval)) radius))
+        (if (>= (length proyectados) 2)
+          (setq offset probe)))))
+  offset
+)
+
+;; wrapper interactivo: UN clic sobre una cota visible de la via, nucleo
+;; validado, calibracion persistida en el dibujo. Devuelve T si calibro.
+(defun urb:recalibrate-cota-interactive
+  (layer axis axis-start span radius interval
+   / sel ename edata obj raw content valor pick texts-raw offset)
+  (prompt
+    (strcat
+      "\nLas etiquetas de la capa " layer " reportan una posicion"
+      " desfasada (etiquetas COGO). Seleccione UNA cota visible de"
+      " ESTA via para calibrar (Enter cancela): "))
+  (setq sel (vl-catch-all-apply 'nentsel))
+  (if (vl-catch-all-error-p sel) (setq sel nil))
+  (if sel
+    (progn
+      (setq ename (car sel)
+            pick (urb:point3d-list (cadr sel))
+            edata (entget ename))
+      (setq obj
+        (vl-catch-all-apply 'vlax-ename->vla-object (list ename)))
+      (setq raw
+        (if (and obj (not (vl-catch-all-error-p obj)))
+          (vl-catch-all-apply 'vla-get-TextString (list obj))))
+      (setq content
+        (urb:safe-string
+          (if (and raw (not (vl-catch-all-error-p raw)))
+            raw
+            (cdr (assoc 1 edata)))
+          ""))
+      (setq valor (urb:parse-real content))
+      (if (and pick (numberp valor) (> valor 0.0))
+        (progn
+          ;; textos CRUDOS (sin la calibracion previa, que pudo ser mala)
+          (urb:clear-cota-calibration layer)
+          (setq texts-raw (urb:collect-cota-texts layer))
+          (setq offset
+            (urb:cota-offset-por-pick layer texts-raw pick valor
+              axis axis-start span radius interval))
+          (if offset
+            (progn
+              (urb:set-cota-calibration layer offset)
+              (prompt
+                (strcat
+                  "\nCalibracion validada contra el eje: desplazamiento "
+                  (rtos (car offset) 2 2) ", "
+                  (rtos (cadr offset) 2 2)
+                  " m (guardada en el dibujo)."))
+              T)
+            (progn
+              (prompt
+                (strcat
+                  "\nNingun texto con el valor " (rtos valor 2 2)
+                  " deja cotas proyectando sobre esta via -- verifique"
+                  " que la cota clickeada pertenezca a la via."))
+              nil)))
+        (progn
+          (prompt "\nLa seleccion no es un texto de cota numerico.")
+          nil)))
+    nil)
 )
 
 (defun urb:collect-cota-texts (layer / bar-pos xref-name result)
@@ -17260,6 +17414,37 @@
             (progn
               (setq stations *urb-road-picked-stations*)
               (setq coverage T)))
+          ;; 2026-08-25: CERO candidatos con miles de textos leidos =
+          ;; desfase de posicion de las etiquetas COGO (medido 121-229 m
+          ;; en el master real; la calibracion por clic del flujo de
+          ;; crear vivia solo en la sesion y podia elegir el punto
+          ;; equivocado entre valores repetidos). Un clic recalibra con
+          ;; validacion contra el eje y queda PERSISTIDO en el dibujo.
+          (if (and (null raw-stations) texts (not coverage))
+            (progn
+              (setq *urb-earthwork-stage* "recalibracion de cotas")
+              (if (urb:recalibrate-cota-interactive
+                    (urb:safe-string (nth 8 data) "")
+                    axis axis-start span radius interval)
+                (progn
+                  (setq texts
+                    (urb:collect-cota-texts
+                      (urb:safe-string (nth 8 data) "")))
+                  (setq raw-stations
+                    (urb:cota-stations-on-axis axis texts
+                      (- axis-start (* 2.0 interval))
+                      (+ span (* 4.0 interval)) radius))
+                  (setq stations
+                    (urb:cota-best-per-source raw-stations))
+                  (setq stations
+                    (urb:cota-snap-to-project-grid stations axis-start
+                      span station-start-number interval direction))
+                  (setq stations
+                    (urb:cota-deduplicate-stations stations 0.20))
+                  (setq coverage
+                    (urb:cota-stations-cover-p
+                      stations axis-start (+ axis-start span)
+                      interval))))))
           ;; 2026-08-13: si la capa de textos no cubre el tramo pero la
           ;; via YA tiene su rasante guardada (records del calculo
           ;; anterior), esa rasante es la fuente -- las vias existentes
