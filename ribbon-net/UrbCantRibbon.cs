@@ -714,32 +714,36 @@ namespace UrbanismoCantidades
                     presupuestos.Name = "Presupuestos";
                     root.Add(presupuestos);
                 }
+                // OJO sintaxis (2026-08-24, eInvalidInput en vivo): los
+                // terminos de FilterExpression se unen con OR, no con
+                // coma -- la gramatica del arbol de filtros es
+                // relacion { AND|OR relacion }.
                 presupuestos.FilterExpression =
-                    "NAME==\"URB-*\",NAME==\"PPTO-*\",NAME==\"RED-*\","
-                    + "NAME==\"REDES-*\",NAME==\"ACCESORIOS-*\","
-                    + "NAME==\"EQUIPOS-*\"";
+                    "NAME==\"URB-*\" OR NAME==\"PPTO-*\" OR NAME==\"RED-*\""
+                    + " OR NAME==\"REDES-*\" OR NAME==\"ACCESORIOS-*\""
+                    + " OR NAME==\"EQUIPOS-*\"";
 
                 AcLm.LayerFilterCollection hijos = presupuestos.NestedFilters;
                 SetLayerFilterExpression(hijos, "Urbanismo",
-                    "NAME==\"URB-ANDEN*\",NAME==\"URB-VIA*\","
-                    + "NAME==\"URB-RAMPA*\",NAME==\"URB-BORDILLO*\","
-                    + "NAME==\"URB-SARDINEL*\",NAME==\"URB-CANUELA*\","
-                    + "NAME==\"URB-PREFAB*\",NAME==\"URB-ZONA*\","
-                    + "NAME==\"URB-MOBILIARIO*\",NAME==\"URB-SEL*\","
-                    + "NAME==\"URB-TEMP*\",NAME==\"URB-SENDERO*\","
-                    + "NAME==\"URB-PLAZOLETA*\",NAME==\"URB-CICLORRUTA*\","
-                    + "NAME==\"URB-Q-*\"");
+                    "NAME==\"URB-ANDEN*\" OR NAME==\"URB-VIA*\""
+                    + " OR NAME==\"URB-RAMPA*\" OR NAME==\"URB-BORDILLO*\""
+                    + " OR NAME==\"URB-SARDINEL*\" OR NAME==\"URB-CANUELA*\""
+                    + " OR NAME==\"URB-PREFAB*\" OR NAME==\"URB-ZONA*\""
+                    + " OR NAME==\"URB-MOBILIARIO*\" OR NAME==\"URB-SEL*\""
+                    + " OR NAME==\"URB-TEMP*\" OR NAME==\"URB-SENDERO*\""
+                    + " OR NAME==\"URB-PLAZOLETA*\" OR NAME==\"URB-CICLORRUTA*\""
+                    + " OR NAME==\"URB-Q-*\" OR NAME==\"URB-H-*\"");
                 SetLayerFilterExpression(hijos, "Redes humedas",
-                    "NAME==\"PPTO-ACUEDUCTO*\",NAME==\"PPTO-ALC*\","
-                    + "NAME==\"PPTO-ACCESORIOS*\","
-                    + "NAME==\"REDES-ACUEDUCTO*\","
-                    + "NAME==\"REDES-ALCANTARILLADO*\","
-                    + "NAME==\"ACCESORIOS-ACUEDUCTO*\","
-                    + "NAME==\"URB-BIOSWALE*\"");
+                    "NAME==\"PPTO-ACUEDUCTO*\" OR NAME==\"PPTO-ALC*\""
+                    + " OR NAME==\"PPTO-ACCESORIOS*\""
+                    + " OR NAME==\"REDES-ACUEDUCTO*\""
+                    + " OR NAME==\"REDES-ALCANTARILLADO*\""
+                    + " OR NAME==\"ACCESORIOS-ACUEDUCTO*\""
+                    + " OR NAME==\"URB-BIOSWALE*\"");
                 SetLayerFilterExpression(hijos, "Redes secas",
-                    "NAME==\"PPTO-ELECTRICA*\",NAME==\"PPTO-EQUIPOS*\","
-                    + "NAME==\"RED-ELECTRICA*\","
-                    + "NAME==\"EQUIPOS-ELECTRICOS*\"");
+                    "NAME==\"PPTO-ELECTRICA*\" OR NAME==\"PPTO-EQUIPOS*\""
+                    + " OR NAME==\"RED-ELECTRICA*\""
+                    + " OR NAME==\"EQUIPOS-ELECTRICOS*\"");
 
                 db.LayerFilters = tree;
                 doc.Editor.WriteMessage(

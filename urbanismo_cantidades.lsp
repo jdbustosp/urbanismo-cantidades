@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.53.2")
+(setq *urb-version* "4.54.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -21328,66 +21328,201 @@
 
 ;; 2026-08-24 (pedido del usuario): prefabricado por COSTADOS -- distinto
 ;; de urb:build-prefab-anillo (que envuelve TODO el contorno incluidas
-;; las puntas). Aqui cada costado es una pieza INDEPENDIENTE trazada a
-;; mano por el usuario (misma mecanica ya probada del boton Prefabricado
-;; independiente: urb:build-prefab-from-reference), pensada para "canuela
-;; a un lado, bordillo al otro". El TIPO de cada costado (1 y 2) se
-;; configura una sola vez en Ajustes; n es 1 o 2.
+;; las puntas). v2 del mismo dia: el usuario NO quiere trazar los
+;; costados a mano -- el programa debe entender solo cuales son los dos
+;; lados largos del poligono (como pasa en los andenes) y construir ahi
+;; el prefabricado, cada costado como BLOQUE independiente (la misma
+;; tuberia probada del boton Prefabricado: urb:build-prefab-from-
+;; reference, que ya empaqueta arista+relleno+remates en un bloque que
+;; se borra de un solo golpe). El usuario solo decide Externo/Interno.
 (defun urb:send-costado-de (n / v)
   (setq v (urb:config-read (strcat "URB_SEND_COSTADO" (itoa n))))
   (if (and v (member v *urb-anillo-prefab-list*)) v "Ninguno"))
 
-;; pide trazar (si el tipo configurado no es "Ninguno") la arista de
-;; referencia + clic de lado para UN costado, igual que urb:create-
-;; prefabricado, pero SIN preguntar nada por ventana (tipo y ancho ya
-;; vienen de Ajustes). etiqueta identifica el costado en los prompts.
-(defun urb:send-costado-draw (etiqueta tipo etapa sub / ename side-point width)
-  (if (not (urb:string-equal-p tipo "Ninguno"))
-    (progn
-      (setq ename
-        (urb:draw-open-polyline
-          (strcat (strcase tipo) " - " etiqueta " (arista de referencia)")))
-      (if ename
-        (progn
-          (setq side-point
-            (getpoint
-              (strcat "\nMarque un punto hacia donde crece el " tipo
-                " del " etiqueta ": ")))
-          (if side-point
-            (progn
-              (setq width (urb:prefab-default-ancho tipo))
-              (if (urb:build-prefab-from-reference
-                    ename side-point tipo width etapa sub "Exterior")
-                (prompt (strcat "\n" (strcase tipo) " del " etiqueta " creado."))
-                (prompt (strcat "\nNo fue posible crear el " tipo " del "
-                  etiqueta "."))))
-            (progn
-              (urb:safe-delete (vlax-ename->vla-object ename))
-              (prompt (strcat "\n" etiqueta ": cancelado.")))))
-        (prompt (strcat "\n" etiqueta ": no se trazó una arista valida."))))))
+(defun urb:send-costpos-de (/ v)
+  (setq v (urb:config-read "URB_SEND_COSTPOS"))
+  (if (and v (member v *urb-anillo-pos-list*)) v "Externo"))
 
-;; llama a urb:send-costado-draw para los dos costados configurados en
-;; Ajustes (salta los que esten en "Ninguno")
+;; divide el contorno CERRADO en sus dos costados: los dos segmentos mas
+;; cortos y no adyacentes del anillo son las PUNTAS; al quitarlos quedan
+;; dos cadenas de vertices (los lados largos). Devuelve (cadena-a
+;; cadena-b) -- cada una lista de puntos 2D -- o nil si el poligono no
+;; da para separar dos cadenas (triangulo, forma muy irregular).
+(defun urb:poly-costado-chains (ename / ed pts n i segs s1 s2 tmp a b idx)
+  (setq ed (entget ename) pts nil)
+  (foreach itm ed (if (= (car itm) 10) (setq pts (cons (cdr itm) pts))))
+  (setq pts (reverse pts) n (length pts))
+  (if (< n 4)
+    nil
+    (progn
+      (setq segs nil i 0)
+      (repeat n
+        (setq segs
+          (cons (cons i (distance (nth i pts) (nth (rem (1+ i) n) pts)))
+            segs))
+        (setq i (1+ i)))
+      (setq segs (vl-sort segs '(lambda (x y) (< (cdr x) (cdr y)))))
+      (setq s1 (car (nth 0 segs)) s2 (car (nth 1 segs)))
+      ;; si las dos mas cortas son adyacentes no separan dos cadenas:
+      ;; probar con la siguiente mas corta
+      (setq i 2)
+      (while (and (< i n)
+                  (or (= (rem (1+ s1) n) s2) (= (rem (1+ s2) n) s1)))
+        (setq s2 (car (nth i segs)) i (1+ i)))
+      (if (or (= s1 s2) (= (rem (1+ s1) n) s2) (= (rem (1+ s2) n) s1))
+        nil
+        (progn
+          (if (> s1 s2) (setq tmp s1 s1 s2 s2 tmp))
+          (setq a nil idx (1+ s1))
+          (while (<= idx s2)
+            (setq a (cons (nth idx pts) a) idx (1+ idx)))
+          (setq b nil idx (1+ s2))
+          (while (<= idx (+ s1 n))
+            (setq b (cons (nth (rem idx n) pts) b) idx (1+ idx)))
+          (setq a (reverse a) b (reverse b))
+          (if (and (>= (length a) 2) (>= (length b) 2))
+            (list a b)
+            nil))))))
+
+(defun urb:poly-chain-length (pts / l i)
+  (setq l 0.0 i 0)
+  (while (< i (1- (length pts)))
+    (setq l (+ l (distance (nth i pts) (nth (1+ i) pts))) i (1+ i)))
+  l)
+
+(defun urb:poly-chain-mid (pts / p0 pn)
+  (setq p0 (car pts) pn (last pts))
+  (list (/ (+ (car p0) (car pn)) 2.0) (/ (+ (cadr p0) (cadr pn)) 2.0)))
+
+(defun urb:poly-chain-polyline (pts)
+  (entmakex
+    (append
+      (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity")
+        '(100 . "AcDbPolyline") (cons 90 (length pts)) '(70 . 0))
+      (mapcar '(lambda (p) (cons 10 (list (car p) (cadr p)))) pts))))
+
+;; construye el prefabricado de UN costado como bloque. El lado de
+;; crecimiento se decide solo: Interno = hacia el centroide del poligono,
+;; Externo = alejandose de el (punto espejo del centroide respecto al
+;; medio de la cadena). Devuelve la longitud de la cadena si se creo,
+;; nil si no.
+(defun urb:poly-costado-build (pts tipo posicion etapa sub centroid
+                               / en mid side ancho ref len)
+  (setq en (urb:poly-chain-polyline pts))
+  (if (null en)
+    nil
+    (progn
+      (setq len (urb:poly-chain-length pts))
+      (setq mid (urb:poly-chain-mid pts))
+      (setq side
+        (if (urb:string-equal-p posicion "Interno")
+          (list (car centroid) (cadr centroid) 0.0)
+          (list (- (* 2.0 (car mid)) (car centroid))
+                (- (* 2.0 (cadr mid)) (cadr centroid)) 0.0)))
+      (setq ancho (urb:prefab-default-ancho tipo))
+      (setq ref
+        (vl-catch-all-apply 'urb:build-prefab-from-reference
+          (list en side tipo ancho etapa sub
+            (if (urb:string-equal-p posicion "Interno")
+              "Interior" "Exterior"))))
+      (if (or (vl-catch-all-error-p ref) (null ref))
+        (progn
+          (if (and en (entget en))
+            (urb:safe-delete (vlax-ename->vla-object en)))
+          nil)
+        len))))
+
+;; construye los costados configurados de un poligono recien dibujado y
+;; devuelve el descuento de area (suma longitud x ancho de los costados
+;; INTERNOS; 0.0 si posicion Externo). Derecha/Izquierda se asignan por
+;; el lado geometrico respecto a la direccion de la primera cadena.
+(defun urb:poly-costados-build (ename lado-der lado-izq posicion etapa sub
+                                / chains ed pts n cx cy centroid ca cb
+                                d ma va cruz chain-der chain-izq
+                                descuento len)
+  (setq chains (urb:poly-costado-chains ename))
+  (if (null chains)
+    (progn
+      (prompt "\nNo se pudieron identificar los dos costados del contorno -- prefabricado omitido (use el boton Prefabricado para trazarlo a mano).")
+      0.0)
+    (progn
+      ;; centroide simple = promedio de vertices del contorno
+      (setq ed (entget ename) pts nil)
+      (foreach itm ed (if (= (car itm) 10) (setq pts (cons (cdr itm) pts))))
+      (setq n (length pts) cx 0.0 cy 0.0)
+      (foreach p pts (setq cx (+ cx (car p)) cy (+ cy (cadr p))))
+      (setq centroid (list (/ cx n) (/ cy n)))
+      (setq ca (car chains) cb (cadr chains))
+      ;; derecha = la cadena que queda al lado derecho de la direccion de
+      ;; la cadena A (cruz z negativa del vector centroide->medio)
+      (setq d (list (- (car (last ca)) (car (car ca)))
+                    (- (cadr (last ca)) (cadr (car ca)))))
+      (setq ma (urb:poly-chain-mid ca))
+      (setq va (list (- (car ma) (car centroid))
+                     (- (cadr ma) (cadr centroid))))
+      (setq cruz (- (* (car d) (cadr va)) (* (cadr d) (car va))))
+      (if (< cruz 0.0)
+        (setq chain-der ca chain-izq cb)
+        (setq chain-der cb chain-izq ca))
+      (setq descuento 0.0)
+      (if (not (urb:string-equal-p lado-der "Ninguno"))
+        (progn
+          (setq len
+            (urb:poly-costado-build chain-der lado-der posicion etapa sub
+              centroid))
+          (if len
+            (progn
+              (prompt (strcat "\nCostado derecho: " lado-der " ("
+                (rtos len 2 2) " ML) como bloque."))
+              (if (urb:string-equal-p posicion "Interno")
+                (setq descuento
+                  (+ descuento
+                     (* len (urb:prefab-default-ancho lado-der))))))
+            (prompt (strcat "\nNo fue posible crear el " lado-der
+              " del costado derecho.")))))
+      (if (not (urb:string-equal-p lado-izq "Ninguno"))
+        (progn
+          (setq len
+            (urb:poly-costado-build chain-izq lado-izq posicion etapa sub
+              centroid))
+          (if len
+            (progn
+              (prompt (strcat "\nCostado izquierdo: " lado-izq " ("
+                (rtos len 2 2) " ML) como bloque."))
+              (if (urb:string-equal-p posicion "Interno")
+                (setq descuento
+                  (+ descuento
+                     (* len (urb:prefab-default-ancho lado-izq))))))
+            (prompt (strcat "\nNo fue posible crear el " lado-izq
+              " del costado izquierdo.")))))
+      descuento)))
+
 ;; dibuja el contorno cerrado + relleno + xdata + prefabricado por
-;; costados opcional para UN elemento de la familia "poligono cerrado"
-;; (senderos o bioswale comparten el mismo motor -- 2026-08-24, refactor
-;; al separar el bioswale a su propio comando). appid es la xdata donde
-;; vive el tipo (URB_SENDERO o URB_BIOSWALE); su compañera "<appid>_GEN"
-;; identifica el hatch de relleno hacia el contorno padre. lado-der/
-;; lado-izq: tipo de prefabricado elegido en la MISMA ventana de creacion
-;; (2026-08-24 v2, pedido del usuario: nada de anillo perimetral -- solo
-;; costados, Derecha/Izquierda visibles en la ventana, no en Ajustes).
-(defun urb:poly-element-draw (entry etapa sub lado-der lado-izq
-                              appid / capa ename obj hatch n)
+;; costados AUTOMATICO para UN elemento de la familia "poligono cerrado"
+;; (senderos o bioswale comparten el mismo motor). appid es la xdata
+;; donde vive el tipo (URB_SENDERO o URB_BIOSWALE); su compañera
+;; "<appid>_GEN" identifica el hatch de relleno hacia el contorno padre.
+;; 2026-08-24 v3 (pedido del usuario): los costados NO se trazan a mano
+;; -- el programa identifica solo los dos lados largos del poligono
+;; (urb:poly-costado-chains) y construye ahi cada prefabricado como
+;; BLOQUE; el usuario solo eligio en la ventana el tipo por lado
+;; (Derecha/Izquierda) y la posicion (Externo/Interno). Con posicion
+;; Interno la franja de los costados se DESCUENTA del area (descuento
+;; guardado en la xdata, pos 6, y aplicado por el colector de filas).
+(defun urb:poly-element-draw (entry etapa sub lado-der lado-izq posicion
+                              appid / capa ename obj hatch n con-cost
+                              descuento)
   (setq capa (nth 6 entry))
   (urb:ensure-layer capa (nth 3 entry) T)
+  (setq con-cost
+    (or (not (urb:string-equal-p lado-der "Ninguno"))
+        (not (urb:string-equal-p lado-izq "Ninguno"))))
   (setq n 0)
   (prompt (strcat "\n" (nth 1 entry)
     ": cierre el poligono del contorno (Enter sin dibujar termina)."))
   (while (setq ename (urb:draw-closed-polyline))
     (setq obj (vlax-ename->vla-object ename))
     (vla-put-Layer obj capa)
-    (urb:set-xdata-strings ename appid (list (nth 0 entry) etapa sub))
     ;; relleno solido en la capa del tipo (color ByLayer) para que se LEA
     ;; el area -- la ciclorruta azul como la referencia
     (setq hatch
@@ -21408,12 +21543,17 @@
           '(lambda ()
             (command "_.DRAWORDER"
               (vlax-vla-object->ename hatch) "" "_Back")))))
-    ;; prefabricado por costados: trazado independiente, NO envuelve el
-    ;; contorno completo (las puntas quedan sin prefabricado)
-    (if (not (urb:string-equal-p lado-der "Ninguno"))
-      (urb:send-costado-draw "Derecha" lado-der etapa sub))
-    (if (not (urb:string-equal-p lado-izq "Ninguno"))
-      (urb:send-costado-draw "Izquierda" lado-izq etapa sub))
+    ;; prefabricado por costados automatico (bloques, sin trazar a mano)
+    (setq descuento 0.0)
+    (if con-cost
+      (setq descuento
+        (urb:poly-costados-build ename lado-der lado-izq posicion
+          etapa sub)))
+    (urb:set-xdata-strings ename appid
+      (if con-cost
+        (list (nth 0 entry) etapa sub lado-der lado-izq posicion
+          (rtos descuento 2 3))
+        (list (nth 0 entry) etapa sub)))
     (setq n (1+ n))
     (prompt (strcat "\n" (nth 1 entry) " " (itoa n)
       " creado. Otro contorno (Enter termina): ")))
@@ -21442,10 +21582,11 @@
       ": popup_list { label = \"Tipo\"; key = \"tipo\"; }"
       ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; } }"
-      ": boxed_column { label = \"Prefabricado por costados (no envuelve las puntas)\";"
+      ": boxed_column { label = \"Prefabricado por costados (automatico, en bloque)\";"
       ": popup_list { label = \"Derecha\"; key = \"lado_der\"; }"
       ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
-      ": text { label = \"Se traza cada costado marcado despues de cerrar el poligono.\"; } }"
+      ": popup_list { label = \"Posicion\"; key = \"costpos\"; }"
+      ": text { label = \"Externo = fuera del area; Interno = franja dentro (se descuenta del area).\"; } }"
       ": text { label = \"Aceptar y CERRAR EL POLIGONO del contorno (como una via o un anden).\"; }"
       "ok_cancel; }")))
 
@@ -21456,7 +21597,7 @@
   (set_tile "subetapa" "0"))
 
 (defun urb:sendero-command (/ dclfile dcl done entry etapa sub subs
-                            lado-der lado-izq)
+                            lado-der lado-izq costpos)
   (vl-load-com)
   (setq dclfile (urb:send-write-dcl))
   (if (null dclfile)
@@ -21478,17 +21619,21 @@
             (urb:list-index-ci (urb:send-costado-de 1) *urb-anillo-prefab-list*))
           (urb:fill-popup "lado_izq" *urb-anillo-prefab-list*
             (urb:list-index-ci (urb:send-costado-de 2) *urb-anillo-prefab-list*))
+          (urb:fill-popup "costpos" *urb-anillo-pos-list*
+            (urb:list-index-ci (urb:send-costpos-de) *urb-anillo-pos-list*))
           (action_tile "etapa" "(urb:send-fill-sub (atoi $value))")
           ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
           (setq *urb-send-sel* "0" *urb-send-etapa* "0" *urb-send-sub* "0"
-                *urb-send-lado-der* "0" *urb-send-lado-izq* "0")
+                *urb-send-lado-der* "0" *urb-send-lado-izq* "0"
+                *urb-send-costpos* "0")
           (action_tile "accept"
             (strcat
               "(setq *urb-send-sel* (get_tile \"tipo\")"
               " *urb-send-etapa* (get_tile \"etapa\")"
               " *urb-send-sub* (get_tile \"subetapa\")"
               " *urb-send-lado-der* (get_tile \"lado_der\")"
-              " *urb-send-lado-izq* (get_tile \"lado_izq\"))"
+              " *urb-send-lado-izq* (get_tile \"lado_izq\")"
+              " *urb-send-costpos* (get_tile \"costpos\"))"
               "(done_dialog 1)"))
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))
@@ -21512,10 +21657,14 @@
           (setq lado-izq
             (nth (atoi (urb:safe-string *urb-send-lado-izq* "0"))
               *urb-anillo-prefab-list*))
+          (setq costpos
+            (nth (atoi (urb:safe-string *urb-send-costpos* "0"))
+              *urb-anillo-pos-list*))
           (urb:config-write "URB_SEND_COSTADO1" lado-der)
           (urb:config-write "URB_SEND_COSTADO2" lado-izq)
+          (urb:config-write "URB_SEND_COSTPOS" costpos)
           (urb:poly-element-draw entry etapa sub lado-der lado-izq
-            "URB_SENDERO")))))
+            costpos "URB_SENDERO")))))
   (princ))
 
 ;; ---------- BIOSWALE: comando propio (red pluvial, 2026-08-24) --------
@@ -21528,15 +21677,16 @@
       ": boxed_column { label = \"Datos del elemento\";"
       ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; } }"
-      ": boxed_column { label = \"Prefabricado por costados (no envuelve las puntas)\";"
+      ": boxed_column { label = \"Prefabricado por costados (automatico, en bloque)\";"
       ": popup_list { label = \"Derecha\"; key = \"lado_der\"; }"
       ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
-      ": text { label = \"Se traza cada costado marcado despues de cerrar el poligono.\"; } }"
+      ": popup_list { label = \"Posicion\"; key = \"costpos\"; }"
+      ": text { label = \"Externo = fuera del area; Interno = franja dentro (se descuenta del area).\"; } }"
       ": text { label = \"Aceptar y CERRAR EL POLIGONO del contorno (como una via o un anden).\"; }"
       "ok_cancel; }")))
 
 (defun urb:bioswale-command (/ dclfile dcl done entry etapa sub subs
-                              lado-der lado-izq)
+                              lado-der lado-izq costpos)
   (vl-load-com)
   (setq entry *urb-bioswale-tipo*)
   (setq dclfile (urb:bioswale-write-dcl))
@@ -21555,15 +21705,19 @@
             (urb:list-index-ci (urb:send-costado-de 1) *urb-anillo-prefab-list*))
           (urb:fill-popup "lado_izq" *urb-anillo-prefab-list*
             (urb:list-index-ci (urb:send-costado-de 2) *urb-anillo-prefab-list*))
+          (urb:fill-popup "costpos" *urb-anillo-pos-list*
+            (urb:list-index-ci (urb:send-costpos-de) *urb-anillo-pos-list*))
           (action_tile "etapa" "(urb:send-fill-sub (atoi $value))")
           (setq *urb-send-etapa* "0" *urb-send-sub* "0"
-                *urb-send-lado-der* "0" *urb-send-lado-izq* "0")
+                *urb-send-lado-der* "0" *urb-send-lado-izq* "0"
+                *urb-send-costpos* "0")
           (action_tile "accept"
             (strcat
               "(setq *urb-send-etapa* (get_tile \"etapa\")"
               " *urb-send-sub* (get_tile \"subetapa\")"
               " *urb-send-lado-der* (get_tile \"lado_der\")"
-              " *urb-send-lado-izq* (get_tile \"lado_izq\"))"
+              " *urb-send-lado-izq* (get_tile \"lado_izq\")"
+              " *urb-send-costpos* (get_tile \"costpos\"))"
               "(done_dialog 1)"))
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))
@@ -21584,10 +21738,14 @@
           (setq lado-izq
             (nth (atoi (urb:safe-string *urb-send-lado-izq* "0"))
               *urb-anillo-prefab-list*))
+          (setq costpos
+            (nth (atoi (urb:safe-string *urb-send-costpos* "0"))
+              *urb-anillo-pos-list*))
           (urb:config-write "URB_SEND_COSTADO1" lado-der)
           (urb:config-write "URB_SEND_COSTADO2" lado-izq)
+          (urb:config-write "URB_SEND_COSTPOS" costpos)
           (urb:poly-element-draw entry etapa sub lado-der lado-izq
-            "URB_BIOSWALE")))))
+            costpos "URB_BIOSWALE")))))
   (princ))
 
 ;; senderos/bioswale dentro de una seleccion (contorno directo o su
@@ -21644,18 +21802,31 @@
                 handle (cdr (assoc 5 (entget be)))
                 zona (urb:ppto-zona-de be)
                 rows nil)
-          ;; v4.50: con anillo de prefabricado (xdata pos 4-6) las filas
-          ;; PER de la receta se SALTAN (el prefab cuenta su propio ML) y
-          ;; si el anillo es Interno su franja se descuenta del area
+          ;; 2026-08-24 v3: con prefabricado por COSTADOS (xdata pos 3-6:
+          ;; lado-der lado-izq posicion descuento) las filas PER de la
+          ;; receta se SALTAN (cada costado es un bloque prefabricado que
+          ;; cuenta su propio ML) y si la posicion es Interno el area
+          ;; descuenta la franja ya calculada al crear (pos 6). Los
+          ;; elementos viejos con el anillo perimetral de v4.50-v4.53.0
+          ;; (pos 3 = tipo de anillo) tambien caen aqui: sus filas PER se
+          ;; siguen saltando bien, pero el descuento Interno viejo ya no
+          ;; se re-aplica (formato de xdata distinto) -- recrear esos
+          ;; elementos de prueba si importa el area exacta.
           (setq con-anillo
-            (/= (urb:safe-string (nth 3 datos) "") ""))
+            (or (and (/= (urb:safe-string (nth 3 datos) "") "")
+                     (not (urb:string-equal-p
+                       (urb:safe-string (nth 3 datos) "") "Ninguno")))
+                (and (/= (urb:safe-string (nth 4 datos) "") "")
+                     (not (urb:string-equal-p
+                       (urb:safe-string (nth 4 datos) "") "Ninguno"))
+                     (member (urb:safe-string (nth 4 datos) "")
+                       *urb-anillo-prefab-list*))))
           (if (and con-anillo
                    (urb:string-equal-p
-                     (urb:safe-string (nth 4 datos) "") "Interno"))
+                     (urb:safe-string (nth 5 datos) "") "Interno"))
             (setq area
               (max 0.0
-                (- area
-                   (* per (atof (urb:safe-string (nth 5 datos) "0")))))))
+                (- area (atof (urb:safe-string (nth 6 datos) "0"))))))
           (setq espesor (urb:send-espesor-de entry))
           (foreach receta (nth 5 entry)
             (setq factor
