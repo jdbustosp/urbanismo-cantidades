@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.56.0")
+(setq *urb-version* "4.57.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -7746,6 +7746,26 @@
     ("Suministro y colocacion de geotextil Tejido 2100" "Geotextil" "0" "15")
     ("Suministro e instalacion de Geomembrana (Incluye excavacion)" "Geomalla" "0" "0")))
 
+;; 2026-08-24 (pedido del usuario): el perfil estratigrafico del anden es
+;; EDITABLE desde la ventana Movimiento de tierras. Reconstruye la lista
+;; con los espesores nuevos y actualiza *urb-anden-depth* = suma de las
+;; capas (unica fuente de verdad de la excavacion del anden, antes fija
+;; en 6+4+50 = 60 cm). El geotextil (15% traslapo) y la geomembrana no
+;; llevan espesor y quedan como estan.
+(defun urb:anden-structure-apply (adoquin arena sbg)
+  (setq *urb-anden-structure*
+    (list
+      (list "Adoquin o loseta prefabricada" "Tratamiento"
+        (rtos adoquin 2 3) "0")
+      (list "Arena de nivelacion" "Volumen" (rtos arena 2 3) "0")
+      (list "Suministro e instalacion de subbase granular SBG-C" "Volumen"
+        (rtos sbg 2 3) "0")
+      (list "Suministro y colocacion de geotextil Tejido 2100" "Geotextil"
+        "0" "15")
+      (list "Suministro e instalacion de Geomembrana (Incluye excavacion)"
+        "Geomalla" "0" "0")))
+  (setq *urb-anden-depth* (+ adoquin arena sbg)))
+
 (defun urb:anden-structure-rows
   (area / result layer layer-type thickness overlap quantity unit thick-label)
   ;; La capa de acabado se informa por formato y tipo en
@@ -11796,7 +11816,7 @@
       (if xrecord (dictadd dict key xrecord))
       (if xrecord value))))
 
-(defun urb:load-geometric-settings (/ value pair)
+(defun urb:load-geometric-settings (/ value pair a b c)
   (foreach pair
     '(("URB_ROAD_OVERWIDTH_LEFT" *urb-road-overwidth-left* 0.0 20.0)
       ("URB_ROAD_OVERWIDTH_RIGHT" *urb-road-overwidth-right* 0.0 20.0)
@@ -11811,9 +11831,14 @@
         (urb:safe-string (urb:config-read (car pair)) "")))
     (if (and value (>= value (nth 2 pair)) (<= value (nth 3 pair)))
       (set (cadr pair) value)))
-  (list *urb-road-overwidth-left* *urb-road-overwidth-right*
-    *urb-road-crossfall* *urb-road-earthwork-interval*
-    *urb-anden-default-width*)
+  ;; capas del perfil del anden editadas por el usuario (2026-08-24): si
+  ;; las tres estan guardadas, reconstruyen la estructura y el espesor
+  ;; total -- ganan sobre URB_ANDEN_DEPTH suelto
+  (setq a (urb:parse-real (urb:safe-string (urb:config-read "URB_AND_ADOQUIN") ""))
+        b (urb:parse-real (urb:safe-string (urb:config-read "URB_AND_ARENA") ""))
+        c (urb:parse-real (urb:safe-string (urb:config-read "URB_AND_SBG") "")))
+  (if (and a b c (> a 0.0) (> b 0.0) (> c 0.0) (< (+ a b c) 3.0))
+    (urb:anden-structure-apply a b c))
   (setq *urb-anden-road-crossfall* *urb-road-crossfall*)
   (list *urb-road-overwidth-left* *urb-road-overwidth-right*
     *urb-road-crossfall* *urb-road-earthwork-interval*
@@ -11892,12 +11917,23 @@
 ;; ventana cada vez), ahora se editan aqui una sola vez -- mismo patron
 ;; de urb:geometric-settings-command (config por dibujo, get_tile DENTRO
 ;; del action_tile de accept, regla de oro DCL v4.41).
+;; capa editable de la receta de senderos (2026-08-24): valor de config
+;; si el usuario lo edito, si no el default de la receta
+(defun urb:send-capa-cfg (clave default / v)
+  (setq v (urb:parse-real (urb:safe-string (urb:config-read clave) "")))
+  (if (and v (> v 0.0)) v default))
+
 (defun urb:write-send-config-dcl (/ filename)
   (setq filename (urb:temp-file "urb_send_config" ".dcl"))
   (if
     (urb:write-lines filename
-      '("urb_send_config : dialog { label = \"Senderos y prefabricados: espesores y anchos\";"
-        ": boxed_column { label = \"Espesor de estructura por tipo (m) -- alimenta la excavacion\";"
+      '("urb_send_config : dialog { label = \"Estructura de senderos (capas y espesores)\";"
+        ": boxed_column { label = \"Capas de la estructura (aplican a todos los tipos)\";"
+        ": row { : text { label = \"Concreto 3000 psi (m)\"; width = 30; } : edit_box { key = \"c_concreto\"; edit_width = 10; } }"
+        ": row { : text { label = \"Malla electrosoldada (kg/m2)\"; width = 30; } : edit_box { key = \"c_malla\"; edit_width = 10; } }"
+        ": row { : text { label = \"Subbase granular SBG (m)\"; width = 30; } : edit_box { key = \"c_sbg\"; edit_width = 10; } }"
+        ": row { : text { label = \"Asfalto MD-13 ciclorruta (m)\"; width = 30; } : edit_box { key = \"c_asfalto\"; edit_width = 10; } } }"
+        ": boxed_column { label = \"Espesor de EXCAVACION por tipo (m)\";"
         ": row { : text { label = \"Sendero de trote\"; width = 30; } : edit_box { key = \"e_trote\"; edit_width = 10; } }"
         ": row { : text { label = \"Sendero ecologico\"; width = 30; } : edit_box { key = \"e_eco\"; edit_width = 10; } }"
         ": row { : text { label = \"Plazoleta en concreto\"; width = 30; } : edit_box { key = \"e_plaz\"; edit_width = 10; } }"
@@ -11916,7 +11952,11 @@
 
 ;; (clave-config tile-dcl minimo maximo)
 (setq *urb-send-config-fields*
-  '(("URB_SEND_ESP_SEND-TROTE" "e_trote" 0.05 3.0)
+  '(("URB_SEND_CONCRETO" "c_concreto" 0.01 1.0)
+    ("URB_SEND_MALLA" "c_malla" 0.1 20.0)
+    ("URB_SEND_SBG" "c_sbg" 0.05 2.0)
+    ("URB_SEND_ASFALTO" "c_asfalto" 0.01 1.0)
+    ("URB_SEND_ESP_SEND-TROTE" "e_trote" 0.05 3.0)
     ("URB_SEND_ESP_SEND-ECO" "e_eco" 0.05 3.0)
     ("URB_SEND_ESP_PLAZOLETA" "e_plaz" 0.05 3.0)
     ("URB_SEND_ESP_CICLORRUTA" "e_ciclo" 0.05 3.0)
@@ -11962,6 +12002,10 @@
         (setq tile (nth 1 field))
         (setq default
           (cond
+            ((= tile "c_concreto") (urb:send-capa-cfg "URB_SEND_CONCRETO" 0.10))
+            ((= tile "c_malla") (urb:send-capa-cfg "URB_SEND_MALLA" 2.36))
+            ((= tile "c_sbg") (urb:send-capa-cfg "URB_SEND_SBG" 0.30))
+            ((= tile "c_asfalto") (urb:send-capa-cfg "URB_SEND_ASFALTO" 0.08))
             ((= tile "e_trote") (urb:send-espesor-de (assoc "SEND-TROTE" *urb-send-tipos*)))
             ((= tile "e_eco") (urb:send-espesor-de (assoc "SEND-ECO" *urb-send-tipos*)))
             ((= tile "e_plaz") (urb:send-espesor-de (assoc "PLAZOLETA" *urb-send-tipos*)))
@@ -12005,11 +12049,14 @@
 ;; estructura del anden (la excavacion del anden = area x este espesor,
 ;; antes fijo en 0.60), triturado sobre la clave (cimentacion modelo 2
 ;; de redes) y la referencia de relleno Terreno/Subrasante como popup.
-(defun urb:earthworks-capture (/ left right cross adepth trit relleno)
+(defun urb:earthworks-capture (/ left right cross adoquin arena sbg trit
+                               relleno)
   (setq left (urb:parse-real (get_tile "road_left"))
         right (urb:parse-real (get_tile "road_right"))
         cross (urb:parse-real (get_tile "road_cross"))
-        adepth (urb:parse-real (get_tile "anden_depth"))
+        adoquin (urb:parse-real (get_tile "ad_adoquin"))
+        arena (urb:parse-real (get_tile "ad_arena"))
+        sbg (urb:parse-real (get_tile "ad_sbg"))
         trit (urb:parse-real (get_tile "trit_clave"))
         relleno (atoi (urb:safe-string (get_tile "relleno_ref") "0")))
   (cond
@@ -12019,8 +12066,12 @@
       (alert "El sobreancho derecho debe estar entre 0 y 20 m.") nil)
     ((or (null cross) (< cross 0.0) (> cross 20.0))
       (alert "El bombeo debe estar entre 0 y 20 %.") nil)
-    ((or (null adepth) (< adepth 0.10) (> adepth 3.0))
-      (alert "El espesor de estructura del anden debe estar entre 0.10 y 3.0 m.") nil)
+    ((or (null adoquin) (<= adoquin 0.0) (> adoquin 0.50))
+      (alert "El adoquin/loseta debe estar entre 0.01 y 0.50 m.") nil)
+    ((or (null arena) (<= arena 0.0) (> arena 0.50))
+      (alert "La arena de nivelacion debe estar entre 0.01 y 0.50 m.") nil)
+    ((or (null sbg) (<= sbg 0.0) (> sbg 2.0))
+      (alert "La subbase SBG-C debe estar entre 0.01 y 2.0 m.") nil)
     ((or (null trit) (< trit 0.0) (> trit 2.0))
       (alert "El triturado sobre la clave debe estar entre 0 y 2.0 m.") nil)
     (T
@@ -12028,16 +12079,70 @@
             *urb-road-overwidth-right* right
             *urb-road-crossfall* (/ cross 100.0)
             *urb-anden-road-crossfall* (/ cross 100.0)
-            *urb-anden-depth* adepth
             *mp-triturado-sobre-clave* trit)
+      (urb:anden-structure-apply adoquin arena sbg)
       (urb:config-write "URB_ROAD_OVERWIDTH_LEFT" (rtos left 2 6))
       (urb:config-write "URB_ROAD_OVERWIDTH_RIGHT" (rtos right 2 6))
       (urb:config-write "URB_ROAD_CROSSFALL" (rtos (/ cross 100.0) 2 8))
-      (urb:config-write "URB_ANDEN_DEPTH" (rtos adepth 2 4))
+      (urb:config-write "URB_AND_ADOQUIN" (rtos adoquin 2 4))
+      (urb:config-write "URB_AND_ARENA" (rtos arena 2 4))
+      (urb:config-write "URB_AND_SBG" (rtos sbg 2 4))
+      (urb:config-write "URB_ANDEN_DEPTH" (rtos *urb-anden-depth* 2 4))
       (urb:config-write "URB_TRIT_SOBRE_CLAVE" (rtos trit 2 4))
       (urb:config-write "MP_TRAMO_RELLENO_MODO"
         (if (= relleno 1) "Subrasante" "Terreno"))
       T)))
+
+;; tabla de normas de zanja, solo lectura (2026-08-24, pedido del
+;; usuario: la norma CODENSA "plasmada, organizada y clara" + la tabla
+;; de anchos hidraulicos que ya vivia en el codigo como
+;; *mp-pvc-trench-width-table* pero nunca se podia VER)
+(defun urb:normas-zanja-lineas (/ out entry linea a)
+  (setq out
+    (list
+      "=== REDES SECAS -- zanja normativa CODENSA (Likinormas CS203/CS207) ==="
+      ""
+      "  Recubrimiento sobre el banco de ductos:"
+      "     bajo anden o zona verde ........ 0.60 m"
+      "     bajo calzada ................... 0.80 m"
+      "  Banco de ductos:"
+      "     columnas = raiz cuadrada del numero de ductos, redondeada hacia arriba"
+      "     altura = 0.05 (base) + filas x diametro del ducto + 0.05 entre filas"
+      "  Ancho de zanja = 0.30 m + columnas x diametro + 0.05 entre columnas"
+      "     (minimo 0.80 m en MT / 0.60 m en BT-alumbrado)"
+      "  Profundidad de zanja = recubrimiento + altura del banco"
+      ""
+      "  CORTE (excavacion) = ancho x profundidad x longitud (no requiere cotas)"
+      "  RELLENO = arena (envolvente del banco - ductos)"
+      "          + base granular B (excavacion - envolvente)"
+      "  Ambos salen automaticamente al presupuesto por cada tramo MT / BT-AP."
+      ""
+      "=== REDES HIDRAULICAS -- anchos de zanja PVC (hoja del presupuesto) ==="
+      ""
+      "  Diam \" |  anchos (m) segun profundidad de zanja:"
+      "         |  <=1.5  <=2.5  <=3.5  <=4.5  <=5.5  <=6.5  <=7.5  <=8.5  <=9.5  >9.5"
+      "  -------+-----------------------------------------------------------------------"))
+  (foreach entry *mp-pvc-trench-width-table*
+    (setq linea
+      (strcat "    " (if (< (car entry) 10) " " "") (itoa (car entry))
+        "   |"))
+    (foreach a (cdr entry)
+      (setq linea (strcat linea "  " (rtos a 2 2))))
+    (setq out (append out (list linea))))
+  out)
+
+(defun urb:normas-zanja-command (/ filename dcl linea)
+  (setq filename (urb:write-main-menu-dcl)
+        dcl (if filename (load_dialog filename) -1))
+  (if (and (> dcl 0) (new_dialog "urb_normas" dcl))
+    (progn
+      (start_list "tabla")
+      (foreach linea (urb:normas-zanja-lineas) (add_list linea))
+      (end_list)
+      (action_tile "accept" "(done_dialog 1)")
+      (start_dialog)))
+  (if (> dcl 0) (unload_dialog dcl))
+  (princ))
 
 (defun urb:earthworks-config-command (/ filename dcl done again modo)
   (setq again T)
@@ -12051,7 +12156,14 @@
         (set_tile "road_left" (rtos *urb-road-overwidth-left* 2 3))
         (set_tile "road_right" (rtos *urb-road-overwidth-right* 2 3))
         (set_tile "road_cross" (rtos (* 100.0 *urb-road-crossfall*) 2 2))
-        (set_tile "anden_depth" (rtos *urb-anden-depth* 2 2))
+        ;; capas actuales del perfil del anden (posiciones fijas de
+        ;; *urb-anden-structure*: 0 adoquin, 1 arena, 2 SBG-C)
+        (set_tile "ad_adoquin"
+          (rtos (atof (nth 2 (nth 0 *urb-anden-structure*))) 2 3))
+        (set_tile "ad_arena"
+          (rtos (atof (nth 2 (nth 1 *urb-anden-structure*))) 2 3))
+        (set_tile "ad_sbg"
+          (rtos (atof (nth 2 (nth 2 *urb-anden-structure*))) 2 3))
         (set_tile "trit_clave" (rtos *mp-triturado-sobre-clave* 2 2))
         (setq modo
           (urb:safe-string (urb:config-read "MP_TRAMO_RELLENO_MODO")
@@ -12064,13 +12176,15 @@
         (action_tile "cancel" "(done_dialog 0)")
         (action_tile "perfiles" "(done_dialog 2)")
         (action_tile "senderos" "(done_dialog 4)")
+        (action_tile "normas" "(done_dialog 5)")
         (setq done (start_dialog))))
     (if (> dcl 0) (unload_dialog dcl))
     (cond
       ((= done 1)
         (prompt "\nParametros de movimiento de tierras guardados para este dibujo."))
       ((= done 2) (urb:manage-road-profiles) (setq again T))
-      ((= done 4) (urb:send-config-command) (setq again T))))
+      ((= done 4) (urb:send-config-command) (setq again T))
+      ((= done 5) (urb:normas-zanja-command) (setq again T))))
   (princ))
 
 ;; 2026-08-24 (pedido del usuario: "el modelo ya tiene muchas cosas
@@ -17953,16 +18067,23 @@
         ": row { : text { label = \"Sobreancho izquierdo de via (m)\"; width = 38; } : edit_box { key = \"road_left\"; edit_width = 12; } }"
         ": row { : text { label = \"Sobreancho derecho de via (m)\"; width = 38; } : edit_box { key = \"road_right\"; edit_width = 12; } }"
         ": row { : text { label = \"Bombeo de la calzada (%)\"; width = 38; } : edit_box { key = \"road_cross\"; edit_width = 12; } } }"
-        ": boxed_column { label = \"Andenes\";"
-        ": row { : text { label = \"Espesor estructura de anden (m)\"; width = 38; } : edit_box { key = \"anden_depth\"; edit_width = 12; } } }"
+        ": boxed_column { label = \"Andenes -- perfil estratigrafico (editable)\";"
+        ": row { : text { label = \"Adoquin / loseta (m)\"; width = 38; } : edit_box { key = \"ad_adoquin\"; edit_width = 12; } }"
+        ": row { : text { label = \"Arena de nivelacion (m)\"; width = 38; } : edit_box { key = \"ad_arena\"; edit_width = 12; } }"
+        ": row { : text { label = \"Subbase granular SBG-C (m)\"; width = 38; } : edit_box { key = \"ad_sbg\"; edit_width = 12; } }"
+        ": text { label = \"Excavacion del anden = area x (suma de las 3 capas). Geotextil 15% traslapo fijo.\"; } }"
         ": boxed_column { label = \"Redes\";"
         ": popup_list { label = \"Relleno de tramos de red hasta\"; key = \"relleno_ref\"; }"
-        ": row { : text { label = \"Triturado sobre la clave (m)\"; width = 38; } : edit_box { key = \"trit_clave\"; edit_width = 12; } } }"
+        ": row { : text { label = \"Triturado sobre la clave (m)\"; width = 38; } : edit_box { key = \"trit_clave\"; edit_width = 12; } }"
+        ": button { label = \"Normas de zanja: CODENSA y anchos PVC (ver tabla)...\"; key = \"normas\"; height = 2; width = 46; } }"
         ": boxed_column { label = \"Perfiles estratigraficos\";"
         ": button { label = \"Perfiles de vias (capas de pavimento)...\"; key = \"perfiles\"; height = 2; width = 46; }"
-        ": button { label = \"Estructura de senderos (espesores)...\"; key = \"senderos\"; height = 2; width = 46; } }"
+        ": button { label = \"Estructura de senderos (capas y espesores)...\"; key = \"senderos\"; height = 2; width = 46; } }"
         ": text { label = \"OK guarda los valores; los botones abren su propia ventana y vuelven aqui.\"; }"
         "ok_cancel; }"
+        "urb_normas : dialog { label = \"Normas de excavacion de redes (solo lectura)\";"
+        ": list_box { key = \"tabla\"; width = 92; height = 28; }"
+        "ok_only; }"
         "urb_etapas : dialog { label = \"Etapas y subetapas\";"
         ": toggle { key = \"activo\"; label = \"Habilitadas (etapa/subetapa activas en los dialogos de creacion)\"; }"
         ": boxed_column { label = \"Catalogo\";"
@@ -21978,11 +22099,27 @@
                 (- area (atof (urb:safe-string (nth 6 datos) "0"))))))
           (setq espesor (urb:send-espesor-de entry))
           (foreach receta (nth 5 entry)
+            ;; 2026-08-24: capas de la receta EDITABLES desde la ventana
+            ;; Estructura de senderos -- el factor efectivo sale de la
+            ;; config si el usuario lo edito, si no del catalogo
             (setq factor
-              (if (urb:string-equal-p (nth 0 receta)
-                    "Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)")
-                espesor
-                (nth 3 receta)))
+              (cond
+                ((urb:string-equal-p (nth 0 receta)
+                   "Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)")
+                  espesor)
+                ((urb:string-equal-p (nth 0 receta) "Concreto 3000 psi")
+                  (urb:send-capa-cfg "URB_SEND_CONCRETO" (nth 3 receta)))
+                ((urb:string-equal-p (nth 0 receta) "Malla electrosoldada")
+                  (urb:send-capa-cfg "URB_SEND_MALLA" (nth 3 receta)))
+                ((or (urb:string-equal-p (nth 0 receta)
+                       "Subabase granular SBG-B")
+                     (urb:string-equal-p (nth 0 receta)
+                       "Subbase granular SBG"))
+                  (urb:send-capa-cfg "URB_SEND_SBG" (nth 3 receta)))
+                ((urb:string-equal-p (nth 0 receta)
+                   "Suministro, extendida y compactación de Rodadura Asfáltica MD-13")
+                  (urb:send-capa-cfg "URB_SEND_ASFALTO" (nth 3 receta)))
+                (T (nth 3 receta))))
             (setq qty
               (* factor
                  (cond
