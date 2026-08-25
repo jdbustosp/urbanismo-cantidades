@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.53.0")
+(setq *urb-version* "4.53.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -11891,10 +11891,9 @@
         ": row { : text { label = \"Bordillo\"; width = 30; } : edit_box { key = \"a_bordillo\"; edit_width = 10; } }"
         ": row { : text { label = \"Sardinel\"; width = 30; } : edit_box { key = \"a_sardinel\"; edit_width = 10; } }"
         ": row { : text { label = \"Canuela\"; width = 30; } : edit_box { key = \"a_canuela\"; edit_width = 10; } } }"
-        ": boxed_column { label = \"Prefabricado por COSTADOS (solo los lados, no las puntas -- se dibuja aparte, no envuelve el contorno)\";"
-        ": row { : text { label = \"Costado 1\"; width = 30; } : popup_list { key = \"c_lado1\"; width = 16; } }"
-        ": row { : text { label = \"Costado 2\"; width = 30; } : popup_list { key = \"c_lado2\"; width = 16; } }"
-        ": text { label = \"Al crear el sendero se pide trazar cada costado configurado (igual que el boton Prefabricado).\"; } }"
+        ": boxed_column { label = \"Prefabricado por costados -- valor por defecto (se elige/cambia tambien en la ventana de Sendero y Bioswale)\";"
+        ": row { : text { label = \"Derecha\"; width = 30; } : popup_list { key = \"c_lado1\"; width = 16; } }"
+        ": row { : text { label = \"Izquierda\"; width = 30; } : popup_list { key = \"c_lado2\"; width = 16; } } }"
         "ok_cancel; }"))
     filename))
 
@@ -21369,18 +21368,16 @@
 
 ;; llama a urb:send-costado-draw para los dos costados configurados en
 ;; Ajustes (salta los que esten en "Ninguno")
-(defun urb:send-costados-draw (etapa sub)
-  (urb:send-costado-draw "Costado 1" (urb:send-costado-de 1) etapa sub)
-  (urb:send-costado-draw "Costado 2" (urb:send-costado-de 2) etapa sub)
-  (princ))
-
-;; dibuja el contorno cerrado + relleno + xdata + anillo prefabricado
-;; opcional para UN elemento de la familia "poligono cerrado" (senderos o
-;; bioswale comparten el mismo motor -- 2026-08-24, refactor al separar
-;; el bioswale a su propio comando). appid es la xdata donde vive el tipo
-;; (URB_SENDERO o URB_BIOSWALE); su compañera "<appid>_GEN" identifica el
-;; hatch de relleno hacia el contorno padre.
-(defun urb:poly-element-draw (entry etapa sub prefab prefpos prefancho
+;; dibuja el contorno cerrado + relleno + xdata + prefabricado por
+;; costados opcional para UN elemento de la familia "poligono cerrado"
+;; (senderos o bioswale comparten el mismo motor -- 2026-08-24, refactor
+;; al separar el bioswale a su propio comando). appid es la xdata donde
+;; vive el tipo (URB_SENDERO o URB_BIOSWALE); su compañera "<appid>_GEN"
+;; identifica el hatch de relleno hacia el contorno padre. lado-der/
+;; lado-izq: tipo de prefabricado elegido en la MISMA ventana de creacion
+;; (2026-08-24 v2, pedido del usuario: nada de anillo perimetral -- solo
+;; costados, Derecha/Izquierda visibles en la ventana, no en Ajustes).
+(defun urb:poly-element-draw (entry etapa sub lado-der lado-izq
                               appid / capa ename obj hatch n)
   (setq capa (nth 6 entry))
   (urb:ensure-layer capa (nth 3 entry) T)
@@ -21390,17 +21387,7 @@
   (while (setq ename (urb:draw-closed-polyline))
     (setq obj (vlax-ename->vla-object ename))
     (vla-put-Layer obj capa)
-    (urb:set-xdata-strings ename appid
-      (if (urb:string-equal-p prefab "Ninguno")
-        (list (nth 0 entry) etapa sub)
-        ;; con anillo: tipo, posicion y ancho viajan en la xdata (las
-        ;; cantidades saltan las filas PER de la receta y, si es Interno,
-        ;; descuentan la franja del area)
-        (list (nth 0 entry) etapa sub prefab prefpos
-          (rtos prefancho 2 3))))
-    (if (not (urb:string-equal-p prefab "Ninguno"))
-      (vl-catch-all-apply 'urb:build-prefab-anillo
-        (list ename prefab prefancho etapa sub prefpos)))
+    (urb:set-xdata-strings ename appid (list (nth 0 entry) etapa sub))
     ;; relleno solido en la capa del tipo (color ByLayer) para que se LEA
     ;; el area -- la ciclorruta azul como la referencia
     (setq hatch
@@ -21421,11 +21408,12 @@
           '(lambda ()
             (command "_.DRAWORDER"
               (vlax-vla-object->ename hatch) "" "_Back")))))
-    ;; prefabricado por costados (2026-08-24, tipos configurados en
-    ;; Ajustes): trazado independiente, NO envuelve el contorno completo
-    (if (or (not (urb:string-equal-p (urb:send-costado-de 1) "Ninguno"))
-            (not (urb:string-equal-p (urb:send-costado-de 2) "Ninguno")))
-      (urb:send-costados-draw etapa sub))
+    ;; prefabricado por costados: trazado independiente, NO envuelve el
+    ;; contorno completo (las puntas quedan sin prefabricado)
+    (if (not (urb:string-equal-p lado-der "Ninguno"))
+      (urb:send-costado-draw "Derecha" lado-der etapa sub))
+    (if (not (urb:string-equal-p lado-izq "Ninguno"))
+      (urb:send-costado-draw "Izquierda" lado-izq etapa sub))
     (setq n (1+ n))
     (prompt (strcat "\n" (nth 1 entry) " " (itoa n)
       " creado. Otro contorno (Enter termina): ")))
@@ -21439,6 +21427,11 @@
 ;; Ajustes, sin verse ni pedirse en esta ventana) y el campo de ancho del
 ;; prefabricado perimetral (las piezas ya tienen ancho predeterminado,
 ;; editable tambien en Ajustes).
+;; 2026-08-24 v2 (pedido del usuario, corrigiendo el diseño anterior): el
+;; prefabricado NO es un anillo perimetral (no envuelve las puntas) --
+;; son dos costados independientes (Derecha/Izquierda). Se eligen AQUI,
+;; en la misma ventana de creacion (no solo en Ajustes); cada seleccion
+;; queda como el valor por defecto la proxima vez.
 (defun urb:send-write-dcl ()
   (urb:write-dialog-dcl
     "urb_sendero"
@@ -21449,10 +21442,10 @@
       ": popup_list { label = \"Tipo\"; key = \"tipo\"; }"
       ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; } }"
-      ": boxed_column { label = \"Prefabricado perimetral\";"
-      ": popup_list { label = \"Tipo\"; key = \"prefab\"; }"
-      ": popup_list { label = \"Posicion\"; key = \"prefpos\"; }"
-      ": text { label = \"Externo = fuera del area dibujada; Interno = franja dentro (se descuenta).\"; } }"
+      ": boxed_column { label = \"Prefabricado por costados (no envuelve las puntas)\";"
+      ": popup_list { label = \"Derecha\"; key = \"lado_der\"; }"
+      ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
+      ": text { label = \"Se traza cada costado marcado despues de cerrar el poligono.\"; } }"
       ": text { label = \"Aceptar y CERRAR EL POLIGONO del contorno (como una via o un anden).\"; }"
       "ok_cancel; }")))
 
@@ -21462,8 +21455,8 @@
   (end_list)
   (set_tile "subetapa" "0"))
 
-(defun urb:sendero-command (/ dclfile dcl done entry etapa sub subs capa
-                            prefab prefpos prefancho)
+(defun urb:sendero-command (/ dclfile dcl done entry etapa sub subs
+                            lado-der lado-izq)
   (vl-load-com)
   (setq dclfile (urb:send-write-dcl))
   (if (null dclfile)
@@ -21481,25 +21474,21 @@
           (end_list)
           (set_tile "etapa" "0")
           (urb:send-fill-sub 0)
-          (start_list "prefab")
-          (foreach entry *urb-anillo-prefab-list* (add_list entry))
-          (end_list)
-          (set_tile "prefab" "0")
-          (start_list "prefpos")
-          (foreach entry *urb-anillo-pos-list* (add_list entry))
-          (end_list)
-          (set_tile "prefpos" "0")
+          (urb:fill-popup "lado_der" *urb-anillo-prefab-list*
+            (urb:list-index-ci (urb:send-costado-de 1) *urb-anillo-prefab-list*))
+          (urb:fill-popup "lado_izq" *urb-anillo-prefab-list*
+            (urb:list-index-ci (urb:send-costado-de 2) *urb-anillo-prefab-list*))
           (action_tile "etapa" "(urb:send-fill-sub (atoi $value))")
           ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
           (setq *urb-send-sel* "0" *urb-send-etapa* "0" *urb-send-sub* "0"
-                *urb-send-prefab* "0" *urb-send-prefpos* "0")
+                *urb-send-lado-der* "0" *urb-send-lado-izq* "0")
           (action_tile "accept"
             (strcat
               "(setq *urb-send-sel* (get_tile \"tipo\")"
               " *urb-send-etapa* (get_tile \"etapa\")"
               " *urb-send-sub* (get_tile \"subetapa\")"
-              " *urb-send-prefab* (get_tile \"prefab\")"
-              " *urb-send-prefpos* (get_tile \"prefpos\"))"
+              " *urb-send-lado-der* (get_tile \"lado_der\")"
+              " *urb-send-lado-izq* (get_tile \"lado_izq\"))"
               "(done_dialog 1)"))
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))
@@ -21517,16 +21506,15 @@
             (urb:safe-string
               (nth (atoi (urb:safe-string *urb-send-sub* "0")) subs)
               etapa))
-          ;; anillo perimetral opcional (v4.50); ancho predeterminado por
-          ;; tipo (2026-08-24, editable en Ajustes -- ya no se pregunta)
-          (setq prefab
-            (nth (atoi (urb:safe-string *urb-send-prefab* "0"))
+          (setq lado-der
+            (nth (atoi (urb:safe-string *urb-send-lado-der* "0"))
               *urb-anillo-prefab-list*))
-          (setq prefpos
-            (nth (atoi (urb:safe-string *urb-send-prefpos* "0"))
-              *urb-anillo-pos-list*))
-          (setq prefancho (urb:prefab-default-ancho prefab))
-          (urb:poly-element-draw entry etapa sub prefab prefpos prefancho
+          (setq lado-izq
+            (nth (atoi (urb:safe-string *urb-send-lado-izq* "0"))
+              *urb-anillo-prefab-list*))
+          (urb:config-write "URB_SEND_COSTADO1" lado-der)
+          (urb:config-write "URB_SEND_COSTADO2" lado-izq)
+          (urb:poly-element-draw entry etapa sub lado-der lado-izq
             "URB_SENDERO")))))
   (princ))
 
@@ -21540,15 +21528,15 @@
       ": boxed_column { label = \"Datos del elemento\";"
       ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; } }"
-      ": boxed_column { label = \"Prefabricado perimetral\";"
-      ": popup_list { label = \"Tipo\"; key = \"prefab\"; }"
-      ": popup_list { label = \"Posicion\"; key = \"prefpos\"; }"
-      ": text { label = \"Externo = fuera del area dibujada; Interno = franja dentro (se descuenta).\"; } }"
+      ": boxed_column { label = \"Prefabricado por costados (no envuelve las puntas)\";"
+      ": popup_list { label = \"Derecha\"; key = \"lado_der\"; }"
+      ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
+      ": text { label = \"Se traza cada costado marcado despues de cerrar el poligono.\"; } }"
       ": text { label = \"Aceptar y CERRAR EL POLIGONO del contorno (como una via o un anden).\"; }"
       "ok_cancel; }")))
 
 (defun urb:bioswale-command (/ dclfile dcl done entry etapa sub subs
-                              prefab prefpos prefancho)
+                              lado-der lado-izq)
   (vl-load-com)
   (setq entry *urb-bioswale-tipo*)
   (setq dclfile (urb:bioswale-write-dcl))
@@ -21563,23 +21551,19 @@
           (end_list)
           (set_tile "etapa" "0")
           (urb:send-fill-sub 0)
-          (start_list "prefab")
-          (foreach e *urb-anillo-prefab-list* (add_list e))
-          (end_list)
-          (set_tile "prefab" "0")
-          (start_list "prefpos")
-          (foreach e *urb-anillo-pos-list* (add_list e))
-          (end_list)
-          (set_tile "prefpos" "0")
+          (urb:fill-popup "lado_der" *urb-anillo-prefab-list*
+            (urb:list-index-ci (urb:send-costado-de 1) *urb-anillo-prefab-list*))
+          (urb:fill-popup "lado_izq" *urb-anillo-prefab-list*
+            (urb:list-index-ci (urb:send-costado-de 2) *urb-anillo-prefab-list*))
           (action_tile "etapa" "(urb:send-fill-sub (atoi $value))")
           (setq *urb-send-etapa* "0" *urb-send-sub* "0"
-                *urb-send-prefab* "0" *urb-send-prefpos* "0")
+                *urb-send-lado-der* "0" *urb-send-lado-izq* "0")
           (action_tile "accept"
             (strcat
               "(setq *urb-send-etapa* (get_tile \"etapa\")"
               " *urb-send-sub* (get_tile \"subetapa\")"
-              " *urb-send-prefab* (get_tile \"prefab\")"
-              " *urb-send-prefpos* (get_tile \"prefpos\"))"
+              " *urb-send-lado-der* (get_tile \"lado_der\")"
+              " *urb-send-lado-izq* (get_tile \"lado_izq\"))"
               "(done_dialog 1)"))
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))
@@ -21594,14 +21578,15 @@
             (urb:safe-string
               (nth (atoi (urb:safe-string *urb-send-sub* "0")) subs)
               etapa))
-          (setq prefab
-            (nth (atoi (urb:safe-string *urb-send-prefab* "0"))
+          (setq lado-der
+            (nth (atoi (urb:safe-string *urb-send-lado-der* "0"))
               *urb-anillo-prefab-list*))
-          (setq prefpos
-            (nth (atoi (urb:safe-string *urb-send-prefpos* "0"))
-              *urb-anillo-pos-list*))
-          (setq prefancho (urb:prefab-default-ancho prefab))
-          (urb:poly-element-draw entry etapa sub prefab prefpos prefancho
+          (setq lado-izq
+            (nth (atoi (urb:safe-string *urb-send-lado-izq* "0"))
+              *urb-anillo-prefab-list*))
+          (urb:config-write "URB_SEND_COSTADO1" lado-der)
+          (urb:config-write "URB_SEND_COSTADO2" lado-izq)
+          (urb:poly-element-draw entry etapa sub lado-der lado-izq
             "URB_BIOSWALE")))))
   (princ))
 
@@ -25630,7 +25615,10 @@
     ((= action "tramo_appearance")
       (mp:tramo-appearance-command))
     ((= action "layers_organize")
-      (vl-catch-all-apply 'command (list "_URBLAYERFILTER"))
+      ;; "command" no tolera invocarse via apply ("bad order function:
+      ;; COMMAND", detectado 2026-08-24) -- llamada directa dentro del
+      ;; lambda, solo el catch-all pasa por apply
+      (vl-catch-all-apply '(lambda () (command "_URBLAYERFILTER")) nil)
       (princ)))
   (if (or (null action) (= action "back")) "back" nil))
 
