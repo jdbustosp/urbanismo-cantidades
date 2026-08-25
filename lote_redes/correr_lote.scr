@@ -1,0 +1,4 @@
+(load "C:/Users/jdbus/Documents/URBANISMO/work/lote_redes/lote_redes.lsp")
+(c:LOTEREDES)
+_.QSAVE
+(command "_.QUIT" "_N")

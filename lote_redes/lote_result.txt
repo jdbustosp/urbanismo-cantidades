@@ -1,0 +1,172 @@
+LOTE REDES - inicio
+Dibujo: SRC_MASTER.dwg
+Existentes en el master: 354 bloques MP_*
+==== PLUVIAL ====
+Leidos: 242 pozos, 115 sumideros, 67 cabezales, 76 captaciones, 12 rebose/rural, 364 ejes, 144 etiquetas, 507 cotas
+AFECTACION PLUVIAL: 67 cabezales de entrega, 76 captaciones y 12 alcantarillas rurales/rebose NO se modelaron como bloques (el plugin no tiene esos tipos y el ppto los cobra como UN propios: filas 1004/1010/1011). Quedaron como nodos de conexion; conteos listos para vinculo manual.
+Puntos pluviales creados/reutilizados: 357
+  eje sin nodos en extremos (82974.8,96066.6) - saltado
+  eje sin nodos en extremos (82717.8,95693.2) - saltado
+  eje sin nodos en extremos (83302.5,95541.6) - saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  eje sin nodos en extremos (82435.8,95443.0) - saltado
+  eje sin nodos en extremos (82492.1,95510.6) - saltado
+  eje sin nodos en extremos (82663.4,95698.2) - saltado
+  eje sin nodos en extremos (82601.9,95642.0) - saltado
+  eje sin nodos en extremos (82542.6,95571.0) - saltado
+  eje sin nodos en extremos (82562.5,95574.7) - saltado
+  eje sin nodos en extremos (82557.0,95558.8) - saltado
+  eje sin nodos en extremos (82557.0,95558.8) - saltado
+  eje sin nodos en extremos (82616.2,95627.6) - saltado
+  eje sin nodos en extremos (82607.6,95634.7) - saltado
+  eje sin nodos en extremos (82685.6,95689.8) - saltado
+  eje sin nodos en extremos (82685.6,95689.8) - saltado
+  eje sin nodos en extremos (82721.2,95682.7) - saltado
+  eje sin nodos en extremos (82721.2,95682.7) - saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  eje sin nodos en extremos (82935.2,96042.5) - saltado
+  eje sin nodos en extremos (82872.9,95968.1) - saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  eje sin nodos en extremos (82893.9,95533.9) - saltado
+  eje sin nodos en extremos (82557.0,95558.8) - saltado
+  eje sin nodos en extremos (82616.2,95627.6) - saltado
+  eje sin nodos en extremos (82685.7,95689.3) - saltado
+  eje sin nodos en extremos (82717.8,95693.2) - saltado
+  eje sin nodos en extremos (82721.2,95682.7) - saltado
+  eje sin nodos en extremos (82666.4,95691.1) - saltado
+  eje sin nodos en extremos (82621.0,95644.6) - saltado
+  eje sin nodos en extremos (82672.4,95708.1) - saltado
+  tramo duplicado saltado
+  eje sin nodos en extremos (83571.9,96103.9) - saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+  tramo duplicado saltado
+Tramos pluviales creados: 229 (domiciliarios: 77) | sin diametro de etiqueta al crear: 300 | sin ninguna clave: 1
+  Propagacion por continuidad: 57 tramos heredaron diametro del vecino; quedan SIN diametro: 89
+  Claves DESCARTADAS por inconsistentes con el terreno: 39 tramos (quedan sin excavacion -- completar a mano)
+Existentes en el master: 940 bloques MP_*
+==== ACUEDUCTO (fuente TOTALES -- la que referencia el master) ====
+Leidos: 334 tuberias, 708 etiquetas, 730 accesorios
+Accesorios creados: 704
+Tramos acueducto creados (por segmento): 337 | polilineas sin etiqueta validada: 134
+  SUPUESTO acueducto: recubrimiento 1.00 m sobre clave (clave = terreno - 1.00) -- confirmar
+  Propagacion acueducto: 98 segmentos heredaron diametro; quedan SIN diametro: 63
+  Diametro asignado desde el tramo vecino a 453 de 704 accesorios
+AFECTACION ACUEDUCTO: 45 etiquetas de ACOMETIDA en el plano -- el ppto las cobra como UN por diametro (filas 804-808); NO se modelaron (sin tipo en el plugin). Conteo listo para vinculo manual.
+Existentes en el master: 1976 bloques MP_*
+==== MEDIA TENSION (SERIE 1) ====
+Leidos: 221 segmentos de canalizacion, 680 textos, 291 cajas, 42 trafos/subestaciones, 16 postes
+Cajas creadas: 291
+Trafos/subestaciones/postes creados: 57
+  DBG sin-etq: seg-lng=1.9 etiqueta-mas-cercana d=19.4 m, lng-etq=12.0
+  DBG sin-etq: seg-lng=56.0 etiqueta-mas-cercana d=26.1 m, lng-etq=18.0
+  DBG sin-etq: seg-lng=18.7 etiqueta-mas-cercana d=18.5 m, lng-etq=28.0
+  DBG sin-etq: seg-lng=56.0 etiqueta-mas-cercana d=25.8 m, lng-etq=12.0
+  DBG sin-etq: seg-lng=16.8 etiqueta-mas-cercana d=29.5 m, lng-etq=36.0
+  DBG sin-etq: seg-lng=20.0 etiqueta-mas-cercana d=18.3 m, lng-etq=8.0
+Tramos MT creados: 220 | sin etiqueta validada (banco 6d6" por defecto): 68
+Existentes en el master: 2544 bloques MP_*
+==== ALUMBRADO (SERIE 6) ====
+Luminarias creadas: 603
+Tramos de alumbrado reconstruidos: 553 (encadenando luminarias consecutivas del mismo circuito; validado contra 621 etiquetas 'd=' que suman 15584.0 m)
+Cantidades del modelo volcadas: 167 conceptos en cantidades_modelo.txt
+LOTE-REDES-TERMINADO
