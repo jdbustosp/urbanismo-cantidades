@@ -1,6 +1,9 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
+;;; 4.57.6: tramos MT/BT-AP ya no dibujan circulos propios en cada extremo
+;;;   (los pozos/cajas ya son bloques puntuales independientes, igual que
+;;;   en redes hidrosanitarias) -- se ve la caja real en vez de un circulo.
 ;;; 4.23.4: estabiliza memorias de vias y evita recalcular superficies al mostrarlas.
 ;;; 4.23.0: interpola conexiones, incorpora bombeo y memorias con propiedades depuradas.
 ;;; 4.22.1: simplifica rasantes/propiedades y configura apariencia de tramos.
@@ -40,7 +43,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.57.5")
+(setq *urb-version* "4.57.6")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8203,17 +8206,18 @@
     (vla-AddLightWeightPolyline
       blk
       (mp:var-dbls
-        (if (mp:hydro-tramo-p baseb)
+        (if (mp:tramo-own-node-blocks-p baseb)
           (list 0.0 0.0 dist 0.0)
           (list cut 0.0 (- dist cut) 0.0)))))
   (vla-put-Layer pl lay)
   (vla-put-Color pl col)
   (vla-put-ConstantWidth pl (float w))
 
-  ;; En redes hidrosanitarias los pozos/accesorios son bloques puntuales
-  ;; independientes y compartibles. Dibujar ademas circulos dentro de
-  ;; CADA tramo producia dos o tres anillos superpuestos en una union.
-  (if (not (mp:hydro-tramo-p baseb))
+  ;; En redes hidrosanitarias (y MT/BT-AP) los pozos/cajas/postes son
+  ;; bloques puntuales independientes y compartibles. Dibujar ademas
+  ;; circulos dentro de CADA tramo producia dos o tres anillos
+  ;; superpuestos en una union.
+  (if (not (mp:tramo-own-node-blocks-p baseb))
     (progn
       (setq c1 (vla-AddCircle blk (mp:3d '(0 0 0)) (float r)))
       (vla-put-Layer c1 lay)
@@ -9351,6 +9355,15 @@
 (defun mp:hydro-tramo-p (base)
   (member base
     '("TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS" "TRAMO_ACUEDUCTO")))
+
+;; 2026-08-25 (pedido del usuario: MT "quedo muy desorganizado ... circulo a
+;; circulo como si fueran pozos"). MT/BT-AP tienen igual que hidrosanitario
+;; cajas/postes/trafos como bloques puntuales independientes -- dibujar
+;; ademas circulos genericos DENTRO del tramo los hacia ver como pozos
+;; identicos entre si en vez de mostrar la caja real (cuadrada, CS276/280).
+(defun mp:tramo-own-node-blocks-p (base)
+  (or (mp:hydro-tramo-p base)
+      (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"))))
 
 (defun mp:gravity-tramo-p (base)
   (member base '("TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS")))

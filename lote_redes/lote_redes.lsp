@@ -524,6 +524,20 @@
 ;; ============================================================
 ;; ACUEDUCTO
 ;; ============================================================
+;; 2026-08-25 (pedido del usuario: "no se ve bien a que corresponde cada
+;; cosa" -- 704 accesorios como circulos identicos, todos color 5). Color
+;; por TIPO_ACCESORIO para distinguir de un vistazo (misma capa/bloque,
+;; solo color de instancia -- no toca el resto del programa).
+(defun lr:acc-color (tipo)
+  (cond
+    ((= tipo "TEE") 1)
+    ((wcmatch tipo "CODO_*") 30)
+    ((= tipo "TAPON") 253)
+    ((= tipo "REDUCCION") 140)
+    ((wcmatch tipo "VALVULA_*") 3)
+    ((= tipo "HIDRANTE_TORRE") 2)
+    (T 8)))
+
 (defun lr:acueducto (/ data tuberias etiquetas accs rec lay pts ext e1 e2
                      lng best bd etq p d tip diam mat creados tr sin-etq
                      id n1 n2 nd vals nombre tipo cnt-acc surf mid i tn1
@@ -582,6 +596,8 @@
             "MP_PUNTO_ACC_ACU*"))
         (if en
           (progn
+            (vl-catch-all-apply 'vla-put-Color
+              (list (vlax-ename->vla-object en) (lr:acc-color tipo)))
             (setq creados (1+ creados))
             (setq lr:acu-accs (cons (cons en p) lr:acu-accs)))))))
   (lr:log (strcat "Accesorios creados: " (itoa creados)))
@@ -704,8 +720,13 @@
           (if (< d bd) (setq bd d best (nth 3 tt))))))
     (if best
       (progn
-        (vl-catch-all-apply 'mp:setatt-one
-          (list (car ac) "DIAMETRO" (itoa best)))
+        ;; 2026-08-25: mp:setatt-one SOLO cambia el atributo -- la
+        ;; ETIQUETA visible (que embebe "TIPO D<diametro> ID", ver
+        ;; mp:label-point) quedaba con el diametro en blanco porque este
+        ;; paso corre DESPUES de crear el punto. update-block-after-edit
+        ;; regenera la etiqueta con el valor nuevo.
+        (vl-catch-all-apply 'mp:update-block-after-edit
+          (list (car ac) (list (cons "DIAMETRO" (itoa best)))))
         (setq cnt (1+ cnt)))))
   (lr:log (strcat "  Diametro asignado desde el tramo vecino a " (itoa cnt)
     " de " (itoa (length lr:acu-accs)) " accesorios"))
