@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.57.4")
+(setq *urb-version* "4.57.5")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -17320,7 +17320,7 @@
    station-start-number coverage
    samples old-mov old-cota0 old-cota-final grade-result totals metodo
    cota0 cota-final cut fill skipped audit-result
-   cov-min cov-max cov-it guard-records resp)
+   cov-min cov-max cov-it guard-records)
   (setq *urb-earthwork-stage* "inicio del calculo")
   (setq old-mov (urb:road-movement-data boundary))
   (setq old-cota0
@@ -17514,23 +17514,18 @@
           ;; fallback de abajo tiraba las 20 estaciones buenas y pedia
           ;; una linea recta manual para TODA la via, de punta a punta).
           ;; Si sigue sin cobertura ni rasante guardada pero SI hay
-          ;; estaciones reales, se ofrece usarlas y extrapolar PLANO
-          ;; (valor del borde mas cercano) solo el tramo sin cota --
-          ;; urb:cota-at-axis-distance ya hace esa extrapolacion, aqui
-          ;; solo se decide usarla en vez de descartar los datos reales.
+          ;; estaciones reales, se usan automaticamente extrapolando
+          ;; PLANO (valor del borde mas cercano) solo el tramo sin cota
+          ;; -- urb:cota-at-axis-distance ya hace esa extrapolacion,
+          ;; aqui solo se decide usarla en vez de descartar datos reales.
+          ;; Sin pregunta (pedido del usuario, v4.57.5): usar 20 cotas
+          ;; reales + extrapolacion del borde SIEMPRE es mejor que
+          ;; fabricar una recta ficticia de punta a punta con "No".
           (if (and (not coverage) (>= (length stations) 2))
             (progn
-              (initget "Si No")
-              (setq resp
-                (getkword
-                  (strcat "\nUsar las " (itoa (length stations))
-                    " estaciones detectadas y extrapolar PLANO el tramo"
-                    " sin cota (revisar esa zona despues) [Si/No] <Si>: ")))
-              (if (/= resp "No")
-                (progn
-                  (setq coverage T)
-                  (prompt
-                    "\nUsando las estaciones detectadas; el tramo sin cota queda con la rasante extrapolada del borde mas cercano.")))))
+              (setq coverage T)
+              (prompt
+                "\nCotas insuficientes en un extremo: se usan las estaciones detectadas y se extrapola PLANO (valor del borde mas cercano) el tramo sin cota -- revise esa zona.")))
           (if texts
             (prompt
               (strcat
