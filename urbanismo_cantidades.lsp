@@ -8305,7 +8305,7 @@
     "POZO_INI" "POZO_FIN" "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
     "DIAMETRO" "DIAMETRO_SALIDA" "MATERIAL" "LONGITUD" "PENDIENTE" "SERIE" "CIRCUITO" "CIRCUITO_AP"
     "DESDE" "HASTA" "CONDUCTORES" "CONDUCTOR" "CALIBRE" "MATERIAL_COND" "DUCTOS" "DIAM_DUCTO"
-    "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD" "UBICACION" "TIPO_CAJA" "COTA_TAPA" "NIVELACION" "TIPO_LUMINARIA" "LUMINARIAS" "FUENTE_LED"
+    "MATERIAL_DUCTO" "LIBRES" "CIRCUITOS" "PROFUNDIDAD" "UBICACION" "TIPO_CAJA" "COTA_TAPA" "NIVELACION" "TIPO_LUMINARIA" "LUMINARIAS" "FUENTE_LED"
     "ALTURA_M" "BRAZO_M" "AVANCE_M" "TIPO_SE" "LOTE" "CD" "PF" "ENTRADAS" "SALIDAS" "CELDAS"
     "TIPO_ACCESORIO" "TIPO_EXTREMO_INI" "TIPO_EXTREMO_FIN"
     "HANDLE_EXTREMO_INI" "HANDLE_EXTREMO_FIN" "LONGITUD_2D" "LONGITUD_3D"
@@ -8398,7 +8398,7 @@
     '("ETAPA" "SUBETAPA" "RED" "TIPO_RED" "SERIE" "CIRCUITO"
       "CIRCUITO_AP" "DESDE" "HASTA" "POZO_INI" "POZO_FIN"
       "DIAMETRO" "MATERIAL" "PENDIENTE" "CONDUCTOR"
-      "DUCTOS" "DIAM_DUCTO" "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD"
+      "DUCTOS" "DIAM_DUCTO" "MATERIAL_DUCTO" "LIBRES" "CIRCUITOS" "PROFUNDIDAD"
       "UBICACION" "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
       "LONGITUD" "ANCHO_ZANJA" "EXCAVACION_M3" "CAMA_M3"
       "VOLUMEN_ELEMENTO_M3" "RELLENO_M3" "TRITURADO_M3" "RECEBO_M3"
@@ -8425,6 +8425,10 @@
           ("LIBRES" "Ductos libres" "")
           ("UBICACION" "Ubicacion ducteria" "Anden o zona verde")
           ("CONDUCTOR" "Conductor" "3x185mm2 Al XLPE 15kV")
+          ;; 2026-08-26: nro de circuitos de cable en el mismo banco
+          ;; ("2(3x185)(C1)+3x185(C2)" = 3) -- multiplica las filas de
+          ;; suministro y tendido de cable
+          ("CIRCUITOS" "Circuitos de cable" "1")
           ("PROFUNDIDAD" "Profundidad m" "")
           ("ARENA_M3" "Relleno arena limpia proteccion ductos m3" "0")
           ("BASE_GRANULAR_M3" "Relleno base granular clase B m3" "0")
@@ -24144,7 +24148,7 @@
 (defun urb:ppto-rows-tramos (/ ss i be atts red lng diam mat etapa sub handle
                              pini pfin id ent rows out r ductos-n diam-d
                              mat-d ctok exc prof anchoz vol-ductos recub
-                             env-banco arena base-gran)
+                             env-banco arena base-gran circ)
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "TRAMO_*,MP_TRAMO_*")))
         out nil i 0)
   (if ss
@@ -24252,6 +24256,12 @@
             (progn
               (if (= (vl-string-trim " " ctok) "")
                 (setq ctok "3x185 mm² Al XLPE 15 kV"))
+              ;; circuitos de cable en el mismo banco: multiplica el ML
+              ;; de suministro y tendido (2026-08-26, 46 tramos del plano
+              ;; llevan doble/triple circuito)
+              (setq circ
+                (max 1 (atoi (urb:safe-string
+                  (cdr (assoc "CIRCUITOS" atts)) "1"))))
               (setq rows
                 (list
                   (urb:ppto-row red
@@ -24259,11 +24269,11 @@
                       mat-d "-TDP " ductos-n (chr 216) diam-d "\"")
                     id "" "" etapa sub "ML" lng handle)
                   (urb:ppto-row red (strcat "Suministro cable " ctok)
-                    id "" "" etapa sub "ML" lng handle)
+                    id "" "" etapa sub "ML" (* lng circ) handle)
                   (urb:ppto-row red
                     (strcat
                       "Tendido, conexionado e identificación cable " ctok)
-                    id "" "" etapa sub "ML" lng handle)
+                    id "" "" etapa sub "ML" (* lng circ) handle)
                   (urb:ppto-row red
                     "Excavación para canalización MT, incluye cargue"
                     id "" "" etapa sub "M3" exc handle)
