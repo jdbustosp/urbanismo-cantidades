@@ -1,6 +1,9 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
+;;; 4.58.0: cajas electricas con la simbologia del plano (CS276 tapa doble,
+;;;   CS280 con circulo, CS274/275 sencilla, centradas y a escala real
+;;;   2.00x1.70) y tramos MT/BT-AP de caja a caja sin recorte visual.
 ;;; 4.57.6: tramos MT/BT-AP ya no dibujan circulos propios en cada extremo
 ;;;   (los pozos/cajas ya son bloques puntuales independientes, igual que
 ;;;   en redes hidrosanitarias) -- se ve la caja real en vez de un circulo.
@@ -43,7 +46,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.57.6")
+(setq *urb-version* "4.58.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8194,8 +8197,14 @@
         r   *mp-vis-radius*
         th  *mp-vis-tramo-text-height*)
   (if (< w 0.01) (setq w 0.01))
+  ;; MT/BT-AP: franja DELGADA (el usuario la vio "muy gruesa" 2026-08-26)
+  ;; -- debe leerse como una linea que va de caja a caja, no un rectangulo
+  (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP")) (setq w 0.20))
   (if (< r 2.00) (setq r 2.00))
   (if (< th 0.10) (setq th 0.10))
+  ;; MT/BT-AP: texto del tramo acotado para que no tape cajas ni otros
+  ;; rotulos (revision del usuario 2026-08-26)
+  (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP")) (setq th (min th 0.90)))
   (setq lab (mp:label-tramo baseb vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
 
@@ -8248,6 +8257,15 @@
           col)
         mid
         th)))
+  ;; MT/BT-AP: la longitud va DEBAJO del tramo (arriba queda la ducteria)
+  (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
+    (progn
+      (setq mid (list (/ dist 2.0) (- (* th 1.35)) 0.0))
+      (mp:center-visible-att
+        (mp:vla-add-att blk "LONG_VIS" "Longitud visible"
+          (mp:long-label vals) mid th nil lay col)
+        mid
+        th)))
 
   ;; Atributos invisibles de datos.
   (setq y (- (* th 1.25)))
@@ -8287,14 +8305,14 @@
     "POZO_INI" "POZO_FIN" "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
     "DIAMETRO" "DIAMETRO_SALIDA" "MATERIAL" "LONGITUD" "PENDIENTE" "SERIE" "CIRCUITO" "CIRCUITO_AP"
     "DESDE" "HASTA" "CONDUCTORES" "CONDUCTOR" "CALIBRE" "MATERIAL_COND" "DUCTOS" "DIAM_DUCTO"
-    "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD" "UBICACION" "TIPO_CAJA" "TIPO_LUMINARIA" "FUENTE_LED"
+    "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD" "UBICACION" "TIPO_CAJA" "COTA_TAPA" "NIVELACION" "TIPO_LUMINARIA" "LUMINARIAS" "FUENTE_LED"
     "ALTURA_M" "BRAZO_M" "AVANCE_M" "TIPO_SE" "LOTE" "CD" "PF" "ENTRADAS" "SALIDAS" "CELDAS"
     "TIPO_ACCESORIO" "TIPO_EXTREMO_INI" "TIPO_EXTREMO_FIN"
     "HANDLE_EXTREMO_INI" "HANDLE_EXTREMO_FIN" "LONGITUD_2D" "LONGITUD_3D"
     "MODO_LONGITUD" "PENDIENTE_CALCULADA" "PROFUNDIDAD_INI"
     "PROFUNDIDAD_FIN" "PROFUNDIDAD_MEDIA" "ANCHO_ZANJA" "ESPESOR_CAMA"
     "ANCHO_REPOSICION" "EXCAVACION_M3" "CAMA_M3" "VOLUMEN_ELEMENTO_M3"
-    "RELLENO_M3" "TRITURADO_M3" "RECEBO_M3" "ENTIBADO_LE3_M2"
+    "RELLENO_M3" "ARENA_M3" "BASE_GRANULAR_M3" "TRITURADO_M3" "RECEBO_M3" "ENTIBADO_LE3_M2"
     "ENTIBADO_GT3_M2" "SOBRANTE_M3" "REPOSICION_M2" "METODO_CANTIDADES"
     "SUPERFICIE_TN" "ESTADO_COTA_TN" "ORIGEN_CREACION"
     "CONTROL_ESTADO" "CONTROL_MENSAJES"))
@@ -8379,17 +8397,22 @@
   (member (strcase (mp:safe-str tag))
     '("ETAPA" "SUBETAPA" "RED" "TIPO_RED" "SERIE" "CIRCUITO"
       "CIRCUITO_AP" "DESDE" "HASTA" "POZO_INI" "POZO_FIN"
-      "DIAMETRO" "MATERIAL" "PENDIENTE" "CONDUCTORES" "CONDUCTOR"
+      "DIAMETRO" "MATERIAL" "PENDIENTE" "CONDUCTOR"
       "DUCTOS" "DIAM_DUCTO" "MATERIAL_DUCTO" "LIBRES" "PROFUNDIDAD"
       "UBICACION" "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
       "LONGITUD" "ANCHO_ZANJA" "EXCAVACION_M3" "CAMA_M3"
       "VOLUMEN_ELEMENTO_M3" "RELLENO_M3" "TRITURADO_M3" "RECEBO_M3"
+      "ARENA_M3" "BASE_GRANULAR_M3"
       "ENTIBADO_LE3_M2" "ENTIBADO_GT3_M2" "SOBRANTE_M3"
       "REPOSICION_M2" "MEMORIAS")))
 
 (defun mp:base-atts-for (bname / specific all)
   (setq specific
     (cond
+      ;; 2026-08-26 (pedido del usuario: propiedades "muy desordenadas"):
+      ;; orden por grupos -- identificacion, ducteria, conductor,
+      ;; profundidad/cotas. Se quito el duplicado CONDUCTORES (queda solo
+      ;; CONDUCTOR; los lectores ya caian a uno u otro).
       ((= bname "TRAMO_E_MT")
         '(("SERIE" "Serie" "1") ("ETAPA" "Etapa" "")
           ("SUBETAPA" "Subetapa" "") ("TIPO_RED" "Tipo red" "MT")
@@ -8397,15 +8420,14 @@
           ("HASTA" "Hasta" "")
           ("TIPO_EXTREMO_INI" "Tipo extremo inicial" "")
           ("TIPO_EXTREMO_FIN" "Tipo extremo final" "")
-          ("CONDUCTORES" "Conductores" "3x185mm2 Al XLPE 15kV")
-          ("CONDUCTOR" "Conductor" "3x185mm2 Al XLPE 15kV")
-          ("CALIBRE" "Calibre" "185mm2")
-          ("MATERIAL_COND" "Material conductor" "Al XLPE")
-          ("DUCTOS" "Ductos" "6") ("DIAM_DUCTO" "Diam ducto" "6\"")
+          ("DUCTOS" "Ductos" "6") ("DIAM_DUCTO" "Diam ducto" "6")
           ("MATERIAL_DUCTO" "Material ducto" "PVC")
           ("LIBRES" "Ductos libres" "")
-          ("PROFUNDIDAD" "Profundidad m" "")
           ("UBICACION" "Ubicacion ducteria" "Anden o zona verde")
+          ("CONDUCTOR" "Conductor" "3x185mm2 Al XLPE 15kV")
+          ("PROFUNDIDAD" "Profundidad m" "")
+          ("ARENA_M3" "Relleno arena limpia proteccion ductos m3" "0")
+          ("BASE_GRANULAR_M3" "Relleno base granular clase B m3" "0")
           ("COTA_TN_INI" "Cota terreno ini" "")
           ("COTA_TN_FIN" "Cota terreno fin" "")))
       ((= bname "TRAMO_E_BT_AP")
@@ -8415,12 +8437,14 @@
           ("DESDE" "Desde" "") ("HASTA" "Hasta" "")
           ("TIPO_EXTREMO_INI" "Tipo extremo inicial" "")
           ("TIPO_EXTREMO_FIN" "Tipo extremo final" "")
-          ("CONDUCTOR" "Conductor" "3x4+4 THW")
-          ("DUCTOS" "Ductos" "1") ("DIAM_DUCTO" "Diam ducto" "3\"")
+          ("DUCTOS" "Ductos" "1") ("DIAM_DUCTO" "Diam ducto" "3")
           ("MATERIAL_DUCTO" "Material ducto" "PVC")
           ("LIBRES" "Ductos libres" "")
-          ("PROFUNDIDAD" "Profundidad m" "")
           ("UBICACION" "Ubicacion ducteria" "Anden o zona verde")
+          ("CONDUCTOR" "Conductor" "3x4+4 THW")
+          ("PROFUNDIDAD" "Profundidad m" "")
+          ("ARENA_M3" "Relleno arena limpia proteccion ductos m3" "0")
+          ("BASE_GRANULAR_M3" "Relleno base granular clase B m3" "0")
           ("COTA_TN_INI" "Cota terreno ini" "")
           ("COTA_TN_FIN" "Cota terreno fin" "")))
       (T
@@ -8442,6 +8466,26 @@
       '(("SUPERFICIE_TN" "Superficie de terreno" "SUP_TN")
         ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE"))
       (mp:tramo-common-atts)))
+  ;; MT/BT-AP: fuera del panel los campos que el usuario marco como ruido
+  ;; (2026-08-26) -- los DATOS no se pierden: mp:setatts guarda la copia
+  ;; completa en XDATA y calculos/exportacion leen de ahi; el dialogo
+  ;; EDITAR sigue mostrando conductor/ductos/etc. Tambien fuera
+  ;; triturado/recebo/entibado (APUs de alcantarillado) y CAMA/RELLENO
+  ;; genericos (en electricas el ppto los desglosa como ARENA y BASE
+  ;; GRANULAR, ver ARENA_M3 / BASE_GRANULAR_M3).
+  (if (member bname '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
+    (setq all
+      (vl-remove-if
+        '(lambda (item)
+          (member (car item)
+            '("TRITURADO_M3" "RECEBO_M3" "ENTIBADO_LE3_M2" "ENTIBADO_GT3_M2"
+              "TIPO_RED" "CIRCUITO" "CIRCUITO_AP" "DESDE" "HASTA"
+              "CONDUCTOR" "DIAM_DUCTO" "LIBRES" "PROFUNDIDAD" "UBICACION"
+              "CAMA_M3" "RELLENO_M3" "MEMORIAS"
+              ;; 2026-08-26: la excavacion electrica incluye disposicion
+              ;; (sin sobrantes) y no se cobra reposicion
+              "SOBRANTE_M3" "REPOSICION_M2")))
+        all)))
   (vl-remove-if-not
     '(lambda (item) (mp:tramo-public-property-p (car item))) all))
 
@@ -8610,7 +8654,12 @@
     ((= base "SUMIDERO") "PPTO-ALC-PLUVIAL")
     ((= base "ACCESORIO_ACUEDUCTO") "PPTO-ACCESORIOS-ACUEDUCTO")
     ((= base "LUMINARIA_AP") "PPTO-ELECTRICA-BT-AP")
-    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E")) "PPTO-EQUIPOS-ELECTRICOS")
+    ;; 2026-08-26 (pedido del usuario): TODO lo de media tension en UNA
+    ;; capa -- cajas, postes, subestaciones y su numeracion van a la
+    ;; misma capa de los tramos MT, no a una capa de equipos aparte. El
+    ;; transformador de alumbrado se va con su red BT-AP.
+    ((= base "TRANSFORMADOR_AP") "PPTO-ELECTRICA-BT-AP")
+    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "PUNTO_CONEXION_E")) "PPTO-ELECTRICA-MT")
     (T "PPTO-EQUIPOS-ELECTRICOS")))
 
 (defun mp:point-color (base)
@@ -8639,6 +8688,10 @@
         ("TIPO_CAJA" "Tipo caja" "") ("DUCTOS" "Ductos" "") ("LIBRES" "Libres" "")
         ("PROFUNDIDAD" "Profundidad" "") ("CD" "CD" "") ("PF" "PF" "")
         ("COTA_TN_INI" "Cota terreno" "")
+        ;; chequeo de nivelacion (2026-08-26): tapa proyectada vs terreno
+        ;; natural muestreado -- detecta cajas enterradas o colgadas
+        ("COTA_TAPA" "Cota tapa (rasante)" "")
+        ("NIVELACION" "Chequeo nivelacion" "PENDIENTE")
         ("SUPERFICIE_TN" "Superficie de terreno" "SUP_TN")
         ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE")
         ("ORIGEN_CREACION" "Origen de creacion" "MANUAL")))
@@ -8658,6 +8711,18 @@
         ("SUPERFICIE_TN" "Superficie de terreno" "SUP_TN")
         ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE")
         ("ORIGEN_CREACION" "Origen de creacion" "MANUAL")))
+    ;; 2026-08-26 (pedido del usuario): el poste como elemento con SUS
+    ;; luminarias -- numero y referencia como atributos del poste
+    ((= base "POSTE_ELEC")
+      '(("ETAPA" "Etapa" "") ("SUBETAPA" "Subetapa" "") ("ID" "ID / Codigo" "")
+        ("TIPO_RED" "Tipo red" "AP")
+        ("LUMINARIAS" "Numero de luminarias" "")
+        ("TIPO_LUMINARIA" "Referencia luminaria" "")
+        ("ALTURA_M" "Altura montaje" "") ("CIRCUITO_AP" "Circuito AP" "")
+        ("COTA_TN_INI" "Cota terreno" "")
+        ("SUPERFICIE_TN" "Superficie de terreno" "SUP_TN")
+        ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE")
+        ("ORIGEN_CREACION" "Origen de creacion" "MANUAL")))
     (T
       '(("ETAPA" "Etapa" "") ("SUBETAPA" "Subetapa" "") ("ID" "ID / Codigo" "")
         ("TIPO_RED" "Tipo red" "") ("LOTE" "Lote/Sector" "") ("CD" "CD" "") ("PF" "PF" "")
@@ -8667,6 +8732,43 @@
         ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE")
         ("ORIGEN_CREACION" "Origen de creacion" "MANUAL")))) )
 
+
+;; Simbologia de cajas electricas replicada 1:1 del plano SERIE 1
+;; (2026-08-25, pedido del usuario: "que se vean asi como en la foto" --
+;; CS276 tapa doble, CS274 sencilla). Vertices copiados del bloque
+;; "CAJA CS 276" del plano: marco 2.00x1.70 + marco interior + divisor
+;; central doble; "CAJA CS 280": 2.00x2.00 + marco interior + circulo
+;; r=0.75. CS274/CS275 (sencilla): mismo marco doble de linea SIN
+;; divisor. La caja se dibuja centrada en el punto de insercion, igual
+;; que el bloque del plano.
+(defun mp:caja-plan-p (base)
+  (member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280")))
+
+(defun mp:caja-plan-geom (blk base lay col / rects lins circs pl c r)
+  (cond
+    ((= base "CAMARA_CS280")
+      (setq rects '((-1.0 -1.0 1.0 -1.0 1.0 1.0 -1.0 1.0)
+                    (-0.98 -0.98 0.98 -0.98 0.98 0.98 -0.98 0.98))
+            lins nil circs '((0.0 0.0 0.75))))
+    ((= base "CAMARA_CS276")
+      (setq rects '((-1.0 -0.85 1.0 -0.85 1.0 0.85 -1.0 0.85)
+                    (-0.98 -0.83 0.98 -0.83 0.98 0.83 -0.98 0.83))
+            lins '((-0.01 0.83 -0.01 -0.83) (0.01 0.83 0.01 -0.83))
+            circs nil))
+    (T ;; CS274 / CS275: caja sencilla, cuadrado 1.08 m como el bloque
+       ;; "CAJA AP 274" del plano SERIE 6 (extents medidos +-0.54)
+      (setq rects '((-0.54 -0.54 0.54 -0.54 0.54 0.54 -0.54 0.54)
+                    (-0.52 -0.52 0.52 -0.52 0.52 0.52 -0.52 0.52))
+            lins nil circs nil)))
+  (foreach r rects
+    (setq pl (vla-AddLightWeightPolyline blk (mp:var-dbls r)))
+    (vla-put-Closed pl :vlax-true) (vla-put-Layer pl lay) (vla-put-Color pl col))
+  (foreach r lins
+    (setq pl (vla-AddLightWeightPolyline blk (mp:var-dbls r)))
+    (vla-put-Layer pl lay) (vla-put-Color pl col))
+  (foreach r circs
+    (setq c (vla-AddCircle blk (mp:3d (list (car r) (cadr r) 0.0)) (float (caddr r))))
+    (vla-put-Layer c lay) (vla-put-Color c col)))
 
 (defun mp:make-cant-punto-block (blkname base vals / doc blks blk lay col th r lab pl c y att pos a)
   (vl-load-com)
@@ -8679,7 +8781,9 @@
   (setq lab (mp:label-point base vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
   (cond
-    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "SUBESTACION_E" "CDMT_E"))
+    ((mp:caja-plan-p base)
+      (mp:caja-plan-geom blk base lay col))
+    ((member base '("CAJA_BARRAJE_CS281" "SUBESTACION_E" "CDMT_E"))
       (setq pl (vla-AddLightWeightPolyline blk (mp:var-dbls (list (- r) (- r) r (- r) r r (- r) r))))
       (vla-put-Closed pl :vlax-true) (vla-put-Layer pl lay) (vla-put-Color pl col) (vla-put-ConstantWidth pl (float (/ r 3.0))))
     ((= base "SUMIDERO")
@@ -8688,12 +8792,30 @@
     (T
       (setq c (vla-AddCircle blk (mp:3d '(0 0 0)) (float r)))
       (vla-put-Layer c lay) (vla-put-Color c col)))
-  (if (member base '("POZO_SANITARIO" "POZO_PLUVIAL"))
-    (progn
+  (cond
+    ((member base '("POZO_SANITARIO" "POZO_PLUVIAL"))
       (setq pos '(0.0 0.0 0.0))
       (setq att (mp:vla-add-att blk "ETIQUETA" "Numero de pozo" lab pos th nil lay col))
       (mp:center-visible-att att pos th))
-    (mp:vla-add-att blk "ETIQUETA" "Etiqueta visible" lab (list (* r 1.5) (* r 1.5) 0.0) th nil lay col))
+    ((mp:caja-plan-p base)
+      ;; caja estilo plano: ARRIBA centrado el numero de norma ("276") y
+      ;; ABAJO centrado el consecutivo ("1", "2"...). Texto acotado a 0.60
+      ;; y pegado al simbolo para que no se monte sobre otros textos
+      ;; (revision del usuario 2026-08-26).
+      (setq th (min th 0.60))
+      (setq r (cond ((= base "CAMARA_CS280") 1.0)
+                    ((member base '("CAMARA_CS274" "CAMARA_CS275")) 0.54)
+                    (T 0.85)))
+      (setq pos (list 0.0 (+ r (* th 0.75)) 0.0))
+      (setq att (mp:vla-add-att blk "ETIQUETA" "Tipo de caja" lab pos th nil lay col))
+      (mp:center-visible-att att pos th)
+      (setq pos (list 0.0 (- (+ r (* th 0.85))) 0.0))
+      (setq att (mp:vla-add-att blk "NUM_VIS" "Numero de caja"
+        (mp:caja-num-label vals) pos th nil lay col))
+      (mp:center-visible-att att pos th))
+    (T
+      (mp:vla-add-att blk "ETIQUETA" "Etiqueta visible" lab
+        (list (* r 1.5) (* r 1.5) 0.0) th nil lay col)))
   (mp:vla-add-att blk "BLOQUE_BASE" "Bloque base" base (list 0 (- (* th 1.25)) 0.0) 0.10 T lay col)
   (setq y (- (* th 1.5)))
   (foreach a (mp:base-atts-for-point base)
@@ -8895,7 +9017,8 @@
     ((= base "SUMIDERO") "PPTO-ALC-PLUVIAL")
     ((= base "ACCESORIO_ACUEDUCTO") "PPTO-ACCESORIOS-ACUEDUCTO")
     ((= base "LUMINARIA_AP") "PPTO-ELECTRICA-BT-AP")
-    (T "PPTO-EQUIPOS-ELECTRICOS")))
+    ;; misma unificacion de capa MT que mp:point-layer (2026-08-26)
+    (T (mp:point-layer base))))
 
 (defun mp:write-dcl-editar (/ fn f)
   (mp:reset-dialog-capture)
@@ -9271,6 +9394,17 @@
     d
     (strcat d "\"")))
 
+;; 2026-08-26 (pedido del usuario): en MT/BT-AP la etiqueta de ARRIBA es
+;; solo la ducteria al estilo del plano ("6%%c6\" PVC") y la longitud va
+;; en una etiqueta aparte DEBAJO del tramo ("L=16.70").
+(defun mp:ducteria-label (vals / d)
+  (setq d (vl-string-right-trim "\"" (mp:getval "DIAM_DUCTO" vals "")))
+  (strcat (mp:getval "DUCTOS" vals "") "%%c" d "\" "
+    (mp:getval "MATERIAL_DUCTO" vals "")))
+
+(defun mp:long-label (vals)
+  (strcat "L=" (mp:getval "LONGITUD" vals "")))
+
 (defun mp:label-tramo (base vals / l d mat)
   (setq l (mp:getval "LONGITUD" vals ""))
   (setq d (mp:diametro-label vals))
@@ -9282,13 +9416,8 @@
       (strcat "ALL L=" l "- %%c" d "-" mat))
     ((= base "TRAMO_ARESIDUAL")
       (strcat "SAN L=" l "- %%c" d "-" mat))
-    ((= base "TRAMO_E_MT")
-      (strcat "MT L=" l "- " (mp:getval "DUCTOS" vals "") "x%%c" (mp:getval "DIAM_DUCTO" vals "") "-" (mp:getval "MATERIAL_DUCTO" vals "")))
-    ((= base "TRAMO_E_BT_AP")
-      (strcat (mp:getval "TIPO_RED" vals "BT/AP") " L=" l "- "
-        (mp:getval "DUCTOS" vals "") "x%%c"
-        (mp:getval "DIAM_DUCTO" vals "") "-"
-        (mp:getval "MATERIAL_DUCTO" vals "")))
+    ((member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
+      (mp:ducteria-label vals))
     (T (strcat base " L=" l))))
 
 ;; "last" es funcion nativa de AutoLISP; renombrado por prevencion
@@ -9311,15 +9440,50 @@
     ((= base "CAJA_BARRAJE_CS281") "CS281")
     (T base)))
 
+;; 2026-08-26 (pedido del usuario): en la caja, ARRIBA solo el numero de
+;; norma ("276", "280"...) y ABAJO solo el consecutivo ("1", "2"...).
+(defun mp:solo-digitos (s / i c out)
+  (setq out "" i 1 s (mp:safe-str s))
+  (repeat (strlen s)
+    (setq c (substr s i 1))
+    (if (wcmatch c "#") (setq out (strcat out c)))
+    (setq i (1+ i)))
+  out)
+
+(defun mp:caja-tipo-label (base vals / d)
+  (setq d (mp:solo-digitos (mp:getval "TIPO_CAJA" vals (mp:tipo-caja-de base))))
+  (if (= d "") (mp:tipo-caja-de base) d))
+
+;; Chequeo de nivelacion de caja (2026-08-26): compara la cota de tapa
+;; proyectada (COTA_TAPA, rasante en el punto) con el terreno natural
+;; muestreado (COTA_TN_INI). |d| <= 0.15 m se considera OK.
+(defun mp:caja-nivelacion (vals / tn tapa d)
+  (setq tn (mp:numeric-real (mp:getval "COTA_TN_INI" vals "")))
+  (setq tapa (mp:numeric-real (mp:getval "COTA_TAPA" vals "")))
+  (if (and tn tapa)
+    (progn
+      (setq d (- tapa tn))
+      (cond
+        ((> d 0.15) (strcat "COLGADA +" (rtos d 2 2) " (relleno alto)"))
+        ((< d -0.15) (strcat "ENTERRADA " (rtos d 2 2) " (corte pendiente)"))
+        (T "OK")))
+    "PENDIENTE"))
+
+(defun mp:caja-num-label (vals / id p)
+  (setq id (mp:getval "ID" vals (mp:getval "CODIGO" vals "")))
+  (setq p (vl-string-position (ascii "-") id 0 T))
+  (if p (substr id (+ p 2)) id))
+
 (defun mp:label-point (base vals / id)
   (setq id (mp:getval "ID" vals (mp:getval "CODIGO" vals "")))
   (cond
     ((= base "POZO_SANITARIO") id)
     ((= base "POZO_PLUVIAL") id)
     ((= base "SUMIDERO") (strcat "SUM " id))
-    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281")) (strcat (mp:getval "TIPO_CAJA" vals base) " " id))
+    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281")) (mp:caja-tipo-label base vals))
     ((= base "ACCESORIO_ACUEDUCTO") (strcat (mp:getval "TIPO_ACCESORIO" vals "ACC") " D" (mp:getval "DIAMETRO" vals "") " " id))
     ((= base "LUMINARIA_AP") (strcat "LUM " (mp:getval "CODIGO" vals id)))
+    ((= base "POSTE_ELEC") id)
     (T (strcat base " " id))))
 
 (defun mp:alist-set (values tag value / pair)
@@ -10046,7 +10210,8 @@
    entered-slope excavation bedding-volume element-volume fill surplus
    replacement duct-diameter surface depth-profile depths max-depth-sampled
    critical-depth sample-count env-height env-vol triturado recebo
-   ent-le3 ent-gt3 seg-len seg-index d1 d2 dmid)
+   ent-le3 ent-gt3 seg-len seg-index d1 d2 dmid
+   recub-e envb-e arena-e baseg-e)
   (setq *mp-last-tramo-memory-samples* nil)
   (setq length-2d (if (and p1 p2) (mp:distance-2d p1 p2)
                     (mp:number-or (mp:getval "LONGITUD_2D" vals
@@ -10187,6 +10352,22 @@
                      (if depths "PERFIL_MUESTREADO" "PRELIMINAR_GEOMETRICO")
                      (if (and (boundp '*mp-tramo-road-ref*) *mp-tramo-road-ref*)
                        " (ref. subrasante via)" ""))))
+      ;; Electricas: desglose del relleno con los MISMOS materiales del
+      ;; presupuesto (2026-08-26): arena limpia envolviendo el banco hasta
+      ;; el recubrimiento normativo (0.60 anden / 0.80 calzada) y base
+      ;; granular clase B de ahi a la rasante. Misma formula que
+      ;; urb:ppto-rows-tramos para que el panel y las filas coincidan.
+      (if (and (not (mp:hydro-tramo-p base)) (> excavation 1e-9))
+        (progn
+          (setq recub-e
+            (if (vl-string-search "CALZADA"
+                  (strcase (mp:getval "UBICACION" vals "")))
+              0.80 0.60))
+          (setq envb-e (max 0.0 (* (- depth-mean recub-e) width length-value)))
+          (setq arena-e (max 0.0 (- (min excavation envb-e) element-volume)))
+          (setq baseg-e (max 0.0 (- excavation envb-e)))
+          (setq vals (mp:alist-set vals "ARENA_M3" (rtos arena-e 2 3))
+                vals (mp:alist-set vals "BASE_GRANULAR_M3" (rtos baseg-e 2 3)))))
       ;; Cimentacion (modelo 2) y entibado: solo tramos a gravedad
       ;; (alcantarillado sanitario/pluvial), que es donde aplica el APU.
       (if (and (mp:gravity-tramo-p base) (> excavation 1e-9)
@@ -10250,13 +10431,23 @@
 ;; edicion reconstruyen la geometria desde esos bloques (no desde el
 ;; dibujo), asi que el recorte nunca toca las CANTIDADES -- la longitud
 ;; real p1-p2 sigue siendo la de presupuesto.
-(defun mp:tramo-visual-gap (vals dist / r)
+(defun mp:tramo-visual-gap (vals dist / r base g)
   (setq r (max 2.0 *mp-vis-radius*))
-  (if (and (/= (mp:getval "HANDLE_EXTREMO_INI" vals "") "")
-           (/= (mp:getval "HANDLE_EXTREMO_FIN" vals "") "")
-           (> dist (+ (* 2.0 r) 1.0)))
-    r
-    0.0))
+  (setq base (mp:getval "BLOQUE_BASE" vals ""))
+  (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
+    ;; 2026-08-26 (revision del usuario sobre la muestra): la linea llega
+    ;; hasta el BORDE de la caja, no al centro -- recorte = media caja
+    ;; (CS276/280 del plano miden 2.00 de ancho -> 1.00; la caja AP 274
+    ;; mide 1.08 -> 0.54). Las CANTIDADES no cambian: la longitud real
+    ;; sigue siendo centro a centro (p1-p2).
+    (progn
+      (setq g (if (= base "TRAMO_E_MT") 1.00 0.54))
+      (if (> dist (+ (* 2.0 g) 0.5)) g 0.0))
+    (if (and (/= (mp:getval "HANDLE_EXTREMO_INI" vals "") "")
+             (/= (mp:getval "HANDLE_EXTREMO_FIN" vals "") "")
+             (> dist (+ (* 2.0 r) 1.0)))
+      r
+      0.0)))
 
 (defun mp:insert-cant-tramo
   (baseb p1 p2 vals / doc ms dist ang blk br vals2 en lay added sync-result
@@ -10278,6 +10469,9 @@
         (mp:alist-set vals2 "ETIQUETA" (mp:label-tramo baseb vals2)))
       (setq vals2
         (mp:alist-set vals2 "PENDIENTE_VIS" (mp:pendiente-label vals2)))
+      (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
+        (setq vals2
+          (mp:alist-set vals2 "LONG_VIS" (mp:long-label vals2))))
       ;; recorte visual: el bloque arranca en el borde del pozo, no en su
       ;; centro (las cantidades ya quedaron derivadas con p1-p2 reales)
       (setq gap (mp:tramo-visual-gap vals2 dist))
@@ -10324,6 +10518,11 @@
       (mp:alist-set vals2 "ORIGEN_CREACION" "MANUAL")))
   (setq vals2 (mp:alist-set vals2 "BLOQUE_BASE" base))
   (setq vals2 (append vals2 (list (cons "ETIQUETA" (mp:label-point base vals2)))))
+  (if (mp:caja-plan-p base)
+    (setq vals2
+      (mp:alist-set
+        (mp:alist-set vals2 "NUM_VIS" (mp:caja-num-label vals2))
+        "NIVELACION" (mp:caja-nivelacion vals2))))
   (setq blk (mp:point-block-name base))
   (if (not (tblsearch "BLOCK" blk))
     (mp:make-cant-punto-block blk base vals2))
@@ -11206,7 +11405,9 @@
                 saved (mp:setatts en merged))
           (setq lab (mp:label-tramo base merged))
           (mp:setatt-one en "ETIQUETA" lab)
-          (mp:setatt-one en "PENDIENTE_VIS" (mp:pendiente-label merged)))
+          (mp:setatt-one en "PENDIENTE_VIS" (mp:pendiente-label merged))
+          (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
+            (mp:setatt-one en "LONG_VIS" (mp:long-label merged))))
         ((not (mp:base-is-tramo base))
           (setq merged
             (mp:auto-terrain-values
@@ -11214,6 +11415,10 @@
           (setq saved (mp:setatts en merged))
           (setq lab (mp:label-point base merged))
           (mp:setatt-one en "ETIQUETA" lab)
+          (if (mp:caja-plan-p base)
+            (progn
+              (mp:setatt-one en "NUM_VIS" (mp:caja-num-label merged))
+              (mp:setatt-one en "NIVELACION" (mp:caja-nivelacion merged))))
           (mp:update-segments-for-endpoint en)))
       ;; Fuerza la actualizacion visual inmediata de atributos y referencia.
       (vla-Update obj)
@@ -24036,46 +24241,45 @@
                 arena (max 0.0 (- (min exc env-banco) vol-ductos))
                 base-gran (max 0.0 (- exc env-banco)))
           (if (= red "ELECTRICA-MT")
-            ;; MT: el ppto separa excavacion, arena, base granular,
-            ;; sobrantes, reposicion, banco de ductos, cinta y mandrilado
-            (setq rows
-              (list
-                (urb:ppto-row red
-                  (strcat "Suministro e instalación de banco de ductos "
-                    mat-d "-TDP " ductos-n (chr 216) diam-d)
-                  id "" "" etapa sub "ML" lng handle)
-                (urb:ppto-row red (strcat "Suministro cable " ctok)
-                  id "" "" etapa sub "ML" lng handle)
-                (urb:ppto-row red
-                  (strcat
-                    "Tendido, conexionado e identificación cable " ctok)
-                  id "" "" etapa sub "ML" lng handle)
-                (urb:ppto-row red
-                  "Excavación para canalización MT, incluye cargue"
-                  id "" "" etapa sub "M3" exc handle)
-                (urb:ppto-row red
-                  "Relleno en arena limpia para protección de ductos"
-                  id "" "" etapa sub "M3" arena handle)
-                (urb:ppto-row red
-                  "Relleno y compactación con base granular clase B"
-                  id "" "" etapa sub "M3" base-gran handle)
-                (urb:ppto-row red
-                  "Transporte y disposición final de sobrantes"
-                  id "" "" etapa sub "M3"
-                  (atof (urb:safe-string
-                    (cdr (assoc "SOBRANTE_M3" atts)) "0")) handle)
-                (urb:ppto-row red
-                  "Reposición de pavimento, andén o zona dura afectada"
-                  id "" "" etapa sub "M2"
-                  (atof (urb:safe-string
-                    (cdr (assoc "REPOSICION_M2" atts)) "0")) handle)
-                (urb:ppto-row red
-                  "Cinta de señalización para red de media tensión"
-                  id "" "" etapa sub "ML" lng handle)
-                (urb:ppto-row red
-                  "Limpieza, mandrilado y verificación de ductos MT"
-                  id "" "" etapa sub "ML"
-                  (* lng (atof ductos-n)) handle)))
+            ;; 2026-08-26 (cruce contra el libro CORRECTO "urbanismo
+            ;; maipore.xlsx", capitulo 2.6.1): banco de ductos POR TAMANO
+            ;; (filas 1029-1032: 4/6/9/12 en 6"), suministro Y tendido de
+            ;; cable por calibre (1040-1045), excavacion/arena/base
+            ;; granular (1023-1025), cinta (1034) y mandrilado (1035).
+            ;; SIN sobrantes ni reposicion (orden explicita del usuario;
+            ;; el libro las tiene en 1026/1027 pero no reciben cantidades
+            ;; del modelo).
+            (progn
+              (if (= (vl-string-trim " " ctok) "")
+                (setq ctok "3x185 mm² Al XLPE 15 kV"))
+              (setq rows
+                (list
+                  (urb:ppto-row red
+                    (strcat "Suministro e instalación de banco de ductos "
+                      mat-d "-TDP " ductos-n (chr 216) diam-d "\"")
+                    id "" "" etapa sub "ML" lng handle)
+                  (urb:ppto-row red (strcat "Suministro cable " ctok)
+                    id "" "" etapa sub "ML" lng handle)
+                  (urb:ppto-row red
+                    (strcat
+                      "Tendido, conexionado e identificación cable " ctok)
+                    id "" "" etapa sub "ML" lng handle)
+                  (urb:ppto-row red
+                    "Excavación para canalización MT, incluye cargue"
+                    id "" "" etapa sub "M3" exc handle)
+                  (urb:ppto-row red
+                    "Relleno en arena limpia para protección de ductos"
+                    id "" "" etapa sub "M3" arena handle)
+                  (urb:ppto-row red
+                    "Relleno y compactación con base granular clase B"
+                    id "" "" etapa sub "M3" base-gran handle)
+                  (urb:ppto-row red
+                    "Cinta de señalización para red de media tensión"
+                    id "" "" etapa sub "ML" lng handle)
+                  (urb:ppto-row red
+                    "Limpieza, mandrilado y verificación de ductos MT"
+                    id "" "" etapa sub "ML"
+                    (* lng (atof ductos-n)) handle))))
             ;; BT / alumbrado: la canalizacion del ppto es todo incluido
             ;; (excavacion, retiro y relleno dentro del APU de tuberia)
             (setq rows
@@ -24145,23 +24349,32 @@
                   "Suministro e instalación Caja de paso en mamposteria según norma CS-274")
                 ((= base "CAMARA_CS275")
                   "Suministro e instalación Caja de paso en mamposteria según norma CS-275")
+                ;; 2026-08-26: redaccion del libro correcto (fila 1037)
                 ((= base "CAMARA_CS276")
                   "Construcción de caja de inspección doble norma CS276")
+                ;; CS280 NO existe en el libro correcto -- queda pendiente
+                ;; a proposito (afectacion reportada al usuario)
                 ((= base "CAMARA_CS280")
                   "Construcción de cámara de paso MT norma CS280")
                 (T "Caja para barraje norma CS281"))
               id "" "" etapa sub "UN" 1.0 handle))))
         ((= base "LUMINARIA_AP")
+          (setq r (urb:safe-string (cdr (assoc "TIPO_LUMINARIA" atts)) ""))
           (setq rows
             (list (urb:ppto-row "ELECTRICA-BT-AP"
-              (strcat "Suministro e instalación de luminaria LED "
-                (urb:safe-string (cdr (assoc "TIPO_LUMINARIA" atts)) ""))
+              (strcat "Suministro e instalación de luminaria LED"
+                (if (or (= r "") (= (strcase r) "LED")) "" (strcat " " r)))
               (urb:safe-string (cdr (assoc "CODIGO" atts)) id)
               "" "" etapa sub "UN" 1.0 handle))))
         ((= base "POSTE_ELEC")
+          ;; 2026-08-26: redaccion del libro (filas 1275/1292), con la
+          ;; altura del poste (ALTURA_M, 12 m por defecto)
+          (setq r (urb:safe-string (cdr (assoc "ALTURA_M" atts)) ""))
+          (if (= r "") (setq r "12"))
           (setq rows
             (list (urb:ppto-row "ELECTRICA-BT-AP"
-              "Suministro e instalación poste de concreto Tipo recto AP"
+              (strcat "Suministro e instalación poste de concreto " r
+                " m. Tipo recto AP (Incluye ahoyada, hincada y plomada)")
               id "" "" etapa sub "UN" 1.0 handle)))))
       (cond
         ((= base "POZO_SANITARIO")
