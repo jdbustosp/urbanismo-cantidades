@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.57.2")
+(setq *urb-version* "4.57.3")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -24276,8 +24276,18 @@
         r))
     (urb:ppto-match-zona-1 cands um concepto)))
 
+(defun urb:ppto-cache-get (key cache / found item)
+  ;; assoc con "equal" real: assoc/eq de AutoLISP no garantiza igualdad
+  ;; de CONTENIDO para claves construidas con strcat/list (identidad de
+  ;; objeto, no de valor) -- foreach + equal es la forma segura
+  (setq found nil)
+  (foreach item cache
+    (if (and (null found) (equal (car item) key)) (setq found item)))
+  found)
+
 (defun urb:ppto-process-item (item vocab dwg / m espec red-count ekey evalue
-                              valido capitulo entry zona zn)
+                              valido capitulo entry zona zn cachekey cached
+                              origen)
   (setq zona
     (if (> (length item) 10) (urb:safe-string (nth 10 item) "") ""))
   ;; clave con zona: el mismo concepto dentro y fuera del parque son
@@ -24287,38 +24297,73 @@
       (urb:ppto-equiv-key (nth 0 item) (nth 1 item))
       (strcat (nth 0 item) "|" (urb:ppto-normalize zona) "|"
         (urb:ppto-normalize (nth 1 item)))))
-  (setq evalue (cdr (assoc ekey *urb-ppto-equiv*)))
-  (if evalue
+  ;; 2026-08-25 (pedido del usuario: Presupuesto lento tras el LOTE
+  ;; REDES): la validacion de una equivalencia guardada Y el match en si
+  ;; dependen SOLO de (ekey um) -- ni de id/desde/hasta/etapa/handle/qty.
+  ;; Con miles de filas repitiendo el MISMO concepto (ej. 337 tramos
+  ;; "Instalacion tuberia PVC 8"" tras el lote de ayer), escanear TODO
+  ;; el vocabulario en CADA fila (incluso para revalidar una
+  ;; equivalencia ya guardada) volvia el export cuadratico. Se memoiza
+  ;; (espec origen best-n) por (ekey um) dentro de esta corrida -- el
+  ;; registro de huerfanas sigue siendo POR FILA (lleva el handle) y la
+  ;; logica de match/validacion en si NO CAMBIA, solo se evita repetirla.
+  (setq cachekey (list ekey (strcase (urb:safe-string (nth 7 item) ""))))
+  (setq cached (urb:ppto-cache-get cachekey *urb-ppto-match-cache*))
+  (if cached
     (progn
-      (setq valido nil
-            capitulo (urb:ppto-caps-de (nth 0 item))
-            zn (if (= zona "") nil (urb:ppto-normalize zona)))
-      (foreach entry vocab
-        (if (and (if zn
-                   (urb:ppto-zona-aplica-p entry zn)
-                   (urb:ppto-cap-match-p (nth 0 entry) capitulo))
-                 (= (nth 1 entry) (strcase (nth 7 item)))
-                 (= (nth 2 entry) evalue))
-          (setq valido T)))
-      (if (not valido) (setq evalue nil))))
-  (if evalue
-    (setq espec evalue)
-    (progn
-      (setq m
-        (if (= zona "")
-          (urb:ppto-match (nth 0 item) (nth 7 item) (nth 1 item) vocab)
-          (urb:ppto-match-zona zona (nth 7 item) (nth 1 item) vocab
-            (if (> (length item) 11)
-              (urb:safe-string (nth 11 item) "") ""))))
-      (if (eq (car m) 'HUERFANA)
+      (setq espec (nth 1 cached) origen (nth 2 cached))
+      (if (= origen "PENDIENTE")
         (progn
           (setq espec
-            (strcat "[SIN MATCH x" (itoa (cadr m)) "] " (nth 1 item)))
+            (strcat "[SIN MATCH x" (itoa (nth 3 cached)) "] " (nth 1 item)))
           (setq *urb-ppto-huerfanas*
-            (cons (list (nth 0 item) (nth 1 item) (cadr m) (nth 9 item)
+            (cons (list (nth 0 item) (nth 1 item) (nth 3 cached) (nth 9 item)
               (nth 7 item))
-              *urb-ppto-huerfanas*)))
-        (setq espec (car m)))))
+              *urb-ppto-huerfanas*)))))
+    (progn
+      (setq evalue (cdr (assoc ekey *urb-ppto-equiv*)))
+      (if evalue
+        (progn
+          (setq valido nil
+                capitulo (urb:ppto-caps-de (nth 0 item))
+                zn (if (= zona "") nil (urb:ppto-normalize zona)))
+          (foreach entry vocab
+            (if (and (if zn
+                       (urb:ppto-zona-aplica-p entry zn)
+                       (urb:ppto-cap-match-p (nth 0 entry) capitulo))
+                     (= (nth 1 entry) (strcase (nth 7 item)))
+                     (= (nth 2 entry) evalue))
+              (setq valido T)))
+          (if (not valido) (setq evalue nil))))
+      (if evalue
+        (progn
+          (setq espec evalue origen "ASIGNADA")
+          (setq *urb-ppto-match-cache*
+            (cons (list cachekey espec origen 0) *urb-ppto-match-cache*)))
+        (progn
+          (setq m
+            (if (= zona "")
+              (urb:ppto-match (nth 0 item) (nth 7 item) (nth 1 item) vocab)
+              (urb:ppto-match-zona zona (nth 7 item) (nth 1 item) vocab
+                (if (> (length item) 11)
+                  (urb:safe-string (nth 11 item) "") ""))))
+          (if (eq (car m) 'HUERFANA)
+            (progn
+              (setq origen "PENDIENTE")
+              (setq espec
+                (strcat "[SIN MATCH x" (itoa (cadr m)) "] " (nth 1 item)))
+              (setq *urb-ppto-huerfanas*
+                (cons (list (nth 0 item) (nth 1 item) (cadr m) (nth 9 item)
+                  (nth 7 item))
+                  *urb-ppto-huerfanas*))
+              (setq *urb-ppto-match-cache*
+                (cons (list cachekey espec origen (cadr m))
+                  *urb-ppto-match-cache*)))
+            (progn
+              (setq espec (car m) origen "AUTO")
+              (setq *urb-ppto-match-cache*
+                (cons (list cachekey espec origen 0)
+                  *urb-ppto-match-cache*))))))))
   ;; registro de TODAS las vinculaciones de la corrida (una por concepto)
   ;; para el dialogo pre-export y la vista de presupuesto:
   ;; (clave red concepto um origen espec cantidad-total-acumulada)
@@ -24337,10 +24382,9 @@
           (if (= zona "") (nth 1 item)
             (strcat (nth 1 item) " @ " zona))
           (strcase (nth 7 item))
-          (cond
-            (evalue "ASIGNADA")
-            ((wcmatch espec "`[SIN MATCH*") "PENDIENTE")
-            (T "AUTO"))
+          ;; origen ya viene resuelto (ASIGNADA/AUTO/PENDIENTE) tanto en
+          ;; la rama de cache como en la de calculo -- ver arriba
+          origen
           espec (nth 8 item))
         *urb-ppto-matches*)))
   (setq *urb-ppto-total* (+ *urb-ppto-total* (nth 8 item)))
@@ -24362,7 +24406,11 @@
 (defun urb:ppto-match-all (raw vocab dwg / item m final)
   (setq *urb-ppto-huerfanas* nil *urb-ppto-total* 0.0
         *urb-ppto-por-red* nil *urb-ppto-item-errs* nil
-        *urb-ppto-matches* nil final nil)
+        *urb-ppto-matches* nil final nil
+        ;; cache de match por (ekey um) -- ver urb:ppto-process-item;
+        ;; se reinicia en CADA corrida (incluida ACTUALIZAR) porque el
+        ;; usuario puede haber cambiado una equivalencia entre corridas
+        *urb-ppto-match-cache* nil)
   (foreach item raw
     (setq m
       (vl-catch-all-apply 'urb:ppto-process-item (list item vocab dwg)))
