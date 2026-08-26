@@ -40,7 +40,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.57.3")
+(setq *urb-version* "4.57.4")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -17320,7 +17320,7 @@
    station-start-number coverage
    samples old-mov old-cota0 old-cota-final grade-result totals metodo
    cota0 cota-final cut fill skipped audit-result
-   cov-min cov-max cov-it guard-records)
+   cov-min cov-max cov-it guard-records resp)
   (setq *urb-earthwork-stage* "inicio del calculo")
   (setq old-mov (urb:road-movement-data boundary))
   (setq old-cota0
@@ -17509,6 +17509,28 @@
                     (strcat
                       "\nRasante tomada de la guardada en la via ("
                       (itoa (length stations)) " puntos)."))))))
+          ;; 2026-08-25 (pedido del usuario: via con 20 estaciones REALES
+          ;; descartadas por un hueco de 29.84 m en un solo extremo -- el
+          ;; fallback de abajo tiraba las 20 estaciones buenas y pedia
+          ;; una linea recta manual para TODA la via, de punta a punta).
+          ;; Si sigue sin cobertura ni rasante guardada pero SI hay
+          ;; estaciones reales, se ofrece usarlas y extrapolar PLANO
+          ;; (valor del borde mas cercano) solo el tramo sin cota --
+          ;; urb:cota-at-axis-distance ya hace esa extrapolacion, aqui
+          ;; solo se decide usarla en vez de descartar los datos reales.
+          (if (and (not coverage) (>= (length stations) 2))
+            (progn
+              (initget "Si No")
+              (setq resp
+                (getkword
+                  (strcat "\nUsar las " (itoa (length stations))
+                    " estaciones detectadas y extrapolar PLANO el tramo"
+                    " sin cota (revisar esa zona despues) [Si/No] <Si>: ")))
+              (if (/= resp "No")
+                (progn
+                  (setq coverage T)
+                  (prompt
+                    "\nUsando las estaciones detectadas; el tramo sin cota queda con la rasante extrapolada del borde mas cercano.")))))
           (if texts
             (prompt
               (strcat
