@@ -11562,12 +11562,21 @@
 
 (defun mp:normalize-tramo-graphics (blk base / item span cut width victims removed)
   ;; Ajusta definiciones existentes al borde de sus circulos.
+  ;; 2026-08-26 FIX: usaba mp:hydro-tramo-p (copia duplicada desactualizada
+  ;; de la logica de mp:make-cant-tramo-block) -- MT/BT-AP caian siempre
+  ;; en la rama "cut" (circulos/recorte de pozo generico) porque no son
+  ;; hydro, aunque YA tienen sus propios bloques punto (caja/poste) y
+  ;; jamas debieron recortarse asi. Esta funcion corre SIEMPRE despues de
+  ;; crear cualquier tramo (via mp:ensure-block-schema, llamado desde
+  ;; mp:insert-cant-tramo) y estaba deshaciendo silenciosamente el fix de
+  ;; "borde de caja" cada vez que se creaba/reconstruia un tramo MT/BTAP.
   (setq span (mp:block-tramo-length blk))
   (setq cut (min (max 2.0 *mp-vis-radius*) (/ span 4.0)))
   (setq width (max 0.01 *mp-vis-width*))
-  ;; Los circulos de extremos de un tramo hidrosanitario no son pozos:
-  ;; eran geometria duplicada. El pozo real es su INSERT puntual enlazado.
-  (if (mp:hydro-tramo-p base)
+  ;; Los circulos de extremos de un tramo hidrosanitario/MT/BT-AP no son
+  ;; pozos: eran geometria duplicada. El nodo real es su INSERT puntual
+  ;; enlazado (pozo/caja/poste).
+  (if (mp:tramo-own-node-blocks-p base)
     (progn
       (vlax-for item blk
         (if (= (vla-get-ObjectName item) "AcDbCircle")
@@ -11581,7 +11590,7 @@
           (vla-put-Coordinates
             item
             (mp:var-dbls
-              (if (mp:hydro-tramo-p base)
+              (if (mp:tramo-own-node-blocks-p base)
                 (list 0.0 0.0 span 0.0)
                 (list cut 0.0 (- span cut) 0.0))))
           (vla-put-ConstantWidth item (float width))
