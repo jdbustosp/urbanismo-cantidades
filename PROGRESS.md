@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-27 (parte 32, PC principal, commit `7b42b92`) — v4.60.0: 5 fixes de la ronda de reportes con pantallazos
+
+Suite 82 checks TODO-OK (3 nuevos: `EXTRAPOLA-PENDIENTE`, `CURVA-CHAINS-BULGE`, `CURVA-CHAIN-POLYLINE`):
+- **Rasante extrapolada por pendiente** (`urb:cota-at-axis-distance`): fuera del rango de cotas ya no se congela el valor del borde — se extrapola con la pendiente de los 2 puntos extremos. El gate de cobertura (`urb:compute-road-earthworks`) acepta cobertura PARCIAL (≥3 estaciones y span cubierto ≥ max(3×intervalo, 20% del tramo)) con mensaje "Rasante con EXTRAPOLACION: ...". Resuelve la vía rechazada con 13 cotas y huecos de 26/125 m.
+- **Toperol dentro de la región** (`urb:fill-tactile-symbols`): cada símbolo se valida con `urb:point-in-poly-p` contra el contorno real de la franja antes de dibujarse (antes se sembraba sobre el rectángulo de bounds u/v y en recortes a inglete/curvos caía fuera del bloque). La guía valida además sus dos extremos.
+- **Guía rediseñada**: UNA barra longitudinal por tableta (largo = módulo − 2 márgenes) en vez de 4+ columnas de cápsulas de 15 cm solapadas cada 5 cm (el efecto "eslabones" del pantallazo). El toperol conserva su retícula de domos cada 5 cm.
+- **Costados curvos** (`urb:poly-costado-chains`/`chain-polyline`/`chain-length`): las cadenas conservan el bulge — vértices (x y bulge), bulge del último vértice anulado (pertenece a la punta cortada), la polilínea de referencia emite los 42 y la longitud se mide como arco real (θ=4·atan|b|, arco=c·θ/(2·sin(θ/2))). El prefabricado sigue la curva vía `vla-Offset` (ya era arc-aware). Cubre andén + sendero + bioswale (mismo motor).
+- **Costado al frente del andén**: los bloques de costado reciben `DRAWORDER _Front` tras el vínculo `URB_PREFAB_ANILLO` (el achurado del andén, insertado después, tapaba la franja interna del bordillo).
+- La cadena del descuento de bordillo (AREA_M2 → xdata → `urb:anden-area-anillos`) se auditó completa y es correcta en código; el caso real del usuario se diagnostica con `work\audit_mt\diag_master_0827.lsp` (censo de capas/proxies/anillos rotos, read-only sobre copia).
+
 ### 2026-08-26 (parte 31, PC secundario) — v4.58.0: rediseño visual redes secas + cruce eléctricas 17/18 contra el libro real
 
 Jornada iterativa con el usuario revisando en vivo (muestra mínima `work\lote_redes\MUESTRA_TRAMO.dwg`, 6 versiones):
