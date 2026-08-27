@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.59.1")
+(setq *urb-version* "4.60.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -3641,7 +3641,7 @@
   (region feature angle-value layer phase-offset parent-handle module
    / points bounds umin umax vmin vmax spacing margin v count
    radius half-length half-width global-u local-u seg-len sym-ename
-   tile-k tile-g su sym-color)
+   tile-k tile-g su su-step sym-color wc w1 w2 ok)
   ;; Reparte simbolos tactiles reales (circulos o capsulas) en una reticula
   ;; de 5 cm sobre el area ya recortada de la franja, en vez de depender de
   ;; un patron .pat (que solo puede construirse con familias de lineas
@@ -3668,9 +3668,6 @@
             umin (nth 0 bounds) umax (nth 1 bounds)
             vmin (nth 2 bounds) vmax (nth 3 bounds))
       (setq spacing 0.05 margin 0.025 count 0 sym-color 8)
-      (if (= feature "GUIA")
-        (setq half-length 0.075 half-width 0.012)
-        (setq radius 0.008))
       (setq seg-len (- umax umin))
       ;; Colocacion POR TABLETA sobre la reticula global de la cadena
       ;; (tabletas de "module" de largo, juntas alineadas con el material):
@@ -3681,6 +3678,17 @@
       ;; ve como tabletas individuales, igual que en el plano de
       ;; referencia U-201.
       (if (or (null module) (< module 0.05)) (setq module 0.20))
+      ;; 2026-08-26 (reporte del usuario, "la guia esta quedando fea"):
+      ;; la guia sembraba 4+ columnas de capsulas de 15cm por tableta
+      ;; (paso su de 5cm con capsulas mas largas que el paso) -- quedaban
+      ;; SOLAPADAS como eslabones. Ahora la guia pone UNA barra
+      ;; longitudinal por tableta (centro su = module/2, largo = module
+      ;; menos margen a cada lado), como la loseta guia real. El toperol
+      ;; conserva su reticula de domos cada 5cm.
+      (if (= feature "GUIA")
+        (setq half-length (/ (- module (* 2.0 margin)) 2.0)
+              half-width 0.012)
+        (setq radius 0.008))
       (setq tile-k (fix (/ (+ phase-offset 1e-9) module)))
       (setq tile-g (* tile-k module))
       (while (< tile-g (+ phase-offset seg-len (- 1e-6)))
@@ -3689,7 +3697,8 @@
         ;; el relleno por bandas de la franja
         (setq sym-color
           (if (car (urb:composite-phase-state (+ tile-g (* 0.5 module)))) 7 8))
-        (setq su margin)
+        (setq su (if (= feature "GUIA") (/ module 2.0) margin))
+        (setq su-step (if (= feature "GUIA") module spacing))
         (while (<= su (+ (- module margin) 1e-6))
           (setq global-u (+ tile-g su))
           ;; solo las columnas que caen dentro de ESTE segmento
@@ -3699,13 +3708,32 @@
               (setq local-u (+ umin (- global-u phase-offset)))
               (setq v (+ vmin margin))
               (while (<= v (+ (- vmax margin) 1e-6))
-                (setq sym-ename
-                  (if (= feature "GUIA")
-                    (urb:add-capsule-symbol local-u v half-length half-width angle-value layer parent-handle sym-color)
-                    (urb:add-circle-symbol local-u v radius angle-value layer parent-handle sym-color)))
-                (setq count (1+ count))
+                ;; 2026-08-26 (reporte del usuario: toperol POR FUERA del
+                ;; bloque): los bounds u/v son un rectangulo; en recortes
+                ;; con cunas a inglete o curvos, parte de ese rectangulo
+                ;; queda FUERA de la franja real. Cada simbolo se valida
+                ;; contra el contorno de la region antes de dibujarse (la
+                ;; guia ademas con sus dos extremos, para no dejar barras
+                ;; colgando del borde).
+                (setq wc (urb:local-to-world local-u v angle-value))
+                (setq ok (urb:point-in-poly-p wc points))
+                (if (and ok (= feature "GUIA"))
+                  (progn
+                    (setq w1 (urb:local-to-world
+                               (- local-u half-length) v angle-value))
+                    (setq w2 (urb:local-to-world
+                               (+ local-u half-length) v angle-value))
+                    (setq ok (and (urb:point-in-poly-p w1 points)
+                                  (urb:point-in-poly-p w2 points)))))
+                (if ok
+                  (progn
+                    (setq sym-ename
+                      (if (= feature "GUIA")
+                        (urb:add-capsule-symbol local-u v half-length half-width angle-value layer parent-handle sym-color)
+                        (urb:add-circle-symbol local-u v radius angle-value layer parent-handle sym-color)))
+                    (setq count (1+ count))))
                 (setq v (+ v spacing)))))
-          (setq su (+ su spacing)))
+          (setq su (+ su su-step)))
         (setq tile-k (1+ tile-k))
         (setq tile-g (* tile-k module)))
       (> count 0))
@@ -5950,7 +5978,13 @@
                 "URB_PREFAB_ANILLO"
                 (list
                   (vla-get-Handle (urb:as-vla-object block-ref))
-                  (nth 13 data)))))))
+                  (nth 13 data)))
+              ;; 2026-08-26 (reporte del usuario: el anden quedaba POR
+              ;; ENCIMA del bordillo): el bloque del anden se inserta
+              ;; DESPUES de los costados y su achurado tapaba la franja
+              ;; interna -- el costado pasa al frente.
+              (command "_.DRAWORDER"
+                (vlax-vla-object->ename aref) "" "_Front")))))
       (setvar "FILLMODE" 1)
       (vla-Regen (urb:doc) 1)
       (if block-ref
@@ -16289,7 +16323,8 @@
 )
 
 (defun urb:cota-at-axis-distance
-  (axis-distance records / lower upper item station span ratio)
+  (axis-distance records / lower upper item station span ratio
+   second-lower second-upper slope)
   (foreach item records
     (setq station (car item))
     (if (<= station axis-distance)
@@ -16307,11 +16342,41 @@
       (setq span (- (car upper) (car lower)))
       (setq ratio (/ (- axis-distance (car lower)) span))
       (+ (cadr lower) (* ratio (- (cadr upper) (cadr lower)))))
-    ;; Si la primera/ultima etiqueta queda muy cerca del extremo, la
-    ;; comprobacion de cobertura permite usarla como valor de borde.
-    ;; Asi no queda una seccion extrema sin resolver por pocos centimetros.
-    ((and (null lower) upper) (cadr upper))
-    ((and lower (null upper)) (cadr lower))
+    ;; 2026-08-26 (pedido del usuario: "con 13 cotas ya me deberia
+    ;; extrapolar para el resto de la via"): fuera del rango de cotas
+    ;; la rasante se EXTRAPOLA con la PENDIENTE del tramo de borde
+    ;; (antes: valor constante, que aplanaba el extremo y con huecos
+    ;; grandes el gate directamente descartaba todo).
+    ((and (null lower) upper)
+      ;; antes del primer punto: pendiente de los 2 primeros
+      (foreach item records
+        (setq station (car item))
+        (if (and (> station (car upper))
+                 (or (null second-upper) (< station (car second-upper))))
+          (setq second-upper item)))
+      (if (and second-upper
+               (> (- (car second-upper) (car upper)) 1e-9))
+        (progn
+          (setq slope
+            (/ (- (cadr second-upper) (cadr upper))
+               (- (car second-upper) (car upper))))
+          (+ (cadr upper) (* slope (- axis-distance (car upper)))))
+        (cadr upper)))
+    ((and lower (null upper))
+      ;; despues del ultimo punto: pendiente de los 2 ultimos
+      (foreach item records
+        (setq station (car item))
+        (if (and (< station (car lower))
+                 (or (null second-lower) (> station (car second-lower))))
+          (setq second-lower item)))
+      (if (and second-lower
+               (> (- (car lower) (car second-lower)) 1e-9))
+        (progn
+          (setq slope
+            (/ (- (cadr lower) (cadr second-lower))
+               (- (car lower) (car second-lower))))
+          (+ (cadr lower) (* slope (- axis-distance (car lower)))))
+        (cadr lower)))
     (T nil))
 )
 
@@ -17713,16 +17778,39 @@
                   (setq cov-min (car cov-it)))
                 (if (or (null cov-max) (> (car cov-it) cov-max))
                   (setq cov-max (car cov-it))))
-              (prompt
-                (strcat
-                  "\nCobertura de cotas insuficiente: "
-                  (itoa (length stations)) " estaciones detectadas,"
-                  " hueco al inicio "
-                  (rtos (max 0.0 (- cov-min axis-start)) 2 2)
-                  " m y al final "
-                  (rtos (max 0.0 (- (+ axis-start span) cov-max)) 2 2)
-                  " m (tolerancia "
-                  (rtos (* 2.0 interval) 2 2) " m)."))))
+              ;; 2026-08-26 (pedido del usuario): con 3+ estaciones que
+              ;; cubran un tramo minimamente representativo (3 intervalos
+              ;; o el 20% de la via, lo que sea mayor), la rasante se
+              ;; ACEPTA y los extremos sin cota se EXTRAPOLAN con la
+              ;; pendiente del tramo de borde (urb:cota-at-axis-distance
+              ;; ya lo hace). Se avisa cuanto se extrapola por lado --
+              ;; el usuario decide si le sirve o re-etiqueta. Con menos
+              ;; de eso sigue el flujo manual de siempre.
+              (if (and (>= (length stations) 3)
+                       (>= (- cov-max cov-min)
+                           (max (* 3.0 interval) (* 0.20 span))))
+                (progn
+                  (setq coverage T)
+                  (prompt
+                    (strcat
+                      "\nRasante con EXTRAPOLACION: "
+                      (itoa (length stations)) " cotas cubren "
+                      (rtos (- cov-max cov-min) 2 1)
+                      " m; se extrapola con la pendiente del borde "
+                      (rtos (max 0.0 (- cov-min axis-start)) 2 1)
+                      " m al inicio y "
+                      (rtos (max 0.0 (- (+ axis-start span) cov-max)) 2 1)
+                      " m al final.")))
+                (prompt
+                  (strcat
+                    "\nCobertura de cotas insuficiente: "
+                    (itoa (length stations)) " estaciones detectadas,"
+                    " hueco al inicio "
+                    (rtos (max 0.0 (- cov-min axis-start)) 2 2)
+                    " m y al final "
+                    (rtos (max 0.0 (- (+ axis-start span) cov-max)) 2 2)
+                    " m (tolerancia "
+                    (rtos (* 2.0 interval) 2 2) " m).")))))
           (if (not coverage)
             (progn
               (setq *urb-earthwork-stage* "rasante guardada")
@@ -22077,9 +22165,23 @@
 ;; dos cadenas de vertices (los lados largos). Devuelve (cadena-a
 ;; cadena-b) -- cada una lista de puntos 2D -- o nil si el poligono no
 ;; da para separar dos cadenas (triangulo, forma muy irregular).
-(defun urb:poly-costado-chains (ename / ed pts n i segs s1 s2 tmp a b idx)
-  (setq ed (entget ename) pts nil)
-  (foreach itm ed (if (= (car itm) 10) (setq pts (cons (cdr itm) pts))))
+;; 2026-08-26 (reporte del usuario con pantallazo: en contornos CURVOS
+;; el costado salia RECTO cruzando el area): las cadenas ahora conservan
+;; el BULGE de cada segmento -- cada vertice es (x y bulge), donde bulge
+;; es el del segmento que SALE de ese vertice. Antes solo se leian los
+;; codigos 10 y el prefabricado se construia con segmentos rectos.
+(defun urb:poly-costado-chains (ename / ed pts cur n i segs s1 s2 tmp a b
+                                idx last-a last-b)
+  (setq ed (entget ename) pts nil cur nil)
+  (foreach itm ed
+    (cond
+      ((= (car itm) 10)
+        (if cur (setq pts (cons cur pts)))
+        (setq cur (list (car (cdr itm)) (cadr (cdr itm)) 0.0)))
+      ((= (car itm) 42)
+        (if cur
+          (setq cur (list (car cur) (cadr cur) (cdr itm)))))))
+  (if cur (setq pts (cons cur pts)))
   (setq pts (reverse pts) n (length pts))
   (if (< n 4)
     nil
@@ -22087,7 +22189,10 @@
       (setq segs nil i 0)
       (repeat n
         (setq segs
-          (cons (cons i (distance (nth i pts) (nth (rem (1+ i) n) pts)))
+          (cons (cons i (distance
+                          (list (car (nth i pts)) (cadr (nth i pts)))
+                          (list (car (nth (rem (1+ i) n) pts))
+                                (cadr (nth (rem (1+ i) n) pts)))))
             segs))
         (setq i (1+ i)))
       (setq segs (vl-sort segs '(lambda (x y) (< (cdr x) (cdr y)))))
@@ -22109,26 +22214,56 @@
           (while (<= idx (+ s1 n))
             (setq b (cons (nth (rem idx n) pts) b) idx (1+ idx)))
           (setq a (reverse a) b (reverse b))
+          ;; el bulge del ULTIMO vertice de cada cadena pertenece al
+          ;; segmento de la punta cortada -- se anula
+          (if a
+            (progn
+              (setq last-a (last a))
+              (setq a (append (reverse (cdr (reverse a)))
+                (list (list (car last-a) (cadr last-a) 0.0))))))
+          (if b
+            (progn
+              (setq last-b (last b))
+              (setq b (append (reverse (cdr (reverse b)))
+                (list (list (car last-b) (cadr last-b) 0.0))))))
           (if (and (>= (length a) 2) (>= (length b) 2))
             (list a b)
             nil))))))
 
-(defun urb:poly-chain-length (pts / l i)
+;; longitud REAL de la cadena, arcos incluidos: cuerda c con bulge b ->
+;; theta = 4*atan|b|, arco = c * theta / (2*sin(theta/2))
+(defun urb:poly-chain-length (pts / l i c b theta)
   (setq l 0.0 i 0)
   (while (< i (1- (length pts)))
-    (setq l (+ l (distance (nth i pts) (nth (1+ i) pts))) i (1+ i)))
+    (setq c (distance
+              (list (car (nth i pts)) (cadr (nth i pts)))
+              (list (car (nth (1+ i) pts)) (cadr (nth (1+ i) pts)))))
+    (setq b (abs (if (caddr (nth i pts)) (caddr (nth i pts)) 0.0)))
+    (if (> b 1e-8)
+      (progn
+        (setq theta (* 4.0 (atan b)))
+        (setq l (+ l (/ (* c theta) (* 2.0 (sin (/ theta 2.0)))))))
+      (setq l (+ l c)))
+    (setq i (1+ i)))
   l)
 
 (defun urb:poly-chain-mid (pts / p0 pn)
   (setq p0 (car pts) pn (last pts))
   (list (/ (+ (car p0) (car pn)) 2.0) (/ (+ (cadr p0) (cadr pn)) 2.0)))
 
-(defun urb:poly-chain-polyline (pts)
-  (entmakex
-    (append
-      (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity")
-        '(100 . "AcDbPolyline") (cons 90 (length pts)) '(70 . 0))
-      (mapcar '(lambda (p) (cons 10 (list (car p) (cadr p)))) pts))))
+(defun urb:poly-chain-polyline (pts / data i p)
+  (setq data
+    (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity")
+      '(100 . "AcDbPolyline") (cons 90 (length pts)) '(70 . 0)))
+  (setq i 0)
+  (repeat (length pts)
+    (setq p (nth i pts))
+    (setq data
+      (append data
+        (list (cons 10 (list (car p) (cadr p)))
+              (cons 42 (if (caddr p) (caddr p) 0.0)))))
+    (setq i (1+ i)))
+  (entmakex data))
 
 ;; construye el prefabricado de UN costado como bloque. El lado de
 ;; crecimiento se decide solo: Interno = hacia el centroide del poligono,
