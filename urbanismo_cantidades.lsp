@@ -1,6 +1,10 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
+;;; 4.59.1: fix de raiz -- mp:normalize-tramo-graphics (llamada SIEMPRE
+;;;   tras crear un tramo) deshacia el gap correcto de borde de caja en
+;;;   MT/BT-AP; usaba el predicado viejo hydro-tramo-p en vez de
+;;;   tramo-own-node-blocks-p. Ver PROGRESS.md 2026-08-26 para el detalle.
 ;;; 4.59.0: alumbrado por circuitos reales (cajas AP-274/275, postes con
 ;;;   sus luminarias y acometidas, transformador pedestal) en capa
 ;;;   PPTO-ELECTRICA-BT-AP; filas de ppto de poste/luminaria/acometida/
@@ -50,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.59.0")
+(setq *urb-version* "4.59.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
