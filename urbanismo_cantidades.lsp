@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.60.0")
+(setq *urb-version* "4.60.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -7062,12 +7062,23 @@
                                 ;; el movimiento siga pendiente, siempre que
                                 ;; el bloque anterior tampoco tuviera un
                                 ;; calculo valido que debamos proteger.
+                                ;; 2026-08-27: capturar el handle viejo ANTES
+                                ;; de borrar, para re-apuntar los anillos de
+                                ;; prefabricado al bloque nuevo (sin esto el
+                                ;; descuento de bordillo moria al EDITAR).
+                                (setq old-handle
+                                  (cdr (assoc 5 (entget ename))))
                                 (if
                                   (urb:call-edit-stage
                                     "reemplazar bloque anterior"
                                     'urb:delete-anden-block
                                     (list ename))
-                                  (setq updated (1+ updated))
+                                  (progn
+                                    (setq new-ename (urb:as-ename block-ref))
+                                    (if (and old-handle new-ename)
+                                      (urb:relink-anden-anillos old-handle
+                                        (cdr (assoc 5 (entget new-ename)))))
+                                    (setq updated (1+ updated)))
                                   (progn
                                     (setq new-ename (urb:as-ename block-ref))
                                     (if new-ename
@@ -23947,10 +23958,14 @@
 ;; (xdata URB_PREFAB_ANILLO = handle-del-anden + posicion): su franja
 ;; ancho x longitud se descuenta del area del anden -- el prefabricado
 ;; ya cuenta su propio ML al presupuesto.
-(defun urb:anden-area-anillos (be / h ss i ce d total)
-  (setq total 0.0
-        h (cdr (assoc 5 (entget be))))
-  (if (and (tblsearch "APPID" "URB_PREFAB_ANILLO")
+;; 2026-08-27: re-apunta los anillos de prefabricado del handle viejo al
+;; nuevo cuando un anden se re-empaqueta (EDITAR). Sin esto el vinculo
+;; URB_PREFAB_ANILLO quedaba muerto y el descuento de area se perdia en
+;; silencio (caso real encontrado en el master). Devuelve cuantos re-vinculo.
+(defun urb:relink-anden-anillos (old-h new-h / ss i ce d n r)
+  (setq n 0)
+  (if (and old-h new-h (/= old-h "") (/= new-h "") (/= old-h new-h)
+           (tblsearch "APPID" "URB_PREFAB_ANILLO")
            (setq ss (ssget "_X"
              '((0 . "INSERT") (-3 ("URB_PREFAB_ANILLO"))))))
     (progn
@@ -23958,13 +23973,89 @@
       (repeat (sslength ss)
         (setq ce (ssname ss i))
         (setq d (urb:get-xdata-strings ce "URB_PREFAB_ANILLO"))
-        (if (and d (= (urb:safe-string (car d) "") h)
-                 (urb:string-equal-p
-                   (urb:safe-string (cadr d) "") "Interno"))
-          (setq total
-            (+ total
-               (atof (urb:safe-string
-                 (cdr (assoc "AREA_M2" (mp:att-alist ce))) "0")))))
+        (if (and d (= (urb:safe-string (car d) "") old-h))
+          (progn
+            (setq r
+              (vl-catch-all-apply
+                '(lambda ()
+                  (urb:set-xdata-strings ce "URB_PREFAB_ANILLO"
+                    (list new-h (urb:safe-string (cadr d) "Interno"))))))
+            (if (not (vl-catch-all-error-p r)) (setq n (1+ n)))))
+        (setq i (1+ i)))))
+  n)
+
+(defun urb:anden-area-anillos (be / h ss i ce d total dest-h dest bb lo hi
+                               p relinked)
+  (setq total 0.0
+        h (cdr (assoc 5 (entget be))))
+  (if (and (tblsearch "APPID" "URB_PREFAB_ANILLO")
+           (setq ss (ssget "_X"
+             '((0 . "INSERT") (-3 ("URB_PREFAB_ANILLO"))))))
+    (progn
+      ;; bounding box del anden, para adoptar anillos HUERFANOS (ver abajo)
+      (setq bb
+        (vl-catch-all-apply
+          '(lambda ( / mn mx)
+            (vla-GetBoundingBox (vlax-ename->vla-object be) 'mn 'mx)
+            (list (vlax-safearray->list mn) (vlax-safearray->list mx)))))
+      (if (vl-catch-all-error-p bb) (setq bb nil))
+      (setq lo (car bb) hi (cadr bb))
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq ce (ssname ss i))
+        (setq d (urb:get-xdata-strings ce "URB_PREFAB_ANILLO"))
+        (setq dest-h (urb:safe-string (car d) ""))
+        (cond
+          ((and d (= dest-h h)
+                (urb:string-equal-p
+                  (urb:safe-string (cadr d) "") "Interno"))
+            (setq total
+              (+ total
+                 (atof (urb:safe-string
+                   (cdr (assoc "AREA_M2" (mp:att-alist ce))) "0")))))
+          ;; 2026-08-27 (caso real del master: anillo con handle destino
+          ;; MUERTO -- el anden fue editado/re-empaquetado con handle
+          ;; nuevo y el descuento se perdia en silencio): si el destino
+          ;; ya no existe y el anillo cae dentro de la caja de ESTE
+          ;; anden, se ADOPTA -- se reescribe el vinculo al handle vivo
+          ;; y se descuenta normal. Auto-reparacion en el siguiente
+          ;; export, sin comando nuevo.
+          ((and d bb
+                (urb:string-equal-p
+                  (urb:safe-string (cadr d) "") "Interno")
+                (or (= dest-h "")
+                    (null (setq dest
+                      (vl-catch-all-apply 'handent (list dest-h))))
+                    (vl-catch-all-error-p dest)
+                    (null (entget dest)))
+                ;; el bloque prefab se inserta en (0,0,0) con geometria
+                ;; en coordenadas mundo -- la posicion real del anillo
+                ;; es el CENTRO de su propio bounding box, no el assoc 10
+                (setq p
+                  (vl-catch-all-apply
+                    '(lambda ( / mn mx)
+                      (vla-GetBoundingBox
+                        (vlax-ename->vla-object ce) 'mn 'mx)
+                      (setq mn (vlax-safearray->list mn)
+                            mx (vlax-safearray->list mx))
+                      (list (/ (+ (car mn) (car mx)) 2.0)
+                            (/ (+ (cadr mn) (cadr mx)) 2.0)))))
+                (not (vl-catch-all-error-p p))
+                (>= (car p) (car lo)) (<= (car p) (car hi))
+                (>= (cadr p) (cadr lo)) (<= (cadr p) (cadr hi)))
+            (setq relinked
+              (vl-catch-all-apply
+                '(lambda ()
+                  (urb:set-xdata-strings ce "URB_PREFAB_ANILLO"
+                    (list h (urb:safe-string (cadr d) "Interno"))))))
+            (if (not (vl-catch-all-error-p relinked))
+              (progn
+                (prompt (strcat "\nAnillo de prefabricado huerfano "
+                  "re-vinculado al anden " h " (descuento recuperado)."))
+                (setq total
+                  (+ total
+                     (atof (urb:safe-string
+                       (cdr (assoc "AREA_M2" (mp:att-alist ce))) "0"))))))))
         (setq i (1+ i)))))
   total)
 
