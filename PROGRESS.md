@@ -29,6 +29,14 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-08-27 (parte 32b, PC principal, commit `0a6c815`) — v4.60.1: el descuento de bordillo sobrevive al EDITAR
+
+Diagnóstico del master (copia, read-only) encontró la causa real del "no me descuenta el bordillo": un anillo `URB_PREFAB_ANILLO` Interno con handle destino MUERTO — al EDITAR, el andén se re-empaqueta con handle nuevo y el costado quedaba apuntando al viejo (descuento perdido en silencio).
+- `urb:relink-anden-anillos`: en EDITAR (rama andén empacado) se captura el handle viejo antes de borrar y los anillos se re-apuntan al bloque nuevo.
+- Adopción en `urb:anden-area-anillos`: anillo Interno con destino muerto cuyo centro de bbox cae dentro de la caja del andén → re-vínculo + descuento en el siguiente export (repara casos ya rotos sin comando nuevo). OJO: el punto de inserción de los bloques prefab es SIEMPRE (0,0,0) — la posición real es el centro del bbox.
+- Verificado contra el caso real en copia del master: huérfano adoptado (descuento 1.05 m² estable, ambos vínculos vivos). Suite 82 checks TODO-OK.
+- **Purga piloto validada en la copia**: AUDIT OK, regapps 5.717→29, bloques 1.921→1.466, escalas reseteadas, 89.234→89.229 entidades (nada modelado se pierde), 34.72→33.2 MB. Capas legado del árbol están VACÍAS (censo: 0 entidades top-level). La purga del master REAL quedó pendiente de confirmación del usuario (bloqueada por permisos de la sesión autónoma).
+
 ### 2026-08-27 (parte 32, PC principal, commit `7b42b92`) — v4.60.0: 5 fixes de la ronda de reportes con pantallazos
 
 Suite 82 checks TODO-OK (3 nuevos: `EXTRAPOLA-PENDIENTE`, `CURVA-CHAINS-BULGE`, `CURVA-CHAIN-POLYLINE`):
