@@ -191,11 +191,17 @@
       (cond
         ((= on "AcDbPolyline")
           (vl-catch-all-apply 'vla-put-ConstantWidth (list e 0.20))
+          ;; 2026-08-26 FIX: x0=-1.0/x1=distv+1.0 sumaba una extension
+          ;; EXTRA de 1.0 m en cada lado, encima del gap=1.0 que
+          ;; mp:insert-cant-tramo YA aplica en la insercion -- daba
+          ;; 2.0 m de hueco real en vez de 1.0 (medido exacto en el
+          ;; master, ver fix_mt_gap.lsp). La convencion correcta es
+          ;; 0.0/distv (igual que fix_ap_defs.lsp, que nunca tuvo el bug).
           (setq r (entget (vlax-vla-object->ename e)))
-          (setq r (subst (cons 10 (list -1.0 0.0)) (assoc 10 r) r))
+          (setq r (subst (cons 10 (list 0.0 0.0)) (assoc 10 r) r))
           (entmod
             (reverse
-              (subst (cons 10 (list (+ distv 1.0) 0.0))
+              (subst (cons 10 (list distv 0.0))
                 (assoc 10 (reverse r)) (reverse r)))))
         ((= on "AcDbAttributeDefinition")
           (setq th (vla-get-Height e))
