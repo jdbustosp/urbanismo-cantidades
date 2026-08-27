@@ -1,6 +1,10 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
+;;; 4.59.0: alumbrado por circuitos reales (cajas AP-274/275, postes con
+;;;   sus luminarias y acometidas, transformador pedestal) en capa
+;;;   PPTO-ELECTRICA-BT-AP; filas de ppto de poste/luminaria/acometida/
+;;;   trafo alineadas al libro; CIRCUITOS multiplica el cable MT.
 ;;; 4.58.0: cajas electricas con la simbologia del plano (CS276 tapa doble,
 ;;;   CS280 con circulo, CS274/275 sencilla, centradas y a escala real
 ;;;   2.00x1.70) y tramos MT/BT-AP de caja a caja sin recorte visual.
@@ -46,7 +50,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.58.0")
+(setq *urb-version* "4.59.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8658,12 +8662,11 @@
     ((= base "SUMIDERO") "PPTO-ALC-PLUVIAL")
     ((= base "ACCESORIO_ACUEDUCTO") "PPTO-ACCESORIOS-ACUEDUCTO")
     ((= base "LUMINARIA_AP") "PPTO-ELECTRICA-BT-AP")
-    ;; 2026-08-26 (pedido del usuario): TODO lo de media tension en UNA
-    ;; capa -- cajas, postes, subestaciones y su numeracion van a la
-    ;; misma capa de los tramos MT, no a una capa de equipos aparte. El
-    ;; transformador de alumbrado se va con su red BT-AP.
-    ((= base "TRANSFORMADOR_AP") "PPTO-ELECTRICA-BT-AP")
-    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "PUNTO_CONEXION_E")) "PPTO-ELECTRICA-MT")
+    ;; 2026-08-26 (pedido del usuario): UNA capa por red -- lo de MT con
+    ;; los tramos MT y lo de alumbrado (cajas AP-274/275, postes,
+    ;; transformador pedestal) con su red BT-AP.
+    ((member base '("TRANSFORMADOR_AP" "CAMARA_CS274" "CAMARA_CS275" "POSTE_ELEC")) "PPTO-ELECTRICA-BT-AP")
+    ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "SUBESTACION_E" "CDMT_E" "PUNTO_CONEXION_E")) "PPTO-ELECTRICA-MT")
     (T "PPTO-EQUIPOS-ELECTRICOS")))
 
 (defun mp:point-color (base)
@@ -8673,7 +8676,8 @@
     ((= base "SUMIDERO") 3)
     ((= base "ACCESORIO_ACUEDUCTO") 5)
     ((= base "LUMINARIA_AP") 2)
-    ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E")) 6)
+    ((member base '("CAMARA_CS274" "CAMARA_CS275" "POSTE_ELEC" "TRANSFORMADOR_AP")) 2)
+    ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "SUBESTACION_E" "CDMT_E" "PUNTO_CONEXION_E")) 6)
     (T 7)))
 
 
@@ -9488,6 +9492,7 @@
     ((= base "ACCESORIO_ACUEDUCTO") (strcat (mp:getval "TIPO_ACCESORIO" vals "ACC") " D" (mp:getval "DIAMETRO" vals "") " " id))
     ((= base "LUMINARIA_AP") (strcat "LUM " (mp:getval "CODIGO" vals id)))
     ((= base "POSTE_ELEC") id)
+    ((= base "TRANSFORMADOR_AP") id)
     (T (strcat base " " id))))
 
 (defun mp:alist-set (values tag value / pair)
@@ -24377,14 +24382,36 @@
               (urb:safe-string (cdr (assoc "CODIGO" atts)) id)
               "" "" etapa sub "UN" 1.0 handle))))
         ((= base "POSTE_ELEC")
-          ;; 2026-08-26: redaccion del libro (filas 1275/1292), con la
-          ;; altura del poste (ALTURA_M, 12 m por defecto)
+          ;; 2026-08-26: el poste lleva SUS luminarias (atributos
+          ;; LUMINARIAS + TIPO_LUMINARIA) -> genera: poste por altura
+          ;; (filas 1082/1098 del libro), luminarias LED (1080/1096) y
+          ;; acometida 2x12 AWG (1090/1103). SUPUESTO acometida:
+          ;; ML = luminarias x (altura + 3 m) -- ajustable.
           (setq r (urb:safe-string (cdr (assoc "ALTURA_M" atts)) ""))
           (if (= r "") (setq r "12"))
+          (setq prof
+            (max 0 (atoi (urb:safe-string (cdr (assoc "LUMINARIAS" atts)) "0"))))
           (setq rows
             (list (urb:ppto-row "ELECTRICA-BT-AP"
               (strcat "Suministro e instalación poste de concreto " r
                 " m. Tipo recto AP (Incluye ahoyada, hincada y plomada)")
+              id "" "" etapa sub "UN" 1.0 handle)))
+          (if (> prof 0)
+            (setq rows
+              (append rows
+                (list
+                  (urb:ppto-row "ELECTRICA-BT-AP"
+                    "Suministro e instalación de luminaria LED"
+                    id "" "" etapa sub "UN" (float prof) handle)
+                  (urb:ppto-row "ELECTRICA-BT-AP"
+                    "Suministro e instalación de alambre 2x12 AWG-THW (Acometida para luminarias)"
+                    id "" "" etapa sub "ML"
+                    (* prof (+ (atof r) 3.0)) handle))))))
+        ((= base "TRANSFORMADOR_AP")
+          ;; fila 1084 del libro (pedestal 30 KVA para AP)
+          (setq rows
+            (list (urb:ppto-row "ELECTRICA-BT-AP"
+              "Transformador tipo pedestal 30 KVA 11400 / 380 / 220V"
               id "" "" etapa sub "UN" 1.0 handle)))))
       (cond
         ((= base "POZO_SANITARIO")

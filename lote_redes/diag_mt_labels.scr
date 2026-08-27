@@ -1,0 +1,88 @@
+(load "C:/Users/jdbus/Documents/URBANISMO/work/lote_redes/lote_redes.lsp")
+(setq pf (open "C:/Users/jdbus/Documents/URBANISMO/work/lote_redes/diag_mt_labels.txt" "w"))
+(defun dg (m) (write-line m pf))
+;; etiquetas d= del plano con su banco parseado: (x y lng ductos diam raw)
+(setq etqs nil)
+(setq f (open (strcat lr:dir "data_SRC_SERIE1.txt") "r"))
+(while (setq lin (read-line f))
+  (if (wcmatch lin "TXT|*")
+    (progn
+      (setq parts (lr:split lin "|"))
+      (setq txt (nth 3 parts))
+      (if (and txt (vl-string-search "d=" txt))
+        (progn
+          (setq p (lr:parse-pt (nth 2 parts)))
+          (setq info (lr:parse-etq-mt txt))
+          (if (and p info (car info))
+            (setq etqs (cons (list (car p) (cadr p) (car info)
+              (cadr info) (caddr info) txt) etqs))))))))
+(close f)
+(dg (strcat "Etiquetas d= parseadas: " (itoa (length etqs))))
+;; nombre de bloque -> distv
+(defun dist-nom (nb / pos)
+  (setq pos (vl-string-search "MT_" nb))
+  (atof (vl-string-translate "_" "." (substr nb (+ pos 4)))))
+;; recorrer tramos MT
+(setq e (entnext) tot 0 mm-duct 0 mm-lng 0 sumd 0.0 maxd 0.0 acom 0)
+(while e
+  (setq ed (entget e))
+  (if (and (= (cdr (assoc 0 ed)) "INSERT")
+           (wcmatch (cdr (assoc 2 ed)) "MP_TRAMO_MT_*"))
+    (progn
+      (setq tot (1+ tot))
+      (setq ip (cdr (assoc 10 ed)) rot (cdr (assoc 50 ed)))
+      (setq distv (dist-nom (cdr (assoc 2 ed))))
+      (setq mx (+ (car ip) (* (/ distv 2.0) (cos rot)))
+            my (+ (cadr ip) (* (/ distv 2.0) (sin rot))))
+      ;; atributos
+      (setq atts nil sub (entnext e))
+      (while (and sub (/= (cdr (assoc 0 (entget sub))) "SEQEND"))
+        (setq sd (entget sub))
+        (if (= (cdr (assoc 0 sd)) "ATTRIB")
+          (setq atts (cons (cons (cdr (assoc 2 sd)) (cdr (assoc 1 sd))) atts)))
+        (setq sub (entnext sub)))
+      (setq a-duct (atoi (if (cdr (assoc "DUCTOS" atts)) (cdr (assoc "DUCTOS" atts)) "0")))
+      (setq a-lng (atof (if (cdr (assoc "LONGITUD" atts)) (cdr (assoc "LONGITUD" atts)) "0")))
+      (setq pini (if (cdr (assoc "POZO_INI" atts)) (cdr (assoc "POZO_INI" atts)) ""))
+      (setq pfin (if (cdr (assoc "POZO_FIN" atts)) (cdr (assoc "POZO_FIN" atts)) ""))
+      ;; etiqueta mas cercana al punto medio
+      (setq best nil bd 30.0)
+      (foreach q etqs
+        (setq d (sqrt (+ (expt (- (car q) mx) 2) (expt (- (cadr q) my) 2))))
+        (if (< d bd) (setq bd d best q)))
+      (if best
+        (progn
+          (setq e-lng (caddr best) e-duct (nth 3 best))
+          (setq dl (abs (- a-lng e-lng)))
+          (setq sumd (+ sumd dl))
+          (if (> dl maxd) (setq maxd dl))
+          (if (and e-duct (/= a-duct e-duct))
+            (progn
+              (setq mm-duct (1+ mm-duct))
+              (dg (strcat "DUCTOS-MAL h=" (cdr (assoc 5 ed)) " " pini "-" pfin
+                ": attr=" (itoa a-duct) " plano=" (itoa e-duct)
+                " (d=" (rtos e-lng 2 1) " L=" (rtos a-lng 2 2)
+                " dist-etq=" (rtos bd 2 1) ")"))))
+          (if (> dl 3.0)
+            (progn
+              (setq mm-lng (1+ mm-lng))
+              (dg (strcat "LNG-DIF h=" (cdr (assoc 5 ed)) " " pini "-" pfin
+                ": L=" (rtos a-lng 2 2) " vs d=" (rtos e-lng 2 1)
+                " (dif " (rtos dl 2 2) ")")))))
+        (dg (strcat "SIN-ETQ h=" (cdr (assoc 5 ed)) " " pini "-" pfin
+          " L=" (rtos a-lng 2 2) " ductos=" (itoa a-duct))))
+      (if (or (wcmatch pini "SE-*") (wcmatch pfin "SE-*"))
+        (progn
+          (setq acom (1+ acom))
+          (dg (strcat "ACOMETIDA-SE h=" (cdr (assoc 5 ed)) " " pini "-" pfin
+            " ductos=" (itoa a-duct) " L=" (rtos a-lng 2 2)
+            (if best (strcat " | etq-cercana: " (nth 5 best)) " | sin etq")))))))
+  (setq e (entnext e)))
+(dg (strcat "RESUMEN: " (itoa tot) " tramos MT | ductos distintos al plano: "
+  (itoa mm-duct) " | dif de longitud >3m: " (itoa mm-lng)
+  " | dif promedio: " (rtos (/ sumd (max 1 tot)) 2 2)
+  " m | dif maxima: " (rtos maxd 2 2)
+  " m | acometidas a subestacion: " (itoa acom)))
+(dg "DIAG-OK")
+(close pf)
+(princ)

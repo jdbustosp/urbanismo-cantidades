@@ -1,0 +1,64 @@
+(setq pf (open "C:/Users/jdbus/Documents/URBANISMO/work/lote_redes/data_AP_CRT.txt" "w"))
+(defun wl (m) (write-line m pf))
+;; offsets de los 5 bloques CR Tn insertados en modelo
+(setq crts nil e (entnext))
+(while e
+  (setq ed (entget e))
+  (if (and (= (cdr (assoc 0 ed)) "INSERT")
+           (wcmatch (cdr (assoc 2 ed)) "CR T#"))
+    (setq crts (cons (list (cdr (assoc 2 ed))
+      (car (cdr (assoc 10 ed))) (cadr (cdr (assoc 10 ed)))) crts)))
+  (setq e (entnext e)))
+(wl (strcat ";; circuitos: " (itoa (length crts))))
+(foreach crt crts
+  (setq cn (car crt) ox (cadr crt) oy (caddr crt))
+  (setq blkrec (tblsearch "BLOCK" cn))
+  (setq be (cdr (assoc -2 blkrec)) lumoff nil lumnom nil)
+  (while be
+    (setq ed (entget be))
+    (setq tp (cdr (assoc 0 ed)))
+    (cond
+      ((and (= tp "INSERT") (= (cdr (assoc 2 ed)) "CAJA AP 274"))
+        (wl (strcat "CAJA274|" cn "|"
+          (rtos (+ ox (car (cdr (assoc 10 ed)))) 2 4) ","
+          (rtos (+ oy (cadr (cdr (assoc 10 ed)))) 2 4)
+          "|" (rtos (cdr (assoc 50 ed)) 2 4))))
+      ((and (= tp "INSERT") (wcmatch (cdr (assoc 2 ed)) "CAJA CS 275"))
+        (wl (strcat "CAJA275|" cn "|"
+          (rtos (+ ox (car (cdr (assoc 10 ed)))) 2 4) ","
+          (rtos (+ oy (cadr (cdr (assoc 10 ed)))) 2 4)
+          "|" (rtos (cdr (assoc 50 ed)) 2 4))))
+      ((and (= tp "INSERT") (wcmatch (cdr (assoc 2 ed)) "SIMBOLO TRAFO*"))
+        (wl (strcat "TRAFO|" cn "|"
+          (rtos (+ ox (car (cdr (assoc 10 ed)))) 2 4) ","
+          (rtos (+ oy (cadr (cdr (assoc 10 ed)))) 2 4)
+          "|" (rtos (cdr (assoc 50 ed)) 2 4))))
+      ((and (= tp "INSERT") (wcmatch (cdr (assoc 2 ed)) "LUMINARIAS*"))
+        (setq lumoff (list (+ ox (car (cdr (assoc 10 ed))))
+                           (+ oy (cadr (cdr (assoc 10 ed)))))
+              lumnom (cdr (assoc 2 ed))))
+      ((and (= tp "LWPOLYLINE")
+            (= (cdr (assoc 8 ed)) "0_0 RED BT SUBT PROY"))
+        (setq lin (strcat "REDBT|" cn "|"))
+        (foreach par ed
+          (if (= (car par) 10)
+            (setq lin (strcat lin (rtos (+ ox (cadr par)) 2 3) ","
+              (rtos (+ oy (caddr par)) 2 3) ";"))))
+        (wl lin)))
+    (setq be (entnext be)))
+  ;; luminarias anidadas del circuito
+  (if (and lumoff lumnom)
+    (progn
+      (setq blkrec (tblsearch "BLOCK" lumnom))
+      (setq be (cdr (assoc -2 blkrec)))
+      (while be
+        (setq ed (entget be))
+        (if (= (cdr (assoc 0 ed)) "INSERT")
+          (wl (strcat "LUM|" cn "|" (cdr (assoc 2 ed)) "|"
+            (rtos (+ (car lumoff) (car (cdr (assoc 10 ed)))) 2 4) ","
+            (rtos (+ (cadr lumoff) (cadr (cdr (assoc 10 ed)))) 2 4)
+            "|" (rtos (cdr (assoc 50 ed)) 2 4))))
+        (setq be (entnext be))))))
+(wl ";; FIN-EXTRACCION-AP")
+(close pf)
+(princ)

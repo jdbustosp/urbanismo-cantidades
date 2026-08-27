@@ -1,0 +1,32 @@
+(setq pf (open "C:/Users/jdbus/Documents/URBANISMO/work/lote_redes/data_RECORD_MT.txt" "w"))
+(defun wl (m) (write-line m pf))
+(setq e (entnext) ncaj 0 ntra 0)
+(while e
+  (setq ed (entget e))
+  (setq tp (cdr (assoc 0 ed)) ly (cdr (assoc 8 ed)))
+  (cond
+    ((and (= tp "INSERT") (wcmatch (cdr (assoc 2 ed)) "CAJA CS 27*,CAJA CS 28*"))
+      (setq ncaj (1+ ncaj))
+      (wl (strcat "CAJA|" ly "|" (cdr (assoc 2 ed)) "|"
+        (rtos (car (cdr (assoc 10 ed))) 2 4) ","
+        (rtos (cadr (cdr (assoc 10 ed))) 2 4))))
+    ((and (member tp '("LWPOLYLINE"))
+          (wcmatch (strcase ly) "0_0 TUBERIA PROY,0_0 RED_MT_SUBT_PROY,0_0 RED MT SUBT PROY"))
+      (setq ntra (1+ ntra))
+      (setq lin (strcat "TRAMO|" ly "|"))
+      (foreach par ed
+        (if (= (car par) 10)
+          (setq lin (strcat lin (rtos (cadr par) 2 3) ","
+            (rtos (caddr par) 2 3) ";"))))
+      (wl lin))
+    ((and (= tp "LINE")
+          (wcmatch (strcase ly) "0_0 TUBERIA PROY,0_0 RED_MT_SUBT_PROY,0_0 RED MT SUBT PROY"))
+      (setq ntra (1+ ntra))
+      (wl (strcat "TRAMO|" ly "|"
+        (rtos (car (cdr (assoc 10 ed))) 2 3) "," (rtos (cadr (cdr (assoc 10 ed))) 2 3) ";"
+        (rtos (car (cdr (assoc 11 ed))) 2 3) "," (rtos (cadr (cdr (assoc 11 ed))) 2 3) ";"))))
+  (setq e (entnext e)))
+(wl (strcat ";; cajas=" (itoa ncaj) " tramos=" (itoa ntra)))
+(wl ";; FIN-RECORD")
+(close pf)
+(princ)

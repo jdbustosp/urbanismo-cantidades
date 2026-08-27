@@ -1,0 +1,55 @@
+;; extrae ejecutado de BT/AP o RES segun el dwg abierto (detecta por capas)
+(setq pf (open "C:/Users/jdbus/Documents/URBANISMO/work/lote_redes/data_RECORD_TMP.txt" "w"))
+(defun wl (m) (write-line m pf))
+(setq e (entnext) ncaj 0 ntra 0)
+(while e
+  (setq ed (entget e))
+  (setq tp (cdr (assoc 0 ed)) ly (strcase (cdr (assoc 8 ed))))
+  (cond
+    ;; --- BT/AP
+    ((and (= tp "INSERT")
+          (wcmatch (cdr (assoc 2 ed)) "CAJA AP 274,CAJA CS 275,SIMBOLO TRAFO*"))
+      (setq ncaj (1+ ncaj))
+      (wl (strcat "CAJA|" (cdr (assoc 2 ed)) "|"
+        (rtos (car (cdr (assoc 10 ed))) 2 4) ","
+        (rtos (cadr (cdr (assoc 10 ed))) 2 4))))
+    ((and (= tp "LWPOLYLINE")
+          (wcmatch ly "0_0 RED BAJA TENSION,0_0 RED BT SUBT PROY"))
+      (setq ntra (1+ ntra))
+      (setq lin "TRAMO|BT|")
+      (foreach par ed
+        (if (= (car par) 10)
+          (setq lin (strcat lin (rtos (cadr par) 2 3) ","
+            (rtos (caddr par) 2 3) ";"))))
+      (wl lin))
+    ((and (= tp "LINE")
+          (wcmatch ly "0_0 RED BAJA TENSION,0_0 RED BT SUBT PROY"))
+      (setq ntra (1+ ntra))
+      (wl (strcat "TRAMO|BT|"
+        (rtos (car (cdr (assoc 10 ed))) 2 3) "," (rtos (cadr (cdr (assoc 10 ed))) 2 3) ";"
+        (rtos (car (cdr (assoc 11 ed))) 2 3) "," (rtos (cadr (cdr (assoc 11 ed))) 2 3) ";")))
+    ((and (= tp "INSERT")
+          (wcmatch ly "FOTOM_ROYALPHA*"))
+      (wl (strcat "LUMR|" (cdr (assoc 2 ed)) "|"
+        (rtos (car (cdr (assoc 10 ed))) 2 4) ","
+        (rtos (cadr (cdr (assoc 10 ed))) 2 4))))
+    ;; --- SANITARIO (as-built topo)
+    ((and (= tp "CIRCLE") (= ly "PZ"))
+      (setq ncaj (1+ ncaj))
+      (wl (strcat "POZO|PZ|"
+        (rtos (car (cdr (assoc 10 ed))) 2 4) ","
+        (rtos (cadr (cdr (assoc 10 ed))) 2 4))))
+    ((and (= tp "LWPOLYLINE") (wcmatch ly "RESIDUALES-RECIEN-CONST,ALC"))
+      (setq ntra (1+ ntra))
+      (setq lin "TRAMO|ALC|")
+      (foreach par ed
+        (if (= (car par) 10)
+          (setq lin (strcat lin (rtos (cadr par) 2 3) ","
+            (rtos (caddr par) 2 3) ";"))))
+      (wl lin)))
+  (setq e (entnext e)))
+(wl (strcat ";; puntos=" (itoa ncaj) " tramos=" (itoa ntra)))
+(wl ";; FIN")
+(close pf)
+(princ)
+
