@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.62.0")
+(setq *urb-version* "4.62.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8250,33 +8250,41 @@
         r   *mp-vis-radius*
         th  *mp-vis-tramo-text-height*)
   (if (< w 0.01) (setq w 0.01))
-  ;; MT/BT-AP: franja DELGADA (el usuario la vio "muy gruesa" 2026-08-26)
-  ;; -- debe leerse como una linea que va de caja a caja, no un rectangulo
-  (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP")) (setq w 0.20))
-  ;; ACUEDUCTO delgado tambien (2026-08-28: la franja de 2.00 se leia
-  ;; como barras azules y tapaba los accesorios del plano)
-  (if (= baseb "TRAMO_ACUEDUCTO") (setq w 0.20))
+  ;; 2026-08-28 (revision general del usuario "que se vea claro todas
+  ;; las disciplinas"): TODOS los tramos delgados 0.20 -- la franja de
+  ;; 2.00 se leia como barras y tapaba simbolos/pozos.
+  (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP" "TRAMO_ACUEDUCTO"
+                      "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
+    (setq w 0.20))
   (if (< r 2.00) (setq r 2.00))
   (if (< th 0.10) (setq th 0.10))
   ;; MT/BT-AP: texto del tramo acotado para que no tape cajas ni otros
   ;; rotulos (revision del usuario 2026-08-26)
   (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP")) (setq th (min th 0.90)))
-  ;; ACU: etiqueta compacta 0.60 (la red es densa, con accesorios cada
-  ;; pocos metros)
-  (if (= baseb "TRAMO_ACUEDUCTO") (setq th (min th 0.60)))
+  ;; redes hidro: etiqueta compacta 0.60 (redes densas)
+  (if (member baseb '("TRAMO_ACUEDUCTO" "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
+    (setq th (min th 0.60)))
   (setq lab (mp:label-tramo baseb vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
 
   ;; La geometria conserva la longitud centro a centro, pero la franja
   ;; visible termina en el borde de los circulos de inicio y fin.
+  ;; 2026-08-28: en ACUEDUCTO la linea se RECORTA 2.0 en cada punta
+  ;; aunque tenga bloques de nodo propios -- los simbolos de accesorio
+  ;; son trazo abierto (tee, codo, valvula) y la tuberia pasandoles por
+  ;; encima los volvia ilegibles (revision del usuario).
   (setq cut (min r (/ dist 4.0)))
   (setq pl
     (vla-AddLightWeightPolyline
       blk
       (mp:var-dbls
-        (if (mp:tramo-own-node-blocks-p baseb)
-          (list 0.0 0.0 dist 0.0)
-          (list cut 0.0 (- dist cut) 0.0)))))
+        (cond
+          ((= baseb "TRAMO_ACUEDUCTO")
+            (setq cut (min 2.0 (/ dist 4.0)))
+            (list cut 0.0 (- dist cut) 0.0))
+          ((mp:tramo-own-node-blocks-p baseb)
+            (list 0.0 0.0 dist 0.0))
+          (T (list cut 0.0 (- dist cut) 0.0))))))
   (vla-put-Layer pl lay)
   (vla-put-Color pl col)
   (vla-put-ConstantWidth pl (float w))
@@ -9002,6 +9010,9 @@
   ;; -- circulo 0.7 en vez de 2.0 (el poste real es puntual, no una
   ;; camara) y etiqueta proporcional
   (if (= base "POSTE_ELEC") (setq r 0.70 th (min th 0.50)))
+  ;; pozos y sumideros: etiqueta 0.75 (la de 1.50 tapaba medio cruce)
+  (if (member base '("POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO"))
+    (setq th (min th 0.75)))
   (setq lab (mp:label-point base vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
   (cond
@@ -11816,11 +11827,11 @@
   (setq cut (min (max 2.0 *mp-vis-radius*) (/ span 4.0)))
   ;; 2026-08-28: MISMAS reglas de ancho que mp:make-cant-tramo-block --
   ;; esta copia usaba *mp-vis-width* (2.0) a secas y deshacia el trazo
-  ;; delgado de MT/BT-AP/ACU cada vez que se creaba/editaba un tramo
-  ;; (el mismo patron del bug del gap MT del 26/08: logica duplicada
-  ;; sin sincronizar).
+  ;; delgado cada vez que se creaba/editaba un tramo (el mismo patron
+  ;; del bug del gap MT del 26/08: logica duplicada sin sincronizar).
   (setq width
-    (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP" "TRAMO_ACUEDUCTO"))
+    (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP" "TRAMO_ACUEDUCTO"
+                       "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
       0.20
       (max 0.01 *mp-vis-width*)))
   ;; Los circulos de extremos de un tramo hidrosanitario/MT/BT-AP no son
@@ -11840,9 +11851,15 @@
           (vla-put-Coordinates
             item
             (mp:var-dbls
-              (if (mp:tramo-own-node-blocks-p base)
-                (list 0.0 0.0 span 0.0)
-                (list cut 0.0 (- span cut) 0.0))))
+              (cond
+                ;; ACU: recorte 2.0 en las puntas para no tapar los
+                ;; simbolos de accesorio (igual que make-cant-tramo-block)
+                ((= base "TRAMO_ACUEDUCTO")
+                  (list (min 2.0 (/ span 4.0)) 0.0
+                        (- span (min 2.0 (/ span 4.0))) 0.0))
+                ((mp:tramo-own-node-blocks-p base)
+                  (list 0.0 0.0 span 0.0))
+                (T (list cut 0.0 (- span cut) 0.0)))))
           (vla-put-ConstantWidth item (float width))
           (vla-Update item)))))
   (list span (if removed removed 0)))

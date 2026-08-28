@@ -471,3 +471,86 @@
   (cr:log (strcat "REDISENOACU: " (itoa n-lab) " etiquetas de tramo reescritas"))
   (close *cr-f*) (setq *cr-f* nil)
   (princ))
+
+;; ---------- claridad general de redes hidro (2026-08-28, 2a revision
+;; del usuario): SAN/PLU delgados 0.20 con textos 0.60, ACU recortado
+;; 2.0 en las puntas (no tapar simbolos), etiquetas de pozos/sumideros
+;; a 0.75, y etiquetas de accesorios HORIZONTALES (quedaban rotadas con
+;; el simbolo). Recolectar->mutar->ATTSYNC->rotacion.
+(defun rh:span-de (bn / p)
+  ;; largo del tramo desde el nombre MP_TRAMO_XXX_<NN_NN>
+  (setq p (vl-string-position (ascii "_") bn (- (strlen bn) 12)))
+  (mp:block-tramo-length (vla-Item (vla-get-Blocks (vla-get-ActiveDocument (vlax-get-acad-object))) bn)))
+
+(defun c:REDISENOHIDRO (/ doc blks names bn blk ents e ty espan cut n-def
+                          ss i en atts n-rot att)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+  (setq blks (vla-get-Blocks doc))
+  ;; 1) defs de tramos SAN/PLU/ACU
+  (setq names nil)
+  (vlax-for blk blks
+    (if (wcmatch (strcase (vla-get-Name blk)) "MP_TRAMO_SAN_*,MP_TRAMO_PLU_*,MP_TRAMO_ACU_*")
+      (setq names (cons (vla-get-Name blk) names))))
+  (setq n-def 0)
+  (foreach bn names
+    (setq blk (vla-Item blks bn))
+    (setq espan (mp:block-tramo-length blk))
+    (setq cut (if (wcmatch (strcase bn) "MP_TRAMO_ACU_*")
+                (min 2.0 (/ espan 4.0)) 0.0))
+    (setq ents nil)
+    (vlax-for e blk (setq ents (cons e ents)))
+    (foreach e ents
+      (setq ty (vla-get-ObjectName e))
+      (cond
+        ((= ty "AcDbPolyline")
+          (vla-put-ConstantWidth e 0.20)
+          (if (> espan 1e-9)
+            (vla-put-Coordinates e
+              (mp:var-dbls (list cut 0.0 (- espan cut) 0.0)))))
+        ((and (= ty "AcDbAttributeDefinition")
+              (= (strcase (vla-get-TagString e)) "ETIQUETA"))
+          (vla-put-Height e 0.60)
+          (vla-put-InsertionPoint e (vlax-3d-point (list (/ espan 2.0) 0.81 0.0)))
+          (vla-put-Alignment e acAlignmentMiddleCenter)
+          (vla-put-TextAlignmentPoint e (vlax-3d-point (list (/ espan 2.0) 0.81 0.0))))
+        ((and (= ty "AcDbAttributeDefinition")
+              (= (strcase (vla-get-TagString e)) "PENDIENTE_VIS"))
+          (vla-put-Height e 0.60)
+          (vla-put-InsertionPoint e (vlax-3d-point (list (/ espan 2.0) -0.81 0.0)))
+          (vla-put-Alignment e acAlignmentMiddleCenter)
+          (vla-put-TextAlignmentPoint e (vlax-3d-point (list (/ espan 2.0) -0.81 0.0))))))
+    (setq n-def (1+ n-def)))
+  ;; 2) etiquetas de pozos/sumideros a 0.75
+  (foreach bn '("MP_PUNTO_POZO_SAN" "MP_PUNTO_POZO_PLU" "MP_PUNTO_SUMIDERO")
+    (if (tblsearch "BLOCK" bn)
+      (progn
+        (setq blk (vla-Item blks bn) ents nil)
+        (vlax-for e blk (setq ents (cons e ents)))
+        (foreach e ents
+          (if (and (= "AcDbAttributeDefinition" (vla-get-ObjectName e))
+                   (= "ETIQUETA" (strcase (vla-get-TagString e))))
+            (vla-put-Height e 0.75)))
+        (setq names (cons bn names)))))
+  ;; 3) ATTSYNC de todo lo tocado (fuera de los vlax-for)
+  (foreach bn names
+    (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bn)))
+  (cr:log (strcat "REDISENOHIDRO: " (itoa n-def) " defs de tramo + pozos/sumideros, ATTSYNC en " (itoa (length names))))
+  ;; 4) etiquetas de ACCESORIOS horizontales (los inserts quedaron
+  ;;    rotados al plano y el texto giro con ellos) -- DESPUES de todo
+  ;;    attsync; rotacion absoluta 0 del ATTRIB
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_ACC_ACU*"))) i 0 n-rot 0)
+  (setq ents nil)
+  (if ss
+    (while (< i (sslength ss))
+      (setq ents (cons (ssname ss i) ents))
+      (setq i (1+ i))))
+  (foreach en ents
+    (foreach att (vlax-invoke (vlax-ename->vla-object en) 'GetAttributes)
+      (if (= "ETIQUETA" (strcase (vla-get-TagString att)))
+        (progn
+          (vl-catch-all-apply 'vla-put-Rotation (list att 0.0))
+          (setq n-rot (1+ n-rot))))))
+  (cr:log (strcat "REDISENOHIDRO: " (itoa n-rot) " etiquetas de accesorio puestas horizontales"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
