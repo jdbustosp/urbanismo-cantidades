@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.62.1")
+(setq *urb-version* "4.62.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8280,7 +8280,9 @@
       (mp:var-dbls
         (cond
           ((= baseb "TRAMO_ACUEDUCTO")
-            (setq cut (min 2.0 (/ dist 4.0)))
+            ;; recorte SUAVE: 1.0 max y proporcional en tramos cortos
+            ;; (el 2.0 dejaba los tramos "corticos" -- revision usuario)
+            (setq cut (min 1.0 (* 0.15 dist)))
             (list cut 0.0 (- dist cut) 0.0))
           ((mp:tramo-own-node-blocks-p baseb)
             (list 0.0 0.0 dist 0.0))
@@ -8723,6 +8725,7 @@
     ((= base "POZO_SANITARIO") "PPTO-ALC-SANITARIO")
     ((= base "POZO_PLUVIAL") "PPTO-ALC-PLUVIAL")
     ((= base "SUMIDERO") "PPTO-ALC-PLUVIAL")
+    ((= base "CABEZAL_PLUVIAL") "PPTO-ALC-PLUVIAL")
     ((= base "ACCESORIO_ACUEDUCTO") "PPTO-ACCESORIOS-ACUEDUCTO")
     ((= base "LUMINARIA_AP") "PPTO-ELECTRICA-BT-AP")
     ;; 2026-08-26 (pedido del usuario): UNA capa por red -- lo de MT con
@@ -8740,6 +8743,7 @@
     ((= base "POZO_SANITARIO") 1)
     ((= base "POZO_PLUVIAL") 3)
     ((= base "SUMIDERO") 3)
+    ((= base "CABEZAL_PLUVIAL") 3)
     ((= base "ACCESORIO_ACUEDUCTO") 5)
     ((= base "LUMINARIA_AP") 2)
     ((member base '("CAMARA_CS274" "CAMARA_CS275" "POSTE_ELEC" "TRANSFORMADOR_AP")) 2)
@@ -8749,7 +8753,7 @@
 
 (defun mp:base-atts-for-point (base)
   (cond
-    ((member base '("POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO"))
+    ((member base '("POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO" "CABEZAL_PLUVIAL"))
       '(("ETAPA" "Etapa" "") ("SUBETAPA" "Subetapa" "") ("RED" "Red" "")
         ("ID" "ID / Codigo" "") ("DIAMETRO" "Diametro" "")
         ("COTA_TN_INI" "Cota terreno" "") ("COTA_CLAVE_INI" "Cota clave" "")
@@ -9020,6 +9024,16 @@
       (mp:caja-plan-geom blk base lay col))
     ((= base "ACCESORIO_ACUEDUCTO")
       (mp:acc-plan-geom blk (mp:getval "TIPO_ACCESORIO" vals "") lay col))
+    ((= base "CABEZAL_PLUVIAL")
+      ;; cabezal de descole replicado del bloque CABEZAL del plano
+      ;; PLUVIAL.dwg (aletas trapezoidales, escala tipica 1.3 horneada)
+      (mp:acc-add-lines blk lay col
+        '((2.041 1.931 1.742 2.108) (1.457 0.0 2.039 1.929)
+          (-0.747 0.427 -1.457 0.0) (-0.773 0.427 0.772 0.427)
+          (-2.042 1.931 -1.743 2.108) (-2.042 1.931 -0.891 0.0)
+          (-1.458 0.0 -2.040 1.929) (-1.743 2.108 -0.747 0.427)
+          (2.041 1.931 0.890 0.0) (0.746 0.427 1.457 0.0)
+          (1.742 2.108 0.746 0.427) (-1.457 0.0 1.457 0.0))))
     ((member base '("CAJA_BARRAJE_CS281" "SUBESTACION_E" "CDMT_E"))
       (setq pl (vla-AddLightWeightPolyline blk (mp:var-dbls (list (- r) (- r) r (- r) r r (- r) r))))
       (vla-put-Closed pl :vlax-true) (vla-put-Layer pl lay) (vla-put-Color pl col) (vla-put-ConstantWidth pl (float (/ r 3.0))))
@@ -9049,6 +9063,11 @@
       (setq pos (list 0.0 (- (+ r (* th 0.85))) 0.0))
       (setq att (mp:vla-add-att blk "NUM_VIS" "Numero de caja"
         (mp:caja-num-label vals) pos th nil lay col))
+      (mp:center-visible-att att pos th))
+    ((= base "CABEZAL_PLUVIAL")
+      (setq th 0.60)
+      (setq pos (list 0.0 (- (* th 1.2)) 0.0))
+      (setq att (mp:vla-add-att blk "ETIQUETA" "Etiqueta visible" lab pos th nil lay col))
       (mp:center-visible-att att pos th))
     ((= base "ACCESORIO_ACUEDUCTO")
       ;; etiqueta UNICA centrada debajo del simbolo (2026-08-28, pedido
@@ -9610,6 +9629,7 @@
     ((= base "POZO_PLUVIAL") "POZO_PLU")
     ((= base "SUMIDERO") "SUMIDERO")
     ((= base "ACCESORIO_ACUEDUCTO") "ACC_ACU")
+    ((= base "CABEZAL_PLUVIAL") "CABEZAL")
     ((= base "LUMINARIA_AP") "LUMINARIA")
     (T (vl-string-translate " -" "__" base))))
 
@@ -9659,9 +9679,13 @@
   (setq d (mp:diametro-label vals))
   (setq mat (mp:getval "MATERIAL" vals ""))
   (cond
-    ;; 2026-08-28: etiqueta compacta estilo plano record ("Ø8" PVC L=34")
+    ;; 2026-08-28: etiqueta compacta estilo plano record ("Ø8" PVC L=34");
+    ;; tramos ACU muy cortos (<8 m, conectores entre accesorios de un
+    ;; mismo cruce) SIN etiqueta -- eran la causa de cota sobre cota
     ((= base "TRAMO_ACUEDUCTO")
-      (strcat "%%c" d "\" " mat " L=" l))
+      (if (< (atof (mp:safe-str l)) 8.0)
+        ""
+        (strcat "%%c" d "\" " mat " L=" l)))
     ((= base "TRAMO_ALLUVIAS")
       (strcat "ALL L=" l "- %%c" d "-" mat))
     ((= base "TRAMO_ARESIDUAL")
@@ -9739,6 +9763,7 @@
           (if (/= (mp:getval "DIAMETRO" vals "") "")
             (strcat " D" (mp:getval "DIAMETRO" vals "")) "")
           " " id)))
+    ((= base "CABEZAL_PLUVIAL") (strcat "CAB " id))
     ((= base "LUMINARIA_AP") (strcat "LUM " (mp:getval "CODIGO" vals id)))
     ((= base "POSTE_ELEC") id)
     ((= base "TRANSFORMADOR_AP") id)
@@ -11751,6 +11776,7 @@
     ((= up "MP_PUNTO_SUMIDERO") "SUMIDERO")
     ;; 2026-08-28: tambien los nombres por tipo (MP_PUNTO_ACC_ACU_TEE...)
     ((mp:starts-with up "MP_PUNTO_ACC_ACU") "ACCESORIO_ACUEDUCTO")
+    ((= up "MP_PUNTO_CABEZAL") "CABEZAL_PLUVIAL")
     ((= up "MP_PUNTO_LUMINARIA") "LUMINARIA_AP")
     ((mp:starts-with up "MP_PUNTO_")
       (substr up 10))
@@ -11797,10 +11823,31 @@
     (- maxx minx)
     0.0))
 
+(defun mp:tramo-span-from-name (name / parts p tail)
+  ;; MP_TRAMO_XXX_12_35 -> 12.35. El nombre lo genera
+  ;; mp:tramo-block-name con rtos 2 2 ("."->"_"), asi que los DOS
+  ;; ultimos campos separados por "_" son la parte entera y decimal.
+  (setq name (mp:safe-str name) parts nil tail name)
+  (while (setq p (vl-string-search "_" tail))
+    (setq parts (cons (substr tail 1 p) parts))
+    (setq tail (substr tail (+ p 2))))
+  (setq parts (cons tail parts)) ;; parts en orden inverso
+  (if (and (> (length parts) 1)
+           (distof (car parts)) (distof (cadr parts)))
+    (atof (strcat (cadr parts) "." (car parts)))
+    0.0))
+
 (defun mp:block-tramo-length (blk / item value best span)
   ;; Prioriza la distancia centro a centro para que el recorte visual
   ;; no reduzca LONGITUD ni las cantidades.
   (setq span (mp:block-tramo-circle-span blk))
+  ;; 2026-08-28: los tramos sin circulos (hidro/MT/BT) devolvian el
+  ;; largo de la POLILINEA actual -- si esta ya venia recortada, cada
+  ;; re-normalizacion recortaba sobre lo recortado (los tramos ACU
+  ;; quedaron "corticos" tras dos pasadas). El largo VERDADERO esta en
+  ;; el nombre del bloque (inmutable): usarlo como segunda fuente.
+  (if (< span 1e-9)
+    (setq span (mp:tramo-span-from-name (vla-get-Name blk))))
   (if (> span 1e-9)
     span
     (progn
@@ -11855,8 +11902,8 @@
                 ;; ACU: recorte 2.0 en las puntas para no tapar los
                 ;; simbolos de accesorio (igual que make-cant-tramo-block)
                 ((= base "TRAMO_ACUEDUCTO")
-                  (list (min 2.0 (/ span 4.0)) 0.0
-                        (- span (min 2.0 (/ span 4.0))) 0.0))
+                  (list (min 1.0 (* 0.15 span)) 0.0
+                        (- span (min 1.0 (* 0.15 span))) 0.0))
                 ((mp:tramo-own-node-blocks-p base)
                   (list 0.0 0.0 span 0.0))
                 (T (list cut 0.0 (- span cut) 0.0)))))

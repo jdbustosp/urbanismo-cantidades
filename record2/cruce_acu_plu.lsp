@@ -554,3 +554,93 @@
   (cr:log (strcat "REDISENOHIDRO: " (itoa n-rot) " etiquetas de accesorio puestas horizontales"))
   (close *cr-f*) (setq *cr-f* nil)
   (princ))
+
+;; ---------- 3a revision (2026-08-28 tarde): reparar el doble recorte
+;; de ACU (largo real desde el NOMBRE del bloque, motor >=4.62.2),
+;; etiquetas fuera en tramos ACU <8m, borrar los 11 tramos PLU bogus
+;; que atraviesan el proyecto, y crear los cabezales pluviales del plano.
+(defun c:REPARAACU3 (/ doc blks names bn blk ents e ty espan cut n-def
+                       ss i en atts n-lab)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+  (setq blks (vla-get-Blocks doc))
+  (setq names nil)
+  (vlax-for blk blks
+    (if (wcmatch (strcase (vla-get-Name blk)) "MP_TRAMO_ACU_*")
+      (setq names (cons (vla-get-Name blk) names))))
+  (setq n-def 0)
+  (foreach bn names
+    (setq blk (vla-Item blks bn))
+    ;; largo VERDADERO desde el nombre (inmutable, idempotente)
+    (setq espan (mp:tramo-span-from-name bn))
+    (if (> espan 1e-9)
+      (progn
+        (setq cut (min 1.0 (* 0.15 espan)))
+        (setq ents nil)
+        (vlax-for e blk (setq ents (cons e ents)))
+        (foreach e ents
+          (if (= "AcDbPolyline" (vla-get-ObjectName e))
+            (progn
+              (vla-put-ConstantWidth e 0.20)
+              (vla-put-Coordinates e
+                (mp:var-dbls (list cut 0.0 (- espan cut) 0.0))))))
+        (setq n-def (1+ n-def)))))
+  (cr:log (strcat "REPARAACU3: " (itoa n-def) " defs re-cortadas desde el largo del nombre"))
+  ;; etiquetas: "" en tramos <8m, compacta en el resto
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_TRAMO_ACU_*"))) i 0 n-lab 0 ents nil)
+  (if ss (while (< i (sslength ss)) (setq ents (cons (ssname ss i) ents)) (setq i (1+ i))))
+  (foreach en ents
+    (setq atts (mp:att-alist en))
+    (mp:setatts en (list (cons "ETIQUETA" (mp:label-tramo "TRAMO_ACUEDUCTO" atts))))
+    (setq n-lab (1+ n-lab)))
+  (cr:log (strcat "REPARAACU3: " (itoa n-lab) " etiquetas actualizadas (cortos sin texto)"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
+
+(defun c:BORRAPLUBOGUS (/ handles h en ed n)
+  ;; 11 tramos PLU con longitudes 105-679 m que cruzan el proyecto en
+  ;; diagonal (conexiones erroneas detectadas 2026-08-28); verificados
+  ;; por handle Y por nombre de bloque antes de borrar.
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq handles '("52D26" "52402" "5225E" "521AA" "51CDF" "51A87"
+                  "50A9B" "509E7" "508F7" "5078F" "50627"))
+  (setq n 0)
+  (foreach h handles
+    (setq en (handent h))
+    (if (and en (setq ed (entget en))
+             (= "INSERT" (cdr (assoc 0 ed)))
+             (wcmatch (strcase (cdr (assoc 2 ed))) "MP_TRAMO_PLU_*"))
+      (progn (entdel en) (setq n (1+ n)))
+      (cr:log (strcat "  BORRAPLUBOGUS: handle " h " no coincide, omitido"))))
+  (cr:log (strcat "BORRAPLUBOGUS: " (itoa n) "/11 tramos PLU bogus eliminados"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
+
+(defun c:CREACABEZALES (/ done p rot item cerca d en n obj vals i)
+  ;; crea los cabezales del plano (dedupe <0.1 m: el plano los tiene
+  ;; por pares duplicados exactos)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq done nil n 0 i 0)
+  (foreach item cab:ins
+    (setq p (list (car item) (cadr item)) rot (caddr item))
+    (setq cerca nil)
+    (foreach d done
+      (if (and (not cerca) (< (distance d p) 0.1)) (setq cerca T)))
+    (if (not cerca)
+      (progn
+        (setq done (cons p done) i (1+ i))
+        (setq vals (list
+          (cons "RED" "PLUVIAL")
+          (cons "ID" (strcat "CAB-" (if (< i 10) "0" "") (itoa i)))
+          (cons "ORIGEN_CREACION" "LOTE_CABEZALES_20260828")))
+        (setq en (mp:insert-cant-point "CABEZAL_PLUVIAL" p vals))
+        (if en
+          (progn
+            (setq obj (vlax-ename->vla-object en))
+            (vl-catch-all-apply 'vla-put-Rotation
+              (list obj (* pi (/ rot 180.0))))
+            (setq n (1+ n)))))))
+  (cr:log (strcat "CREACABEZALES: " (itoa n) " cabezales creados (de "
+    (itoa (length cab:ins)) " inserts del plano, duplicados depurados)"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
