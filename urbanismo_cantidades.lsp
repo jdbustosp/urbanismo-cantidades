@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.60.2")
+(setq *urb-version* "4.60.3")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8381,23 +8381,21 @@
     (mp:fill-popup "subetapa" (mp:subetapas-for (mp:item *mp-etapa-list* "etapa")) 0)))
 
 (defun mp:ensure-layers ()
-  ;; Capas nuevas de presupuesto: siempre con prefijo PPTO-
+  ;; Capas de presupuesto: SOLO el juego canonico PPTO- (2026-08-28,
+  ;; pedido del usuario: sin capas repetidas por especialidad). Las
+  ;; capas viejas (RED-ELECTRICA-*, EQUIPOS-ELECTRICOS, REDES-*,
+  ;; ACCESORIOS-ACUEDUCTO, TEXTOS-CANTIDADES) YA NO se crean aqui:
+  ;; recrearlas en cada comando era lo que revivia las capas purgadas
+  ;; del master una y otra vez. PPTO-EQUIPOS-ELECTRICOS (eliminada del
+  ;; master el 2026-08-26) tampoco se crea eager: solo aparece bajo
+  ;; demanda si un bloque desconocido cae al fallback de mp:point-layer.
   (mp:layer "PPTO-ACUEDUCTO" 5)
   (mp:layer "PPTO-ALC-SANITARIO" 1)
   (mp:layer "PPTO-ALC-PLUVIAL" 3)
   (mp:layer "PPTO-ELECTRICA-MT" 6)
   (mp:layer "PPTO-ELECTRICA-BT-AP" 2)
   (mp:layer "PPTO-ACCESORIOS-ACUEDUCTO" 4)
-  (mp:layer "PPTO-EQUIPOS-ELECTRICOS" 30)
-  (mp:layer "PPTO-TEXTOS-CANTIDADES" 7)
-  ;; Capas antiguas quedan solo por compatibilidad con bloques puntuales existentes.
-  (mp:layer "RED-ELECTRICA-MT" 6)
-  (mp:layer "RED-ELECTRICA-BT-AP" 2)
-  (mp:layer "EQUIPOS-ELECTRICOS" 30)
-  (mp:layer "REDES-ALCANTARILLADO" 1)
-  (mp:layer "REDES-ACUEDUCTO" 5)
-  (mp:layer "ACCESORIOS-ACUEDUCTO" 4)
-  (mp:layer "TEXTOS-CANTIDADES" 7))
+  (mp:layer "PPTO-TEXTOS-CANTIDADES" 7))
 
 (defun mp:vis-layer (bname)
   (cond
@@ -8716,7 +8714,10 @@
     ;; transformador pedestal) con su red BT-AP.
     ((member base '("TRANSFORMADOR_AP" "CAMARA_CS274" "CAMARA_CS275" "POSTE_ELEC")) "PPTO-ELECTRICA-BT-AP")
     ((member base '("CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "SUBESTACION_E" "CDMT_E" "PUNTO_CONEXION_E")) "PPTO-ELECTRICA-MT")
-    (T "PPTO-EQUIPOS-ELECTRICOS")))
+    ;; fallback SOLO para bloques desconocidos: la capa se crea aqui
+    ;; bajo demanda (mp:ensure-layers ya no la crea eager -- el usuario
+    ;; la elimino del master el 2026-08-26 y no debe reaparecer sola)
+    (T (mp:layer "PPTO-EQUIPOS-ELECTRICOS" 30) "PPTO-EQUIPOS-ELECTRICOS")))
 
 (defun mp:point-color (base)
   (cond

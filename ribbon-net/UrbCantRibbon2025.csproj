@@ -11,7 +11,7 @@
     series R25.0/R25.1 son binario-compatibles y este DLL sirve a AMBAS.
     NO intentar una variante "2026" con AutoCAD.NET 25.1.x ni 26.0.0:
     esos paquetes son net10-only (apuntan a AutoCAD 2027) y un DLL net10
-    NUNCA carga en 2026 -- y falla en silencio (autoloader, NETLOAD y
+    NUNCA carga en 2026, y falla en silencio (autoloader, NETLOAD y
     demand-load corren sin error y sin efecto).
   -->
   <PropertyGroup>

@@ -778,10 +778,11 @@ namespace UrbanismoCantidades
                 // terminos de FilterExpression se unen con OR, no con
                 // coma -- la gramatica del arbol de filtros es
                 // relacion { AND|OR relacion }.
+                // 2026-08-28 (pedido del usuario): capas viejas
+                // (RED-*, REDES-*, ACCESORIOS-*, EQUIPOS-*) eliminadas
+                // del master y del filtro -- solo URB-* y PPTO-*.
                 presupuestos.FilterExpression =
-                    "NAME==\"URB-*\" OR NAME==\"PPTO-*\" OR NAME==\"RED-*\""
-                    + " OR NAME==\"REDES-*\" OR NAME==\"ACCESORIOS-*\""
-                    + " OR NAME==\"EQUIPOS-*\"";
+                    "NAME==\"URB-*\" OR NAME==\"PPTO-*\"";
 
                 AcLm.LayerFilterCollection hijos = presupuestos.NestedFilters;
                 SetLayerFilterExpression(hijos, "Urbanismo",
@@ -796,14 +797,9 @@ namespace UrbanismoCantidades
                 SetLayerFilterExpression(hijos, "Redes humedas",
                     "NAME==\"PPTO-ACUEDUCTO*\" OR NAME==\"PPTO-ALC*\""
                     + " OR NAME==\"PPTO-ACCESORIOS*\""
-                    + " OR NAME==\"REDES-ACUEDUCTO*\""
-                    + " OR NAME==\"REDES-ALCANTARILLADO*\""
-                    + " OR NAME==\"ACCESORIOS-ACUEDUCTO*\""
                     + " OR NAME==\"URB-BIOSWALE*\"");
                 SetLayerFilterExpression(hijos, "Redes secas",
-                    "NAME==\"PPTO-ELECTRICA*\" OR NAME==\"PPTO-EQUIPOS*\""
-                    + " OR NAME==\"RED-ELECTRICA*\""
-                    + " OR NAME==\"EQUIPOS-ELECTRICOS*\"");
+                    "NAME==\"PPTO-ELECTRICA*\" OR NAME==\"PPTO-EQUIPOS*\"");
 
                 db.LayerFilters = tree;
                 doc.Editor.WriteMessage(
