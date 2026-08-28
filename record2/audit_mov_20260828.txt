@@ -1,0 +1,2 @@
+AUDITORIA MOVIMIENTO DE TIERRAS: 4 vias | 4 con corte/relleno OK (corte total 5666 m3, relleno total 11 m3) | 0 en cero | 0 sin calcular
+FIN-AUDITMOV

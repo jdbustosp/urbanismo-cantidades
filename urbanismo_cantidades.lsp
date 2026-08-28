@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.61.1")
+(setq *urb-version* "4.61.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -13455,7 +13455,7 @@
     nil))
 
 (defun urb:select-or-draw-road-axis (mode / selected ename)
-  (urb:ensure-layer "URB-VIA" 3 T)
+  (urb:ensure-layer "URB-VIA" 8 T)
   (if (urb:string-equal-p mode "Nuevo")
     (setq ename
       (urb:draw-polyline
@@ -13850,7 +13850,7 @@
    block-definition copy-result block-ref obj insert-result block-ename
    xdata-result road-length left right overwidth-area)
   (setq boundary (vlax-ename->vla-object ename))
-  (urb:ensure-layer "URB-VIA" 2 T)
+  (urb:ensure-layer "URB-VIA" 8 T)
   (setq data (urb:get-xdata-strings ename "URB_VIA"))
   (setq mov (urb:road-movement-data ename))
   (setq handle (vla-get-Handle boundary))
@@ -14036,7 +14036,7 @@
 (defun urb:generate-road-stations
   (axis parent-handle start interval direction axis-start span
    / end-label labels next-round label traveled distance-value)
-  (urb:ensure-layer "URB-VIA" 7 T)
+  (urb:ensure-layer "URB-VIA" 8 T)
   (if (or (not (numberp interval)) (<= interval 1e-6))
     (setq interval 10.0))
   (setq end-label (+ start span))
@@ -14562,7 +14562,7 @@
     (cons "nominal_width" (nth 16 data))))
 
 (defun urb:draw-road-boundary (/ ename obj area)
-  (urb:ensure-layer "URB-VIA" 2 T)
+  (urb:ensure-layer "URB-VIA" 8 T)
   (setq ename
     (urb:draw-polyline
       "\nDibuje el contorno de la via. Enter termina y el programa lo cerrara: "
@@ -14782,7 +14782,7 @@
       (entdel cb)
       (if (> (length mids) 1)
         (progn
-          (urb:ensure-layer "URB-VIA" 3 T)
+          (urb:ensure-layer "URB-VIA" 8 T)
           (setq ename
             (entmakex
               (append
@@ -15123,7 +15123,7 @@
   (setq data (urb:get-xdata-strings boundary "URB_VIA"))
   (if data
     (progn
-      (urb:ensure-layer "URB-VIA" 2 T)
+      (urb:ensure-layer "URB-VIA" 8 T)
       (setq content
         (strcat
           "VIA: " (urb:safe-string (nth 1 data) "")

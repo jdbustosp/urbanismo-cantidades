@@ -338,3 +338,74 @@
     (itoa (length seen)) " capas)"))
   (close *cr-f*) (setq *cr-f* nil)
   (princ))
+
+;; ---------- vista "solo lo pendiente": apagar+congelar las capas -EJEC
+(defun c:APAGAEJEC (/ doc lay n)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)) n 0)
+  (vlax-for lay (vla-get-Layers doc)
+    (if (wcmatch (strcase (vla-get-Name lay)) "*-EJEC")
+      (progn
+        (vl-catch-all-apply 'vla-put-LayerOn (list lay :vlax-false))
+        (vl-catch-all-apply 'vla-put-Freeze (list lay :vlax-true))
+        (setq n (1+ n)))))
+  (cr:log (strcat "APAGAEJEC: " (itoa n) " capas -EJEC apagadas y congeladas (solo queda visible lo POR EJECUTAR)"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
+
+;; ---------- color de vias: URB-VIA a gris 8 (era amarillo 2 = igual al
+;; alumbrado BT; todo en la via es ByLayer asi que cambia entera)
+(defun c:RECOLORVIA (/ doc lay)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+  (if (tblsearch "LAYER" "URB-VIA")
+    (progn
+      (vla-put-Color (vla-Item (vla-get-Layers doc) "URB-VIA") 8)
+      (cr:log "RECOLORVIA: capa URB-VIA -> color 8 (gris pavimento)"))
+    (cr:log "RECOLORVIA: no existe URB-VIA"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
+
+;; ---------- auditoria de movimiento de tierras de vias: por cada via
+;; URB_VIA_* lee el xdata URB_VIA (nombre 1, etapa 2, estado 19,
+;; corte 23, relleno 24, area 17, longitud 18) y reporta completitud
+(defun c:AUDITMOV (/ ss i en data nom eta est corte rell area lng
+                     n-tot n-mov n-cero n-sin tot-c tot-r msgs)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/audit_mov.txt" "w"))
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "URB_VIA_*"))))
+  (setq i 0 n-tot 0 n-mov 0 n-cero 0 n-sin 0 tot-c 0.0 tot-r 0.0 msgs nil)
+  (if ss
+    (while (< i (sslength ss))
+      (setq en (ssname ss i))
+      (setq data (urb:get-xdata-strings en "URB_VIA"))
+      (if data
+        (progn
+          (setq n-tot (1+ n-tot))
+          (setq nom (urb:safe-string (nth 1 data) "?")
+                eta (urb:safe-string (nth 2 data) "?")
+                est (urb:safe-string (if (> (length data) 19) (nth 19 data) "") "")
+                corte (atof (urb:safe-string (if (> (length data) 23) (nth 23 data) "0") "0"))
+                rell (atof (urb:safe-string (if (> (length data) 24) (nth 24 data) "0") "0"))
+                area (atof (urb:safe-string (if (> (length data) 17) (nth 17 data) "0") "0"))
+                lng (atof (urb:safe-string (if (> (length data) 18) (nth 18 data) "0") "0")))
+          (cond
+            ((/= est "MOVIMIENTO DE TIERRAS CALCULADO")
+              (setq n-sin (1+ n-sin))
+              (setq msgs (cons (strcat "  SIN MOVIMIENTO: " nom " (etapa " eta
+                ", area " (rtos area 2 0) " m2)") msgs)))
+            ((and (< corte 0.01) (< rell 0.01))
+              (setq n-cero (1+ n-cero))
+              (setq msgs (cons (strcat "  MOV EN CERO: " nom " (etapa " eta
+                ", area " (rtos area 2 0) " m2, L " (rtos lng 2 0) " m)") msgs)))
+            (T
+              (setq n-mov (1+ n-mov))
+              (setq tot-c (+ tot-c corte) tot-r (+ tot-r rell))))))
+      (setq i (1+ i))))
+  (cr:log (strcat "AUDITORIA MOVIMIENTO DE TIERRAS: " (itoa n-tot) " vias | "
+    (itoa n-mov) " con corte/relleno OK (corte total " (rtos tot-c 2 0)
+    " m3, relleno total " (rtos tot-r 2 0) " m3) | "
+    (itoa n-cero) " en cero | " (itoa n-sin) " sin calcular"))
+  (foreach m (reverse msgs) (cr:log m))
+  (cr:log "FIN-AUDITMOV")
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
