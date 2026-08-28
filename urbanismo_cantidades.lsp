@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.61.0")
+(setq *urb-version* "4.61.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8990,6 +8990,10 @@
   (setq lay (mp:point-layer base) col (mp:point-color base) th *mp-vis-text-height* r *mp-vis-radius*)
   (if (< r 2.00) (setq r 2.00))
   (if (< th 0.50) (setq th 0.50))
+  ;; 2026-08-28 (pedido del usuario): postes de alumbrado mas pequenos
+  ;; -- circulo 0.7 en vez de 2.0 (el poste real es puntual, no una
+  ;; camara) y etiqueta proporcional
+  (if (= base "POSTE_ELEC") (setq r 0.70 th (min th 0.50)))
   (setq lab (mp:label-point base vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
   (cond
