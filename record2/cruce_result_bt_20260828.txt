@@ -1,0 +1,24 @@
+BTAP tramos (re-cruce): 634 total (16323 ML) | EJECUTADOS 208 (5842 ML) | faltan 426 (10482 ML)
+AP cajas (re-cruce): 653 total | EJECUTADOS 126 | faltan 527
+AP postes (re-cruce): 607 total | EJECUTADOS 117 | faltan 490
+recoloreada MP_PUNTO_POSTE_ELEC -> color 2 capa PPTO-ELECTRICA-BT-AP
+recoloreada MP_PUNTO_LUMINARIA -> color 2 capa PPTO-ELECTRICA-BT-AP
+recoloreada MP_PUNTO_TRANSFORMADOR_AP -> color 2 capa PPTO-ELECTRICA-BT-AP
+recoloreada MP_PUNTO_SUMIDERO -> color 3 capa PPTO-ALC-PLUVIAL
+recoloreada MP_PUNTO_POZO_SAN -> color 1 capa PPTO-ALC-SANITARIO
+recoloreada MP_PUNTO_POZO_PLU -> color 3 capa PPTO-ALC-PLUVIAL
+SEPARAEJEC: 1250 elementos ejecutados movidos a capas -EJEC (6 capas)
+===== REPORTE GLOBAL EJECUTADO vs POR EJECUTAR =====
+ACU tramos: 332 total (6262 ML) | EJEC 81 (1667 ML) | FALTAN 251 (4596 ML)
+ACU accesorios: 704 total | EJEC 110 | FALTAN 594
+SAN tramos: 203 total (7382 ML) | EJEC 121 (4428 ML) | FALTAN 82 (2954 ML)
+SAN pozos: 150 total | EJEC 67 | FALTAN 83
+PLU tramos: 229 total (6396 ML) | EJEC 63 (986 ML) | FALTAN 166 (5409 ML)
+PLU pozos: 242 total | EJEC 98 | FALTAN 144
+PLU sumideros: 115 total | EJEC 0 | FALTAN 115
+MT tramos: 220 total (6370 ML) | EJEC 80 (2386 ML) | FALTAN 140 (3984 ML)
+MT+BT cajas/equipos: 230 total | EJEC 74 | FALTAN 156
+BTAP tramos: 634 total (16139 ML) | EJEC 217 (5865 ML) | FALTAN 417 (10274 ML)
+AP cajas: 653 total | EJEC 129 | FALTAN 524
+AP postes: 607 total | EJEC 210 | FALTAN 397
+LISTO-CRUCE

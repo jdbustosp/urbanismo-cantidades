@@ -231,3 +231,110 @@
     " (" (rtos (- ml-tot ml-ej) 2 0) " ML)"))
   (close *cr-f*) (setq *cr-f* nil)
   (princ))
+
+;; ---------- BT/AP: RE-cruce con el record completo ajustado (offset
+;; global -3000.017/-0.089 resuelto con 381 anclas caja+fotometria;
+;; el cruce del 26/08 solo capturo parte). Tramo ejecutado = ambos
+;; extremos a <4 m de la red record (ductos van al costado de la via);
+;; caja a <2.5 m de caja record; poste a <3 m de fotometria.
+(defun c:CRUCEBT (/ ents en e5 n-ej ml-tot ml-ej p d cajas n-cj postes n-po)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq ents (cr:collect "MP_TRAMO_BTAP_*"))
+  (setq n-ej 0 ml-tot 0.0 ml-ej 0.0)
+  (foreach en ents
+    (setq e5 (cr:tramo-ends en))
+    (setq ml-tot (+ ml-tot (nth 4 e5)))
+    (if (and (< (cr:min-seg-dist (nth 0 e5) (nth 1 e5) rec:bt-segs) 4.0)
+             (< (cr:min-seg-dist (nth 2 e5) (nth 3 e5) rec:bt-segs) 4.0))
+      (progn
+        (mp:setatts en (list (cons "CONTROL_ESTADO" "EJECUTADO")))
+        (setq n-ej (1+ n-ej) ml-ej (+ ml-ej (nth 4 e5))))))
+  (cr:log (strcat "BTAP tramos (re-cruce): " (itoa (length ents)) " total ("
+    (rtos ml-tot 2 0) " ML) | EJECUTADOS " (itoa n-ej)
+    " (" (rtos ml-ej 2 0) " ML) | faltan " (itoa (- (length ents) n-ej))
+    " (" (rtos (- ml-tot ml-ej) 2 0) " ML)"))
+  (setq cajas (cr:collect "MP_PUNTO_CAMARA_CS274,MP_PUNTO_CAMARA_CS275,MP_PUNTO_TRANSFORMADOR_AP") n-cj 0)
+  (foreach en cajas
+    (setq p (cdr (assoc 10 (entget en))) d 1e9)
+    (foreach nd rec:bt-cajas
+      (setq d (min d (distance (list (car nd) (cadr nd)) (list (car p) (cadr p))))))
+    (if (< d 2.5)
+      (progn
+        (mp:setatts en (list (cons "CONTROL_ESTADO" "EJECUTADO")))
+        (setq n-cj (1+ n-cj)))))
+  (cr:log (strcat "AP cajas (re-cruce): " (itoa (length cajas))
+    " total | EJECUTADOS " (itoa n-cj) " | faltan " (itoa (- (length cajas) n-cj))))
+  (setq postes (cr:collect "MP_PUNTO_POSTE_ELEC") n-po 0)
+  (foreach en postes
+    (setq p (cdr (assoc 10 (entget en))) d 1e9)
+    (foreach nd rec:bt-fotos
+      (setq d (min d (distance (list (car nd) (cadr nd)) (list (car p) (cadr p))))))
+    (if (< d 3.0)
+      (progn
+        (mp:setatts en (list (cons "CONTROL_ESTADO" "EJECUTADO")))
+        (setq n-po (1+ n-po)))))
+  (cr:log (strcat "AP postes (re-cruce): " (itoa (length postes))
+    " total | EJECUTADOS " (itoa n-po) " | faltan " (itoa (- (length postes) n-po))))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
+
+;; ---------- unificacion de colores por disciplina (pedido del usuario:
+;; "los postes del mismo color que los tramos"): re-colorea TODAS las
+;; entidades de las defs de puntos al color/capa de su red segun
+;; mp:point-color/mp:point-layer. Recolectar->mutar->ATTSYNC.
+(defun cr:recolor-def (defname base / doc blks blk ents e col lay)
+  (if (tblsearch "BLOCK" defname)
+    (progn
+      (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+      (setq blk (vla-Item (vla-get-Blocks doc) defname))
+      (setq col (mp:point-color base) lay (mp:point-layer base))
+      (setq ents nil)
+      (vlax-for e blk (setq ents (cons e ents)))
+      (foreach e ents
+        (vl-catch-all-apply 'vla-put-Color (list e col))
+        (vl-catch-all-apply 'vla-put-Layer (list e lay)))
+      (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" defname))
+      (cr:log (strcat "recoloreada " defname " -> color " (itoa col) " capa " lay))))
+  (princ))
+
+(defun c:FIXCOLORES ()
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (cr:recolor-def "MP_PUNTO_POSTE_ELEC" "POSTE_ELEC")
+  (cr:recolor-def "MP_PUNTO_LUMINARIA" "LUMINARIA_AP")
+  (cr:recolor-def "MP_PUNTO_TRANSFORMADOR_AP" "TRANSFORMADOR_AP")
+  (cr:recolor-def "MP_PUNTO_SUMIDERO" "SUMIDERO")
+  (cr:recolor-def "MP_PUNTO_POZO_SAN" "POZO_SANITARIO")
+  (cr:recolor-def "MP_PUNTO_POZO_PLU" "POZO_PLUVIAL")
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
+
+;; ---------- separacion VISUAL de lo ejecutado (2026-08-28, el usuario
+;; no podia distinguir ejecutado/pendiente: CONTROL_ESTADO es invisible).
+;; Mueve cada INSERT del modelo con CONTROL_ESTADO=EJECUTADO a la capa
+;; <su-capa>-EJEC (se crea con color gris 8 para poder atenuarla o
+;; apagarla y ver SOLO lo pendiente, o al reves).
+(defun c:SEPARAEJEC (/ doc layers ents en atts lay novo cnt seen)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+  (setq layers (vla-get-Layers doc))
+  (setq ents (append (cr:collect "MP_TRAMO_*") (cr:collect "MP_PUNTO_*")))
+  (setq cnt 0 seen nil)
+  (foreach en ents
+    (setq atts (mp:att-alist en))
+    (if (= (strcase (mp:getval "CONTROL_ESTADO" atts "")) "EJECUTADO")
+      (progn
+        (setq lay (cdr (assoc 8 (entget en))))
+        (if (not (wcmatch lay "*-EJEC"))
+          (progn
+            (setq novo (strcat lay "-EJEC"))
+            (if (not (member novo seen))
+              (progn
+                (if (not (tblsearch "LAYER" novo))
+                  (vla-put-Color (vla-Add layers novo) 8))
+                (setq seen (cons novo seen))))
+            (vla-put-Layer (vlax-ename->vla-object en) novo)
+            (setq cnt (1+ cnt)))))))
+  (cr:log (strcat "SEPARAEJEC: " (itoa cnt) " elementos ejecutados movidos a capas -EJEC ("
+    (itoa (length seen)) " capas)"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
