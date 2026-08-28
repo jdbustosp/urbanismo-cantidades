@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.60.3")
+(setq *urb-version* "4.61.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8828,6 +8828,160 @@
     (setq c (vla-AddCircle blk (mp:3d (list (car r) (cadr r) 0.0)) (float (caddr r))))
     (vla-put-Layer c lay) (vla-put-Color c col)))
 
+;; ---------- simbologia de accesorios de acueducto replicada del plano
+;; ACUEDUCTO.dwg (2026-08-28, pedido del usuario: "que se vea bien, que
+;; accesorio es cada uno"). Geometria volcada de los bloques del plano
+;; (A Tee, codo 45, A Hidrante, VALVULA PROY, etc.) con la escala de
+;; insercion tipica YA multiplicada (tee x0.5, codo11 x0.2966,
+;; codo22 x0.4083, codo45 x0.3625, codo90 x7.5, hidrante/v.pie x0.5812,
+;; buje x0.5506, valvula x0.2, ventosa x0.75, union x0.8333, tapon x1).
+;; Cada bloque del plano trae la figura en DOS tamanos superpuestos (el
+;; efecto de doble trazo clasico) -- se replican ambos.
+
+(defun mp:acc-tipo-token (tipo)
+  (cond
+    ((= tipo "TEE") "TEE")
+    ((= tipo "CODO_11_5") "C11")
+    ((= tipo "CODO_22_5") "C22")
+    ((= tipo "CODO_45") "C45")
+    ((= tipo "CODO_90") "C90")
+    ((= tipo "HIDRANTE_TORRE") "HID")
+    ((= tipo "VALVULA_PIE_HIDRANTE") "VPH")
+    ((= tipo "VALVULA_RED_MENOR") "VAL")
+    ((= tipo "VALVULA_VENTOSA") "VEN")
+    ((= tipo "VALVULA_CIERRE_PERMANENTE") "VCP")
+    ((= tipo "TAPON") "TAP")
+    ((= tipo "REDUCCION") "RDC")
+    (T "UNI")))
+
+;; profundidad visual (|y| minimo) por tipo, para colgar la etiqueta
+;; debajo del simbolo sin montarse en el
+(defun mp:acc-sym-bottom (tk)
+  (cond
+    ((= tk "TEE") 0.70) ((= tk "C11") 0.50) ((= tk "C22") 0.60)
+    ((= tk "C45") 0.75) ((= tk "C90") 1.50) ((= tk "HID") 4.55)
+    ((= tk "VPH") 2.25) ((= tk "VAL") 2.20) ((= tk "VEN") 3.95)
+    ((= tk "VCP") 1.10) ((= tk "TAP") 1.80) ((= tk "RDC") 0.60)
+    (T 1.75)))
+
+(defun mp:acc-add-lines (blk lay col lst / l e)
+  (foreach l lst
+    (setq e (vla-AddLine blk
+      (mp:3d (list (nth 0 l) (nth 1 l) 0.0))
+      (mp:3d (list (nth 2 l) (nth 3 l) 0.0))))
+    (vla-put-Layer e lay) (vla-put-Color e col)))
+
+(defun mp:acc-add-polys (blk lay col closed lst / p e)
+  (foreach p lst
+    (setq e (vla-AddLightWeightPolyline blk (mp:var-dbls p)))
+    (if closed (vla-put-Closed e :vlax-true))
+    (vla-put-Layer e lay) (vla-put-Color e col)))
+
+(defun mp:acc-add-arcs (blk lay col lst / a e)
+  (foreach a lst
+    (setq e (vla-AddArc blk
+      (mp:3d (list (nth 0 a) (nth 1 a) 0.0))
+      (nth 2 a) (nth 3 a) (nth 4 a)))
+    (vla-put-Layer e lay) (vla-put-Color e col)))
+
+;; circulo RELLENO (tapa del hidrante): polilinea de 2 arcos con ancho
+;; constante = radio (truco donut)
+(defun mp:acc-add-disk (blk lay col cx cy r / e)
+  (setq e (vla-AddLightWeightPolyline blk
+    (mp:var-dbls (list (- cx (/ r 2.0)) cy (+ cx (/ r 2.0)) cy))))
+  (vla-put-Closed e :vlax-true)
+  (vla-SetBulge e 0 1.0) (vla-SetBulge e 1 1.0)
+  (vla-put-ConstantWidth e r)
+  (vla-put-Layer e lay) (vla-put-Color e col))
+
+(defun mp:acc-plan-geom (blk tipo lay col / tk c)
+  (setq tk (mp:acc-tipo-token (mp:safe-str tipo)))
+  (cond
+    ((= tk "TEE")
+      (mp:acc-add-lines blk lay col
+        '((0.247 0.724 -0.247 0.724) (-0.724 -0.25 -0.724 0.25)
+          (0.724 -0.25 0.724 0.25) (0.617 1.811 -0.617 1.811)
+          (-1.811 -0.625 -1.811 0.625) (1.811 -0.625 1.811 0.625)
+          (-0.724 0.0 0.724 0.0) (0.0 0.724 0.0 0.0)
+          (1.811 0.0 -1.811 0.0) (0.0 1.811 0.0 0.0))))
+    ((= tk "C11")
+      (mp:acc-add-lines blk lay col
+        '((0.0 0.0 0.361 0.0) (0.0 0.0 -0.354 0.070)
+          (0.361 -0.148 0.361 0.148) (-0.383 -0.075 -0.325 0.216)
+          (0.0 0.0 1.187 -0.008) (0.0 0.0 -1.164 0.231)
+          (1.187 -0.434 1.187 0.476) (-1.255 -0.229 -1.062 0.743))))
+    ((= tk "C22")
+      (mp:acc-add-lines blk lay col
+        '((0.0 0.0 0.497 0.0) (0.0 0.0 -0.459 0.190)
+          (0.497 -0.204 0.497 0.204) (-0.537 0.002 -0.381 0.379)
+          (0.0 0.0 1.242 0.0) (0.0 0.0 -1.148 0.475)
+          (1.242 -0.510 1.242 0.510) (-1.343 0.004 -0.952 0.947))))
+    ((= tk "C45")
+      (mp:acc-add-lines blk lay col
+        '((0.0 0.0 2.167 0.0) (0.0 0.0 -1.449 1.449)
+          (-1.931 0.967 -0.942 1.956) (0.441 -0.181 0.441 0.181)
+          (-0.440 0.184 -0.184 0.440) (0.0 0.0 0.441 0.0)
+          (0.0 0.0 -0.312 0.312) (2.167 -0.705 2.167 0.681))))
+    ((= tk "C90")
+      (mp:acc-add-lines blk lay col
+        '((0.0 0.0 0.0 -1.373) (0.0 0.0 1.223 0.0)
+          (-0.591 -1.373 0.591 -1.373) (1.223 0.591 1.223 -0.591)
+          (-0.169 -0.489 0.169 -0.489) (0.489 0.169 0.489 -0.169))))
+    ((= tk "HID")
+      (mp:acc-add-lines blk lay col
+        '((0.0 -1.418 0.0 -4.481) (0.0 1.744 0.0 -3.197)))
+      (mp:acc-add-disk blk lay col 0.0 -1.069 0.349)
+      (setq c (vla-AddCircle blk (mp:3d '(0.0 2.615 0.0)) 0.872))
+      (vla-put-Layer c lay) (vla-put-Color c col))
+    ((= tk "VPH")
+      (mp:acc-add-polys blk lay col T
+        '((-0.174 2.18 0.174 1.308 -0.174 1.308 0.174 2.18)
+          (-0.872 2.18 0.872 -2.18 -0.872 -2.18 0.872 2.18)))
+      (mp:acc-add-lines blk lay col '((0.0 2.47 0.0 2.18))))
+    ((= tk "VAL")
+      (mp:acc-add-polys blk lay col T
+        '((0.0 0.0 -0.632 -1.582 0.635 -1.582)
+          (0.0 0.0 -0.632 1.577 0.635 1.577)
+          (0.0 0.0 -0.303 -0.748 0.297 -0.748)
+          (0.0 0.0 -0.303 0.752 0.297 0.752)))
+      (mp:acc-add-lines blk lay col
+        '((0.635 -2.149 -0.632 -2.149) (0.635 2.144 -0.632 2.144)
+          (0.297 1.132 -0.303 1.132) (0.297 -1.137 -0.303 -1.137))))
+    ((= tk "VEN")
+      (mp:acc-add-arcs blk lay col
+        '((1.516 -3.050 0.827 0.4623 3.6039)
+          (1.516 -3.050 0.977 0.4623 1.9524)
+          (1.516 -3.050 0.977 2.1061 3.6039)))
+      (mp:acc-add-lines blk lay col
+        '((0.067 0.033 1.152 -2.143) (2.256 -2.681 2.390 -2.614)
+          (-0.067 -0.033 1.017 -2.210) (-0.067 -0.033 0.067 0.033)
+          (0.641 -3.486 0.776 -3.419))))
+    ((= tk "VCP")
+      (mp:acc-add-polys blk lay col T
+        '((0.0 0.0 -0.30 -0.75 0.30 -0.75)
+          (0.0 0.0 -0.30 0.75 0.30 0.75)))
+      (setq c (vla-AddCircle blk (mp:3d '(0.0 0.0 0.0)) 1.004))
+      (vla-put-Layer c lay) (vla-put-Color c col)
+      (mp:acc-add-lines blk lay col '((1.004 0.0 2.30 0.0))))
+    ((= tk "TAP")
+      (mp:acc-add-polys blk lay col nil
+        '((1.0 -1.0 0.0 -1.0 0.0 1.0 1.0 1.0)
+          (1.499 -1.716 0.0 -1.716 0.0 1.689 1.499 1.689))))
+    ((= tk "RDC")
+      (mp:acc-add-polys blk lay col T
+        '((0.826 0.033 0.0 -0.242 0.0 0.309)
+          (1.377 0.033 0.0 -0.517 0.0 0.584))))
+    (T ;; UNION / OTRO
+      (mp:acc-add-lines blk lay col
+        '((-1.667 1.667 1.667 1.667) (-1.667 -1.667 1.667 -1.667)
+          (-0.417 0.417 0.417 0.417) (-0.417 -0.417 0.417 -0.417))))))
+
+;; nombre de bloque POR TIPO para accesorios (cada tipo con su simbolo);
+;; los demas puntos siguen con mp:point-block-name
+(defun mp:acc-block-name (vals)
+  (strcat "MP_PUNTO_ACC_ACU_"
+    (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" vals ""))))
+
 (defun mp:make-cant-punto-block (blkname base vals / doc blks blk lay col th r lab pl c y att pos a)
   (vl-load-com)
   (mp:ensure-layers)
@@ -8841,6 +8995,8 @@
   (cond
     ((mp:caja-plan-p base)
       (mp:caja-plan-geom blk base lay col))
+    ((= base "ACCESORIO_ACUEDUCTO")
+      (mp:acc-plan-geom blk (mp:getval "TIPO_ACCESORIO" vals "") lay col))
     ((member base '("CAJA_BARRAJE_CS281" "SUBESTACION_E" "CDMT_E"))
       (setq pl (vla-AddLightWeightPolyline blk (mp:var-dbls (list (- r) (- r) r (- r) r r (- r) r))))
       (vla-put-Closed pl :vlax-true) (vla-put-Layer pl lay) (vla-put-Color pl col) (vla-put-ConstantWidth pl (float (/ r 3.0))))
@@ -8870,6 +9026,18 @@
       (setq pos (list 0.0 (- (+ r (* th 0.85))) 0.0))
       (setq att (mp:vla-add-att blk "NUM_VIS" "Numero de caja"
         (mp:caja-num-label vals) pos th nil lay col))
+      (mp:center-visible-att att pos th))
+    ((= base "ACCESORIO_ACUEDUCTO")
+      ;; etiqueta UNICA centrada debajo del simbolo (2026-08-28, pedido
+      ;; del usuario: el texto era el desorden principal) -- corta
+      ;; ("C45 D8"), 0.45 de alto, colgada segun la profundidad visual
+      ;; del simbolo para no montarse en el
+      (setq th 0.45)
+      (setq pos (list 0.0
+        (- (+ (mp:acc-sym-bottom
+                (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" vals "")))
+              (* th 0.85))) 0.0))
+      (setq att (mp:vla-add-att blk "ETIQUETA" "Etiqueta visible" lab pos th nil lay col))
       (mp:center-visible-att att pos th))
     (T
       (mp:vla-add-att blk "ETIQUETA" "Etiqueta visible" lab
@@ -9539,7 +9707,14 @@
     ((= base "POZO_PLUVIAL") id)
     ((= base "SUMIDERO") (strcat "SUM " id))
     ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281")) (mp:caja-tipo-label base vals))
-    ((= base "ACCESORIO_ACUEDUCTO") (strcat (mp:getval "TIPO_ACCESORIO" vals "ACC") " D" (mp:getval "DIAMETRO" vals "") " " id))
+    ;; 2026-08-28: etiqueta CORTA (el simbolo del plano ya dice que
+    ;; accesorio es): token + diametro, ID solo si existe
+    ((= base "ACCESORIO_ACUEDUCTO")
+      (vl-string-right-trim " "
+        (strcat (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" vals ""))
+          (if (/= (mp:getval "DIAMETRO" vals "") "")
+            (strcat " D" (mp:getval "DIAMETRO" vals "")) "")
+          " " id)))
     ((= base "LUMINARIA_AP") (strcat "LUM " (mp:getval "CODIGO" vals id)))
     ((= base "POSTE_ELEC") id)
     ((= base "TRANSFORMADOR_AP") id)
@@ -10582,7 +10757,10 @@
       (mp:alist-set
         (mp:alist-set vals2 "NUM_VIS" (mp:caja-num-label vals2))
         "NIVELACION" (mp:caja-nivelacion vals2))))
-  (setq blk (mp:point-block-name base))
+  (setq blk
+    (if (= base "ACCESORIO_ACUEDUCTO")
+      (mp:acc-block-name vals2)          ;; un bloque por tipo (simbolo del plano)
+      (mp:point-block-name base)))
   (if (not (tblsearch "BLOCK" blk))
     (mp:make-cant-punto-block blk base vals2))
   (setq added (mp:ensure-block-schema blk base nil))
@@ -11547,7 +11725,8 @@
     ((= up "MP_PUNTO_POZO_SAN") "POZO_SANITARIO")
     ((= up "MP_PUNTO_POZO_PLU") "POZO_PLUVIAL")
     ((= up "MP_PUNTO_SUMIDERO") "SUMIDERO")
-    ((= up "MP_PUNTO_ACC_ACU") "ACCESORIO_ACUEDUCTO")
+    ;; 2026-08-28: tambien los nombres por tipo (MP_PUNTO_ACC_ACU_TEE...)
+    ((mp:starts-with up "MP_PUNTO_ACC_ACU") "ACCESORIO_ACUEDUCTO")
     ((= up "MP_PUNTO_LUMINARIA") "LUMINARIA_AP")
     ((mp:starts-with up "MP_PUNTO_")
       (substr up 10))
