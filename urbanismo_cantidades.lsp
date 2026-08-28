@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.61.2")
+(setq *urb-version* "4.62.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8253,11 +8253,17 @@
   ;; MT/BT-AP: franja DELGADA (el usuario la vio "muy gruesa" 2026-08-26)
   ;; -- debe leerse como una linea que va de caja a caja, no un rectangulo
   (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP")) (setq w 0.20))
+  ;; ACUEDUCTO delgado tambien (2026-08-28: la franja de 2.00 se leia
+  ;; como barras azules y tapaba los accesorios del plano)
+  (if (= baseb "TRAMO_ACUEDUCTO") (setq w 0.20))
   (if (< r 2.00) (setq r 2.00))
   (if (< th 0.10) (setq th 0.10))
   ;; MT/BT-AP: texto del tramo acotado para que no tape cajas ni otros
   ;; rotulos (revision del usuario 2026-08-26)
   (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP")) (setq th (min th 0.90)))
+  ;; ACU: etiqueta compacta 0.60 (la red es densa, con accesorios cada
+  ;; pocos metros)
+  (if (= baseb "TRAMO_ACUEDUCTO") (setq th (min th 0.60)))
   (setq lab (mp:label-tramo baseb vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
 
@@ -8294,7 +8300,9 @@
     (mp:vla-add-att blk "ETIQUETA" "Etiqueta visible" lab mid th nil lay col)
     mid
     th)
-  (if (member baseb '("TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS" "TRAMO_ACUEDUCTO"))
+  ;; 2026-08-28: pendiente visible SOLO en redes por gravedad -- en
+  ;; acueducto (presion) el "-0.102%" era puro ruido visual
+  (if (member baseb '("TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
     (progn
       (setq mid (list (/ dist 2.0) (- (* th 1.35)) 0.0))
       (mp:center-visible-att
@@ -9640,8 +9648,9 @@
   (setq d (mp:diametro-label vals))
   (setq mat (mp:getval "MATERIAL" vals ""))
   (cond
+    ;; 2026-08-28: etiqueta compacta estilo plano record ("Ø8" PVC L=34")
     ((= base "TRAMO_ACUEDUCTO")
-      (strcat "ACU L=" l "- %%c" d "-" mat))
+      (strcat "%%c" d "\" " mat " L=" l))
     ((= base "TRAMO_ALLUVIAS")
       (strcat "ALL L=" l "- %%c" d "-" mat))
     ((= base "TRAMO_ARESIDUAL")
@@ -11805,7 +11814,15 @@
   ;; "borde de caja" cada vez que se creaba/reconstruia un tramo MT/BTAP.
   (setq span (mp:block-tramo-length blk))
   (setq cut (min (max 2.0 *mp-vis-radius*) (/ span 4.0)))
-  (setq width (max 0.01 *mp-vis-width*))
+  ;; 2026-08-28: MISMAS reglas de ancho que mp:make-cant-tramo-block --
+  ;; esta copia usaba *mp-vis-width* (2.0) a secas y deshacia el trazo
+  ;; delgado de MT/BT-AP/ACU cada vez que se creaba/editaba un tramo
+  ;; (el mismo patron del bug del gap MT del 26/08: logica duplicada
+  ;; sin sincronizar).
+  (setq width
+    (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP" "TRAMO_ACUEDUCTO"))
+      0.20
+      (max 0.01 *mp-vis-width*)))
   ;; Los circulos de extremos de un tramo hidrosanitario/MT/BT-AP no son
   ;; pozos: eran geometria duplicada. El nodo real es su INSERT puntual
   ;; enlazado (pozo/caja/poste).

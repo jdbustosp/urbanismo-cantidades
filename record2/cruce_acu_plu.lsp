@@ -409,3 +409,65 @@
   (cr:log "FIN-AUDITMOV")
   (close *cr-f*) (setq *cr-f* nil)
   (princ))
+
+;; ---------- rediseno visual de tramos ACU existentes (2026-08-28):
+;; tuberia delgada 0.20 (era franja de 2.0), etiqueta compacta 0.60
+;; ("Ø8" PVC L=34"), sin PENDIENTE_VIS (red a presion). Edita las defs
+;; MP_TRAMO_ACU_* EN SITIO (sin purgar) + ATTSYNC + reescribe la
+;; ETIQUETA de cada insert. Recolectar->mutar->verificar.
+(defun c:REDISENOACU (/ doc blks names bn blk ents e ty n-def ss i en atts
+                        n-lab espan)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+  (setq blks (vla-get-Blocks doc))
+  ;; 1) recolectar nombres de defs
+  (setq names nil)
+  (vlax-for blk blks
+    (if (wcmatch (strcase (vla-get-Name blk)) "MP_TRAMO_ACU_*")
+      (setq names (cons (vla-get-Name blk) names))))
+  ;; 2) mutar cada def: polilinea 0.20 (largo completo), ETIQUETA 0.60
+  ;;    reposicionada, PENDIENTE_VIS eliminada
+  (setq n-def 0)
+  (foreach bn names
+    (setq blk (vla-Item blks bn))
+    (setq espan (mp:block-tramo-length blk))
+    (setq ents nil)
+    (vlax-for e blk (setq ents (cons e ents)))
+    (foreach e ents
+      (setq ty (vla-get-ObjectName e))
+      (cond
+        ((= ty "AcDbPolyline")
+          (vla-put-ConstantWidth e 0.20)
+          (if (> espan 1e-9)
+            (vla-put-Coordinates e (mp:var-dbls (list 0.0 0.0 espan 0.0)))))
+        ((and (= ty "AcDbAttributeDefinition")
+              (= (strcase (vla-get-TagString e)) "ETIQUETA"))
+          (vla-put-Height e 0.60)
+          (vla-put-InsertionPoint e
+            (vlax-3d-point (list (/ espan 2.0) 0.81 0.0)))
+          (vla-put-Alignment e acAlignmentMiddleCenter)
+          (vla-put-TextAlignmentPoint e
+            (vlax-3d-point (list (/ espan 2.0) 0.81 0.0))))
+        ((and (= ty "AcDbAttributeDefinition")
+              (= (strcase (vla-get-TagString e)) "PENDIENTE_VIS"))
+          (urb:safe-delete e))))
+    (setq n-def (1+ n-def)))
+  ;; 3) ATTSYNC por def (fuera de los vlax-for)
+  (foreach bn names
+    (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bn)))
+  (cr:log (strcat "REDISENOACU: " (itoa n-def) " defs de tramo ACU rediseñadas"))
+  ;; 4) reescribir ETIQUETA compacta por insert
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_TRAMO_ACU_*"))) i 0 n-lab 0)
+  (setq ents nil)
+  (if ss
+    (while (< i (sslength ss))
+      (setq ents (cons (ssname ss i) ents))
+      (setq i (1+ i))))
+  (foreach en ents
+    (setq atts (mp:att-alist en))
+    (mp:setatts en (list (cons "ETIQUETA"
+      (mp:label-tramo "TRAMO_ACUEDUCTO" atts))))
+    (setq n-lab (1+ n-lab)))
+  (cr:log (strcat "REDISENOACU: " (itoa n-lab) " etiquetas de tramo reescritas"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
