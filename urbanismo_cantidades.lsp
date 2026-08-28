@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.62.2")
+(setq *urb-version* "4.63.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8253,9 +8253,12 @@
   ;; 2026-08-28 (revision general del usuario "que se vea claro todas
   ;; las disciplinas"): TODOS los tramos delgados 0.20 -- la franja de
   ;; 2.00 se leia como barras y tapaba simbolos/pozos.
-  (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP" "TRAMO_ACUEDUCTO"
+  (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP"
                       "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
     (setq w 0.20))
+  ;; ACU: linea FINA (hairline, como el plano original que el usuario
+  ;; pidio calcar: "asi como la foto, limpio y bien conectado")
+  (if (= baseb "TRAMO_ACUEDUCTO") (setq w 0.0))
   (if (< r 2.00) (setq r 2.00))
   (if (< th 0.10) (setq th 0.10))
   ;; MT/BT-AP: texto del tramo acotado para que no tape cajas ni otros
@@ -8279,11 +8282,10 @@
       blk
       (mp:var-dbls
         (cond
-          ((= baseb "TRAMO_ACUEDUCTO")
-            ;; recorte SUAVE: 1.0 max y proporcional en tramos cortos
-            ;; (el 2.0 dejaba los tramos "corticos" -- revision usuario)
-            (setq cut (min 1.0 (* 0.15 dist)))
-            (list cut 0.0 (- dist cut) 0.0))
+          ;; ACU: linea CONTINUA de extremo a extremo, sin recorte --
+          ;; en el plano original el simbolo del accesorio va SOBRE la
+          ;; linea fina y se lee perfecto (3a revision del usuario:
+          ;; los recortes se veian como tramos partidos)
           ((mp:tramo-own-node-blocks-p baseb)
             (list 0.0 0.0 dist 0.0))
           (T (list cut 0.0 (- dist cut) 0.0))))))
@@ -9685,7 +9687,7 @@
     ((= base "TRAMO_ACUEDUCTO")
       (if (< (atof (mp:safe-str l)) 8.0)
         ""
-        (strcat "%%c" d "\" " mat " L=" l)))
+        (strcat l "-%%c" d "\"-" mat)))
     ((= base "TRAMO_ALLUVIAS")
       (strcat "ALL L=" l "- %%c" d "-" mat))
     ((= base "TRAMO_ARESIDUAL")
@@ -11877,10 +11879,11 @@
   ;; delgado cada vez que se creaba/editaba un tramo (el mismo patron
   ;; del bug del gap MT del 26/08: logica duplicada sin sincronizar).
   (setq width
-    (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP" "TRAMO_ACUEDUCTO"
-                       "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
-      0.20
-      (max 0.01 *mp-vis-width*)))
+    (cond
+      ((= base "TRAMO_ACUEDUCTO") 0.0) ;; hairline como el plano
+      ((member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"
+                      "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS")) 0.20)
+      (T (max 0.01 *mp-vis-width*))))
   ;; Los circulos de extremos de un tramo hidrosanitario/MT/BT-AP no son
   ;; pozos: eran geometria duplicada. El nodo real es su INSERT puntual
   ;; enlazado (pozo/caja/poste).
@@ -11899,11 +11902,6 @@
             item
             (mp:var-dbls
               (cond
-                ;; ACU: recorte 2.0 en las puntas para no tapar los
-                ;; simbolos de accesorio (igual que make-cant-tramo-block)
-                ((= base "TRAMO_ACUEDUCTO")
-                  (list (min 1.0 (* 0.15 span)) 0.0
-                        (- span (min 1.0 (* 0.15 span))) 0.0))
                 ((mp:tramo-own-node-blocks-p base)
                   (list 0.0 0.0 span 0.0))
                 (T (list cut 0.0 (- span cut) 0.0)))))

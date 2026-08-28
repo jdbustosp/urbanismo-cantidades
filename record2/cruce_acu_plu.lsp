@@ -644,3 +644,150 @@
     (itoa (length cab:ins)) " inserts del plano, duplicados depurados)"))
   (close *cr-f*) (setq *cr-f* nil)
   (princ))
+
+;; ---------- 4a revision (2026-08-28): ACU calcado del plano original
+;; (linea hairline continua, etiqueta horizontal formato "34.34-Ø8"-PVC")
+(defun c:REPARAACU4 (/ doc blks names bn blk ents e ty espan n-def ss i en
+                       atts n-lab att)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+  (setq blks (vla-get-Blocks doc))
+  (setq names nil)
+  (vlax-for blk blks
+    (if (wcmatch (strcase (vla-get-Name blk)) "MP_TRAMO_ACU_*")
+      (setq names (cons (vla-get-Name blk) names))))
+  (setq n-def 0)
+  (foreach bn names
+    (setq blk (vla-Item blks bn))
+    (setq espan (mp:tramo-span-from-name bn))
+    (if (> espan 1e-9)
+      (progn
+        (setq ents nil)
+        (vlax-for e blk (setq ents (cons e ents)))
+        (foreach e ents
+          (if (= "AcDbPolyline" (vla-get-ObjectName e))
+            (progn
+              (vla-put-ConstantWidth e 0.0)
+              (vla-put-Coordinates e (mp:var-dbls (list 0.0 0.0 espan 0.0))))))
+        (setq n-def (1+ n-def)))))
+  (foreach bn names
+    (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bn)))
+  (cr:log (strcat "REPARAACU4: " (itoa n-def) " defs hairline continuas"))
+  ;; etiquetas: formato plano + HORIZONTALES (rotacion 0 absoluta)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_TRAMO_ACU_*"))) i 0 n-lab 0 ents nil)
+  (if ss (while (< i (sslength ss)) (setq ents (cons (ssname ss i) ents)) (setq i (1+ i))))
+  (foreach en ents
+    (setq atts (mp:att-alist en))
+    (mp:setatts en (list (cons "ETIQUETA" (mp:label-tramo "TRAMO_ACUEDUCTO" atts))))
+    (foreach att (vlax-invoke (vlax-ename->vla-object en) 'GetAttributes)
+      (if (= "ETIQUETA" (strcase (vla-get-TagString att)))
+        (vl-catch-all-apply 'vla-put-Rotation (list att 0.0))))
+    (setq n-lab (1+ n-lab)))
+  (cr:log (strcat "REPARAACU4: " (itoa n-lab) " etiquetas formato plano, horizontales"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
+
+;; ---------- bioswales: las 5 polilineas del bloque PL1 (SERIE 6) en
+;; capa propia URB-BIOSWALE (ya la recogen los filtros Redes humedas)
+(defun c:CREABIOSWALES (/ doc ms lay poly item pts pl i n vlist)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+  (setq ms (vla-get-ModelSpace doc))
+  (if (not (tblsearch "LAYER" "URB-BIOSWALE"))
+    (vla-put-Color (vla-Add (vla-get-Layers doc) "URB-BIOSWALE") 84))
+  (setq n 0)
+  (foreach poly bios:polys
+    (setq pts (cdr poly) vlist nil)
+    (foreach item pts
+      (setq vlist (append vlist (list (car item) (cadr item)))))
+    (setq pl (vla-AddLightWeightPolyline ms (mp:var-dbls vlist)))
+    ;; bulges por vertice
+    (setq i 0)
+    (foreach item pts
+      (if (/= 0.0 (caddr item)) (vla-SetBulge pl i (caddr item)))
+      (setq i (1+ i)))
+    (if (= 1 (car poly)) (vla-put-Closed pl :vlax-true))
+    (vla-put-Layer pl "URB-BIOSWALE")
+    (setq n (1+ n)))
+  (cr:log (strcat "CREABIOSWALES: " (itoa n) " contornos bioswale creados en URB-BIOSWALE"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
+
+;; ---------- descoles pozo->cabezal desde el plano: por cada cabezal
+;; del master, encadena los segmentos del plano que salen de el (hasta 5
+;; saltos) y crea el tramo PLU desde el extremo lejano (pozo/sumidero
+;; del modelo si hay uno a <5 m) hasta el cabezal.
+(defun dz:otra-punta (seg p / a b)
+  (setq a (list (nth 0 seg) (nth 1 seg)) b (list (nth 2 seg) (nth 3 seg)))
+  (if (< (distance a p) (distance b p)) b a))
+(defun c:CONECTADESCOLES (/ ss i en ed p cabs cab usados seg cerca punta
+                            hops salto pozos poz d best bid atts vals n-ok
+                            n-sin id-cab)
+  (setq *cr-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/record2/cruce_result.txt" "a"))
+  ;; cabezales del master con su ID
+  (setq cabs nil)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_CABEZAL"))) i 0)
+  (if ss
+    (while (< i (sslength ss))
+      (setq en (ssname ss i) ed (entget en) p (cdr (assoc 10 ed)))
+      (setq atts (mp:att-alist en))
+      (setq cabs (cons (list (car p) (cadr p) (mp:getval "ID" atts "")) cabs))
+      (setq i (1+ i))))
+  ;; pozos y sumideros del modelo (id + posicion)
+  (setq pozos nil)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_POZO_PLU,MP_PUNTO_SUMIDERO"))) i 0)
+  (if ss
+    (while (< i (sslength ss))
+      (setq en (ssname ss i) ed (entget en) p (cdr (assoc 10 ed)))
+      (setq atts (mp:att-alist en))
+      (setq pozos (cons (list (car p) (cadr p) (mp:getval "ID" atts "")) pozos))
+      (setq i (1+ i))))
+  (setq n-ok 0 n-sin 0 usados nil)
+  (foreach cab cabs
+    (setq p (list (car cab) (cadr cab)) id-cab (caddr cab))
+    ;; encadenar segmentos del plano desde el cabezal
+    (setq punta nil hops 0 salto T)
+    (while (and salto (< hops 5))
+      (setq salto nil)
+      (foreach seg desc:segs
+        (if (and (not salto) (not (member seg usados)))
+          (progn
+            (setq cerca nil)
+            (if (< (distance (list (nth 0 seg) (nth 1 seg)) p) 1.5) (setq cerca T))
+            (if (< (distance (list (nth 2 seg) (nth 3 seg)) p) 1.5) (setq cerca T))
+            (if cerca
+              (progn
+                (setq usados (cons seg usados))
+                (setq p (dz:otra-punta seg p))
+                (setq punta p salto T hops (1+ hops)))))))
+      )
+    (if punta
+      (progn
+        ;; pozo/sumidero del modelo cerca de la punta lejana
+        (setq best 1e9 bid "")
+        (foreach poz pozos
+          (setq d (distance (list (car poz) (cadr poz)) punta))
+          (if (< d best) (setq best d bid (caddr poz))))
+        (setq vals (list
+          (cons "RED" "ALLUVIAS")
+          (cons "POZO_INI" (if (< best 5.0) bid ""))
+          (cons "POZO_FIN" id-cab)
+          (cons "TIPO_EXTREMO_INI" (if (< best 5.0) "POZO" "NINGUNO"))
+          (cons "TIPO_EXTREMO_FIN" "NINGUNO")
+          (cons "MATERIAL" "PVC")
+          (cons "ORIGEN_CREACION" "LOTE_DESCOLES_20260828")))
+        (mp:insert-cant-tramo "TRAMO_ALLUVIAS"
+          (if (< best 5.0)
+            (progn (foreach poz pozos
+                     (if (= (caddr poz) bid) (setq punta (list (car poz) (cadr poz)))))
+                   punta)
+            punta)
+          (list (car cab) (cadr cab)) vals)
+        (setq n-ok (1+ n-ok)))
+      (progn
+        (setq n-sin (1+ n-sin))
+        (cr:log (strcat "  descole SIN traza en plano: " id-cab)))))
+  (cr:log (strcat "CONECTADESCOLES: " (itoa n-ok) " descoles creados, "
+    (itoa n-sin) " cabezales sin traza en el plano"))
+  (close *cr-f*) (setq *cr-f* nil)
+  (princ))
