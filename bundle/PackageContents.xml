@@ -3,7 +3,16 @@
   Bundle de Autodesk Autoloader para Urbanismo Cantidades.
   DOS bloques de componentes: cada version de AutoCAD carga solo el suyo.
   - 2019-2024 (R23.0-R24.2): lsp + UrbCantRibbon2023.dll (.NET Framework 4.8)
-  - 2025+     (R25.0+):      lsp + UrbCantRibbon2025.dll (.NET 8)
+  - 2025-2026 (R25.0-R25.1): lsp + UrbCantRibbon2025.dll (.NET 8)
+  2026-08-28: Civil 3D 2026 corre sobre .NET 8 IGUAL que 2025 (verificado
+  en vivo: coreclr 8.0.30 en acad.exe 2026) -- R25.0 y R25.1 son binario-
+  compatibles y COMPARTEN el DLL net8. NO crear un DLL "2026" con los
+  paquetes NuGet AutoCAD.NET 25.1.x/26.0.0: son net10-only (AutoCAD 2027)
+  y un DLL net10 falla EN SILENCIO en 2026 (se perdio medio dia asi).
+  La pestana que "no aparecia" en 2026 eran otros dos bugs, ya resueltos
+  en UrbCantRibbon.cs: el cambio de workspace borraba la pestana (ahora
+  hay vigilante en Idle que la repone) y el autoloader 2026 no cargaba el
+  .lsp (ahora el DLL lo carga como respaldo).
   La pestana CANTIDADES la dibuja el DLL en vivo (ribbon dinamico); el
   cuix quedo como respaldo en el repo pero YA NO se instala (evita
   pestana duplicada). instalar_bundle.ps1 copia todo.
@@ -41,7 +50,7 @@
     <ComponentEntry
         AppName="UrbanismoCantidadesRibbon2025"
         ModuleName="./Contents/net/UrbCantRibbon2025.dll"
-        AppDescription="Pestana CANTIDADES (ribbon dinamico, 2025+)"
+        AppDescription="Pestana CANTIDADES (ribbon dinamico, 2025-2026)"
         LoadOnAutoCADStartup="True" />
   </Components>
 </ApplicationPackage>

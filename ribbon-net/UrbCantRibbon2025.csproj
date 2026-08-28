@@ -1,9 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Variante para AutoCAD/Civil 3D 2025+ (.NET 8). Mismo UrbCantRibbon.cs
-    que la variante 2023; las referencias vienen del paquete NuGet oficial
-    AutoCAD.NET (no hace falta tener AutoCAD 2025 instalado para compilar).
+    Variante para AutoCAD/Civil 3D 2025 Y 2026 (R25.0-R25.1, .NET 8).
+    Mismo UrbCantRibbon.cs que la variante 2023; las referencias vienen
+    del paquete NuGet AutoCAD.NET 25.0.0 (no hace falta tener AutoCAD
+    instalado para compilar).
     Compilar con: ribbon-net\compilar_2025.ps1 (requiere dotnet SDK 8).
+
+    2026-08-28: Civil 3D 2026 corre sobre .NET 8 IGUAL que 2025
+    (verificado en vivo: coreclr 8.0.30 dentro de acad.exe 2026); las
+    series R25.0/R25.1 son binario-compatibles y este DLL sirve a AMBAS.
+    NO intentar una variante "2026" con AutoCAD.NET 25.1.x ni 26.0.0:
+    esos paquetes son net10-only (apuntan a AutoCAD 2027) y un DLL net10
+    NUNCA carga en 2026 -- y falla en silencio (autoloader, NETLOAD y
+    demand-load corren sin error y sin efecto).
   -->
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>

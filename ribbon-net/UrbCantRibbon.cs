@@ -94,12 +94,56 @@ namespace UrbanismoCantidades
                     ComponentManager.ItemInitialized += OnItemInitialized;
                 else
                     BuildTab();
+                // 2026-08-28: VIGILANTE PERMANENTE (pedido del usuario: la
+                // pestana debe aparecer SIEMPRE). Dos causas reales vistas
+                // en el log de Civil 3D 2026: (1) ItemInitialized ya paso
+                // cuando el ensamblado carga tarde, y (2) la pestana se
+                // construia bien ("Tab construida") y LUEGO el workspace
+                // (Civil 3D / Drafting & Annotation) reconstruia la cinta
+                // desde el CUIX borrando las pestanas agregadas en vivo.
+                // Por eso el handler NO se desuscribe: en cada Idle, si la
+                // pestana ya no esta en la cinta, se vuelve a crear. El
+                // chequeo (FindTab) es trivial y corre solo en reposo.
+                Application.Idle += OnIdleBuildTabFallback;
                 // el partial CUIX viejo (si sigue registrado en el perfil)
                 // duplicaria la pestana: se descarga solo, una vez, cuando
                 // haya documento activo
                 Application.Idle += OnIdleUnloadLegacy;
+                // 2026-08-28: en Civil 3D 2026 el ComponentEntry del .lsp
+                // dentro del bundle no se autocarga (rareza del cargador de
+                // ApplicationPlugins de esa version -- confirmado en vivo:
+                // ni exito ni error en el historial, mientras este mismo
+                // DLL si autocarga siempre desde el mismo bloque). Como
+                // respaldo, si el motor no quedo cargado lo cargamos desde
+                // aqui (el DLL si es confiable). Inofensivo si el .lsp ya
+                // cargo por su cuenta (el chequeo evita cargarlo dos veces).
+                Application.Idle += OnIdleEnsureLsp;
             }
             catch (System.Exception ex) { Log("ERROR Initialize: " + ex.Message); }
+        }
+
+        private static bool _lspChecked;
+
+        private static void OnIdleEnsureLsp(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_lspChecked) { Application.Idle -= OnIdleEnsureLsp; return; }
+                _lspChecked = true;
+                Application.Idle -= OnIdleEnsureLsp;
+                Autodesk.AutoCAD.ApplicationServices.Document doc =
+                    Application.DocumentManager.MdiActiveDocument;
+                if (doc == null) return;
+                string lspPath = Path.Combine(
+                    Path.GetDirectoryName(_dir), "urbanismo_cantidades.lsp");
+                if (!File.Exists(lspPath)) return;
+                string lspArg = lspPath.Replace("\\", "/");
+                doc.SendStringToExecute(
+                    "(if (not (member \"C:URBANISMO\" (atoms-family 1)))" +
+                    " (load \"" + lspArg + "\")) ", true, false, false);
+                Log("Respaldo de carga del motor LSP encolado: " + lspArg);
+            }
+            catch (System.Exception ex) { Log("ERROR IdleEnsureLsp: " + ex.Message); }
         }
 
         public void Terminate()
@@ -285,6 +329,22 @@ namespace UrbanismoCantidades
                 ComponentManager.ItemInitialized -= OnItemInitialized;
                 BuildTab();
             }
+        }
+
+        private static void OnIdleBuildTabFallback(object sender, EventArgs e)
+        {
+            // Permanente a proposito (no desuscribir): repone la pestana
+            // cada vez que un cambio de workspace la borra de la cinta.
+            try
+            {
+                RibbonControl ribbon = ComponentManager.Ribbon;
+                if (ribbon == null) return;
+                if (ribbon.FindTab(TabId) != null) return;
+                if (_built) Log("Pestana borrada de la cinta (workspace?); reponiendo");
+                _built = false;
+                BuildTab();
+            }
+            catch (System.Exception ex) { Log("ERROR IdleBuildTabFallback: " + ex.Message); }
         }
 
         private static void OnIdleUnloadLegacy(object sender, EventArgs e)
