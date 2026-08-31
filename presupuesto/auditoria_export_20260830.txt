@@ -1,0 +1,10 @@
+col CANTIDAD: 40 VU: 41 VT: 42
+actividades con CANTIDAD>0: 945 | con precio: 939 | SIN PRECIO: 6
+VALOR TOTAL (solo con precio): 275,232,566,556
+--- SIN PRECIO (cantidad | UM | actividad) ---
+        67.2 ML   Instalación tubería PVC flexible Ø6"
+        64.5 ML   Suministro tubería y piezas especiales HD Ø12"
+        64.5 ML   Instalación tubería y piezas especiales HD Ø12"
+          20 UN   Suministro tubería PVC flexible Ø6"
+           4 UN   Suministro e instalación poste de concreto 14 m. Tipo recto AP  (Incluye ahoyada, hin
+           2 UN   Construccion de camara de paso MT norma CS280
