@@ -1,0 +1,50 @@
+;;; CLASIFICAETAPAS: asigna ETAPA/SUBETAPA a todos los elementos del
+;;; modelo por rotulo de subetapa mas cercano (SUBETAPAS.dwg). Solo
+;;; rellena los que estan vacios; los ya asignados a mano se respetan.
+(defun cl:log (msg)
+  (if *cl-f* (write-line msg *cl-f*))
+  (princ (strcat "\n" msg)) (princ))
+(defun cl:etapa-de (cod / i c dig)
+  (setq dig "" i 1)
+  (while (and (<= i (strlen cod))
+              (wcmatch (setq c (substr cod i 1)) "[0-9]"))
+    (setq dig (strcat dig c)) (setq i (1+ i)))
+  dig)
+(defun cl:zona (p / best bd d item)
+  (setq best nil bd 1e9)
+  (foreach item eta:labels
+    (setq d (distance (list (cadr item) (caddr item)) p))
+    (if (< d bd) (setq bd d best (car item))))
+  best)
+(defun c:CLASIFICAETAPAS (/ ss i en ed p atts cod eta sub n-set n-skip
+                            dist v k ents)
+  (setq *cl-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/etapas/clasifica_result.txt" "w"))
+  (setq ss (ssget "_X" '((0 . "INSERT")
+            (2 . "MP_TRAMO_*,MP_PUNTO_*,URB_VIA_*,URB_SENDERO_*"))))
+  (setq ents nil i 0)
+  (if ss (while (< i (sslength ss)) (setq ents (cons (ssname ss i) ents)) (setq i (1+ i))))
+  (setq n-set 0 n-skip 0 dist nil)
+  (foreach en ents
+    (setq ed (entget en) p (cdr (assoc 10 ed)))
+    (setq atts (mp:att-alist en))
+    (if (and (= (mp:getval "ETAPA" atts "") "")
+             (= (mp:getval "SUBETAPA" atts "") ""))
+      (progn
+        (setq cod (cl:zona (list (car p) (cadr p))))
+        (setq eta (cl:etapa-de cod))
+        (setq sub (if (> (strlen cod) (strlen eta)) cod ""))
+        (mp:setatts en (list (cons "ETAPA" eta) (cons "SUBETAPA" sub)))
+        (setq n-set (1+ n-set))
+        (setq k (if (= sub "") eta sub))
+        (setq v (assoc k dist))
+        (setq dist (if v (subst (cons k (1+ (cdr v))) v dist) (cons (cons k 1) dist))))
+      (setq n-skip (1+ n-skip))))
+  (cl:log (strcat "CLASIFICAETAPAS: " (itoa n-set) " clasificados, "
+    (itoa n-skip) " ya tenian etapa (respetados), de "
+    (itoa (length ents)) " elementos"))
+  (foreach v (vl-sort dist '(lambda (a b) (> (cdr a) (cdr b))))
+    (cl:log (strcat "  " (car v) ": " (itoa (cdr v)))))
+  (cl:log "FIN-CLASIFICA")
+  (close *cl-f*) (setq *cl-f* nil)
+  (princ))
+(princ "\nCLASIFICAETAPAS listo")(princ)

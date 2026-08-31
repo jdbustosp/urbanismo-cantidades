@@ -1,0 +1,31 @@
+CLASIFICAETAPAS: 4433 clasificados, 3 ya tenian etapa (respetados), de 4436 elementos
+  7: 455
+  3B: 299
+  9B: 279
+  4C: 237
+  4A: 207
+  2: 206
+  4B: 206
+  8A: 189
+  4: 188
+  3: 186
+  8B: 185
+  9D: 180
+  6: 171
+  4F: 152
+  5F: 142
+  5B: 140
+  5G: 131
+  3A: 129
+  9A: 96
+  8D: 95
+  8C: 94
+  5A: 78
+  5D: 77
+  4D: 75
+  4E: 71
+  5E: 59
+  1: 49
+  5C: 45
+  9C: 12
+FIN-CLASIFICA

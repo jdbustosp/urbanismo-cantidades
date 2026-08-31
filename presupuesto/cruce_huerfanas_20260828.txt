@@ -1,0 +1,84 @@
+CRUCE ACTIVIDADES MODELO vs PRESUPUESTO â€” 2026-08-28
+Libro: urbanismo maipore.xlsx | vocab 1280 actividades
+Filas del modelo: 9556 | cruzadas: 6704 | HUERFANAS: 2852 (79 actividades distintas)
+
+elems | cantidad | red | actividad | UM
+  242 |      726.0 | ALC-PLUVIAL | Marco y tapa de pozo | UN
+  242 |      726.0 | ALC-PLUVIAL | Cono de reduccion para pozo | UN
+  242 |        0.0 | ALC-PLUVIAL | Canuela y acabado interior de pozo | UN
+  174 |        0.0 | ALC-PLUVIAL | Excavacion mecanica en material comun | M3
+  174 |        0.0 | ALC-PLUVIAL | Cargue transporte y disposicion de sobrantes | M3
+  139 |        0.0 | ALC-PLUVIAL | Entibado E-1A | M2
+  100 |     1400.0 | ALC-PLUVIAL | Instalacion tuberia NOVAFORT 12 | ML
+  100 |        0.0 | ALC-PLUVIAL | Suministro tuberia NOVAFORT 12 | UN
+   94 |        0.0 | ACUEDUCTO | Suministro tuberia PVC 12 | UN
+   92 |        0.0 | ACUEDUCTO | Suministro tuberia PVC 8 | UN
+   78 |      936.0 | ALC-PLUVIAL | Instalacion tuberia NOVAFORT | ML
+   78 |        0.0 | ALC-PLUVIAL | Suministro tuberia NOVAFORT | UN
+   73 |        0.0 | ALC-PLUVIAL | Cimentacion de tuberia en gravilla | M3
+   64 |     1024.0 | ACUEDUCTO | TEE | UN
+   64 |        0.0 | ALC-PLUVIAL | Suministro y colocacion de recebo | M3
+   62 |     1054.0 | ACUEDUCTO | Instalacion tuberia PVC | ML
+   62 |        0.0 | ALC-PLUVIAL | Suministro tuberia PVC | UN
+   62 |        0.0 | ALC-PLUVIAL | Instalacion tuberia PVC | ML
+   62 |        0.0 | ACUEDUCTO | Suministro tuberia PVC | UN
+   43 |        0.0 | ALC-PLUVIAL | Entibado E-2 | M2
+   40 |     1080.0 | ACUEDUCTO | TEE 12 | UN
+   34 |        0.0 | ACUEDUCTO | Suministro tuberia PVC 6 | UN
+   31 |      775.0 | ACUEDUCTO | TEE 8 | UN
+   23 |      184.0 | ACUEDUCTO | TAPON | UN
+   22 |      198.0 | ACUEDUCTO | CODO_11_5 8 | UN
+   21 |      147.0 | ACUEDUCTO | CODO_11_5 | UN
+   21 |        0.0 | ALC-PLUVIAL | Entibado E-1B | M2
+   20 |      180.0 | ACUEDUCTO | CODO_11_5 12 | UN
+   20 |       80.0 | ACUEDUCTO | VALVULA_RED_MENOR 8 | UN
+   17 |      255.0 | ALC-PLUVIAL | Instalacion tuberia NOVAFORT 14 | ML
+   17 |        0.0 | ALC-PLUVIAL | Suministro tuberia NOVAFORT 14 | UN
+   17 |        0.0 | ACUEDUCTO | Suministro tuberia PVC 2 | UN
+   16 |      336.0 | ACUEDUCTO | TEE 2 | UN
+   15 |      195.0 | ACUEDUCTO | REDUCCION | UN
+   15 |       90.0 | ALC-PLUVIAL | Instalacion tuberia PVC 12 | ML
+   15 |        0.0 | ALC-PLUVIAL | Suministro tuberia PVC 12 | UN
+   14 |      266.0 | ACUEDUCTO | REDUCCION 2 | UN
+   13 |      143.0 | ACUEDUCTO | VALVULA_VENTOSA | UN
+   13 |      104.0 | ALC-SANITARIO | Suministro tuberia PVC 6 | UN
+   13 |      104.0 | ALC-SANITARIO | Instalacion tuberia PVC 6 | ML
+   13 |        0.0 | ACUEDUCTO | VALVULA_RED_MENOR | UN
+   12 |      324.0 | ACUEDUCTO | TEE 6 | UN
+   12 |        0.0 | ACUEDUCTO | Suministro tuberia PVC 4 | UN
+   11 |      286.0 | ACUEDUCTO | REDUCCION 12 | UN
+   11 |      121.0 | ACUEDUCTO | Instalacion tuberia HD 12 | ML
+   11 |       44.0 | ACUEDUCTO | VALVULA_RED_MENOR 12 | UN
+   11 |        0.0 | ACUEDUCTO | Suministro tuberia HD 12 | UN
+   10 |       90.0 | ACUEDUCTO | CODO_11_5 6 | UN
+    9 |       72.0 | ALC-SANITARIO | Suministro tuberia PVC | UN
+    9 |       72.0 | ALC-SANITARIO | Instalacion tuberia PVC | ML
+    9 |        0.0 | ACUEDUCTO | Suministro tuberia PVC 3 | UN
+    8 |      216.0 | ACUEDUCTO | REDUCCION 8 | UN
+    7 |      133.0 | ACUEDUCTO | TEE 3 | UN
+    6 |       18.0 | ACUEDUCTO | VALVULA_VENTOSA 8 | UN
+    5 |      135.0 | ACUEDUCTO | TEE 4 | UN
+    5 |        0.0 | ACUEDUCTO | OTRO | UN
+    4 |       52.0 | ACUEDUCTO | CODO_45 | UN
+    4 |       20.0 | ACUEDUCTO | VALVULA_RED_MENOR 6 | UN
+    4 |       16.0 | ACUEDUCTO | VALVULA_VENTOSA 12 | UN
+    4 |        8.0 | VIA | Subbase granular SBG-A | M3
+    4 |        8.0 | ELECTRICA-BT-AP | Suministro e instalación poste de concreto 14 m. Tipo recto AP (Incluye ahoyada, hincada y plomada) | UN
+    4 |        0.0 | VIA | Base Asfaltica MD-20 | M3
+    3 |       42.0 | ACUEDUCTO | OTRO 4 | UN
+    3 |       39.0 | ACUEDUCTO | CODO_90 | UN
+    3 |       18.0 | ALC-PLUVIAL | Instalacion tuberia PVC 14 | ML
+    3 |        9.0 | ACUEDUCTO | CODO_22_5 | UN
+    3 |        0.0 | ALC-PLUVIAL | Suministro tuberia PVC 14 | UN
+    2 |       44.0 | ACUEDUCTO | REDUCCION 4 | UN
+    2 |       34.0 | ACUEDUCTO | OTRO 8 | UN
+    2 |       30.0 | ACUEDUCTO | OTRO 12 | UN
+    2 |       14.0 | ACUEDUCTO | CODO_11_5 3 | UN
+    2 |        8.0 | ACUEDUCTO | CODO_45 4 | UN
+    2 |        8.0 | ACUEDUCTO | CODO_22_5 4 | UN
+    2 |        6.0 | ACUEDUCTO | VALVULA_VENTOSA 6 | UN
+    2 |        0.0 | ELECTRICA-MT | Construcción de cámara de paso MT norma CS280 | UN
+    1 |       28.0 | ACUEDUCTO | REDUCCION 6 | UN
+    1 |       19.0 | ACUEDUCTO | OTRO 6 | UN
+    1 |        4.0 | ACUEDUCTO | CODO_90 4 | UN
+    1 |        0.0 | ACUEDUCTO | Suministro tuberia HD 4 | UN
