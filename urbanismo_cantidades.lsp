@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.63.0")
+(setq *urb-version* "4.64.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -24655,7 +24655,8 @@
 (defun urb:ppto-rows-tramos (/ ss i be atts red lng diam mat etapa sub handle
                              pini pfin id ent rows out r ductos-n diam-d
                              mat-d ctok exc prof anchoz vol-ductos recub
-                             env-banco arena base-gran circ)
+                             env-banco arena base-gran circ prof-med banda
+                             banded-plu)
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "TRAMO_*,MP_TRAMO_*")))
         out nil i 0)
   (if ss
@@ -24678,15 +24679,66 @@
             (urb:ppto-entibado-3 be lng
               (atof (urb:safe-string
                 (cdr (assoc "PROFUNDIDAD_MEDIA" atts)) "0"))))
+          ;; 2026-08-30 (barrido de cruce con el ppto): la nomenclatura
+          ;; de tuberia depende del capitulo del libro --
+          ;; * ACUEDUCTO: el libro trae "Suministro tuberia PVC presion
+          ;;   ØN" e "Instalacion ..." SEPARADAS y AMBAS EN ML (el
+          ;;   suministro en UN=tubos jamas cruzaba por unidad).
+          ;; * PLUVIAL con NOVAFORT/CSR: el libro trae UNA sola
+          ;;   actividad combinada por DIAMETRO y FRANJA DE EXCAVACION
+          ;;   ("Tuberia NOVAFORT 12 Hex (0-1,5)m") -- se emite una
+          ;;   fila unica con la franja segun PROFUNDIDAD_MEDIA.
+          (setq prof-med
+            (atof (urb:safe-string
+              (cdr (assoc "PROFUNDIDAD_MEDIA" atts)) "0")))
+          (setq banda
+            (cond
+              ;; sin dato de profundidad: banda tipica (1,5-2,5)
+              ((<= prof-med 0.01) "Hex (1,5-2,5)m")
+              ((<= prof-med 1.5) "Hex (0-1,5)m")
+              ((<= prof-med 2.5) "Hex (1,5-2,5)m")
+              ((<= prof-med 3.5) "Hex (2,5-3,5)m")
+              (T "Hex (3,5-4,5)m")))
+          (setq banded-plu
+            (and (= red "ALC-PLUVIAL")
+                 (member (strcase mat) '("NOVAFORT" "CSR" "NOVALOC"))))
           (setq rows
+            (cond
+              (banded-plu
+                ;; el APU "Hex (banda)" del libro pluvial INCLUYE la
+                ;; zanja completa (excavacion, cimentacion, relleno,
+                ;; entibado, retiro) -- una sola fila y NADA de zanja
+                (list
+                  (urb:ppto-row red
+                    (strcat "Tuberia " mat " " diam " " banda)
+                    id pini pfin etapa sub "ML" lng handle)))
+              ((= red "ACUEDUCTO")
+                ;; PVC va como "PVC presion ØN" en el libro; HD va como
+                ;; "tuberia y piezas especiales HD ØN"
+                (list
+                  (urb:ppto-row red
+                    (if (= (strcase mat) "PVC")
+                      (strcat "Instalacion tuberia PVC presion " diam)
+                      (strcat "Instalacion tuberia y piezas especiales " mat " " diam))
+                    id pini pfin etapa sub "ML" lng handle)
+                  (urb:ppto-row red
+                    (if (= (strcase mat) "PVC")
+                      (strcat "Suministro tuberia PVC presion " diam)
+                      (strcat "Suministro tuberia y piezas especiales " mat " " diam))
+                    id pini pfin etapa sub "ML" lng handle)))
+              (T
+                (list
+                  (urb:ppto-row red
+                    (strcat "Instalacion tuberia " mat " " diam)
+                    id pini pfin etapa sub "ML" lng handle)
+                  (urb:ppto-row red
+                    (strcat "Suministro tuberia " mat " " diam)
+                    id pini pfin etapa sub "UN"
+                    (float (fix (+ 0.999999 (/ lng 6.0)))) handle)))))
+          (if (not banded-plu)
+          (setq rows
+            (append rows
             (list
-              (urb:ppto-row red
-                (strcat "Instalacion tuberia " mat " " diam)
-                id pini pfin etapa sub "ML" lng handle)
-              (urb:ppto-row red
-                (strcat "Suministro tuberia " mat " " diam)
-                id pini pfin etapa sub "UN"
-                (float (fix (+ 0.999999 (/ lng 6.0)))) handle)
               (urb:ppto-row red "Excavacion mecanica en material comun"
                 id pini pfin etapa sub "M3"
                 (atof (urb:safe-string
@@ -24708,7 +24760,7 @@
               (urb:ppto-row red "Entibado E-1B"
                 id pini pfin etapa sub "M2" (nth 1 ent) handle)
               (urb:ppto-row red "Entibado E-2"
-                id pini pfin etapa sub "M2" (nth 2 ent) handle)))
+                id pini pfin etapa sub "M2" (nth 2 ent) handle)))))
           (setq rows
             (append rows
               (urb:ppto-param-rows
@@ -24828,9 +24880,20 @@
             handle (cdr (assoc 5 (entget be)))
             rows nil)
       (cond
-        ((member base '("POZO_SANITARIO" "POZO_PLUVIAL"))
-          (setq red (if (= base "POZO_SANITARIO")
-                      "ALC-SANITARIO" "ALC-PLUVIAL"))
+        ;; 2026-08-30 (barrido ppto): el capitulo PLUVIAL del libro trae
+        ;; el pozo como UNA actividad combinada ("base, cono y tapa") +
+        ;; anillo por ML; el desglose de 4 piezas es del capitulo
+        ;; SANITARIO. Cada red genera lo que su capitulo espera.
+        ((= base "POZO_PLUVIAL")
+          (setq rows
+            (list
+              (urb:ppto-row "ALC-PLUVIAL"
+                "Base cono y tapa para pozo de inspeccion"
+                id "" "" etapa sub "UN" 1.0 handle)
+              (urb:ppto-row "ALC-PLUVIAL" "Anillo en concreto prefabricado"
+                id "" "" etapa sub "ML" prof handle))))
+        ((= base "POZO_SANITARIO")
+          (setq red "ALC-SANITARIO")
           (setq rows
             (list
               (urb:ppto-row red "Base de pozo de inspeccion"
@@ -24843,16 +24906,28 @@
                 id "" "" etapa sub "UN" 1.0 handle)
               (urb:ppto-row red "Anillo cilindro prefabricado de pozo"
                 id "" "" etapa sub "ML" prof handle))))
+        ;; cabezal de descole pluvial (elemento nuevo 2026-08-28)
+        ((= base "CABEZAL_PLUVIAL")
+          (setq rows
+            (list (urb:ppto-row "ALC-PLUVIAL" "Cabezal de entrega"
+              id "" "" etapa sub "UN" 1.0 handle))))
         ((= base "SUMIDERO")
           (setq rows
             (list (urb:ppto-row "ALC-PLUVIAL" "Sumidero"
               id "" "" etapa sub "UN" 1.0 handle))))
         ((= base "ACCESORIO_ACUEDUCTO")
+          ;; 2026-08-30: si hay DIAMETRO_SALIDA (tees/reducciones con
+          ;; derivacion, viene de los atributos del plano) el concepto
+          ;; lleva AMBOS numeros ("TEE 12 4") y el score encuentra la
+          ;; actividad exacta "Tee O12 x O4" sin ambiguedad
           (setq rows
             (list (urb:ppto-row "ACUEDUCTO"
               (strcat
                 (urb:safe-string (cdr (assoc "TIPO_ACCESORIO" atts)) "Accesorio")
-                " " (urb:safe-string (cdr (assoc "DIAMETRO" atts)) ""))
+                " " (urb:safe-string (cdr (assoc "DIAMETRO" atts)) "")
+                (if (/= (urb:safe-string (cdr (assoc "DIAMETRO_SALIDA" atts)) "") "")
+                  (strcat " " (urb:safe-string (cdr (assoc "DIAMETRO_SALIDA" atts)) ""))
+                  ""))
               id "" "" etapa sub "UN" 1.0 handle))))
         ;; cajas y camaras electricas: 1 UN a su actividad de norma.
         ;; CS276/CS280 pertenecen a MT; CS274/CS275/CS281 a alumbrado/BT.
