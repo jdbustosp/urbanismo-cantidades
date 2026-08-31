@@ -484,3 +484,22 @@
     (itoa n-acu) " a 8 | SAN " (itoa n-san) " a 8 -- SUPUESTOS documentados"))
   (close *eq-f*) (setq *eq-f* nil)
   (princ))
+
+;; subetapa vacia -> el codigo de la etapa (el SUMIFS del libro solo
+;; mira SUBETAPA contra el encabezado de columna; "4" es una columna
+;; valida junto a 4A..4E)
+(defun c:FIXSUBVACIA (/ ss i en atts n ents)
+  (setq *eq-f* (open "C:/Users/jdbus/Documents/URBANISMO/work/etapas/equivfix.txt" "a"))
+  (setq ss (ssget "_X" (list (cons 0 "INSERT")
+             (cons 2 "MP_TRAMO_*,MP_PUNTO_*,URB_VIA_*,URB_SENDERO_*"))) i 0 n 0 ents nil)
+  (if ss (while (< i (sslength ss)) (setq ents (cons (ssname ss i) ents)) (setq i (1+ i))))
+  (foreach en ents
+    (setq atts (mp:att-alist en))
+    (if (and (/= (mp:getval "ETAPA" atts "") "")
+             (= (mp:getval "SUBETAPA" atts "") ""))
+      (progn
+        (mp:setatts en (list (cons "SUBETAPA" (mp:getval "ETAPA" atts ""))))
+        (setq n (1+ n)))))
+  (eq:log (strcat "FIXSUBVACIA: " (itoa n) " elementos con SUBETAPA=ETAPA"))
+  (close *eq-f*) (setq *eq-f* nil)
+  (princ))

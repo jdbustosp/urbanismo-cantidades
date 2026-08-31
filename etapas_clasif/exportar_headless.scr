@@ -1,0 +1,10 @@
+(if (not (member "C:URBANISMO" (atoms-family 1))) (load "C:/Users/jdbus/AppData/Roaming/Autodesk/ApplicationPlugins/UrbanismoCantidades.bundle/Contents/urbanismo_cantidades.lsp"))
+(setq *urb-ppto-sin-dialogo* T)
+(setvar "LOGFILEMODE" 1)
+PPTOEXPORTAR
+(setvar "LOGFILEMODE" 0)
+(setq f (open "C:/Users/jdbus/Documents/URBANISMO/work/etapas/export_done.txt" "w"))
+(write-line (vl-princ-to-string *urb-ppto-last-summary*) f)
+(write-line "FIN-EXPORT" f)
+(close f)
+_.QUIT _N
