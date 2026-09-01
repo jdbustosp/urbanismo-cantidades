@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.64.2")
+(setq *urb-version* "4.65.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -13971,7 +13971,10 @@
             overwidth-area (* road-length (+ left right)))
       (urb:add-invisible-attribute block-definition point
         "VIA_AREA_SOBREANCHO_M2" "Area con sobreancho m2"
-        (rtos (atof (urb:safe-string (nth 17 data) "0")) 2 2))
+        ;; 2026-08-30: el contorno (nth 17) es la CALZADA; este
+        ;; atributo suma el sobreancho adicional para ser fiel a su
+        ;; nombre
+        (rtos (+ (atof (urb:safe-string (nth 17 data) "0")) overwidth-area) 2 2))
       (urb:add-invisible-attribute block-definition point
         "VIA_SOBREANCHO_M2" "Area exclusiva de sobreancho m2"
         (rtos overwidth-area 2 2))
@@ -15105,10 +15108,12 @@
   (setq *urb-memoria-stage* "areas-15")
   (setq right (atof (urb:safe-string (nth 15 data) "0")))
   (setq *urb-memoria-stage* "areas-aritmetica")
-  (setq left-area (min area (* road-length left)))
-  (setq right-area (min (- area left-area) (* road-length right)))
+  ;; 2026-08-30: contorno = CALZADA; el sobreancho es ADICIONAL
+  (setq left-area (* road-length left))
+  (setq right-area (* road-length right))
   (setq over-area (+ left-area right-area))
-  (setq base-area (max 0.0 (- area over-area)))
+  (setq base-area area)
+  (setq area (+ area over-area))
   (setq average-width
     (if (> road-length 1e-9) (/ area road-length) 0.0))
   (setq *urb-memoria-stage* "abscisas")
@@ -17187,12 +17192,13 @@
         mov (urb:road-movement-data road))
   (if (and (listp data) (> (length data) 18))
     (progn
-      (setq area (atof (urb:safe-string (nth 17 data) "0"))
+      (setq base-area (atof (urb:safe-string (nth 17 data) "0"))
             length-value (atof (urb:safe-string (nth 18 data) "0"))
             left (atof (urb:safe-string (nth 14 data) "0"))
             right (atof (urb:safe-string (nth 15 data) "0"))
-            over-area (min area (* length-value (+ left right)))
-            base-area (max 0.0 (- area over-area))
+            ;; 2026-08-30: contorno = calzada; sobreancho ADICIONAL
+            over-area (* length-value (+ left right))
+            area (+ base-area over-area)
             rows
               (list
                 (list "Via" (urb:safe-string (nth 1 data) ""))
@@ -24154,15 +24160,31 @@
             perfil (urb:safe-string (nth 4 d) "")
             handle (cdr (assoc 5 (entget be)))
             area (atof (urb:safe-string (nth 17 d) "0"))
-            sobre (atof (urb:safe-string
-              (cdr (assoc "VIA_SOBREANCHO_M2" atts)) "0"))
-            base-area (max 0.0 (- area sobre))
+            span (atof (urb:safe-string (nth 18 d) "0"))
+            sobre (* span
+              (+ (atof (urb:safe-string (nth 14 d) "0"))
+                 (atof (urb:safe-string (nth 15 d) "0"))))
             corte (atof (urb:safe-string
               (cdr (assoc "VIA_CORTE_M3" atts)) "0"))
             relleno (atof (urb:safe-string
-              (cdr (assoc "VIA_RELLENO_M3" atts)) "0"))
-            span (atof (urb:safe-string (nth 18 d) "0")))
-      (if (<= base-area 0.0) (setq base-area area))
+              (cdr (assoc "VIA_RELLENO_M3" atts)) "0")))
+      ;; 2026-08-30 CORRECCION SEMANTICA (auditoria con el usuario): el
+      ;; CONTORNO dibujado es la CALZADA (sardinel a sardinel, anchos
+      ;; medios reales 6.3-7.7 m lo confirman) y el SOBREANCHO de las
+      ;; capas granulares es ADICIONAL (1.0 m por lado, estudio
+      ;; AUS-10786-10). Antes se asumia al reves (contorno CON
+      ;; sobreancho) y el asfalto quedaba subestimado ~30% mientras a
+      ;; los granulares les faltaba el sobreancho.
+      ;;   base-area = contorno = calzada (asfalto, emulsiones)
+      ;;   area      = calzada + sobreancho (descapote, subrasante,
+      ;;               granulares, geotextil)
+      ;;   corte/relleno se escalan al area total (la excavacion de la
+      ;;   banca cubre tambien el sobreancho)
+      (setq base-area area)
+      (setq area (+ area sobre))
+      (if (> base-area 1e-6)
+        (setq corte (* corte (/ area base-area))
+              relleno (* relleno (/ area base-area))))
       (setq rows
         (list
           (urb:ppto-row "VIA" "Descapote mecanico de material vegetal"

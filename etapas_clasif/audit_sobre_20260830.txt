@@ -1,0 +1,5 @@
+VIA-05 | modo=Ambos | izq=1.00 der=1.00 | ancho_nominal=0.00 | area=1674.1 long=264.2 | ANCHO MEDIO REAL=6.34 | nominal+sobre=2.00 | SOBREANCHO_ATT=528.40
+VIA-04 | modo=Ambos | izq=1.00 der=1.00 | ancho_nominal=0.00 | area=1645.8 long=214.6 | ANCHO MEDIO REAL=7.67 | nominal+sobre=2.00 | SOBREANCHO_ATT=429.20
+VIA-03 | modo=Ambos | izq=1.00 der=1.00 | ancho_nominal=0.00 | area=1612.1 long=251.9 | ANCHO MEDIO REAL=6.40 | nominal+sobre=2.00 | SOBREANCHO_ATT=503.75
+VIA-01 | modo=Ambos | izq=1.00 der=1.00 | ancho_nominal=0.00 | area=906.4 long=122.9 | ANCHO MEDIO REAL=7.37 | nominal+sobre=2.00 | SOBREANCHO_ATT=245.88
+FIN-AUDITSOBRE
