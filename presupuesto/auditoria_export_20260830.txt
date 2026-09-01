@@ -8,3 +8,10 @@ VALOR TOTAL (solo con precio): 275,232,566,556
           20 UN   Suministro tubería PVC flexible Ø6"
            4 UN   Suministro e instalación poste de concreto 14 m. Tipo recto AP  (Incluye ahoyada, hin
            2 UN   Construccion de camara de paso MT norma CS280
+
+=== RE-EXPORT v4.65.0 (fix sobreanchos) 2026-08-30 ===
+7934 filas, 0 huerfanas, 0 errores. Deltas VIA vs export anterior:
+granulares/descapote/subrasante/excavacion/geotextil +29% (ganaron el
+sobreancho); asfalto/emulsiones +41% (se les dejo de restar un
+sobreancho que no estaba en el contorno); sardineles ML sin cambio;
+ANDEN sin cambios (correcto por diseno).
