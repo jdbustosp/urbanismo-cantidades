@@ -1,0 +1,20 @@
+libro: D:\Drive\Mi unidad\TRABAJO\COLSUBSIDIO\URBANISMO MAIPORE\urbanismo maipore.xlsx
+actividades del presupuesto (vocab): 1289
+filas generadas del modelo: 5384
+filas cruzadas OK: 5384
+HUERFANAS (sin actividad en el ppto): 14
+  (ALC-PLUVIAL Tuberia NOVAFORT 12 Hex (2,5-3,5)m 28 98FD9 ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 12 Hex (2,5-3,5)m 28 98F9B ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 98DCA ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 98D8C ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 98C94 ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 98C56 ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 98C18 ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 98B22 ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 98AA6 ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 98A68 ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 12 Hex (2,5-3,5)m 28 97CF4 ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 97CB6 ML)
+  (ALC-PLUVIAL Tuberia NOVAFORT 14 Hex (0-1,5)m 28 97C78 ML)
+  (ANDEN jhkjhi 0 96171 ?)
+FIN-CRUCEPPTO

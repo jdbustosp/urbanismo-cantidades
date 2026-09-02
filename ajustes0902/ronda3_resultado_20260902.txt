@@ -1,0 +1,30 @@
+FIXFRAME: WIPEOUTFRAME=0 (marcos de wipeout ocultos)
+POZOREAL MP_PUNTO_POZO_SAN: 2 entidades ajustadas (r=0.60)
+POZOREAL MP_PUNTO_POZO_PLU: 2 entidades ajustadas (r=0.60)
+POZOREAL MP_PUNTO_SUMIDERO: 2 entidades (r=0.35)
+RETRIMHIDRO: 295 tramos SAN/PLU
+RETRIMHIDRO: 131 reconstruidos (borde real) | 164 sin recorte viejo (intactos)
+RECENTRA: 1166 tramos con etiquetas re-centradas
+PREFRONT: 12 prefabricados al frente
+AUDITMOV anden 96171 | area 148.4 | corte 5.59 relleno 5.44 | prof.media 0.038 m
+AUDITMOV zverde 93EEC | area 40.1 | corte 0.06 relleno 11.94 | balance -0.296 m
+AUDITMOV rampa 9731C | area 4.3 | corte 0.00 relleno 3.81
+FIN-AUDITMOV2
+DIAGCONEX2: 314 tramos ACU
+DIAGCONEX2: conectados(<=5cm) 281 | cerca(<=50cm) 0 | SIN tramo cerca(>50cm) 313
+  LEJOS AC-21 d=104.45 en (83363.6, 95784.8)
+  LEJOS AC-97 d=97.68 en (82545.0, 95564.6)
+  LEJOS AC-98 d=97.60 en (82543.6, 95565.8)
+  LEJOS AC-441 d=97.52 en (82540.6, 95568.4)
+  LEJOS AC-354 d=88.28 en (83594.8, 95711.4)
+  LEJOS AC-95 d=86.94 en (82482.3, 95490.0)
+  LEJOS AC-96 d=86.82 en (82480.8, 95491.2)
+  LEJOS AC-440 d=86.73 en (82477.9, 95493.7)
+  LEJOS AC-352 d=82.78 en (83589.1, 95712.0)
+  LEJOS AC-38 d=81.66 en (83588.7, 95707.7)
+  LEJOS AC-37 d=81.23 en (83588.5, 95705.8)
+  LEJOS AC-70 d=68.17 en (83476.8, 95544.1)
+  LEJOS AC-69 d=67.11 en (83476.7, 95546.0)
+  LEJOS AC-107 d=59.47 en (83081.3, 95879.6)
+  LEJOS AC-108 d=58.60 en (83079.8, 95880.8)
+FIN-DIAGCONEX2
