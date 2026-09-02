@@ -1,0 +1,38 @@
+AUDITACC MP_PUNTO_ACC_ACU_TEE | centro (0.000, 0.593) | tam 3.62x2.44 | instancias 175
+AUDITACC MP_PUNTO_ACC_ACU_VCP | centro (0.648, 0.000) | tam 3.30x2.01 | instancias 4
+AUDITACC MP_PUNTO_ACC_ACU_VPH | centro (0.000, 0.145) | tam 1.74x4.65 | instancias 74
+AUDITACC MP_PUNTO_ACC_ACU_VEN | centro (1.162, -1.727) | tam 2.46x3.52 | instancias 25
+AUDITACC MP_PUNTO_ACC_ACU_VAL | centro (0.002, -0.002) | tam 1.27x4.29 | instancias 48
+AUDITACC MP_PUNTO_ACC_ACU_HID | centro (0.000, -0.497) | tam 1.74x7.97 | instancias 74
+AUDITACC MP_PUNTO_ACC_ACU_TAP | centro (0.750, -0.013) | tam 1.50x3.41 | instancias 62
+AUDITACC MP_PUNTO_ACC_ACU_RDC | centro (0.689, 0.033) | tam 1.38x1.10 | instancias 57
+AUDITACC MP_PUNTO_ACC_ACU_C11 | centro (-0.034, 0.155) | tam 2.64x1.38 | instancias 80
+AUDITACC MP_PUNTO_ACC_ACU_UNI | centro (0.000, 0.000) | tam 3.33x3.33 | instancias 13
+AUDITACC MP_PUNTO_ACC_ACU_C45 | centro (0.118, 0.626) | tam 4.10x2.66 | instancias 46
+AUDITACC MP_PUNTO_ACC_ACU_C22 | centro (-0.051, 0.219) | tam 2.59x1.46 | instancias 31
+AUDITACC MP_PUNTO_ACC_ACU_C90 | centro (0.316, -0.391) | tam 1.81x1.96 | instancias 15
+CENTRAACC MP_PUNTO_ACC_ACU_TEE corrido (0.000, 0.593) -> centrado
+CENTRAACC MP_PUNTO_ACC_ACU_VCP corrido (0.648, 0.000) -> centrado
+CENTRAACC MP_PUNTO_ACC_ACU_VEN corrido (1.162, -1.727) -> centrado
+CENTRAACC MP_PUNTO_ACC_ACU_HID corrido (0.000, -0.497) -> centrado
+CENTRAACC MP_PUNTO_ACC_ACU_TAP corrido (0.750, -0.013) -> centrado
+CENTRAACC MP_PUNTO_ACC_ACU_RDC corrido (0.689, 0.033) -> centrado
+CENTRAACC MP_PUNTO_ACC_ACU_C45 corrido (0.118, 0.626) -> centrado
+CENTRAACC MP_PUNTO_ACC_ACU_C90 corrido (0.316, -0.391) -> centrado
+CENTRAACC: 8 definiciones re-centradas
+MOVERACC: 594 elementos a PPTO-ACUEDUCTO | capa vieja NO purgada
+BORRAEJEC capas: 6
+  PPTO-ACCESORIOS-ACUEDUCTO-EJEC: 110 entidades borradas | capa purgada
+  PPTO-ELECTRICA-BT-AP-EJEC: 556 entidades borradas | capa purgada
+  PPTO-ELECTRICA-MT-EJEC: 154 entidades borradas | capa purgada
+  PPTO-ACUEDUCTO-EJEC: 18 entidades borradas | capa purgada
+  PPTO-ALC-PLUVIAL-EJEC: 160 entidades borradas | capa purgada
+  PPTO-ALC-SANITARIO-EJEC: 188 entidades borradas | capa purgada
+BORRAEJEC total: 1186 entidades
+REWIPE: C11 ya tiene wipeout (guardado de anoche intacto)
+REWIPE: draworder frente 594 accs
+REFIXVIA VIA-05 -> 2202.54
+REFIXVIA VIA-04 -> 2075.02
+REFIXVIA VIA-03 -> 2115.82
+REFIXVIA VIA-01 -> 1152.23
+REFIXVIA: 4 vias
