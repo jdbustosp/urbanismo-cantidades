@@ -105,34 +105,36 @@ try {
   }
 } catch {}
 
-# CARGADOR acaddoc.lsp para Civil 3D 2026 -- 2026-08-28: el Autoloader de
-# bundles de 2026 es ERRATICO: en varios arranques reales no ejecuta los
-# ComponentEntry (ni lsp ni dll), sin ningun error visible. Verificado en
-# vivo que un _NETLOAD del DLL net8 en la sesion funciona perfecto (la
-# pestana se construye y el DLL carga el motor lsp de respaldo). Este
-# acaddoc.lsp vive en el Support del perfil de C3D 2026 (ruta de
-# busqueda + confiable), lo carga el NUCLEO de AutoCAD en CADA apertura
-# de dibujo (mecanismo clasico, sin Autoloader), y desde S::STARTUP
-# (donde ya se permiten comandos) netloadea el DLL y carga el motor.
-# Todo con guardas: si el bundle ya cargo por su cuenta, no hace nada.
-$supp2026 = Join-Path $env:APPDATA "Autodesk\C3D 2026\enu\Support"
-if (Test-Path $supp2026) {
-  $dllForLisp = ($contents + "\net\UrbCantRibbon2025.dll").Replace('\', '\\')
-  $lspForLisp = ($contents + "\urbanismo_cantidades.lsp").Replace('\', '/')
-  $marker = ";;; === URBCANT AUTOLOAD (generado por instalar_bundle.ps1) ==="
-  $bloque = @"
+# CARGADOR acaddoc.lsp para TODAS las versiones de Civil 3D instaladas.
+# 2026-08-28 (C3D 2026): el Autoloader de bundles de 2026 es ERRATICO --
+# en varios arranques reales no ejecuta los ComponentEntry sin error
+# visible. 2026-09-02 (C3D 2023, reporte del usuario "no me reconoce los
+# comandos"): el Autoloader de 2023 carga el .lsp SOLO en el primer
+# documento del arranque -- al abrir el dwg de trabajo ese documento
+# queda sin motor (AutoLISP es por-documento); antes no se notaba porque
+# el Startup Suite viejo de BLOQUES PPTOS lo cargaba en cada dibujo.
+# Este acaddoc.lsp vive en el Support de CADA perfil C3D (ruta de
+# busqueda + confiable), lo ejecuta el nucleo de AutoCAD en CADA apertura
+# de dibujo, y desde S::STARTUP netloadea el DLL de la cinta y carga el
+# motor. Con guardas: si el bundle ya cargo, no hace nada.
+$xmlRaw = Get-Content $xml -Raw
+$dll2023Name = ([regex]::Match($xmlRaw, 'net/(UrbCantRibbon2023[^"]*\.dll)')).Groups[1].Value
+if ($dll2023Name -eq "") { $dll2023Name = "UrbCantRibbon2023.dll" }
+$marker = ";;; === URBCANT AUTOLOAD (generado por instalar_bundle.ps1) ==="
+$plantilla = @"
 $marker
-;;; Civil 3D 2026: el Autoloader de bundles no siempre ejecuta los
-;;; componentes al arrancar. Este cargador corre en cada apertura de
-;;; dibujo y garantiza pestana CANTIDADES + motor. Con guardas: si el
-;;; bundle ya cargo, no hace nada. NO editar a mano (se regenera al
-;;; correr instalar_bundle.ps1 / INSTALAR.bat).
+;;; El Autoloader de bundles no garantiza el motor en cada documento
+;;; (2026: arranques sin componentes; 2023: lsp solo en el primer
+;;; documento). Este cargador corre en cada apertura de dibujo y
+;;; garantiza pestana CANTIDADES + motor. Con guardas: si el bundle ya
+;;; cargo, no hace nada. NO editar a mano (se regenera al correr
+;;; instalar_bundle.ps1 / INSTALAR.bat).
 (vl-load-com)
 (defun urbcant:bootstrap ()
   (vl-catch-all-apply 'vl-cmdf
-    (list "_NETLOAD" "$dllForLisp"))
+    (list "_NETLOAD" "__DLL__"))
   (if (not (member "C:URBANISMO" (atoms-family 1)))
-    (load "$lspForLisp" "urbcant: no se pudo cargar el motor"))
+    (load "__LSP__" "urbcant: no se pudo cargar el motor"))
   (princ))
 (cond
   ((= (type s::startup) 'LIST)
@@ -147,20 +149,30 @@ $marker
 (princ)
 ;;; === FIN URBCANT AUTOLOAD ===
 "@
-  $acaddoc = Join-Path $supp2026 "acaddoc.lsp"
-  if (-not (Test-Path $acaddoc)) {
-    Set-Content -Path $acaddoc -Value $bloque -Encoding ASCII
-    Write-Output "Cargador acaddoc.lsp creado en: $acaddoc"
-  } else {
-    $actual = Get-Content $acaddoc -Raw
-    if ($actual -match [regex]::Escape($marker)) {
-      $regex = "(?s)" + [regex]::Escape($marker) + ".*?;;; === FIN URBCANT AUTOLOAD ==="
-      $nuevo = [regex]::Replace($actual, $regex, ($bloque.TrimEnd() -replace '\$', '$$$$'))
-      Set-Content -Path $acaddoc -Value $nuevo -Encoding ASCII
-      Write-Output "Cargador acaddoc.lsp actualizado en: $acaddoc"
+$lspForLisp = ($contents + "\urbanismo_cantidades.lsp").Replace('\', '/')
+Get-ChildItem (Join-Path $env:APPDATA "Autodesk") -Directory -Filter "C3D *" -ErrorAction SilentlyContinue | ForEach-Object {
+  $supp = Join-Path $_.FullName "enu\Support"
+  if (Test-Path $supp) {
+    # 2023/2024 (.NET FW 4.8, DLL con nombre versionado del manifiesto);
+    # 2025/2026 (.NET 8)
+    $dllName = if ($_.Name -match '202[34]$') { $dll2023Name } else { "UrbCantRibbon2025.dll" }
+    $dllForLisp = ($contents + "\net\" + $dllName).Replace('\', '\\')
+    $bloque = $plantilla.Replace('__DLL__', $dllForLisp).Replace('__LSP__', $lspForLisp)
+    $acaddoc = Join-Path $supp "acaddoc.lsp"
+    if (-not (Test-Path $acaddoc)) {
+      Set-Content -Path $acaddoc -Value $bloque -Encoding ASCII
+      Write-Output "Cargador acaddoc.lsp creado en: $acaddoc"
     } else {
-      Add-Content -Path $acaddoc -Value ("`r`n" + $bloque) -Encoding ASCII
-      Write-Output "Cargador agregado al acaddoc.lsp existente: $acaddoc"
+      $actual = Get-Content $acaddoc -Raw
+      if ($actual -match [regex]::Escape($marker)) {
+        $regex = "(?s)" + [regex]::Escape($marker) + ".*?;;; === FIN URBCANT AUTOLOAD ==="
+        $nuevo = [regex]::Replace($actual, $regex, ($bloque.TrimEnd() -replace '\$', '$$$$'))
+        Set-Content -Path $acaddoc -Value $nuevo -Encoding ASCII
+        Write-Output "Cargador acaddoc.lsp actualizado en: $acaddoc"
+      } else {
+        Add-Content -Path $acaddoc -Value ("`r`n" + $bloque) -Encoding ASCII
+        Write-Output "Cargador agregado al acaddoc.lsp existente: $acaddoc"
+      }
     }
   }
 }
