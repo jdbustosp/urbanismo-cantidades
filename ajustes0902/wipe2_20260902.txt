@@ -1,0 +1,10 @@
+paso 1: inicio
+paso 2: def obtenida
+paso 3: bbox 2.64 x 1.38 centro (-0.03,0.15)
+paso 4: poly temporal <Entity name: 2ccc1457ed0>
+paso 5: WIPEOUT cmd res T
+paso 6: entlast tipo WIPEOUT
+paso 7: copiado al def
+paso 8: wipeout al fondo del def OK
+paso 9: draworder 704 accs OK
+FIN-WIPEACC2

@@ -1,0 +1,18 @@
+=== AC-461 eti[C11 D8 AC-461] en (82920.56, 95412.85)
+  d=0.000 tproj=0.00 len=30.64 dExtIni=0.000 dExtFin=30.640
+  d=0.005 tproj=30.68 len=30.68 dExtIni=30.685 dExtFin=0.005
+  d=18.903 tproj=-0.30 len=1.80 dExtIni=18.903 dExtFin=19.017
+  d=18.904 tproj=17.72 len=10.08 dExtIni=24.761 dExtFin=18.904
+  d=21.413 tproj=1.47 len=6.67 dExtIni=21.463 dExtFin=22.036
+=== AC-500 eti[C11 D6 AC-500] en (82879.01, 95303.99)
+  d=0.000 tproj=0.00 len=120.08 dExtIni=0.000 dExtFin=120.080
+  d=0.000 tproj=53.47 len=53.47 dExtIni=53.466 dExtFin=0.004
+  d=23.680 tproj=122.00 len=121.96 dExtIni=124.281 dExtFin=23.680
+  d=26.512 tproj=-18.59 len=30.56 dExtIni=26.512 dExtFin=52.658
+  d=52.660 tproj=74.56 len=23.58 dExtIni=75.719 dExtFin=52.660
+FIN-DIAGACC
+VIA VIA-05 | att AREA_SOBRE=1674.14 att SOBRE=528.40 | esperado AREA_SOBRE=2202.5 SOBRE=528.4
+VIA VIA-04 | att AREA_SOBRE=1645.82 att SOBRE=429.20 | esperado AREA_SOBRE=2075.0 SOBRE=429.2
+VIA VIA-03 | att AREA_SOBRE=1612.06 att SOBRE=503.75 | esperado AREA_SOBRE=2115.8 SOBRE=503.8
+VIA VIA-01 | att AREA_SOBRE=906.35 att SOBRE=245.88 | esperado AREA_SOBRE=1152.2 SOBRE=245.9
+FIN-DIAGVIA
