@@ -1,0 +1,11 @@
+VIA VIA-05 | sobre_izq=1.00 sobre_der=1.00 | span=264.2 area=1674.1
+VIA VIA-04 | sobre_izq=1.00 sobre_der=1.00 | span=214.6 area=1645.8
+VIA VIA-03 | sobre_izq=1.00 sobre_der=1.00 | span=251.9 area=1612.1
+VIA VIA-01 | sobre_izq=1.00 sobre_der=1.00 | span=122.9 area=906.4
+AUDITSOBRE: 4 vias | SIN sobreancho: 0
+FIXSOBRE: 0 vias corregidas
+SPLITACC objetivos encontrados: 2
+  AC-461 en (82920.6, 95412.8)
+  AC-500 en (82879.0, 95304.0)
+SPLITACC PILOTO: 0 tramos partidos
+FIN-SPLITACC

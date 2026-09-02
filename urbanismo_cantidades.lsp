@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.65.0")
+(setq *urb-version* "4.66.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -741,9 +741,12 @@
     "urbanismo_prefabricado"
     '*urb-prefab-dcl-ok*
     (list
+      ;; 2026-09-02 (pedido del usuario): sin campo de espesor -- los
+      ;; prefabricados tienen dimension PREDETERMINADA por tipo (editable
+      ;; en URBANISMO > Configuracion, claves URB_PREFAB_ANCHO_*).
       "urbanismo_prefabricado : dialog { label = \"Datos del prefabricado\";"
       ": popup_list { label = \"Tipo\"; key = \"tipo\"; }"
-      ": edit_box { label = \"Espesor en metros\"; key = \"espesor\"; edit_width = 12; }"
+      ": text { label = \"Espesor predeterminado por tipo (Configuracion).\"; }"
       (if (urb:etapas-enabled-p)
         ": popup_list { label = \"Etapa\"; key = \"etapa\"; }" "")
       (if (urb:etapas-enabled-p)
@@ -774,7 +777,6 @@
       (urb:fill-popup
         "tipo" *urb-prefab-list*
         (urb:index-of current-type *urb-prefab-list*))
-      (set_tile "espesor" (rtos current-width 2 3))
       (if (urb:etapas-enabled-p)
         (progn
           (urb:fill-popup
@@ -799,8 +801,7 @@
               " *urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
               " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\"))")
             "")
-          " *urb-dialog-prefab-mode-index* (atoi (get_tile \"modo\"))"
-          " *urb-dialog-prefab-width* (get_tile \"espesor\"))"
+          " *urb-dialog-prefab-mode-index* (atoi (get_tile \"modo\")))"
           "(done_dialog 1)"))
       (setq accepted (= 1 (start_dialog)))
       (unload_dialog dcl-id)
@@ -818,14 +819,23 @@
           (setq current-mode
             (nth *urb-dialog-prefab-mode-index*
               *urb-prefab-mode-list*))
-          (setq width-value (urb:parse-real *urb-dialog-prefab-width*))
-          (if (or (null width-value) (<= width-value 0.0))
-            (setq width-value current-width))
+          ;; espesor SIEMPRE el predeterminado del tipo elegido
+          ;; (URB_PREFAB_ANCHO_<TIPO> en Configuracion; 0.20 por defecto)
+          (setq width-value (urb:prefab-default-ancho current-type))
           (setq result
             (list current-type width-value current-etapa
                   current-subetapa current-mode))))))
   result
 )
+
+;; espesor de tierra negra PREDETERMINADO (2026-09-02, pedido del
+;; usuario): ya no se digita en la ventana de zona verde; se edita una
+;; sola vez en Configuracion (clave URB_GREEN_ESP_TIERRA, 0.20 default).
+(defun urb:green-default-espesor (/ v)
+  (setq v
+    (urb:parse-real
+      (urb:safe-string (urb:config-read "URB_GREEN_ESP_TIERRA") "")))
+  (if (and v (> v 0.0)) v 0.20))
 
 (defun urb:write-green-dcl ()
   (urb:write-dialog-dcl
@@ -842,9 +852,7 @@
       (if (urb:etapas-enabled-p)
         ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" "")
       (if (urb:etapas-enabled-p) "}" "")
-      ": boxed_column { label = \"Tierra negra\";"
-      ": edit_box { label = \"Espesor (m)\"; key = \"espesor\"; edit_width = 12; }"
-      "}"
+      ": text { label = \"Tierra negra: espesor predeterminado (Configuracion).\"; }"
       "ok_cancel; }"))
 )
 
@@ -878,17 +886,14 @@
             "subetapa" subetapas
             (urb:index-of current-subetapa subetapas))
           (action_tile "etapa" "(urb:dialog-update-subetapa)")))
-      (set_tile "espesor" (rtos current-thickness 2 3))
       (action_tile
         "accept"
         (strcat
-          "(setq "
           (if (urb:etapas-enabled-p)
             (strcat
-              "*urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
-              " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\")) ")
+              "(setq *urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
+              " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\")))")
             "")
-          "*urb-dialog-green-thickness* (get_tile \"espesor\"))"
           "(done_dialog 1)"))
       (setq accepted (= 1 (start_dialog)))
       (unload_dialog dcl-id)
@@ -900,15 +905,10 @@
                   subetapas (urb:subetapas-for current-etapa)
                   current-subetapa
                     (nth *urb-dialog-subetapa-index* subetapas)))
-          (setq thickness-value
-            (urb:parse-real *urb-dialog-green-thickness*))
-          (if (or (null thickness-value) (<= thickness-value 0.0))
-            (progn
-              (alert
-                "El espesor debe ser un numero mayor que cero.")
-              (setq result nil))
-            (setq result
-              (list current-etapa current-subetapa thickness-value)))))))
+          ;; espesor SIEMPRE el predeterminado de Configuracion
+          (setq thickness-value (urb:green-default-espesor))
+          (setq result
+            (list current-etapa current-subetapa thickness-value))))))
   result
 )
 
@@ -6540,6 +6540,99 @@
         nil)))
 )
 
+;; ------------------------------------------------------------------
+;; Corte/relleno de un POLIGONO contra SUP_TN (2026-09-02, pedido del
+;; usuario para zonas verdes): la rasante de diseno sale de las cotas que
+;; el usuario CLICKEA con el mismo picker universal del modo Pendiente
+;; (via creada, pozo del modelo, etiqueta de cota o digitada):
+;;  - 3 o mas cotas: plano por minimos cuadrados
+;;  - 2 cotas: rasante lineal entre ambas, extendida perpendicular
+;; Malla de muestreo 2.5 m dentro del contorno; corte = TN sobre diseno,
+;; relleno = diseno sobre TN.
+(defun urb:design-z-from-picks (picks x y / n sx sy sz sxx syy sxy sxz syz
+   det a b c p1 p2 z1 z2 dx dy len2 t0)
+  (setq n (length picks))
+  (cond
+    ((>= n 3)
+      (setq sx 0.0 sy 0.0 sz 0.0 sxx 0.0 syy 0.0 sxy 0.0 sxz 0.0 syz 0.0)
+      (foreach p picks
+        (setq sx (+ sx (car (cadr p))) sy (+ sy (cadr (cadr p)))
+              sz (+ sz (car p))
+              sxx (+ sxx (* (car (cadr p)) (car (cadr p))))
+              syy (+ syy (* (cadr (cadr p)) (cadr (cadr p))))
+              sxy (+ sxy (* (car (cadr p)) (cadr (cadr p))))
+              sxz (+ sxz (* (car (cadr p)) (car p)))
+              syz (+ syz (* (cadr (cadr p)) (car p)))))
+      ;; normal: resolver [sxx sxy sx; sxy syy sy; sx sy n][a b c]=[sxz syz sz]
+      (setq det (+ (* sxx (- (* syy n) (* sy sy)))
+                   (* (- sxy) (- (* sxy n) (* sy sx)))
+                   (* sx (- (* sxy sy) (* syy sx)))))
+      (if (< (abs det) 1e-9)
+        ;; puntos colineales: caer a la rasante lineal de los 2 extremos
+        (urb:design-z-from-picks (list (car picks) (last picks)) x y)
+        (progn
+          (setq a (/ (+ (* sxz (- (* syy n) (* sy sy)))
+                        (* (- sxy) (- (* syz n) (* sy sz)))
+                        (* sx (- (* syz sy) (* syy sz)))) det))
+          (setq b (/ (+ (* sxx (- (* syz n) (* sz sy)))
+                        (* (- sxz) (- (* sxy n) (* sy sx)))
+                        (* sx (- (* sxy sz) (* syz sx)))) det))
+          (setq c (/ (+ (* sxx (- (* syy sz) (* syz sy)))
+                        (* (- sxy) (- (* sxy sz) (* syz sx)))
+                        (* sxz (- (* sxy sy) (* syy sx)))) det))
+          (+ (* a x) (* b y) c))))
+    ((= n 2)
+      (setq p1 (cadr (car picks)) p2 (cadr (cadr picks))
+            z1 (car (car picks)) z2 (car (cadr picks))
+            dx (- (car p2) (car p1)) dy (- (cadr p2) (cadr p1))
+            len2 (+ (* dx dx) (* dy dy)))
+      (if (< len2 1e-9) z1
+        (progn
+          (setq t0 (/ (+ (* (- x (car p1)) dx) (* (- y (cadr p1)) dy)) len2))
+          (+ z1 (* t0 (- z2 z1))))))
+    ((= n 1) (car (car picks)))
+    (T nil)))
+
+(defun urb:earthworks-from-picks (ename picks / surface poly step minx maxx
+   miny maxy x y ztn zdis corte relleno cell area obj)
+  (setq surface (mp:current-terrain-surface))
+  (if (null surface)
+    (progn
+      (prompt (strcat "\nNo se encontro la superficie " *mp-terrain-surface-name*
+        "; no se puede calcular corte/relleno."))
+      nil)
+    (progn
+      (setq poly (urb:curve-sample-points ename 0.50))
+      (if (or (null poly) (< (length poly) 3))
+        nil
+        (progn
+          (setq obj (vlax-ename->vla-object ename))
+          (setq area (vl-catch-all-apply 'vla-get-Area (list obj)))
+          (if (vl-catch-all-error-p area) (setq area 0.0))
+          ;; paso adaptativo: zonas chicas con malla mas fina
+          (setq step (max 0.50 (min 2.50 (/ (sqrt (max area 1.0)) 12.0))))
+          (setq cell (* step step))
+          (setq minx (apply 'min (mapcar 'car poly))
+                maxx (apply 'max (mapcar 'car poly))
+                miny (apply 'min (mapcar 'cadr poly))
+                maxy (apply 'max (mapcar 'cadr poly)))
+          (setq corte 0.0 relleno 0.0)
+          (setq x (+ minx (* 0.5 step)))
+          (while (< x maxx)
+            (setq y (+ miny (* 0.5 step)))
+            (while (< y maxy)
+              (if (urb:point-in-poly-2d (list x y) poly)
+                (progn
+                  (setq ztn (urb:surface-elevation surface x y))
+                  (setq zdis (urb:design-z-from-picks picks x y))
+                  (if (and ztn zdis)
+                    (if (> ztn zdis)
+                      (setq corte (+ corte (* (- ztn zdis) cell)))
+                      (setq relleno (+ relleno (* (- zdis ztn) cell)))))))
+              (setq y (+ y step)))
+            (setq x (+ x step)))
+          (list corte relleno))))))
+
 (defun urb:green-zone-data (ename / data object attributes)
   (setq data (urb:get-xdata-strings ename "URB_GREEN_BLOCK"))
   (if data
@@ -6649,6 +6742,12 @@
       (urb:add-invisible-attribute
         block-definition point "TIERRA_NEGRA_M3"
         "Tierra negra m3" (rtos volume 2 2))
+      ;; 2026-09-02: corte/relleno opcionales contra SUP_TN (0 si no se
+      ;; calcularon; se llenan desde urb:create-green-zone-command)
+      (urb:add-invisible-attribute
+        block-definition point "CORTE_M3" "Corte m3" "0")
+      (urb:add-invisible-attribute
+        block-definition point "RELLENO_M3" "Relleno m3" "0")
       (setq insert-result
         (vl-catch-all-apply 'vla-InsertBlock
           (list (urb:space)
@@ -6687,7 +6786,7 @@
 
 (defun urb:create-green-zone-command
   (/ data etapa subetapa thickness ename object area volume hatch block-ref
-   old-fillmode doc undo-open undo-result *error*)
+   old-fillmode doc undo-open undo-result *error* mov kw picks)
   (setq doc (urb:doc)
         old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
@@ -6723,13 +6822,38 @@
             volume (* area thickness))
       (vla-put-Layer object "URB-ZONA-VERDE")
       (vla-put-Color object 256)
+      ;; 2026-09-02 (pedido del usuario): hatch VERDE SOLIDO con
+      ;; transparencia (antes patron GRASS que casi no se veia)
       (setq hatch
         (urb:add-hatch object "URB-ZONA-VERDE"
-          "GRASS" 1 "ANSI31" 0.50 3))
+          "SOLID" 1 "SOLID" 1.0 3))
       (if (vl-catch-all-error-p hatch) (setq hatch nil))
+      (if (and hatch (vlax-property-available-p hatch 'EntityTransparency T))
+        (vl-catch-all-apply 'vlax-put-property
+          (list hatch 'EntityTransparency "70")))
+      ;; corte/relleno OPCIONAL contra SUP_TN: la rasante de diseno sale
+      ;; de cotas clickeadas (via, POZO del modelo, etiqueta o digitada)
+      (setq mov nil)
+      (initget "Si No")
+      (setq kw (getkword "\nCalcular CORTE/RELLENO de la zona? [Si/No] <No>: "))
+      (if (= kw "Si")
+        (progn
+          (prompt "\nSeleccione las cotas de diseno (via/pozo/etiqueta; minimo 2):")
+          (setq picks (urb:pick-road-cotas-loop nil))
+          (if (and picks (>= (length picks) 2))
+            (progn
+              (setq mov (urb:earthworks-from-picks ename picks))
+              (if mov
+                (prompt (strcat "\nCorte: " (rtos (car mov) 2 2)
+                  " m3 | Relleno: " (rtos (cadr mov) 2 2) " m3"))))
+            (prompt "\nSin cotas suficientes: la zona queda sin corte/relleno."))))
       (setq block-ref
         (urb:package-green-zone
           ename hatch etapa subetapa thickness))
+      (if (and block-ref mov)
+        (progn
+          (urb:set-block-attribute block-ref "CORTE_M3" (rtos (car mov) 2 2))
+          (urb:set-block-attribute block-ref "RELLENO_M3" (rtos (cadr mov) 2 2))))
       (setvar "FILLMODE" 1)
       (vla-Regen doc 1)
       (if block-ref
@@ -8468,7 +8592,7 @@
   (member (strcase (mp:safe-str tag))
     '("ETAPA" "SUBETAPA" "RED" "TIPO_RED" "SERIE" "CIRCUITO"
       "CIRCUITO_AP" "DESDE" "HASTA" "POZO_INI" "POZO_FIN"
-      "DIAMETRO" "MATERIAL" "PENDIENTE" "CONDUCTOR"
+      "DIAMETRO" "MATERIAL" "PENDIENTE" "CARCAMO" "CONDUCTOR"
       "DUCTOS" "DIAM_DUCTO" "MATERIAL_DUCTO" "LIBRES" "CIRCUITOS" "PROFUNDIDAD"
       "UBICACION" "COTA_TN_INI" "COTA_TN_FIN" "COTA_CLAVE_INI" "COTA_CLAVE_FIN"
       "LONGITUD" "ANCHO_ZANJA" "EXCAVACION_M3" "CAMA_M3"
@@ -8531,6 +8655,7 @@
           ("TIPO_EXTREMO_FIN" "Tipo extremo final" "")
           ("DIAMETRO" "Diametro" "") ("MATERIAL" "Material" "PVC")
           ("PENDIENTE" "Pendiente %" "")
+          ("CARCAMO" "Carcamo proteccion (SI/vacio)" "")
           ("COTA_TN_INI" "Cota terreno ini" "")
           ("COTA_TN_FIN" "Cota terreno fin" "")
           ("COTA_CLAVE_INI" "Cota clave ini" "")
@@ -8567,7 +8692,7 @@
 (defun mp:write-dcl (/ fn f)
   (mp:reset-dialog-capture)
   (setq *mp-dialog-edit-mode* nil)
-  (setq fn (urb:temp-file "maipore_listas_v11" ".dcl"))
+  (setq fn (urb:temp-file "maipore_listas_v12" ".dcl"))
   (if (and *mp-dcl-listas-ok* (findfile fn))
     fn
     (progn
@@ -8578,7 +8703,8 @@
   (write-line (mp:dcl-etapa-str) f)
   (write-line ": popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
-  (write-line ": popup_list { label = \"Material\"; key = \"mat\"; } }" f)
+  (write-line ": popup_list { label = \"Material\"; key = \"mat\"; }" f)
+  (write-line ": toggle { label = \"Carcamo de proteccion (cruce/recubrimiento bajo)\"; key = \"carcamo\"; } }" f)
   (write-line ": boxed_column { label = \"Cotas de diseno\";" f)
   (write-line ": radio_row { label = \"Cota clave\";" f)
   (write-line ": radio_button { label = \"Digitar\"; key = \"cc_dig\"; value = \"1\"; }" f)
@@ -8586,6 +8712,19 @@
   (write-line ": edit_box { label = \"Cota clave inicial\"; key = \"ccini\"; edit_width = 12; }" f)
   (write-line ": edit_box { label = \"Cota clave final\"; key = \"ccfin\"; edit_width = 12; } }" f)
   (write-line ": text { label = \"Las cotas TN se toman de SUP_TN al marcar los extremos.\"; } ok_cancel; }" f)
+
+  ;; 2026-09-02 (pedido del usuario): tramo de ACUEDUCTO simplificado --
+  ;; solo se dibuja de donde va a donde va: sin elemento inicial/final y
+  ;; sin cotas de diseno; la zanja se calcula por reglamentacion (RAS
+  ;; 0330: recubrimiento minimo 1.0 m a clave) igual que las electricas.
+  (write-line "maipore_tramo_acu : dialog { label = \"Maipore - Tramo acueducto PPTO\";" f)
+  (write-line ": boxed_column { label = \"Datos de presupuesto\";" f)
+  (write-line (mp:dcl-etapa-str) f)
+  (write-line ": popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
+  (write-line ": popup_list { label = \"Material\"; key = \"mat\"; }" f)
+  (write-line ": toggle { label = \"Carcamo de proteccion (cruce/recubrimiento bajo)\"; key = \"carcamo\"; } }" f)
+  (write-line ": text { label = \"Solo dibuje de donde va a donde va el tramo.\"; }" f)
+  (write-line ": text { label = \"Zanja y excavacion automaticas (RAS 0330: recubrimiento 1.0 m).\"; } ok_cancel; }" f)
 
   (write-line "maipore_tramo_mt : dialog { label = \"Maipore - Tramo MT PPTO\"; : boxed_column {" f)
   (write-line (mp:dcl-etapa-str) f)
@@ -8601,12 +8740,54 @@
 
   ;; Se mantienen los formularios de puntos/accesorios para compatibilidad con los comandos existentes.
   (write-line (strcat "maipore_elem_elec : dialog { label = \"Maipore - Elemento electrico\"; : boxed_column { : popup_list { label = \"Tipo elemento\"; key = \"blk\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 26; } : edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } " (mp:dcl-etapa-str) " : edit_box { label = \"Lote / circuito\"; key = \"lote\"; edit_width = 26; } : edit_box { label = \"CD\"; key = \"cd\"; edit_width = 20; } : edit_box { label = \"PF\"; key = \"pf\"; edit_width = 20; } : popup_list { label = \"Luminaria\"; key = \"lum\"; } : popup_list { label = \"Fuente LED\"; key = \"led\"; } : edit_box { label = \"Altura montaje m\"; key = \"altura\"; edit_width = 12; } : edit_box { label = \"Brazo m\"; key = \"brazo\"; edit_width = 12; } : edit_box { label = \"Avance m\"; key = \"avance\"; edit_width = 12; } } ok_cancel; }") f)
-  (write-line (strcat "maipore_acc_acu : dialog { label = \"Maipore - Accesorio acueducto\"; : boxed_column { : popup_list { label = \"Tipo accesorio\"; key = \"acc\"; } " (mp:dcl-etapa-str) " : popup_list { label = \"Diametro principal\"; key = \"diam\"; } : popup_list { label = \"Diametro salida\"; key = \"diamsal\"; } : popup_list { label = \"Material\"; key = \"mat\"; } : edit_box { label = \"Lote/Sector\"; key = \"lote\"; edit_width = 26; } } ok_cancel; }") f)
+  ;; 2026-09-02 (pedido del usuario): fuera Lote/Sector (no servia);
+  ;; entra la NUMERACION del accesorio (asi vienen todos en el plano:
+  ;; AC-461...) que ademas arma la etiqueta "numero + nombre".
+  (write-line (strcat "maipore_acc_acu : dialog { label = \"Maipore - Accesorio acueducto\"; : boxed_column { : popup_list { label = \"Tipo accesorio\"; key = \"acc\"; } : edit_box { label = \"Numero (ej AC-461)\"; key = \"accid\"; edit_width = 18; } " (mp:dcl-etapa-str) " : popup_list { label = \"Diametro principal\"; key = \"diam\"; } : popup_list { label = \"Diametro salida\"; key = \"diamsal\"; } : popup_list { label = \"Material\"; key = \"mat\"; } } : text { label = \"Luego: punto de insercion y direccion (Enter = horizontal).\"; } ok_cancel; }") f)
   (close f)
   (setq *mp-dcl-listas-ok* T)
   fn)))
 
+;; Dialogo simplificado del tramo de ACUEDUCTO (2026-09-02, pedido del
+;; usuario): sin elemento inicial/final ni cotas de diseno -- devuelve el
+;; mismo alist que mp:dialog-tramo-red para que el flujo aguas abajo no
+;; cambie (extremos NINGUNO, cotas vacias -> profundidad normativa RAS).
+(defun mp:dialog-tramo-acu (/ dcl ok res etapa)
+  (setq dcl (load_dialog (mp:write-dcl)))
+  (if (not (new_dialog "maipore_tramo_acu" dcl)) (exit))
+  (mp:fill-popup "etapa" *mp-etapa-list* 0)
+  (mp:update-subetapa)
+  (mp:fill-popup "diam" *mp-diam-acu-list* 0)
+  (mp:fill-popup "mat" *mp-material-acu-list* 0)
+  (action_tile "etapa" "(mp:update-subetapa)")
+  (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
+  (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
+  (start_dialog)
+  (if ok
+    (progn
+      (setq etapa (mp:item *mp-etapa-list* "etapa"))
+      (setq res
+        (list
+          (cons "REDOPT" "Acueducto")
+          (cons "ETAPA" etapa)
+          (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
+          (cons "POZO_INI" "") (cons "POZO_FIN" "")
+          (cons "TIPO_EXTREMO_INI" "NINGUNO")
+          (cons "TIPO_EXTREMO_FIN" "NINGUNO")
+          (cons "DIAMETRO" (mp:item *mp-diam-acu-list* "diam"))
+          (cons "MATERIAL" (mp:item *mp-material-acu-list* "mat"))
+          (cons "CARCAMO" (if (= (mp:gettile "carcamo") "1") "SI" ""))
+          (cons "PENDIENTE" "")
+          (cons "COTA_TN_INI" "") (cons "COTA_TN_FIN" "")
+          (cons "COTA_CLAVE_INI" "") (cons "COTA_CLAVE_FIN" "")
+          (cons "MODO_CLAVE" "Digitar")))))
+  (unload_dialog dcl)
+  res)
+
 (defun mp:dialog-tramo-red (forced-red / dcl ok res etapa red-index modo-clave)
+  (if (= forced-red "Acueducto")
+    (mp:dialog-tramo-acu)
+    (progn
   (setq dcl (load_dialog (mp:write-dcl)))
   (if (not (new_dialog "maipore_tramo_red" dcl)) (exit))
   (setq red-index
@@ -8657,9 +8838,10 @@
           (cons "COTA_TN_FIN" "")
           (cons "COTA_CLAVE_INI" (mp:gettile "ccini"))
           (cons "COTA_CLAVE_FIN" (mp:gettile "ccfin"))
+          (cons "CARCAMO" (if (= (mp:gettile "carcamo") "1") "SI" ""))
           (cons "MODO_CLAVE" modo-clave)))))
   (unload_dialog dcl)
-  res)
+  res)))
 
 (defun mp:dialog-tramo-mt (/ dcl ok res etapa)
   (setq dcl (load_dialog (mp:write-dcl)))
@@ -9757,14 +9939,18 @@
     ((= base "POZO_PLUVIAL") id)
     ((= base "SUMIDERO") (strcat "SUM " id))
     ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281")) (mp:caja-tipo-label base vals))
-    ;; 2026-08-28: etiqueta CORTA (el simbolo del plano ya dice que
-    ;; accesorio es): token + diametro, ID solo si existe
+    ;; 2026-09-02 (pedido del usuario): nomenclatura = NUMERACION +
+    ;; NOMBRE del accesorio ("AC-461 TEE"); sin numero se conserva el
+    ;; formato corto anterior (token + diametro).
     ((= base "ACCESORIO_ACUEDUCTO")
-      (vl-string-right-trim " "
-        (strcat (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" vals ""))
-          (if (/= (mp:getval "DIAMETRO" vals "") "")
-            (strcat " D" (mp:getval "DIAMETRO" vals "")) "")
-          " " id)))
+      (if (/= id "")
+        (vl-string-right-trim " "
+          (strcat id " "
+            (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" vals ""))))
+        (vl-string-right-trim " "
+          (strcat (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" vals ""))
+            (if (/= (mp:getval "DIAMETRO" vals "") "")
+              (strcat " D" (mp:getval "DIAMETRO" vals "")) "")))))
     ((= base "CABEZAL_PLUVIAL") (strcat "CAB " id))
     ((= base "LUMINARIA_AP") (strcat "LUM " (mp:getval "CODIGO" vals id)))
     ((= base "POSTE_ELEC") id)
@@ -10539,6 +10725,14 @@
           (depth-ini depth-ini)
           (depth-fin depth-fin)
           (T 0.0)))
+      ;; 2026-09-02 (pedido del usuario): ACUEDUCTO sin cotas de diseno --
+      ;; excavacion NORMATIVA como las electricas: RAS 0330 (Res. 0330/
+      ;; 2017 art. 89): recubrimiento minimo 1.0 m sobre la clave en zonas
+      ;; vehiculares. Zanja = 1.0 + diametro + cama.
+      (if (and (= base "TRAMO_ACUEDUCTO") (<= depth-mean 1e-9))
+        (setq depth-ini (+ 1.0 diameter-m bedding)
+              depth-fin depth-ini
+              depth-mean depth-ini))
       ;; Muestreo de superficie a lo largo del tramo (no solo los 2 pozos):
       ;; la superficie de terreno ya existe en el dibujo, asi que se usa un
       ;; perfil real de profundidad en vez de solo el promedio de extremos,
@@ -10794,9 +10988,23 @@
       (princ "\nNo se creo el tramo: los puntos coinciden.")
       nil)))
 
+;; Deja horizontales las ETIQUETAS de un insert rotado (los ATTRIB llevan
+;; su propio angulo DXF 50): el simbolo gira, el texto se lee derecho.
+(defun mp:level-etiqueta-atts (en / a ed)
+  (setq a (entnext en))
+  (while (and a (= (cdr (assoc 0 (setq ed (entget a)))) "ATTRIB"))
+    (if (wcmatch (strcase (cdr (assoc 2 ed))) "ETIQUETA*,NUM_VIS,PENDIENTE_VIS")
+      (entmod (subst (cons 50 0.0) (assoc 50 ed) ed)))
+    (setq a (entnext a))))
+
 (defun mp:insert-cant-point
-  (base p vals / doc ms blk br en vals2 lay added sync-result)
+  (base p vals / doc ms blk br en vals2 lay added sync-result rot)
   (vl-load-com)
+  ;; rotacion opcional (2026-09-02, accesorios ACU orientables): viaja en
+  ;; la pseudo-clave __ROT (radianes) y NO se guarda como atributo.
+  (setq rot (mp:numeric-real (mp:getval "__ROT" vals "")))
+  (if (null rot) (setq rot 0.0))
+  (setq vals (vl-remove-if '(lambda (x) (= (car x) "__ROT")) vals))
   (setq vals2 (mp:auto-terrain-values vals p nil))
   (if (= (mp:getval "ORIGEN_CREACION" vals2 "") "")
     (setq vals2
@@ -10821,11 +11029,12 @@
         (list "_.ATTSYNC" "_N" blk))))
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
   (setq ms (vla-get-ModelSpace doc))
-  (setq br (vla-InsertBlock ms (mp:3d p) blk 1.0 1.0 1.0 0.0))
+  (setq br (vla-InsertBlock ms (mp:3d p) blk 1.0 1.0 1.0 rot))
   (setq en (vlax-vla-object->ename br))
   (setq lay (mp:point-layer base))
   (if (tblsearch "LAYER" lay) (vla-put-Layer br lay))
   (mp:setatts en vals2)
+  (if (> (abs rot) 1e-9) (mp:level-etiqueta-atts en))
   (princ
     (strcat
       "\nPunto PPTO creado en " lay ": " blk
@@ -10897,12 +11106,15 @@
           (setq res
             (list
               (cons "TIPO_ACCESORIO" (mp:item *mp-acc-acu-list* "acc"))
+              (cons "ID" (mp:gettile "accid"))
               (cons "ETAPA" etapa)
               (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
               (cons "DIAMETRO" (mp:item *mp-diam-acu-list* "diam"))
               (cons "DIAMETRO_SALIDA" (mp:item *mp-diam-acu-list* "diamsal"))
               (cons "MATERIAL" (mp:item *mp-material-acu-list* "mat"))
-              (cons "LOTE" (mp:gettile "lote"))))))))
+              ;; LOTE retirado del dialogo (2026-09-02); queda vacio por
+              ;; compatibilidad con el esquema de atributos existente
+              (cons "LOTE" "")))))))
   (if dcl (unload_dialog dcl))
   res)
 
@@ -11476,11 +11688,99 @@
         (mp:insert-cant-point base p vals))))
   (princ))
 
-(defun urb:create-water-accessory (/ vals p)
+;; 2026-09-02: deducir el TIPO de accesorio desde el nombre del bloque de
+;; un XREF/plano (clic sobre el simbolo dibujado): se busca el token por
+;; subcadena en el nombre efectivo del insert anidado.
+(defun mp:acc-token-from-blockname (bname / up)
+  (setq up (strcase (mp:safe-str bname)))
+  (cond
+    ((vl-string-search "HIDRANT" up) "HIDRANTE_TORRE")
+    ((vl-string-search "VENTOSA" up) "VALVULA_VENTOSA")
+    ((vl-string-search "PURGA" up) "VALVULA_PURGA")
+    ((vl-string-search "VALV" up) "VALVULA_RED_MENOR")
+    ((vl-string-search "TEE" up) "TEE")
+    ((vl-string-search "TAPON" up) "TAPON")
+    ((vl-string-search "REDUC" up) "REDUCCION")
+    ((vl-string-search "UNION" up) "JUNTA_CONSTRUCCION")
+    ((vl-string-search "PASAMURO" up) "NIPLE_PASAMUROS")
+    ((vl-string-search "NIPLE" up) "NIPLE_PASAMUROS")
+    ((vl-string-search "CODO" up)
+      (cond
+        ((vl-string-search "11" up) "CODO_11_5")
+        ((vl-string-search "22" up) "CODO_22_5")
+        ((vl-string-search "45" up) "CODO_45")
+        (T "CODO_90")))
+    (T nil)))
+
+;; toma un accesorio DIBUJADO en un xref: nentsel sobre el simbolo,
+;; devuelve (token punto-wcs rotacion) o nil. El punto y la rotacion
+;; salen del INSERT anidado transformado con la matriz MCS->WCS que
+;; entrega nentsel (4x4 en el 3er elemento).
+(defun mp:acc-pick-from-xref (/ sel ename parents cand obj bname token
+                              ed ip rot mat r c fila p wx wy ang0 ang1)
+  (setq sel (nentsel "\nClic sobre el accesorio del XREF/plano: "))
+  (if (null sel) nil
+    (progn
+      (setq parents (if (> (length sel) 3) (nth 3 sel) nil))
+      ;; candidato: el insert anidado mas profundo cuyo nombre revele tipo
+      (foreach cand (append parents (list (car sel)))
+        (if (and (null token) cand
+                 (= (cdr (assoc 0 (entget cand))) "INSERT"))
+          (progn
+            (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list cand)))
+            (setq bname
+              (if (vl-catch-all-error-p obj) ""
+                (vl-catch-all-apply 'vla-get-EffectiveName (list obj))))
+            (if (vl-catch-all-error-p bname) (setq bname ""))
+            (if (setq token (mp:acc-token-from-blockname bname))
+              (setq ed (entget cand))))))
+      (if (null token)
+        (progn
+          (prompt "\nNo se reconocio el tipo de accesorio en ese bloque.")
+          nil)
+        (progn
+          (setq ip (cdr (assoc 10 ed)) rot (cdr (assoc 50 ed)))
+          ;; transformar insercion + rotacion del espacio del xref al WCS
+          (setq mat (if (> (length sel) 2) (caddr sel) nil))
+          (if (and mat (listp mat) (>= (length mat) 4))
+            (progn
+              ;; convencion nentsel: p_wcs = p_ecs (fila) x M + M[3]
+              (setq wx (+ (* (car ip) (nth 0 (nth 0 mat)))
+                          (* (cadr ip) (nth 0 (nth 1 mat)))
+                          (* (caddr ip) (nth 0 (nth 2 mat)))
+                          (nth 0 (nth 3 mat)))
+                    wy (+ (* (car ip) (nth 1 (nth 0 mat)))
+                          (* (cadr ip) (nth 1 (nth 1 mat)))
+                          (* (caddr ip) (nth 1 (nth 2 mat)))
+                          (nth 1 (nth 3 mat))))
+              ;; rotacion adicional de la matriz: imagen del eje X local
+              (setq ang0 (angle '(0.0 0.0)
+                           (list (nth 0 (nth 0 mat)) (nth 1 (nth 0 mat)))))
+              (setq ang1 (+ rot ang0))
+              (list token (list wx wy 0.0) ang1))
+            ;; sin matriz (objeto directo): usar el punto tal cual
+            (list token (list (car ip) (cadr ip) 0.0) rot)))))))
+
+(defun urb:create-water-accessory (/ vals p kw xr ang)
   (mp:ensure-layers)
   (if (setq vals (mp:dialog-acc-acu))
-    (if (setq p (mp:getpoint-wcs nil "\nPunto del accesorio de acueducto: "))
-      (mp:insert-cant-point "ACCESORIO_ACUEDUCTO" p vals)))
+    (progn
+      ;; punto directo o [Xref] = tomar simbolo ya dibujado en el plano
+      (initget "Xref")
+      (setq p (getpoint "\nPunto del accesorio de acueducto o [Xref]: "))
+      (cond
+        ((and p (= (type p) 'STR) (= p "Xref"))
+          (if (setq xr (mp:acc-pick-from-xref))
+            (progn
+              (setq vals (mp:alist-set vals "TIPO_ACCESORIO" (nth 0 xr)))
+              (setq vals (mp:alist-set vals "__ROT" (rtos (nth 2 xr) 2 8)))
+              (prompt (strcat "\nReconocido del plano: " (nth 0 xr)))
+              (mp:insert-cant-point "ACCESORIO_ACUEDUCTO" (nth 1 xr) vals))))
+        (p
+          ;; direccion opcional (2026-09-02): girar el accesorio al crearlo
+          (setq ang (getangle p "\nDireccion del accesorio <horizontal>: "))
+          (if ang (setq vals (mp:alist-set vals "__ROT" (rtos ang 2 8))))
+          (mp:insert-cant-point "ACCESORIO_ACUEDUCTO" (trans p 1 0) vals)))))
   (princ))
 
 (defun urb:create-luminaire (/ data vals p base)
@@ -11517,7 +11817,10 @@
                     (mp:label-point base atts)))
                 (mp:setatt-one en "ETIQUETA" lab)
                 (if (mp:base-is-tramo base)
-                  (mp:setatt-one en "PENDIENTE_VIS" (mp:pendiente-label atts)))))))
+                  (mp:setatt-one en "PENDIENTE_VIS" (mp:pendiente-label atts)))
+                ;; 2026-09-02: si el bloque fue girado (ROTATE de un
+                ;; accesorio), la etiqueta vuelve a quedar horizontal
+                (mp:level-etiqueta-atts en)))))
         (setq i (1+ i)))
       (princ "\nEtiquetas de cantidades actualizadas."))
     (princ "\nNo se encontraron bloques."))
@@ -12487,7 +12790,8 @@
         ": row { : text { label = \"Plazoleta en concreto\"; width = 30; } : edit_box { key = \"e_plaz\"; edit_width = 10; } }"
         ": row { : text { label = \"Ciclorruta\"; width = 30; } : edit_box { key = \"e_ciclo\"; edit_width = 10; } }"
         ": row { : text { label = \"Rampa en concreto\"; width = 30; } : edit_box { key = \"e_rampa\"; edit_width = 10; } }"
-        ": row { : text { label = \"Bioswale / biorretenedor\"; width = 30; } : edit_box { key = \"e_bio\"; edit_width = 10; } } }"
+        ": row { : text { label = \"Bioswale / biorretenedor\"; width = 30; } : edit_box { key = \"e_bio\"; edit_width = 10; } }"
+        ": row { : text { label = \"Tierra negra zona verde\"; width = 30; } : edit_box { key = \"e_tierra\"; edit_width = 10; } } }"
         ": boxed_column { label = \"Ancho por defecto del prefabricado (m)\";"
         ": row { : text { label = \"Bordillo\"; width = 30; } : edit_box { key = \"a_bordillo\"; edit_width = 10; } }"
         ": row { : text { label = \"Sardinel\"; width = 30; } : edit_box { key = \"a_sardinel\"; edit_width = 10; } }"
@@ -12510,6 +12814,7 @@
     ("URB_SEND_ESP_CICLORRUTA" "e_ciclo" 0.05 3.0)
     ("URB_SEND_ESP_RAMPA-CONC" "e_rampa" 0.05 3.0)
     ("URB_SEND_ESP_BIOSWALE" "e_bio" 0.05 3.0)
+    ("URB_GREEN_ESP_TIERRA" "e_tierra" 0.05 1.0)
     ("URB_PREFAB_ANCHO_BORDILLO" "a_bordillo" 0.05 2.0)
     ("URB_PREFAB_ANCHO_SARDINEL" "a_sardinel" 0.05 2.0)
     ("URB_PREFAB_ANCHO_CANUELA" "a_canuela" 0.05 2.0)))
@@ -12560,6 +12865,7 @@
             ((= tile "e_ciclo") (urb:send-espesor-de (assoc "CICLORRUTA" *urb-send-tipos*)))
             ((= tile "e_rampa") (urb:send-espesor-de (assoc "RAMPA-CONC" *urb-send-tipos*)))
             ((= tile "e_bio") (urb:send-espesor-de *urb-bioswale-tipo*))
+            ((= tile "e_tierra") (urb:green-default-espesor))
             ((= tile "a_bordillo") (urb:prefab-default-ancho "Bordillo"))
             ((= tile "a_sardinel") (urb:prefab-default-ancho "Sardinel"))
             ((= tile "a_canuela") (urb:prefab-default-ancho "Canuela"))
@@ -14438,6 +14744,36 @@
         (if (vl-catch-all-error-p value) (setq value nil)))))
   value)
 
+;; 2026-09-02 (pedido del usuario: "que pasa si inicialmente tengo un
+;; pozo... o dos pozos a la mitad de la via"): el MISMO clic tambien
+;; reconoce un POZO/CAJA/ELEMENTO del MODELO (bloques MP_PUNTO_*) y toma
+;; su cota de rasante: COTA_TAPA si existe (cajas electricas), si no la
+;; COTA_TN_INI (pozos hidro, terreno rasante en la tapa). Con esto el
+;; orden es libre (via->pozo, pozo->via, pozo->pozo, solo pozos
+;; intermedios) y la rasante extrapola con la pendiente de borde.
+(defun urb:cota-from-model-punto (sel / cands item ed obj bname atts v out)
+  (setq cands (list (car sel)))
+  (if (> (length sel) 3) (setq cands (append cands (nth 3 sel))))
+  (foreach item cands
+    (if (and (null out) item (setq ed (entget item))
+             (= (cdr (assoc 0 ed)) "INSERT"))
+      (progn
+        (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list item)))
+        (setq bname
+          (if (vl-catch-all-error-p obj) ""
+            (vl-catch-all-apply 'vla-get-EffectiveName (list obj))))
+        (if (vl-catch-all-error-p bname) (setq bname ""))
+        (if (wcmatch (strcase (mp:safe-str bname)) "MP_PUNTO_*,MP_TRAMO_*")
+          (progn
+            (setq atts (mp:att-alist item))
+            (setq v (mp:numeric-real (mp:getval "COTA_TAPA" atts "")))
+            (if (null v)
+              (setq v (mp:numeric-real (mp:getval "COTA_TN_INI" atts ""))))
+            (if (null v)
+              (setq v (mp:numeric-real (mp:getval "COTA_RASANTE" atts ""))))
+            (if v (setq out v)))))))
+  out)
+
 (defun urb:pick-road-cotas (/)
   (urb:pick-road-cotas-loop nil))
 
@@ -14479,11 +14815,18 @@
               "\nCota interpolada de la RASANTE en el punto seleccionado: "
               (rtos value 2 3)))
           (progn
-            (setq value (urb:selected-cota-number sel))
+            ;; pozo/caja del modelo: cota de tapa/rasante del bloque
+            (setq value (urb:cota-from-model-punto sel))
             (if value
               (prompt
-                (strcat "\nCota leida de la etiqueta: "
-                  (rtos value 2 3))))))
+                (strcat "\nCota tomada del POZO/ELEMENTO del modelo: "
+                  (rtos value 2 3)))
+              (progn
+                (setq value (urb:selected-cota-number sel))
+                (if value
+                  (prompt
+                    (strcat "\nCota leida de la etiqueta: "
+                      (rtos value 2 3))))))))
         (if (null value)
           (setq value
             (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
@@ -14555,11 +14898,17 @@
                     "\nCota tomada de la RASANTE interpolada en el clic: "
                     (rtos via-cota 2 3)))
                 (progn
-                  (setq via-cota (urb:selected-cota-number selected))
+                  (setq via-cota (urb:cota-from-model-punto selected))
                   (if via-cota
                     (prompt
-                      (strcat "\nCota leida de la etiqueta: "
-                        (rtos via-cota 2 3))))))
+                      (strcat "\nCota tomada del POZO/ELEMENTO del modelo: "
+                        (rtos via-cota 2 3)))
+                    (progn
+                      (setq via-cota (urb:selected-cota-number selected))
+                      (if via-cota
+                        (prompt
+                          (strcat "\nCota leida de la etiqueta: "
+                            (rtos via-cota 2 3))))))))
               (if via-cota
                 (progn
                   (setq picks
@@ -14934,9 +15283,42 @@
 ;; sardinel (bocas de cruce); Enter sigue. Espesor fijo 0.20 (pedido del
 ;; usuario). Reutiliza los bordes extremos ya elegidos para el eje
 ;; automatico (*urb-road-end-edges*) sin repreguntar.
+;; 2026-09-02 (reporte del usuario con foto: en tramos CURVOS el sardinel
+;; izquierdo salia INTERNO): el test del lado por producto punto contra el
+;; CENTROIDE falla en contornos curvos o en L (el centroide puede quedar
+;; del mismo lado que el exterior local). Ahora el lado se decide con un
+;; test real de punto-dentro-del-contorno: se muestrea el contorno cada
+;; 0.25 m (los arcos quedan bien representados) y se lanza ray-casting.
+(defun urb:curve-sample-points (curve step / len n i pts d p)
+  (setq len (vl-catch-all-apply 'vlax-curve-getDistAtParam
+              (list curve (vlax-curve-getEndParam curve))))
+  (if (or (vl-catch-all-error-p len) (null len) (<= len 1e-6))
+    nil
+    (progn
+      (setq n (max 24 (fix (/ len step))) i 0 pts nil)
+      (while (< i n)
+        (setq d (* len (/ (float i) n)))
+        (setq p (vl-catch-all-apply 'vlax-curve-getPointAtDist (list curve d)))
+        (if (not (vl-catch-all-error-p p))
+          (setq pts (cons (list (car p) (cadr p)) pts)))
+        (setq i (1+ i)))
+      (reverse pts))))
+
+(defun urb:point-in-poly-2d (pt pts / x y n i j xi yi xj yj inside)
+  (setq x (car pt) y (cadr pt) n (length pts) inside nil i 0 j (1- n))
+  (while (< i n)
+    (setq xi (car (nth i pts)) yi (cadr (nth i pts))
+          xj (car (nth j pts)) yj (cadr (nth j pts)))
+    (if (and (/= (> yi y) (> yj y))
+             (< x (+ xi (/ (* (- xj xi) (- y yi)) (- yj yi)))))
+      (setq inside (not inside)))
+    (setq j i i (1+ i)))
+  inside)
+
 (defun urb:create-road-sardineles (boundary etapa subetapa
    / ends chains chain len kw pts centroid g1 g2 c1 c2 tt1 tt2 swap gaps
-   kept prev item seg ename mid-pt deriv dlen normal side-point count)
+   kept prev item seg ename mid-pt deriv dlen normal side-point count
+   bnd-samples probe)
   (setq ends
     (if (and (boundp '*urb-road-end-edges*) *urb-road-end-edges*)
       *urb-road-end-edges*
@@ -14957,6 +15339,8 @@
             (list
               (/ (apply '+ (mapcar 'car pts)) (float (length pts)))
               (/ (apply '+ (mapcar 'cadr pts)) (float (length pts)))))
+          ;; muestreo del contorno para el test de lado (curvas incluidas)
+          (setq bnd-samples (urb:curve-sample-points boundary 0.25))
           (setq count 0)
           (foreach chain chains
             (setq len (urb:highlight-chain chain))
@@ -15019,10 +15403,19 @@
                         (if (> dlen 1e-9)
                           (list (- (/ (cadr deriv) dlen)) (/ (car deriv) dlen))
                           (list 0.0 1.0)))
-                      (if (< (+ (* (car normal) (- (car mid-pt) (car centroid)))
-                                (* (cadr normal) (- (cadr mid-pt) (cadr centroid))))
-                             0.0)
-                        (setq normal (mapcar '- normal)))
+                      ;; lado por test punto-dentro-del-contorno (curvas OK);
+                      ;; el centroide queda solo como fallback sin muestreo
+                      (if bnd-samples
+                        (progn
+                          (setq probe
+                            (list (+ (car mid-pt) (* 0.30 (car normal)))
+                                  (+ (cadr mid-pt) (* 0.30 (cadr normal)))))
+                          (if (urb:point-in-poly-2d probe bnd-samples)
+                            (setq normal (mapcar '- normal))))
+                        (if (< (+ (* (car normal) (- (car mid-pt) (car centroid)))
+                                  (* (cadr normal) (- (cadr mid-pt) (cadr centroid))))
+                               0.0)
+                          (setq normal (mapcar '- normal))))
                       (setq side-point
                         (list (+ (car mid-pt) (car normal))
                               (+ (cadr mid-pt) (cadr normal))))
@@ -18302,13 +18695,16 @@
     "urb_rampa"
     '*urb-rampa-dcl-ok*
     (list
+      ;; 2026-09-02 (pedido del usuario, 2 rondas): ni FONDO ni ANCHO se
+      ;; digitan aqui -- el ancho se define dibujando (clic HASTA DONDE va
+      ;; la rampa sobre el borde, o digitando la longitud) y el fondo lo
+      ;; define el clic final sobre el bordillo.
       "urb_rampa : dialog { label = \"Rampa peatonal\";"
       ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
-      ": popup_list { label = \"Ancho banda central m\"; key = \"ancho\"; }"
-      ": edit_box { label = \"Fondo (ancho del anden) m\"; key = \"fondo\"; edit_width = 10; }"
-      ": text { label = \"Despues: punto inicial, direccion del borde y clic al bordillo.\"; }"
-      ": text { label = \"El clic sobre el bordillo puede redefinir el fondo.\"; }"
+      ": text { label = \"Despues: 1) punto inicial, 2) clic HASTA DONDE va la rampa\"; }"
+      ": text { label = \"sobre el borde (o digite la longitud con la opcion Longitud),\"; }"
+      ": text { label = \"3) clic al bordillo donde termina el fondo.\"; }"
       "ok_cancel; }")))
 
 (defun urb:rampa-fill-sub (idx)
@@ -18333,19 +18729,13 @@
           (end_list)
           (set_tile "etapa" "0")
           (urb:rampa-fill-sub 0)
-          (start_list "ancho")
-          (add_list "2.00")
-          (add_list "3.00")
-          (end_list)
-          (set_tile "ancho" "0")
-          (set_tile "fondo" (rtos *urb-anden-default-width* 2 2))
           (action_tile "etapa" "(urb:rampa-fill-sub (atoi $value))")
           ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
           (action_tile "accept"
             (strcat
               "(setq *urb-rampa-sel* (list (get_tile \"etapa\")"
-              " (get_tile \"subetapa\") (get_tile \"ancho\")"
-              " (get_tile \"fondo\"))) (done_dialog 1)"))
+              " (get_tile \"subetapa\")))"
+              " (done_dialog 1)"))
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))
       (if (= done 1)
@@ -18354,10 +18744,10 @@
             (urb:safe-string
               (nth (atoi (nth 0 *urb-rampa-sel*)) *urb-etapa-list*) "1"))
           (setq subs (urb:subetapas-for etapa))
-          (setq width (if (= (nth 2 *urb-rampa-sel*) "1") 3.00 2.00))
-          (setq fondo (distof (nth 3 *urb-rampa-sel*) 2))
-          (if (or (null fondo) (< fondo 0.5))
-            (setq fondo *urb-anden-default-width*))
+          ;; ancho: placeholder -- se define dibujando (clic hasta donde va
+          ;; o longitud digitada); fondo: default, el clic final lo redefine
+          (setq width 2.00)
+          (setq fondo *urb-anden-default-width*)
           (list etapa
             (urb:safe-string
               (nth (atoi (nth 1 *urb-rampa-sel*)) subs) "1")
@@ -18401,9 +18791,40 @@
   (setq base-pt
     (if dlg
       (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: ")))
+  ;; 2026-09-02 v2 (pedido del usuario): el ancho NO va en la ventana --
+  ;; el MISMO clic sobre el borde define la direccion Y HASTA DONDE va la
+  ;; rampa (modulo total a lo largo del borde = clic; banda central =
+  ;; total - 1.20 de las dos aletas). Con la opcion Longitud se digita el
+  ;; total y luego solo se marca la direccion.
   (if base-pt
-    (setq dir-pt (getpoint base-pt "\nDireccion del borde (eje de la rampa): ")))
-  (if dir-pt (setq axis-angle (angle base-pt dir-pt)))
+    (progn
+      (setq done nil)
+      (while (not done)
+        (initget "Longitud")
+        (setq dir-pt
+          (getpoint base-pt
+            "\nClic HASTA DONDE va la rampa sobre el borde o [Longitud]: "))
+        (cond
+          ((and dir-pt (= (type dir-pt) 'STR) (= dir-pt "Longitud"))
+            (initget 6)
+            (setq kw (getreal "\nLongitud TOTAL de la rampa sobre el borde m: "))
+            (if kw
+              (progn
+                (setq dir-pt
+                  (getpoint base-pt "\nDireccion del borde (un clic): "))
+                (if dir-pt
+                  (progn
+                    (setq width (max 0.50 (- kw 1.20)))
+                    (setq done T))))))
+          (dir-pt
+            (setq width (max 0.50 (- (distance base-pt dir-pt) 1.20)))
+            (setq done T))
+          (T (setq done T))))))
+  (if (and dir-pt (/= (type dir-pt) 'STR))
+    (setq axis-angle (angle base-pt dir-pt)))
+  (if axis-angle
+    (prompt (strcat "\nRampa: modulo total " (rtos (+ width 1.2) 2 2)
+      " m sobre el borde (banda central " (rtos width 2 2) " m).")))
   (if (and base-pt dir-pt axis-angle)
     (progn
       ;; 2026-08-12 v7 (pedido del usuario): el MISMO clic define el lado
@@ -22659,7 +23080,7 @@
 ;; guardado en la xdata, pos 6, y aplicado por el colector de filas).
 (defun urb:poly-element-draw (entry etapa sub lado-der lado-izq posicion
                               appid / capa ename obj hatch n con-cost
-                              descuento grp)
+                              descuento grp kw2 picks2 mov2)
   (setq capa (nth 6 entry))
   (urb:ensure-layer capa (nth 3 entry) T)
   (setq con-cost
@@ -22716,6 +23137,27 @@
         (list (nth 0 entry) etapa sub lado-der lado-izq posicion
           (rtos descuento 2 3))
         (list (nth 0 entry) etapa sub)))
+    ;; 2026-09-02 (pedido del usuario): corte/relleno OPCIONAL del sendero
+    ;; contra SUP_TN con rasante de cotas clickeadas (via/pozo/etiqueta) --
+    ;; mismo motor de la zona verde; queda en xdata URB_SEND_MOV.
+    (if (= appid "URB_SENDERO")
+      (progn
+        (initget "Si No")
+        (setq kw2
+          (getkword "\nCalcular CORTE/RELLENO de este sendero? [Si/No] <No>: "))
+        (if (= kw2 "Si")
+          (progn
+            (prompt "\nSeleccione las cotas de diseno (via/pozo/etiqueta; minimo 2):")
+            (setq picks2 (urb:pick-road-cotas-loop nil))
+            (if (and picks2 (>= (length picks2) 2))
+              (progn
+                (setq mov2 (urb:earthworks-from-picks ename picks2))
+                (if mov2
+                  (progn
+                    (urb:set-xdata-strings ename "URB_SEND_MOV"
+                      (list (rtos (car mov2) 2 2) (rtos (cadr mov2) 2 2)))
+                    (prompt (strcat "\nCorte: " (rtos (car mov2) 2 2)
+                      " m3 | Relleno: " (rtos (cadr mov2) 2 2) " m3"))))))))))
     (setq n (1+ n))
     (prompt (strcat "\n" (nth 1 entry) " " (itoa n)
       " creado. Otro contorno (Enter termina): ")))
@@ -24757,6 +25199,16 @@
                     (strcat "Suministro tuberia " mat " " diam)
                     id pini pfin etapa sub "UN"
                     (float (fix (+ 0.999999 (/ lng 6.0)))) handle)))))
+          ;; 2026-09-02: carcamo de proteccion (RAS 0330: cruces o
+          ;; recubrimiento insuficiente) -- fila ML solo si el tramo lo
+          ;; declara (CARCAMO=SI); actividad "CARCAMO" del libro.
+          (if (= (strcase (urb:safe-string
+                    (cdr (assoc "CARCAMO" atts)) "")) "SI")
+            (setq rows
+              (append rows
+                (list
+                  (urb:ppto-row red "Carcamo"
+                    id pini pfin etapa sub "ML" lng handle)))))
           (if (not banded-plu)
           (setq rows
             (append rows

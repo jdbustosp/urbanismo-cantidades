@@ -29,6 +29,18 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-09-02 (PC secundario, Civil 3D 2026) — v4.66.0: ronda de 11 pedidos (diálogos + MT + accesorios + cárcamo)
+
+1. **Sardinel externo garantizado en curvas**: el lado se decide con test punto-dentro-del-contorno (muestreo cada 0.25 m + ray casting) en vez del producto punto contra el centroide, que fallaba en tramos curvos (foto del usuario: sardinel izquierdo interno).
+2. **Picker de cotas reconoce POZOS del modelo** (`urb:cota-from-model-punto`): COTA_TAPA/COTA_TN_INI de cualquier bloque MP_PUNTO_*; orden libre vía/pozo/etiqueta y N pozos intermedios con extrapolación (ya existente) — aplica a MT por Pendiente, andén "Cotas seleccionadas", zona verde y sendero.
+3. **Tramo ACU simplificado**: diálogo propio sin extremos ni cotas de diseño; excavación normativa RAS 0330 (recubrimiento 1.0 m a clave + diámetro + cama) cuando no hay cotas.
+4. **Accesorios ACU**: campo Número (etiqueta = "AC-461 TEE"), sin Lote/Sector; dirección al crear (etiqueta se mantiene horizontal, `mp:level-etiqueta-atts` también en el refresco de etiquetas); opción [Xref] que reconoce el tipo desde el bloque del plano (nentsel + matriz).
+5. **Prefabricado y zona verde sin campos de espesor** (config: `URB_PREFAB_ANCHO_*`, `URB_GREEN_ESP_TIERRA` nueva en Ajustes); zona verde con hatch verde sólido transparencia 70.
+6. **Motor de corte/relleno por cotas** (`urb:earthworks-from-picks`): plano por mínimos cuadrados (≥3 cotas) o rasante lineal (2), malla adaptativa 0.5–2.5 m contra SUP_TN; opcional al crear zona verde (atts CORTE_M3/RELLENO_M3) y sendero (xdata URB_SEND_MOV). Sin filas de export todavía (zonas verdes nunca han exportado).
+7. **Cárcamo**: toggle en diálogos de tramo hidro → att CARCAMO → fila ppto "Carcamo" ML; libro con filas CARCAMO clonadas en 2.5.1.1.11 / 2.5.2.2.10 / 2.5.3.1.21 (precio via SUMIF a PU B804).
+8. **Rampa**: ventana solo con etapa/subetapa — el clic sobre el borde define dirección Y hasta dónde va (banda central = distancia − 1.20 m de aletas), opción [Longitud] para digitarla; el fondo lo define el clic final al bordillo (2 rondas de feedback del usuario el mismo día). Export verificado tras la corrida: 7893 filas, 0 huérfanas, 0 errores.
+9. DCL bump `maipore_listas_v12`. Harness `work\ajustes0902\` (AUDITSOBRE/FIXSOBRE/SPLITACC piloto).
+
 ### 2026-08-27 (parte 32b, PC principal, commit `0a6c815`) — v4.60.1: el descuento de bordillo sobrevive al EDITAR
 
 Diagnóstico del master (copia, read-only) encontró la causa real del "no me descuenta el bordillo": un anillo `URB_PREFAB_ANILLO` Interno con handle destino MUERTO — al EDITAR, el andén se re-empaqueta con handle nuevo y el costado quedaba apuntando al viejo (descuento perdido en silencio).
