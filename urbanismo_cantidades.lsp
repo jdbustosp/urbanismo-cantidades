@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.67.0")
+(setq *urb-version* "4.68.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -562,8 +562,14 @@
     "urbanismo_anden"
     '*urb-anden-dcl-ok*
     (list
-      "urbanismo_anden : dialog { label = \"Datos del anden\";"
+      "urbanismo_anden : dialog { label = \"Datos del anden / sendero\";"
       ": boxed_column { label = \"Clasificacion\";"
+      ;; 2026-09-02 (pedido del usuario: "anden y sendero por el mismo
+      ;; icono"): el tipo de elemento va PRIMERO -- Anden (loseta) o
+      ;; cualquier tipo de sendero. Si elige sendero, el flujo delega en
+      ;; urb:poly-element-draw y el presupuesto se va a su capitulo
+      ;; propio (SENDERO/CICLORRUTA), sin interferir con el de ANDEN.
+      ": popup_list { label = \"Tipo de elemento\"; key = \"tipoelem\"; }"
       ": popup_list { label = \"Material\"; key = \"material\"; }"
       ": popup_list { label = \"Formato de loseta\"; key = \"formato\"; }"
       ;; 2026-08-12: si las etapas estan deshabilitadas los tiles NO se
@@ -624,6 +630,10 @@
            (> (setq dcl-id (load_dialog filename)) 0)
            (new_dialog "urbanismo_anden" dcl-id))
     (progn
+      (urb:fill-popup "tipoelem"
+        (cons "Anden (loseta)"
+          (mapcar '(lambda (e) (nth 1 e)) *urb-send-tipos*))
+        0)
       (urb:fill-popup
         "material"
         *urb-material-list*
@@ -684,7 +694,8 @@
           " *urb-dialog-grade-index* (atoi (get_tile \"rasante\"))"
           " *urb-dialog-lado-der-index* (atoi (get_tile \"lado_der\"))"
           " *urb-dialog-lado-izq-index* (atoi (get_tile \"lado_izq\"))"
-          " *urb-dialog-costpos-index* (atoi (get_tile \"costpos\")))"
+          " *urb-dialog-costpos-index* (atoi (get_tile \"costpos\"))"
+          " *urb-dialog-tipoelem-index* (atoi (get_tile \"tipoelem\")))"
           "(done_dialog 1)"))
       (setq accepted (= 1 (start_dialog)))
       (unload_dialog dcl-id)
@@ -731,7 +742,10 @@
                   current-orientation current-start
                   (nth *urb-dialog-lado-der-index* *urb-anillo-prefab-list*)
                   (nth *urb-dialog-lado-izq-index* *urb-anillo-prefab-list*)
-                  (nth *urb-dialog-costpos-index* *urb-anillo-pos-list*))))))
+                  (nth *urb-dialog-costpos-index* *urb-anillo-pos-list*)
+                  ;; nth 14 (2026-09-02): tipo de elemento -- 0 = anden,
+                  ;; 1.. = indice+1 en *urb-send-tipos* (sendero)
+                  *urb-dialog-tipoelem-index*)))))
   )
   result
 )
@@ -5888,6 +5902,17 @@
         "Automatico" "Normal"
         '("Automatico" "Girar90") '("Normal" "Opuesto"))
       nil))
+  ;; 2026-09-02: mismo icono para anden y sendero -- si el usuario eligio
+  ;; un tipo de sendero en el dialogo, delega al flujo de senderos (capas,
+  ;; simbolo y presupuesto propios) y termina.
+  (if (and data (> (length data) 14) (> (nth 14 data) 0))
+    (progn
+      (urb:poly-element-draw
+        (nth (1- (nth 14 data)) *urb-send-tipos*)
+        (nth 2 data) (nth 3 data)
+        (nth 11 data) (nth 12 data) (nth 13 data)
+        "URB_SENDERO")
+      (setq data nil)))
   (if data
     (progn
       (setq material (nth 0 data))
@@ -7568,6 +7593,11 @@
               (if xdata-result
                 (progn
                   (foreach obj objects (urb:safe-delete obj))
+                  ;; 2026-09-02 (pedido del usuario: bordillo tapado por el
+                  ;; anden): el prefabricado SIEMPRE al frente del orden de
+                  ;; dibujo -- nunca queda debajo del relleno del anden
+                  (vl-catch-all-apply 'vl-cmdf
+                    (list "_.DRAWORDER" block-ename "" "_Front"))
                   block-ref)
                 (progn
                   (urb:safe-delete block-ref)
@@ -9203,9 +9233,14 @@
   ;; -- circulo 0.7 en vez de 2.0 (el poste real es puntual, no una
   ;; camara) y etiqueta proporcional
   (if (= base "POSTE_ELEC") (setq r 0.70 th (min th 0.50)))
-  ;; pozos y sumideros: etiqueta 0.75 (la de 1.50 tapaba medio cruce)
-  (if (member base '("POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO"))
-    (setq th (min th 0.75)))
+  ;; 2026-09-02 (pedido del usuario: "pozos y sumideros en tamano real,
+  ;; estan sobredimensionados"): pozo = camara real D=1.20 m (r 0.60),
+  ;; sumidero = caja ~0.70 (r 0.35); etiqueta proporcional 0.60 FUERA
+  ;; del circulo (adentro ya no cabe).
+  (if (member base '("POZO_SANITARIO" "POZO_PLUVIAL"))
+    (setq r 0.60 th (min th 0.60)))
+  (if (= base "SUMIDERO")
+    (setq r 0.35 th (min th 0.60)))
   (setq lab (mp:label-point base vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
   (cond
@@ -9234,7 +9269,8 @@
       (vla-put-Layer c lay) (vla-put-Color c col)))
   (cond
     ((member base '("POZO_SANITARIO" "POZO_PLUVIAL"))
-      (setq pos '(0.0 0.0 0.0))
+      ;; etiqueta ARRIBA del circulo (con r=0.60 real ya no cabe adentro)
+      (setq pos (list 0.0 (+ r (* th 0.75)) 0.0))
       (setq att (mp:vla-add-att blk "ETIQUETA" "Numero de pozo" lab pos th nil lay col))
       (mp:center-visible-att att pos th))
     ((mp:caja-plan-p base)
@@ -10930,8 +10966,12 @@
 ;; dibujo), asi que el recorte nunca toca las CANTIDADES -- la longitud
 ;; real p1-p2 sigue siendo la de presupuesto.
 (defun mp:tramo-visual-gap (vals dist / r base g)
-  (setq r (max 2.0 *mp-vis-radius*))
+  ;; 2026-09-02: pozos ahora en tamano real (r 0.60) -> el recorte visual
+  ;; baja igual. ACU sin recorte (la linea fina llega al centro del
+  ;; accesorio; el wipeout del simbolo la tapa donde toca).
+  (setq r 0.60)
   (setq base (mp:getval "BLOQUE_BASE" vals ""))
+  (if (= base "TRAMO_ACUEDUCTO") (setq r 0.0))
   (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
     ;; 2026-08-26 (revision del usuario sobre la muestra): la linea llega
     ;; hasta el BORDE de la caja, no al centro -- recorte = media caja
@@ -11006,6 +11046,62 @@
     (progn
       (princ "\nNo se creo el tramo: los puntos coinciden.")
       nil)))
+
+;; 2026-09-02 (pedido del usuario: "las cotas de los tramos no estan
+;; quedando centradas"): reposiciona las etiquetas visibles de un TRAMO a
+;; su sitio de diseno -- el punto del attdef del bloque transformado por
+;; la insercion. Rotacion: ACU horizontal (0), el resto acompana al tramo.
+(defun mp:recenter-tramo-attribs (en / obj ed ip rot bname blk map a tag
+                                  item local x y tgt base res)
+  (setq obj (vlax-ename->vla-object en)
+        ed (entget en)
+        ip (cdr (assoc 10 ed))
+        rot (cdr (assoc 50 ed))
+        bname (vla-get-EffectiveName obj)
+        base (mp:infer-base bname (mp:att-alist en)))
+  (setq blk (vl-catch-all-apply 'vla-Item
+    (list (vla-get-Blocks (vla-get-ActiveDocument (vlax-get-acad-object)))
+          bname)))
+  (if (vl-catch-all-error-p blk)
+    nil
+    (progn
+      (setq map nil)
+      (vlax-for item blk
+        (if (= (vla-get-ObjectName item) "AcDbAttributeDefinition")
+          (setq map
+            (cons (list (strcase (vla-get-TagString item))
+                        (vl-catch-all-apply 'vlax-get
+                          (list item 'TextAlignmentPoint))
+                        (vla-get-Rotation item)
+                        (vla-get-Alignment item)
+                        (vlax-get item 'InsertionPoint))
+              map))))
+      (foreach a (vlax-invoke obj 'GetAttributes)
+        (setq tag (strcase (vla-get-TagString a)))
+        (if (and (member tag '("ETIQUETA" "PENDIENTE_VIS" "LONG_VIS"))
+                 (setq item (assoc tag map)))
+          (progn
+            (setq local
+              (if (and (/= (nth 3 item) 0)
+                       (not (vl-catch-all-error-p (nth 1 item))))
+                (nth 1 item)
+                (nth 4 item)))
+            (setq x (car local) y (cadr local))
+            (setq tgt
+              (list (+ (car ip) (- (* x (cos rot)) (* y (sin rot))))
+                    (+ (cadr ip) (+ (* x (sin rot)) (* y (cos rot))))
+                    0.0))
+            (if (/= (nth 3 item) 0)
+              (setq res (vl-catch-all-apply 'vlax-put
+                (list a 'TextAlignmentPoint tgt)))
+              (setq res (vl-catch-all-apply 'vlax-put
+                (list a 'InsertionPoint tgt))))
+            (vl-catch-all-apply 'vla-put-Rotation
+              (list a
+                (if (= base "TRAMO_ACUEDUCTO")
+                  0.0
+                  (+ rot (nth 2 item))))))))
+      T)))
 
 ;; Deja horizontales las ETIQUETAS de un insert rotado (los ATTRIB llevan
 ;; su propio angulo DXF 50): el simbolo gira, el texto se lee derecho.
@@ -11836,10 +11932,15 @@
                     (mp:label-point base atts)))
                 (mp:setatt-one en "ETIQUETA" lab)
                 (if (mp:base-is-tramo base)
-                  (mp:setatt-one en "PENDIENTE_VIS" (mp:pendiente-label atts)))
-                ;; 2026-09-02: si el bloque fue girado (ROTATE de un
-                ;; accesorio), la etiqueta vuelve a quedar horizontal
-                (mp:level-etiqueta-atts en)))))
+                  (progn
+                    (mp:setatt-one en "PENDIENTE_VIS" (mp:pendiente-label atts))
+                    ;; 2026-09-02: recentrar la etiqueta al punto de
+                    ;; diseno del tramo (reporte "no quedan centradas")
+                    (mp:recenter-tramo-attribs en))
+                  ;; puntos (accesorios girados con ROTATE): etiqueta
+                  ;; horizontal, sin tocar tramos (sus etiquetas acompanan
+                  ;; la linea salvo ACU)
+                  (mp:level-etiqueta-atts en))))))
         (setq i (1+ i)))
       (princ "\nEtiquetas de cantidades actualizadas."))
     (princ "\nNo se encontraron bloques."))
@@ -18890,18 +18991,33 @@
               (setq ref (nth 0 extd) sp (nth 1 extd))
               (setq len (vlax-curve-getDistAtParam ref
                           (vlax-curve-getEndParam ref)))
-              ;; rango de la referencia ocupado por el frente de la rampa
+              ;; rango de la referencia ocupado por el frente de la rampa.
+              ;; 2026-09-02 v2 (foto del usuario: quedaban HUECOS a lado y
+              ;; lado): el criterio por distancia al segmento recortaba de
+              ;; mas en las esquinas (radio tol alrededor del extremo). Se
+              ;; decide por PROYECCION exacta sobre el eje de la rampa:
+              ;; dentro del modulo = proyeccion en [0, span] y distancia
+              ;; perpendicular < 0.60 -- el sardinel llega JUSTO al borde.
               (setq dmin nil dmax nil d 0.0)
               (while (<= d len)
                 (setq pt (vlax-curve-getPointAtDist ref d))
-                (if (and pt
-                         (< (car (cr:pt-seg-safe (car pt) (cadr pt)
-                              (car base-pt) (cadr base-pt)
-                              (car p2) (cadr p2))) tol))
+                (if pt
                   (progn
-                    (if (null dmin) (setq dmin d))
-                    (setq dmax d)))
-                (setq d (+ d 0.20)))
+                    (setq res
+                      (list
+                        (+ (* (- (car pt) (car base-pt)) (cos axis-angle))
+                           (* (- (cadr pt) (cadr base-pt)) (sin axis-angle)))
+                        (abs
+                          (+ (* (- (car pt) (car base-pt))
+                                (- (sin axis-angle)))
+                             (* (- (cadr pt) (cadr base-pt))
+                                (cos axis-angle))))))
+                    (if (and (>= (car res) -0.01) (<= (car res) (+ span 0.01))
+                             (< (cadr res) 0.60))
+                      (progn
+                        (if (null dmin) (setq dmin d))
+                        (setq dmax d)))))
+                (setq d (+ d 0.05)))
               (if (null dmin)
                 ;; no lo toca: descartar la referencia, insert queda intacto
                 (if (entget ref) (entdel ref))
@@ -25083,9 +25199,108 @@
             (setq j (1+ j)))))))
   total)
 
+;; 2026-09-02 (pedido del usuario: "no quiero que el bordillo quede
+;; sobrepuesto sobre el anden... son independientes"): si un prefabricado
+;; INDEPENDIENTE (bordillo/sardinel de via, sin vinculo de anillo) corre
+;; POR DENTRO del contorno del anden, su franja se DESCUENTA del area del
+;; anden en el export (el prefab ya cobra su propio ML) -- sin doble
+;; conteo aunque el usuario haya dibujado el anden hasta el borde de la
+;; via pisando el bordillo. Muestreo de la arista del prefab (0.25 m)
+;; contra el poligono del anden.
+(defun urb:anden-boundary-samples (be / obj bname blk item role best bestlen len)
+  (setq obj (vlax-ename->vla-object be)
+        bname (vla-get-EffectiveName obj))
+  (setq blk (vl-catch-all-apply 'vla-Item
+    (list (vla-get-Blocks (urb:doc)) bname)))
+  (if (vl-catch-all-error-p blk)
+    nil
+    (progn
+      ;; contorno: la polilinea CERRADA mas larga del def (la boundary);
+      ;; los roles xdata no siempre sobreviven, la longitud si.
+      (setq best nil bestlen 0.0)
+      (vlax-for item blk
+        (if (and (member (vla-get-ObjectName item)
+                   '("AcDbPolyline" "AcDb2dPolyline"))
+                 (= (vla-get-Closed item) :vlax-true))
+          (progn
+            (setq len (vl-catch-all-apply 'vla-get-Length (list item)))
+            (if (and (not (vl-catch-all-error-p len)) (> len bestlen))
+              (setq bestlen len best item)))))
+      (if best
+        (urb:curve-sample-points (vlax-vla-object->ename best) 0.50)
+        nil))))
+
+(defun urb:anden-area-prefabs-solapados (be poly / ss i ce d obj bname blk
+   item ref len d2 pt nin ntot frac width total bb1 bb2 abx res lo hi)
+  (setq total 0.0)
+  (if (null poly)
+    0.0
+    (progn
+      (setq lo (list (apply 'min (mapcar 'car poly))
+                     (apply 'min (mapcar 'cadr poly)))
+            hi (list (apply 'max (mapcar 'car poly))
+                     (apply 'max (mapcar 'cadr poly))))
+      (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_PREFAB_BLOCK")))) i 0)
+      (if ss
+        (while (< i (sslength ss))
+          (setq ce (ssname ss i))
+          ;; los anillos vinculados ya descuentan por su propio camino
+          (if (null (urb:get-xdata-strings ce "URB_PREFAB_ANILLO"))
+            (progn
+              ;; prefiltro bbox
+              (setq res (vl-catch-all-apply 'vla-GetBoundingBox
+                (list (vlax-ename->vla-object ce) 'bb1 'bb2)))
+              (if (and (not (vl-catch-all-error-p res))
+                       (progn
+                         (setq bb1 (vlax-safearray->list bb1)
+                               bb2 (vlax-safearray->list bb2))
+                         (and (< (car bb1) (car hi)) (> (car bb2) (car lo))
+                              (< (cadr bb1) (cadr hi)) (> (cadr bb2) (cadr lo)))))
+                (progn
+                  (setq d (urb:prefab-data ce)
+                        width (atof (urb:safe-string (nth 3 d) "0.20")))
+                  ;; arista de referencia: polilinea mas larga DEL DEF del
+                  ;; prefab (sin explotar nada)
+                  (setq obj (vlax-ename->vla-object ce)
+                        bname (vla-get-EffectiveName obj))
+                  (setq blk (vl-catch-all-apply 'vla-Item
+                    (list (vla-get-Blocks (urb:doc)) bname)))
+                  (setq ref nil len 0.0)
+                  (if (not (vl-catch-all-error-p blk))
+                    (vlax-for item blk
+                      (if (member (vla-get-ObjectName item)
+                            '("AcDbPolyline" "AcDb2dPolyline"))
+                        (progn
+                          (setq d2 (vl-catch-all-apply 'vla-get-Length
+                            (list item)))
+                          (if (and (not (vl-catch-all-error-p d2))
+                                   (> d2 len))
+                            (setq len d2 ref item))))))
+                  (if (and ref (> len 0.1))
+                    (progn
+                      (setq nin 0 ntot 0 d2 0.0)
+                      (setq abx (vlax-vla-object->ename ref))
+                      (while (<= d2 len)
+                        (setq pt (vl-catch-all-apply
+                          'vlax-curve-getPointAtDist (list abx d2)))
+                        (if (not (vl-catch-all-error-p pt))
+                          (progn
+                            (setq ntot (1+ ntot))
+                            (if (urb:point-in-poly-2d
+                                  (list (car pt) (cadr pt)) poly)
+                              (setq nin (1+ nin)))))
+                        (setq d2 (+ d2 0.25)))
+                      (if (and (> ntot 0) (> nin 0))
+                        (progn
+                          (setq frac (/ (float nin) ntot))
+                          (setq total
+                            (+ total (* frac len width)))))))))))
+          (setq i (1+ i))))
+      total)))
+
 (defun urb:ppto-rows-andenes (/ ss i be d atts area material etapa sub handle
                               corte relleno loseta-und adoq-und rows out r
-                              cont-usados area-cont)
+                              cont-usados area-cont poly)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) out nil i 0)
   (setq cont-usados nil)
   (if ss
@@ -25116,6 +25331,12 @@
       ;; v4.50: los anillos de prefabricado INTERNOS tambien descuentan
       ;; su franja del area del anden (el prefab ya cuenta su propio ML)
       (setq area-cont (urb:anden-area-anillos be))
+      (if (> area-cont 0.0)
+        (setq area (max 0.0 (- area area-cont))))
+      ;; 2026-09-02: prefabricados INDEPENDIENTES (bordillo de via) que
+      ;; corren por dentro del contorno tambien descuentan su franja
+      (setq poly (urb:anden-boundary-samples be))
+      (setq area-cont (urb:anden-area-prefabs-solapados be poly))
       (if (> area-cont 0.0)
         (setq area (max 0.0 (- area area-cont))))
       (if (<= corte 0.0) (setq corte (* area *urb-anden-depth*)))
