@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.66.0")
+(setq *urb-version* "4.67.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -6838,15 +6838,14 @@
       (setq kw (getkword "\nCalcular CORTE/RELLENO de la zona? [Si/No] <No>: "))
       (if (= kw "Si")
         (progn
-          (prompt "\nSeleccione las cotas de diseno (via/pozo/etiqueta; minimo 2):")
-          (setq picks (urb:pick-road-cotas-loop nil))
-          (if (and picks (>= (length picks) 2))
+          (setq picks (urb:pick-design-cotas))
+          (if (and picks (>= (length picks) 1))
             (progn
               (setq mov (urb:earthworks-from-picks ename picks))
               (if mov
                 (prompt (strcat "\nCorte: " (rtos (car mov) 2 2)
                   " m3 | Relleno: " (rtos (cadr mov) 2 2) " m3"))))
-            (prompt "\nSin cotas suficientes: la zona queda sin corte/relleno."))))
+            (prompt "\nSin cotas: la zona queda sin corte/relleno."))))
       (setq block-ref
         (urb:package-green-zone
           ename hatch etapa subetapa thickness))
@@ -8391,6 +8390,9 @@
   ;; redes hidro: etiqueta compacta 0.60 (redes densas)
   (if (member baseb '("TRAMO_ACUEDUCTO" "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
     (setq th (min th 0.60)))
+  ;; 2026-09-01: overrides de Ajustes (URB_MP_TEXTO_TRAMO/URB_MP_ANCHO_TRAMO)
+  (setq th (mp:cfg-tramo-text th))
+  (if (/= baseb "TRAMO_ACUEDUCTO") (setq w (mp:cfg-tramo-width w)))
   (setq lab (mp:label-tramo baseb vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
 
@@ -8538,7 +8540,8 @@
   (mp:layer "PPTO-ALC-PLUVIAL" 3)
   (mp:layer "PPTO-ELECTRICA-MT" 6)
   (mp:layer "PPTO-ELECTRICA-BT-AP" 2)
-  (mp:layer "PPTO-ACCESORIOS-ACUEDUCTO" 4)
+  ;; 2026-09-01: PPTO-ACCESORIOS-ACUEDUCTO eliminada (los accesorios van
+  ;; en PPTO-ACUEDUCTO, una capa por red) -- no recrearla
   (mp:layer "PPTO-TEXTOS-CANTIDADES" 7))
 
 (defun mp:vis-layer (bname)
@@ -8910,7 +8913,9 @@
     ((= base "POZO_PLUVIAL") "PPTO-ALC-PLUVIAL")
     ((= base "SUMIDERO") "PPTO-ALC-PLUVIAL")
     ((= base "CABEZAL_PLUVIAL") "PPTO-ALC-PLUVIAL")
-    ((= base "ACCESORIO_ACUEDUCTO") "PPTO-ACCESORIOS-ACUEDUCTO")
+    ;; 2026-09-01 (pedido del usuario): accesorios en la MISMA capa del
+    ;; tramo -- una capa por red, como MT/BT
+    ((= base "ACCESORIO_ACUEDUCTO") "PPTO-ACUEDUCTO")
     ((= base "LUMINARIA_AP") "PPTO-ELECTRICA-BT-AP")
     ;; 2026-08-26 (pedido del usuario): UNA capa por red -- lo de MT con
     ;; los tramos MT y lo de alumbrado (cajas AP-274/275, postes,
@@ -9467,7 +9472,7 @@
     ((= base "POZO_SANITARIO") "PPTO-ALC-SANITARIO")
     ((= base "POZO_PLUVIAL") "PPTO-ALC-PLUVIAL")
     ((= base "SUMIDERO") "PPTO-ALC-PLUVIAL")
-    ((= base "ACCESORIO_ACUEDUCTO") "PPTO-ACCESORIOS-ACUEDUCTO")
+    ((= base "ACCESORIO_ACUEDUCTO") "PPTO-ACUEDUCTO")
     ((= base "LUMINARIA_AP") "PPTO-ELECTRICA-BT-AP")
     ;; misma unificacion de capa MT que mp:point-layer (2026-08-26)
     (T (mp:point-layer base))))
@@ -10597,7 +10602,12 @@
       (if (and tn-fin key-fin (<= tn-fin key-fin))
         (setq messages
           (cons "La cota de terreno final debe estar sobre la clave" messages)))
-      (if (mp:gravity-tramo-p base)
+      ;; 2026-09-01: PLUVIAL sin cotas de clave = modo NORMATIVO (como las
+      ;; redes secas) -- no se exige pendiente ni cotas; la profundidad ya
+      ;; quedo por reglamentacion en mp:derive-tramo-values.
+      (if (and (mp:gravity-tramo-p base)
+               (not (and (= base "TRAMO_ALLUVIAS")
+                         (null key-ini) (null key-fin))))
         (progn
           (setq slope (mp:numeric-real (mp:getval "PENDIENTE" vals ""))
                 slope-calculated
@@ -10729,10 +10739,19 @@
       ;; excavacion NORMATIVA como las electricas: RAS 0330 (Res. 0330/
       ;; 2017 art. 89): recubrimiento minimo 1.0 m sobre la clave en zonas
       ;; vehiculares. Zanja = 1.0 + diametro + cama.
-      (if (and (= base "TRAMO_ACUEDUCTO") (<= depth-mean 1e-9))
-        (setq depth-ini (+ 1.0 diameter-m bedding)
-              depth-fin depth-ini
-              depth-mean depth-ini))
+      ;; 2026-09-01 (2a ronda): tambien PLUVIAL sin cotas -- recubrimiento
+      ;; normativo 1.2 m a clave (RAS 0330 alcantarillados bajo calzada);
+      ;; la PROFUNDIDAD_MEDIA resultante elige sola la banda Hex del APU.
+      (if (<= depth-mean 1e-9)
+        (cond
+          ((= base "TRAMO_ACUEDUCTO")
+            (setq depth-ini (+ 1.0 diameter-m bedding)
+                  depth-fin depth-ini
+                  depth-mean depth-ini))
+          ((= base "TRAMO_ALLUVIAS")
+            (setq depth-ini (+ 1.2 diameter-m bedding)
+                  depth-fin depth-ini
+                  depth-mean depth-ini))))
       ;; Muestreo de superficie a lo largo del tramo (no solo los 2 pozos):
       ;; la superficie de terreno ya existe en el dibujo, asi que se usa un
       ;; perfil real de profundidad en vez de solo el promedio de extremos,
@@ -12185,7 +12204,9 @@
     (cond
       ((= base "TRAMO_ACUEDUCTO") 0.0) ;; hairline como el plano
       ((member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"
-                      "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS")) 0.20)
+                      "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
+        ;; mismo override de Ajustes que mp:make-cant-tramo-block
+        (mp:cfg-tramo-width 0.20))
       (T (max 0.01 *mp-vis-width*))))
   ;; Los circulos de extremos de un tramo hidrosanitario/MT/BT-AP no son
   ;; pozos: eran geometria duplicada. El nodo real es su INSERT puntual
@@ -12792,6 +12813,9 @@
         ": row { : text { label = \"Rampa en concreto\"; width = 30; } : edit_box { key = \"e_rampa\"; edit_width = 10; } }"
         ": row { : text { label = \"Bioswale / biorretenedor\"; width = 30; } : edit_box { key = \"e_bio\"; edit_width = 10; } }"
         ": row { : text { label = \"Tierra negra zona verde\"; width = 30; } : edit_box { key = \"e_tierra\"; edit_width = 10; } } }"
+        ": boxed_column { label = \"Tramos de red (aplica a tramos nuevos)\";"
+        ": row { : text { label = \"Altura texto de tramo (m)\"; width = 30; } : edit_box { key = \"t_texto\"; edit_width = 10; } }"
+        ": row { : text { label = \"Espesor de linea de tramo (m)\"; width = 30; } : edit_box { key = \"t_ancho\"; edit_width = 10; } } }"
         ": boxed_column { label = \"Ancho por defecto del prefabricado (m)\";"
         ": row { : text { label = \"Bordillo\"; width = 30; } : edit_box { key = \"a_bordillo\"; edit_width = 10; } }"
         ": row { : text { label = \"Sardinel\"; width = 30; } : edit_box { key = \"a_sardinel\"; edit_width = 10; } }"
@@ -12815,6 +12839,8 @@
     ("URB_SEND_ESP_RAMPA-CONC" "e_rampa" 0.05 3.0)
     ("URB_SEND_ESP_BIOSWALE" "e_bio" 0.05 3.0)
     ("URB_GREEN_ESP_TIERRA" "e_tierra" 0.05 1.0)
+    ("URB_MP_TEXTO_TRAMO" "t_texto" 0.1 3.0)
+    ("URB_MP_ANCHO_TRAMO" "t_ancho" 0.01 2.0)
     ("URB_PREFAB_ANCHO_BORDILLO" "a_bordillo" 0.05 2.0)
     ("URB_PREFAB_ANCHO_SARDINEL" "a_sardinel" 0.05 2.0)
     ("URB_PREFAB_ANCHO_CANUELA" "a_canuela" 0.05 2.0)))
@@ -12866,6 +12892,8 @@
             ((= tile "e_rampa") (urb:send-espesor-de (assoc "RAMPA-CONC" *urb-send-tipos*)))
             ((= tile "e_bio") (urb:send-espesor-de *urb-bioswale-tipo*))
             ((= tile "e_tierra") (urb:green-default-espesor))
+            ((= tile "t_texto") (mp:cfg-tramo-text 0.60))
+            ((= tile "t_ancho") (mp:cfg-tramo-width 0.20))
             ((= tile "a_bordillo") (urb:prefab-default-ancho "Bordillo"))
             ((= tile "a_sardinel") (urb:prefab-default-ancho "Sardinel"))
             ((= tile "a_canuela") (urb:prefab-default-ancho "Canuela"))
@@ -14834,6 +14862,71 @@
           (progn
             (setq point (cadr sel))
             (setq picks (append picks (list (list value point)))))))))
+  picks)
+
+;; 2026-09-01 (pedido del usuario: "que pasa si no tengo una via cerca o
+;; no he dibujado ninguna... que sea muy intuitivo"): picker de cotas de
+;; DISENO para el corte/relleno de poligonos (zona verde, sendero,
+;; rampa). Cada cota puede venir de: clic sobre una VIA creada, un POZO
+;; del modelo, una ETIQUETA de cota (texto de cualquier xref) o
+;; DIGITADA (opcion Digitar: numero + punto donde aplica). Sin vias ni
+;; pozos, se digita y ya. Con UNA sola cota el plano de diseno queda
+;; horizontal; con 2 es una rasante lineal; con 3+ un plano ajustado.
+(defun urb:pick-design-cotas (/ picks sel value point done n)
+  (setq done nil picks nil)
+  (while (not done)
+    (setq n (length picks))
+    (initget "Digitar Terminar")
+    (setq sel
+      (nentsel
+        (strcat "\nCota de diseno " (itoa (1+ n))
+          ": clic sobre VIA/POZO/etiqueta, [Digitar] la cota, o Enter para terminar"
+          (if (> n 0) (strcat " (" (itoa n) " tomadas)") "") ": ")))
+    (cond
+      ((null sel)
+        (if (>= n 1)
+          (setq done T)
+          (progn
+            (prompt "\nSe necesita al menos 1 cota (o cancele con Esc).")
+            (setq done T picks nil))))
+      ((and (= (type sel) 'STR) (= sel "Terminar")) (setq done T))
+      ((and (= (type sel) 'STR) (= sel "Digitar"))
+        (setq value (getreal "\nCota de diseno (msnm): "))
+        (if value
+          (progn
+            (setq point
+              (getpoint (strcat "\nPunto donde aplica esa cota"
+                (if (= n 0) " (Enter = toda la zona plana)" "") ": ")))
+            (cond
+              (point
+                (setq picks (append picks (list (list value point)))))
+              ((= n 0)
+                ;; sin punto y es la unica: plano horizontal, el punto da igual
+                (setq picks (list (list value (list 0.0 0.0)))))
+              (T
+                (prompt "\nSin punto la cota no se puede ubicar; se omite."))))))
+      (T
+        ;; misma cascada del modo Pendiente: via -> pozo del modelo ->
+        ;; etiqueta con numero -> digitar de respaldo
+        (setq value (urb:cota-from-pick sel))
+        (if value
+          (prompt (strcat "\nCota de la RASANTE de la via en el clic: "
+            (rtos value 2 3)))
+          (progn
+            (setq value (urb:cota-from-model-punto sel))
+            (if value
+              (prompt (strcat "\nCota tomada del POZO/ELEMENTO del modelo: "
+                (rtos value 2 3)))
+              (progn
+                (setq value (urb:selected-cota-number sel))
+                (if value
+                  (prompt (strcat "\nCota leida de la etiqueta: "
+                    (rtos value 2 3))))))))
+        (if (null value)
+          (setq value
+            (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
+        (if value
+          (setq picks (append picks (list (list value (cadr sel)))))))))
   picks)
 
 ;; Proyecta cada cota seleccionada sobre el eje (en el punto del clic) y
@@ -18754,10 +18847,97 @@
             width fondo))
         nil))))
 
+;; 2026-09-01 (pedido del usuario: "que pasa si anteriormente habia
+;; dibujado un sardinel... hay forma de que se corte"): recorta los
+;; prefabricados (sardinel/bordillo/canuela) que corren bajo el frente de
+;; la rampa. Cada prefabricado afectado se parte: se extrae su polilinea
+;; de referencia (misma tuberia probada de EDITAR), se quita el rango que
+;; la rampa ocupa y se reconstruyen las piezas restantes como bloques
+;; nuevos; el original se borra. Devuelve cuantos prefabricados corto.
+(defun urb:trim-prefabs-for-ramp (base-pt axis-angle span
+   / p2 ss i en data prefab pwidth mode etapa sub extd ref sp len d pt
+   dmin dmax cnt piece res bb1 bb2 minx miny maxx maxy tol)
+  (setq p2 (list (+ (car base-pt) (* span (cos axis-angle)))
+                 (+ (cadr base-pt) (* span (sin axis-angle)))))
+  (setq minx (- (min (car base-pt) (car p2)) 1.5)
+        maxx (+ (max (car base-pt) (car p2)) 1.5)
+        miny (- (min (cadr base-pt) (cadr p2)) 1.5)
+        maxy (+ (max (cadr base-pt) (cadr p2)) 1.5)
+        tol 0.35 cnt 0)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_PREFAB_BLOCK")))) i 0)
+  (if ss
+    (while (< i (sslength ss))
+      (setq en (ssname ss i))
+      ;; prefiltro barato por bbox del insert
+      (setq res (vl-catch-all-apply 'vla-GetBoundingBox
+        (list (vlax-ename->vla-object en) 'bb1 'bb2)))
+      (if (and (not (vl-catch-all-error-p res))
+               (progn
+                 (setq bb1 (vlax-safearray->list bb1)
+                       bb2 (vlax-safearray->list bb2))
+                 (and (< (car bb1) maxx) (> (car bb2) minx)
+                      (< (cadr bb1) maxy) (> (cadr bb2) miny))))
+        (progn
+          (setq data (urb:prefab-data en)
+                prefab (urb:safe-string (nth 0 data) "Bordillo")
+                etapa (urb:safe-string (nth 1 data) "1")
+                sub (urb:safe-string (nth 2 data) "1")
+                pwidth (atof (urb:safe-string (nth 3 data) "0.20"))
+                mode (urb:safe-string (nth 5 data) "Interior"))
+          (setq extd (urb:extract-prefab-reference en prefab mode))
+          (if extd
+            (progn
+              (setq ref (nth 0 extd) sp (nth 1 extd))
+              (setq len (vlax-curve-getDistAtParam ref
+                          (vlax-curve-getEndParam ref)))
+              ;; rango de la referencia ocupado por el frente de la rampa
+              (setq dmin nil dmax nil d 0.0)
+              (while (<= d len)
+                (setq pt (vlax-curve-getPointAtDist ref d))
+                (if (and pt
+                         (< (car (cr:pt-seg-safe (car pt) (cadr pt)
+                              (car base-pt) (cadr base-pt)
+                              (car p2) (cadr p2))) tol))
+                  (progn
+                    (if (null dmin) (setq dmin d))
+                    (setq dmax d)))
+                (setq d (+ d 0.20)))
+              (if (null dmin)
+                ;; no lo toca: descartar la referencia, insert queda intacto
+                (if (entget ref) (entdel ref))
+                (progn
+                  ;; piezas restantes fuera del frente de la rampa
+                  (foreach seg (list (list 0.0 dmin) (list dmax len))
+                    (if (> (- (cadr seg) (car seg)) 0.15)
+                      (progn
+                        (setq piece
+                          (urb:chain-subpoly ref (car seg) (cadr seg)))
+                        (if piece
+                          (urb:build-prefab-from-reference
+                            piece sp prefab pwidth etapa sub mode)))))
+                  (if (entget ref) (entdel ref))
+                  (entdel en)
+                  (setq cnt (1+ cnt))))))))
+      (setq i (1+ i))))
+  cnt)
+
+;; distancia punto-segmento 2D (devuelve (dist)) -- version local segura
+(defun cr:pt-seg-safe (px py x1 y1 x2 y2 / dx dy len2 t0 cx cy)
+  (setq dx (- x2 x1) dy (- y2 y1))
+  (setq len2 (+ (* dx dx) (* dy dy)))
+  (if (< len2 1e-12)
+    (list (distance (list px py) (list x1 y1)))
+    (progn
+      (setq t0 (/ (+ (* (- px x1) dx) (* (- py y1) dy)) len2))
+      (if (< t0 0.0) (setq t0 0.0))
+      (if (> t0 1.0) (setq t0 1.0))
+      (setq cx (+ x1 (* t0 dx)) cy (+ y1 (* t0 dy)))
+      (list (distance (list px py) (list cx cy))))))
+
 (defun urb:create-ramp-command
   (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
    depth etapa subetapa axis-angle side-sign block-ref center-pt total-half done
-   ext ext-pt ext-sel ext-cp vproj dlg)
+   ext ext-pt ext-sel ext-cp vproj dlg ncut picks mov pe u v pts)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
   ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
   ;; laterales de 0.65 m con adoquin 20x10, fondo = ancho del anden
@@ -18862,12 +19042,64 @@
       (setq block-ref
         (urb:build-ramp base-pt axis-angle side-sign width depth etapa subetapa ext))
       (if block-ref
-        (prompt
-          (strcat "\nRampa creada: superficie " (rtos (+ width 0.6) 2 2)
-                  "m en la via (central " (rtos width 2 2)
-                  "m), modulo total " (rtos (+ width 1.2) 2 2)
-                  "m x " (rtos depth 2 2) "m | Etapa " etapa
-                  ". Cambie etapa/subetapa en lote desde el menu URBANISMO."))))
+        (progn
+          ;; 2026-09-01: cortar el sardinel/bordillo existente bajo la rampa
+          (initget "Si No")
+          (setq kw (getkword
+            "\nCortar sardinel/bordillo existente bajo la rampa? [Si/No] <Si>: "))
+          (if (/= kw "No")
+            (progn
+              (setq ncut (urb:trim-prefabs-for-ramp
+                base-pt axis-angle (+ width 1.2)))
+              (if (> ncut 0)
+                (prompt (strcat "\nPrefabricados cortados bajo la rampa: "
+                  (itoa ncut) "."))
+                (prompt "\nNo habia sardinel/bordillo bajo la rampa."))))
+          ;; 2026-09-01: corte/relleno opcional de la rampa (mismo motor de
+          ;; zona verde: cotas de diseno intuitivas + malla contra SUP_TN)
+          (initget "Si No")
+          (setq kw (getkword
+            "\nCalcular CORTE/RELLENO de la rampa? [Si/No] <No>: "))
+          (if (= kw "Si")
+            (progn
+              (setq picks (urb:pick-design-cotas))
+              (if (and picks (>= (length picks) 1))
+                (progn
+                  ;; rectangulo del modulo en el marco local de la rampa
+                  (setq pts nil)
+                  (foreach uv (list (list 0.0 0.0)
+                                    (list (+ width 1.2) 0.0)
+                                    (list (+ width 1.2) depth)
+                                    (list 0.0 depth))
+                    (setq u (car uv) v (* side-sign (cadr uv)))
+                    (setq pts (cons
+                      (list (+ (car base-pt)
+                               (* u (cos axis-angle))
+                               (* v (- (sin axis-angle))))
+                            (+ (cadr base-pt)
+                               (* u (sin axis-angle))
+                               (* v (cos axis-angle))))
+                      pts)))
+                  (entmake (append
+                    (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity")
+                          '(100 . "AcDbPolyline") '(90 . 4) '(70 . 1))
+                    (mapcar '(lambda (p) (cons 10 p)) (reverse pts))))
+                  (setq pe (entlast))
+                  (setq mov (urb:earthworks-from-picks pe picks))
+                  (if (entget pe) (entdel pe))
+                  (if mov
+                    (progn
+                      (urb:set-xdata-strings
+                        (urb:as-ename block-ref) "URB_RAMPA_MOV"
+                        (list (rtos (car mov) 2 2) (rtos (cadr mov) 2 2)))
+                      (prompt (strcat "\nCorte: " (rtos (car mov) 2 2)
+                        " m3 | Relleno: " (rtos (cadr mov) 2 2) " m3"))))))))
+          (prompt
+            (strcat "\nRampa creada: superficie " (rtos (+ width 0.6) 2 2)
+                    "m en la via (central " (rtos width 2 2)
+                    "m), modulo total " (rtos (+ width 1.2) 2 2)
+                    "m x " (rtos depth 2 2) "m | Etapa " etapa
+                    ". Cambie etapa/subetapa en lote desde el menu URBANISMO.")))))
     (prompt "\nComando cancelado."))
   (if undo-open
     (progn (vl-catch-all-apply 'vla-EndUndoMark (list doc)) (setq undo-open nil)))
@@ -22844,6 +23076,21 @@
         (urb:config-read (strcat "URB_PREFAB_ANCHO_" (strcase prefab))) "")))
   (if (and v (> v 0.0)) v 0.20))
 
+;; 2026-09-01 (pedido del usuario): tamano del texto y espesor de los
+;; tramos de red ESTANDARIZABLES en Ajustes. Aplican a los bloques de
+;; tramo que se creen/renormalicen de ahi en adelante (la definicion es
+;; compartida por longitud). ACU conserva su hairline aunque haya ancho
+;; configurado (calco fiel del plano).
+(defun mp:cfg-tramo-text (default / v)
+  (setq v (urb:parse-real
+    (urb:safe-string (urb:config-read "URB_MP_TEXTO_TRAMO") "")))
+  (if (and v (> v 0.0)) v default))
+
+(defun mp:cfg-tramo-width (default / v)
+  (setq v (urb:parse-real
+    (urb:safe-string (urb:config-read "URB_MP_ANCHO_TRAMO") "")))
+  (if (and v (> v 0.0)) v default))
+
 ;; 2026-08-24 (pedido del usuario): prefabricado por COSTADOS -- distinto
 ;; de urb:build-prefab-anillo (que envuelve TODO el contorno incluidas
 ;; las puntas). v2 del mismo dia: el usuario NO quiere trazar los
@@ -23092,12 +23339,23 @@
   (while (setq ename (urb:draw-closed-polyline))
     (setq obj (vlax-ename->vla-object ename))
     (vla-put-Layer obj capa)
-    ;; relleno solido en la capa del tipo (color ByLayer) para que se LEA
-    ;; el area -- la ciclorruta azul como la referencia
+    ;; 2026-09-01 (pedido del usuario: "unifiques senderos con andenes,
+    ;; que sea un mismo simbolo"): los senderos peatonales llevan la
+    ;; RETICULA de loseta gris del anden (patron NET) en vez del relleno
+    ;; solido de color; la ciclorruta conserva su azul solido (referencia
+    ;; que el mismo usuario aprobo el 2026-08-24).
     (setq hatch
       (vl-catch-all-apply
-        '(lambda ()
-          (setq hatch (vla-AddHatch (urb:space) 1 "SOLID" :vlax-true))
+        '(lambda ( / anden-look)
+          (setq anden-look
+            (and (= appid "URB_SENDERO")
+                 (not (urb:string-equal-p (nth 0 entry) "CICLORRUTA"))))
+          (if anden-look
+            (progn
+              (setq hatch (vla-AddHatch (urb:space) 0 "NET" :vlax-true))
+              (vla-put-PatternScale hatch 0.40)
+              (vla-put-Color hatch 8))
+            (setq hatch (vla-AddHatch (urb:space) 1 "SOLID" :vlax-true)))
           (vla-AppendOuterLoop hatch (urb:make-loop-array obj))
           (vla-put-Layer hatch capa)
           (vla-Evaluate hatch)
@@ -23147,9 +23405,8 @@
           (getkword "\nCalcular CORTE/RELLENO de este sendero? [Si/No] <No>: "))
         (if (= kw2 "Si")
           (progn
-            (prompt "\nSeleccione las cotas de diseno (via/pozo/etiqueta; minimo 2):")
-            (setq picks2 (urb:pick-road-cotas-loop nil))
-            (if (and picks2 (>= (length picks2) 2))
+            (setq picks2 (urb:pick-design-cotas))
+            (if (and picks2 (>= (length picks2) 1))
               (progn
                 (setq mov2 (urb:earthworks-from-picks ename picks2))
                 (if mov2

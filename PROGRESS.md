@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-09-01 noche (PC secundario, Civil 3D 2026) — v4.67.0: 2ª ronda del mismo día (8 frentes)
+
+1. **Picker de cotas de diseño intuitivo** (`urb:pick-design-cotas`) para el MT de polígonos (zona verde/sendero/rampa): cada cota por clic sobre vía/pozo/etiqueta O digitada ([Digitar]: número + punto); **mínimo 1** (1 = plano horizontal, 2 = rasante lineal, 3+ = plano ajustado). Responde "¿y si no hay vía?": se digita y ya.
+2. **Rampa**: corta el sardinel/bordillo existente bajo su frente (`urb:trim-prefabs-for-ramp`: extrae la referencia del prefabricado, quita el rango ocupado y reconstruye las piezas restantes; pregunta [Si/No] <Si>) + corte/relleno opcional del módulo (xdata `URB_RAMPA_MOV`). El ancho por clic ya estaba en v4.66 (la queja del usuario venía de una sesión con el motor viejo).
+3. **Senderos con el símbolo del andén**: retícula NET 0.40 gris en vez del sólido de color (ciclorruta conserva azul sólido).
+4. **Pluvial sin cotas obligatorias**: sin claves → recubrimiento normativo 1.2 m (RAS 0330) + diámetro + cama; la banda Hex sale de la PROFUNDIDAD_MEDIA; la validación no exige pendiente en modo normativo.
+5. **Texto/espesor de tramos configurables** (Ajustes: `URB_MP_TEXTO_TRAMO`, `URB_MP_ANCHO_TRAMO`; aplican a defs nuevos/renormalizados; ACU sigue hairline).
+6. **Accesorios ACU a la capa PPTO-ACUEDUCTO** (una capa por red); `PPTO-ACCESORIOS-ACUEDUCTO` deja de crearse.
+7. Harness `ajustes0902/fix0901b.lsp`: BORRAEJEC (elimina elementos y capas *-EJEC — el ppto queda solo-pendiente), MOVERACC, AUDITACC/CENTRAACC (defs de accesorio corridos re-centrados), REWIPE/REFIXVIA (re-aplican los fixes de anoche si la sesión abierta del usuario los pisa al guardar).
+
 ### 2026-09-02 (PC secundario, Civil 3D 2026) — v4.66.0: ronda de 11 pedidos (diálogos + MT + accesorios + cárcamo)
 
 1. **Sardinel externo garantizado en curvas**: el lado se decide con test punto-dentro-del-contorno (muestreo cada 0.25 m + ray casting) en vez del producto punto contra el centroide, que fallaba en tramos curvos (foto del usuario: sardinel izquierdo interno).

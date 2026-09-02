@@ -1,0 +1,16 @@
+(if (not (member "C:URBANISMO" (atoms-family 1))) (load "C:/Users/jdbus/AppData/Roaming/Autodesk/ApplicationPlugins/UrbanismoCantidades.bundle/Contents/urbanismo_cantidades.lsp"))
+(load "C:/Users/jdbus/Documents/URBANISMO/work/ajustes0902/fix0901b.lsp")
+AUDITACC
+CENTRAACC
+MOVERACC
+BORRAEJEC
+REWIPE
+REFIXVIA
+_.QSAVE
+(setq *urb-ppto-sin-dialogo* T)
+PPTOEXPORTAR
+(setq f (open "C:/Users/jdbus/Documents/URBANISMO/work/ajustes0902/ronda2_done.txt" "w"))
+(write-line (vl-princ-to-string *urb-ppto-last-summary*) f)
+(write-line "FIN-RONDA2" f)
+(close f)
+_.QUIT _N
