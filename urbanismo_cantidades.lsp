@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.68.1")
+(setq *urb-version* "4.68.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -11059,23 +11059,37 @@
         rot (cdr (assoc 50 ed))
         bname (vla-get-EffectiveName obj)
         base (mp:infer-base bname (mp:att-alist en)))
-  (setq blk (vl-catch-all-apply 'vla-Item
-    (list (vla-get-Blocks (vla-get-ActiveDocument (vlax-get-acad-object)))
-          bname)))
-  (if (vl-catch-all-error-p blk)
+  ;; 2026-09-03 (optimizacion de velocidad): el mapa de attdefs de cada
+  ;; DEFINICION se cachea por nombre de bloque -- las definiciones son
+  ;; compartidas por longitud, asi que en pasadas masivas (RECENTRA,
+  ;; ETIQUETAS) el def se recorre UNA vez, no una por insert.
+  (setq map (cdr (assoc bname
+    (if (boundp '*mp-recenter-defcache*) *mp-recenter-defcache* nil))))
+  (setq blk
+    (if map
+      nil
+      (vl-catch-all-apply 'vla-Item
+        (list (vla-get-Blocks (vla-get-ActiveDocument (vlax-get-acad-object)))
+              bname))))
+  (if (and (null map) (vl-catch-all-error-p blk))
     nil
     (progn
-      (setq map nil)
-      (vlax-for item blk
-        (if (= (vla-get-ObjectName item) "AcDbAttributeDefinition")
-          (setq map
-            (cons (list (strcase (vla-get-TagString item))
-                        (vl-catch-all-apply 'vlax-get
-                          (list item 'TextAlignmentPoint))
-                        (vla-get-Rotation item)
-                        (vla-get-Alignment item)
-                        (vlax-get item 'InsertionPoint))
-              map))))
+      (if (null map)
+        (progn
+          (vlax-for item blk
+            (if (= (vla-get-ObjectName item) "AcDbAttributeDefinition")
+              (setq map
+                (cons (list (strcase (vla-get-TagString item))
+                            (vl-catch-all-apply 'vlax-get
+                              (list item 'TextAlignmentPoint))
+                            (vla-get-Rotation item)
+                            (vla-get-Alignment item)
+                            (vlax-get item 'InsertionPoint))
+                  map))))
+          (setq *mp-recenter-defcache*
+            (cons (cons bname map)
+              (if (boundp '*mp-recenter-defcache*)
+                *mp-recenter-defcache* nil)))))
       (foreach a (vlax-invoke obj 'GetAttributes)
         (setq tag (strcase (vla-get-TagString a)))
         (if (and (member tag '("ETIQUETA" "PENDIENTE_VIS" "LONG_VIS"))
@@ -11914,6 +11928,9 @@
 
 (defun urb:update-quantity-labels-command
   (/ ss i en obj bname atts base lab)
+  ;; cache de defs del recentrado: fresco por corrida (los attdefs pueden
+  ;; haberse normalizado desde la ultima pasada)
+  (setq *mp-recenter-defcache* nil)
   (setq ss (ssget "X" '((0 . "INSERT"))))
   (if ss
     (progn
@@ -12462,7 +12479,10 @@
 
 (defun mp:referenced-endpoint-handles
   (/ ss index ename obj atts base handle result)
-  (setq ss (ssget "_X" '((0 . "INSERT")))
+  ;; 2026-09-03 (misma optimizacion del reactor de borrado): solo los
+  ;; bloques de TRAMO pueden referenciar extremos -- filtrar por nombre
+  ;; evita el barrido COM de todos los inserts del master en cada ERASE.
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_TRAMO_*,TRAMO_*,CANT_TRAMO_*")))
         index 0
         result nil)
   (if ss
@@ -12488,23 +12508,27 @@
   (/ referenced ss index ename base atts origin handle deleted result)
   ;; Solo se eliminan puntos creados como auxiliares de un tramo. Los puntos
   ;; creados desde el menu, los heredados y los compartidos se conservan.
+  ;; 2026-09-03 (reporte del usuario: "al borrar un elemento se demora
+  ;; mucho cargando"): esta limpieza corre tras CADA ERASE (reactor) y
+  ;; escaneaba TODOS los inserts del dibujo con llamadas COM. Ahora el
+  ;; ssget filtra por NOMBRE a los unicos candidatos posibles (bloques
+  ;; punto MP_PUNTO_*/CANT_PUNTO_*) -- de miles de inserts a decenas.
   (setq referenced (mp:referenced-endpoint-handles)
-        ss (ssget "_X" '((0 . "INSERT")))
+        ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_*,CANT_PUNTO_*")))
         index 0
         deleted 0)
   (if ss
     (while (< index (sslength ss))
-      (setq ename (ssname ss index)
-            base (mp:point-reference-base ename))
-      (if (and
-            (/= base "")
-            (urb:q-modelspace-p ename))
+      (setq ename (ssname ss index))
+      ;; el ssget ya filtro por nombre de bloque punto -- no hace falta
+      ;; inferir la base con COM (EffectiveName) por cada insert
+      (if (urb:q-modelspace-p ename)
         (progn
           (setq atts (mp:att-alist ename)
                 origin
                   (strcase
                     (mp:getval "ORIGEN_CREACION" atts "MANUAL"))
-                handle (strcase (mp:entity-handle ename)))
+                handle (strcase (cdr (assoc 5 (entget ename)))))
           (if (and
                 (= origin "AUTO_TRAMO")
                 (not (member handle referenced)))
@@ -12523,15 +12547,40 @@
         (itoa deleted) ".")))
   deleted)
 
+;; 2026-09-03 (medido en el master real: cada ERASE de CUALQUIER cosa
+;; costaba ~7 s por el barrido del reactor). Compuerta barata: el conteo
+;; de TRAMOS se toma al INICIAR el comando (ssget por nombre, sin COM,
+;; milisegundos) y la limpieza de extremos huerfanos solo corre si el
+;; borrado realmente elimino tramos -- el 95% de los borrados (textos,
+;; vias, prefabricados, puntos sueltos) queda instantaneo.
+(defun mp:count-tramos-fast (/ ss)
+  (setq ss (ssget "_X"
+    '((0 . "INSERT") (2 . "MP_TRAMO_*,TRAMO_*,CANT_TRAMO_*"))))
+  (if ss (sslength ss) 0))
+
+(defun mp:on-network-command-start
+  (reactor command-data / command)
+  (setq command
+    (strcase
+      (mp:safe-str
+        (if command-data (car command-data) ""))))
+  (if (member command '("ERASE" "DELETE" "BORRAR"))
+    (setq *mp-pre-erase-tramos* (mp:count-tramos-fast)))
+  (princ))
+
 (defun mp:on-network-command-ended
   (reactor command-data / command result)
   (setq command
     (strcase
       (mp:safe-str
         (if command-data (car command-data) ""))))
-  (if (member command '("ERASE" "DELETE" "BORRAR"))
+  (if (and (member command '("ERASE" "DELETE" "BORRAR"))
+           (or (not (boundp '*mp-pre-erase-tramos*))
+               (null *mp-pre-erase-tramos*)
+               (/= (mp:count-tramos-fast) *mp-pre-erase-tramos*)))
     (setq result
       (vl-catch-all-apply 'mp:cleanup-orphan-auto-points nil)))
+  (setq *mp-pre-erase-tramos* nil)
   (princ))
 
 (defun mp:install-network-erase-reactor (/ old)
@@ -12543,7 +12592,8 @@
   (setq *mp-network-erase-reactor*
     (vlr-command-reactor
       nil
-      '((:vlr-commandEnded . mp:on-network-command-ended))))
+      '((:vlr-commandWillStart . mp:on-network-command-start)
+        (:vlr-commandEnded . mp:on-network-command-ended))))
   *mp-network-erase-reactor*)
 
 (defun urb:update-network-blocks-command

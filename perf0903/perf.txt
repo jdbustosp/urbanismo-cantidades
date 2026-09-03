@@ -1,0 +1,6 @@
+CENSO: inserts=3257 puntosMP=2064 tramos=1166 defsBloque=2228 capas=530 regapps=5719
+BARRIDO VIEJO (att-alist de TODOS los inserts): 3257 en 3.4 s
+REACTOR NUEVO (cleanup filtrado completo): 7.2 s
+ERASE de 1 tramo (reactor incluido): 7.4 s
+REGEN: 1.2 s
+FIN-PERF1

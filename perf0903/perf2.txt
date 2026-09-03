@@ -1,0 +1,3 @@
+ERASE NO-tramo (prefab): 0.09 s
+ERASE tramo (escaneo esperado): 5.02 s
+FIN-PERF2
