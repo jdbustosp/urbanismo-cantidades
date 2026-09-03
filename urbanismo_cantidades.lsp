@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.68.0")
+(setq *urb-version* "4.68.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -23868,13 +23868,59 @@
   (if (not (vl-file-directory-p folder)) (vl-mkdir folder))
   (strcat folder "\\ppto_libro.txt"))
 
-(defun urb:ppto-config-read (/ f line)
+;; 2026-09-03 MULTI-PC (pregunta del usuario: "¿si actualizo el ppto en
+;; varios computadores me reconoce bien la ruta?"): la ruta guardada es
+;; absoluta y LOCAL por maquina, y SharePoint monta en bases distintas
+;; (C:\Users\<usuario>\colsubsidio.com en un PC, D:\colsubsidio.com en
+;; otro). Si la ruta guardada no existe en ESTE PC, se AUTO-RESUELVE:
+;;   1) el libro vive AL LADO del master -> carpeta PADRE del DWG abierto
+;;      (mismo espiritu de los xrefs relativos .\XREF\);
+;;   2) si no, la misma cola "colsubsidio.com\..." probada en las bases
+;;      tipicas (%USERPROFILE%, C:\, D:\, E:\, F:\).
+;; Al encontrarlo, la config local se re-escribe sola (self-healing): el
+;; usuario no tiene que re-apuntar nada al cambiar de computador.
+(defun urb:ppto-config-read (/ f line dwgdir parent cand tail pos d)
+  (setq line "")
   (if (setq f (open (urb:ppto-config-file) "r"))
     (progn
-      (setq line (read-line f))
-      (close f)
-      (urb:safe-string line ""))
-    ""))
+      (setq line (urb:safe-string (read-line f) ""))
+      (close f)))
+  (if (and (/= line "") (findfile line))
+    line
+    (progn
+      (setq cand nil)
+      ;; 1) junto al master: <padre del DWG>\urbanismo maipore.xlsx
+      (setq dwgdir (urb:safe-string (getvar "DWGPREFIX") ""))
+      (if (/= dwgdir "")
+        (progn
+          (setq parent
+            (vl-filename-directory
+              (vl-string-right-trim "\\/" dwgdir)))
+          (if (and parent
+                   (findfile (strcat parent "\\urbanismo maipore.xlsx")))
+            (setq cand (strcat parent "\\urbanismo maipore.xlsx")))
+          ;; o en la MISMA carpeta del DWG
+          (if (and (null cand)
+                   (findfile (strcat dwgdir "urbanismo maipore.xlsx")))
+            (setq cand (strcat dwgdir "urbanismo maipore.xlsx")))))
+      ;; 2) la cola colsubsidio.com\... de la ruta guardada en otra base
+      (if (and (null cand) (/= line "")
+               (setq pos (vl-string-search "colsubsidio.com" line)))
+        (progn
+          (setq tail (substr line (1+ pos)))
+          (foreach d (list (strcat (urb:safe-string
+                             (getenv "USERPROFILE") "C:\\x") "\\")
+                           "C:\\" "D:\\" "E:\\" "F:\\")
+            (if (and (null cand) (findfile (strcat d tail)))
+              (setq cand (strcat d tail))))))
+      (if cand
+        (progn
+          (urb:ppto-config-write cand)
+          (prompt (strcat
+            "\nLibro del presupuesto RESUELTO para este PC (multi-PC): "
+            cand))
+          cand)
+        line))))
 
 (defun urb:ppto-config-write (path / f)
   (if (setq f (open (urb:ppto-config-file) "w"))
