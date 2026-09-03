@@ -29,6 +29,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-09-02 tarde (parte 33, PC principal, commit `478b700`) — traslado a SharePoint completo + carga de comandos en 2023 + retrim tramos húmedos
+
+- **Traslado a SharePoint (pedido del usuario)**: libro y master vigentes ahora en `colsubsidio.com\...\260915_ACTUALIZACION GENERAL PPTO\` (libro raíz; master en `Memorias\` con xrefs en `Memorias\XREF\`). Config del plugin re-apuntada. Los **8 xrefs guardaban rutas relativas del esquema viejo de Drive y salían rotos** → re-apuntados a `.\XREF\<resto>` (relativas, válidas en ambos PCs), verificado con doble censo headless. Backups: NUEVA carpeta única `...\PROYECTO_URBANISMO_GENERAL\BACKUPS\` (29 existentes movidos + los de hoy). Lo viejo de Drive queda congelado como histórico.
+- **Purga del master real** (autorizada): AUDIT OK, regapps 5.717→41, escalas reseteadas, 35,7→31,4 MB, nada modelado perdido.
+- **"Unknown command ANDEN" en 2023**: el Autoloader carga el .lsp solo en el PRIMER documento (AutoLISP es por-documento) — el dwg de trabajo quedaba sin motor; antes lo tapaba el Startup Suite viejo. Fix de clase: `instalar_bundle.ps1` genera el cargador `acaddoc.lsp` (NETLOAD DLL + load del motor, con guardas) para CADA `C3D 20xx\enu\Support` (antes solo 2026). Verificado headless: motor 4.68.0 y comandos definidos automáticamente.
+- **Tramos húmedos cortos (foto pozo 33)**: la pasada por handles destapó que **294/295 tramos SAN/PLU no tenían HANDLE_EXTREMO_INI/FIN**. Retrim v2: busca el pozo real de la misma red sobre la prolongación del eje (perp ≤0.35, alcance ≤2.8), re-vincula handles y sincroniza con `mp:sync-tramo-values` → **217 reposicionados al borde (0.60) + re-vinculados**, 77 sin pozo cerca (zonas sin modelar, ver `diagnosticos\retrim_hum2_0902_result.txt`), 0 errores. Cantidades intactas.
+
+
+
 ### 2026-09-01 noche (PC secundario, Civil 3D 2026) — v4.67.0: 2ª ronda del mismo día (8 frentes)
 
 1. **Picker de cotas de diseño intuitivo** (`urb:pick-design-cotas`) para el MT de polígonos (zona verde/sendero/rampa): cada cota por clic sobre vía/pozo/etiqueta O digitada ([Digitar]: número + punto); **mínimo 1** (1 = plano horizontal, 2 = rasante lineal, 3+ = plano ajustado). Responde "¿y si no hay vía?": se digita y ya.
