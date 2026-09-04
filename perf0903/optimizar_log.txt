@@ -1,0 +1,8 @@
+﻿
+memorias: 5384 filas -> 1322 claves agregadas
+URB_AGG creada: 1322 claves + relleno hasta 4000 filas fijas, tabla TablaAgg
+CalculateFull ANTES: 0.1 s
+transformadas: 15810 formulas en 1 hojas
+CalculateFull DESPUES: 0 s
+VERIFICACION OK: todas las hojas suman identico (tolerancia 0.02)
+GUARDADO

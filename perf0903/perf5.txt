@@ -1,0 +1,5 @@
+filas listas: 5383
+RUTA RAPIDA OK: borradas 5384 en 0.8 s
+AGG OK (1321) en 3.2 s
+SAVE en 0.3 s
+FIN-PERF5

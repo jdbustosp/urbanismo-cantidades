@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.68.2")
+(setq *urb-version* "4.69.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -26062,7 +26062,9 @@
   out)
 
 ;; ---------- escritura transaccional en TablaMemorias ----------
-(defun urb:ppto-write-rows (lo final-rows dwg / listrows count i row rng
+;; version LENTA original (fila por fila): queda SOLO como respaldo
+;; automatico si la via rapida masiva falla por cualquier rareza COM.
+(defun urb:ppto-write-rows-slow (lo final-rows dwg / listrows count i row rng
                             val borradas nueva c item)
   ;; borrar de abajo hacia arriba las filas del mismo DWG
   (setq listrows (vlax-get-property lo 'ListRows))
@@ -26087,6 +26089,162 @@
     (vlax-release-object rng)
     (vlax-release-object nueva))
   (vlax-release-object listrows)
+  borradas)
+
+;; 2026-09-04: tabla agregada TablaAgg (hoja MUY OCULTA URB_AGG) -- suma
+;; de CANTIDAD por clave ESPECIFICACION|SUBETAPA|RED. Es la fuente de los
+;; LOOKUP binarios del libro OPTIMIZADO (etapas_clasif/optimizar_libro.ps1
+;; reemplazo los ~800k SUMIFS que hacian el CalculateFull de ~20 min).
+;; Si el libro no tiene la tabla (sin optimizar), no hace nada y los
+;; SUMIFS clasicos siguen funcionando igual.
+(defun urb:ppto-write-agg (wb final / ws lo agg item key q pair rows n
+   rng srt sf keyrng lcols nfix cent)
+  (setq ws (urb:ppto-find-sheet wb "URB_AGG"))
+  (if ws
+    (progn
+      (setq lo (urb:ppto-find-listobject ws "TablaAgg"))
+      (if lo
+        (progn
+          ;; 1) agregar en memoria (final: 0=RED 2=ESPEC 7=SUBETAPA 9=CANT)
+          (setq agg nil)
+          (foreach item final
+            (setq key (strcat
+              (urb:safe-string (nth 2 item) "") "|"
+              (urb:safe-string (nth 7 item) "") "|"
+              (urb:safe-string (nth 0 item) "")))
+            (setq q (nth 9 item))
+            (if (not (numberp q)) (setq q (atof (urb:safe-string q "0"))))
+            (setq pair (assoc key agg))
+            (if pair
+              (setq agg (subst (cons key (+ (cdr pair) q)) pair agg))
+              (setq agg (cons (cons key q) agg))))
+          (setq rows (mapcar '(lambda (p) (list (car p) (cdr p))) agg))
+          (setq n (length rows))
+          ;; 2) SOLO VALORES sobre la tabla de TAMANO FIJO (jamas Delete/
+          ;; Add/Resize: una operacion estructural sobre una tabla con
+          ;; ~800k formulas dependientes reconstruye el arbol de
+          ;; dependencias y tarda minutos). Relleno con centinela U+00FF
+          ;; (ordena despues de cualquier clave real).
+          (setq rng (urb:ppto-obj (vlax-get-property lo 'DataBodyRange)))
+          (setq nfix (vlax-get-property
+            (urb:ppto-obj (vlax-get-property rng 'Rows)) 'Count))
+          (if (> n nfix)
+            (prompt (strcat "\nOJO TablaAgg: " (itoa n) " claves > "
+              (itoa nfix) " filas fijas -- ampliar la tabla con "
+              "optimizar_libro.ps1 (export sigue, agregada INCOMPLETA)."))
+            (progn
+              ;; (chr 255) = U+00FF via codepage 1252 al pasar por COM
+              (setq cent (strcat (chr 255) (chr 255) (chr 255)
+                                 (chr 255) (chr 255) (chr 255)))
+              (while (< (length rows) nfix)
+                (setq rows (cons (list cent 0.0) rows)))
+              ;; el centinela va al final por el SORT de abajo; el orden
+              ;; de la lista aqui no importa
+              (vlax-put-property rng 'Value2
+                (urb:excel-matrix-variant (reverse rows)))
+              ;; 3) ORDENAR con el criterio de Excel (el LOOKUP binario lo
+              ;; exige; ordenar en LISP romperia acentos/simbolos)
+              (setq srt (urb:ppto-obj (vlax-get-property lo 'Sort)))
+              (setq sf (urb:ppto-obj (vlax-get-property srt 'SortFields)))
+              (vlax-invoke-method sf 'Clear)
+              (setq lcols (urb:ppto-obj (vlax-get-property lo 'ListColumns)))
+              (setq keyrng (urb:ppto-obj (vlax-get-property
+                (urb:ppto-obj (vlax-get-property lcols 'Item 1)) 'Range)))
+              (vlax-invoke-method sf 'Add keyrng 0 1)
+              (vlax-put-property srt 'Header 1)
+              (vlax-put-property srt 'MatchCase :vlax-false)
+              (vlax-invoke-method srt 'Apply)
+              (prompt (strcat "\nTablaAgg actualizada: " (itoa n)
+                " claves agregadas (libro optimizado)."))))
+          n)
+        nil))
+    nil))
+
+;; 2026-09-03 OPTIMIZACION MASIVA (reporte del usuario "actualizar se
+;; demora mucho"; export medido en 21 min): la version vieja borraba e
+;; insertaba FILA POR FILA (~70.000 llamadas COM y una re-maquetacion de
+;; la tabla por fila). Ahora:
+;;   1) la columna DWG del cuerpo completo se lee en UNA llamada Value2;
+;;   2) las filas a borrar se eliminan por RANGOS contiguos, de abajo
+;;      hacia arriba (pocas llamadas en vez de una por fila);
+;;   3) el bloque nuevo se escribe con UNA asignacion Value2 de la matriz
+;;      completa y un unico Resize de la tabla.
+;; Si CUALQUIER paso COM falla, cae solo a urb:ppto-write-rows-slow.
+(defun urb:ppto-write-rows (lo final-rows dwg / res)
+  (setq res
+    (vl-catch-all-apply 'urb:ppto-write-rows-fast
+      (list lo final-rows dwg)))
+  (if (vl-catch-all-error-p res)
+    (progn
+      (prompt (strcat "\nEscritura masiva fallo ("
+        (vl-catch-all-error-message res)
+        "); usando escritura fila a fila..."))
+      (urb:ppto-write-rows-slow lo final-rows dwg))
+    res))
+
+;; Cells NO es propiedad parametrizada via vlax ("Too many actual
+;; parameters", cazado con perf5 2026-09-04): se llega por Cells.Item(r,c)
+(defun urb:ppto-cells (ws r c)
+  (urb:ppto-obj (vlax-get-property
+    (urb:ppto-obj (vlax-get-property ws 'Cells)) 'Item r c)))
+
+(defun urb:ppto-write-rows-fast (lo final-rows dwg / listrows count dbr sa
+   vals i v matches runs a ws hdr hrow hcol dtop dcol c1 c2 rng n0 n
+   borradas newrng dm)
+  (setq borradas 0 dwg (strcase dwg))
+  (setq listrows (urb:ppto-obj (vlax-get-property lo 'ListRows)))
+  (setq count (vlax-get-property listrows 'Count))
+  (setq ws (urb:ppto-obj (vlax-get-property lo 'Parent)))
+  (setq hdr (urb:ppto-obj (vlax-get-property lo 'HeaderRowRange)))
+  (setq hrow (vlax-get-property hdr 'Row)
+        hcol (vlax-get-property hdr 'Column))
+  (if (> count 0)
+    (progn
+      ;; columna DWG (11) completa en UNA llamada
+      (setq dbr (urb:ppto-obj (vlax-get-property lo 'DataBodyRange)))
+      (setq dtop (vlax-get-property dbr 'Row)
+            dcol (vlax-get-property dbr 'Column))
+      (setq sa (vlax-variant-value (vlax-get-property dbr 'Value2)))
+      (setq vals nil i count)
+      (while (>= i 1)
+        (setq v (urb:ppto-variant (vlax-safearray-get-element sa i 11)))
+        (setq vals (cons (strcase (urb:safe-string
+          (if (= (type v) 'STR) v (vl-princ-to-string v)) "")) vals))
+        (setq i (1- i)))
+      ;; indices (1..count) que son de este DWG -> runs contiguos
+      (setq matches nil i 1)
+      (foreach v vals
+        (if (= v dwg) (setq matches (cons i matches)))
+        (setq i (1+ i)))
+      ;; matches queda DESCENDENTE; agrupar en runs (fin inicio) y borrar
+      ;; de abajo hacia arriba (los indices de arriba no se corren)
+      (setq runs nil)
+      (foreach i matches
+        (if (and runs (= (1+ i) (cadr (car runs))))
+          (setq runs (cons (list (car (car runs)) i) (cdr runs)))
+          (setq runs (cons (list i i) runs))))
+      ;; runs quedo ASCENDENTE por construccion; borrar en reversa
+      (foreach a (reverse runs)
+        ;; rango absoluto en la hoja: filas del cuerpo (dtop + idx - 1)
+        (setq c1 (urb:ppto-cells ws (+ dtop (cadr a) -1) dcol))
+        (setq c2 (urb:ppto-cells ws (+ dtop (car a) -1) (+ dcol 11)))
+        (setq rng (urb:ppto-obj (vlax-get-property ws 'Range c1 c2)))
+        (vlax-invoke-method rng 'Delete -4162)  ;; xlShiftUp
+        (setq borradas (+ borradas (1+ (- (car a) (cadr a))))))))
+  ;; insertar el bloque nuevo con UNA asignacion + UN Resize
+  (setq n (length final-rows))
+  (if (> n 0)
+    (progn
+      (setq n0 (vlax-get-property
+        (urb:ppto-obj (vlax-get-property lo 'ListRows)) 'Count))
+      (setq c1 (urb:ppto-cells ws (+ hrow n0 1) hcol))
+      (setq c2 (urb:ppto-cells ws (+ hrow n0 n) (+ hcol 11)))
+      (setq rng (urb:ppto-obj (vlax-get-property ws 'Range c1 c2)))
+      (setq dm (urb:excel-matrix-variant final-rows))
+      (vlax-put-property rng 'Value2 dm)
+      (setq newrng (urb:ppto-obj (vlax-get-property ws 'Range
+        (urb:ppto-cells ws hrow hcol) c2)))
+      (vlax-invoke-method lo 'Resize newrng)))
   borradas)
 
 ;; procesa UNA fila cruda: match + acumuladores (globales de la corrida) +
@@ -27589,6 +27747,11 @@
                   ;; modo de calculo queda restaurado por la red de
                   ;; seguridad en c:PPTOEXPORTAR aunque esto falle aqui.
                   (setq borradas (urb:ppto-write-rows lo final dwg))
+                  ;; 2026-09-04: tabla agregada para el libro optimizado
+                  ;; (LOOKUP binario) -- no-op si el libro no la tiene
+                  (setq *urb-ppto-stage* "tabla agregada URB_AGG")
+                  (vl-catch-all-apply 'urb:ppto-write-agg (list wb final))
+                  (setq *urb-ppto-stage* "recalculo final")
                   (if app
                     (progn
                       (vl-catch-all-apply
