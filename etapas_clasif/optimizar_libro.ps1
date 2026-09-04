@@ -5,9 +5,13 @@
 # El plugin v4.69.0 re-escribe TablaAgg en cada export.
 # Verificacion integrada: suma por hoja de las celdas transformadas ANTES
 # vs DESPUES (deben ser identicas) + tiempos de CalculateFull.
-param([string]$libro = "C:\Users\jdbus\Documents\URBANISMO\work\perf0903\TEST\urbanismo maipore.xlsx")
+param([string]$libro = "$env:USERPROFILE\Documents\URBANISMO\work\perf0903\TEST\urbanismo maipore.xlsx")
 $ErrorActionPreference = "Stop"
-$log = "C:\Users\jdbus\Documents\URBANISMO\work\perf0903\optimizar_log.txt"
+# 2026-09-04: rutas por $env:USERPROFILE (el usuario es jdbus en un PC y
+# juanbusper en el otro) para poder correrlo en cualquiera de los dos.
+$logDir = "$env:USERPROFILE\Documents\URBANISMO\work\perf0903"
+New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+$log = Join-Path $logDir "optimizar_log.txt"
 function L([string]$m) { $m | Out-File -FilePath $log -Append -Encoding utf8; Write-Output $m }
 "" | Out-File -FilePath $log -Encoding utf8
 
