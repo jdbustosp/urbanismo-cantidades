@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.69.0")
+(setq *urb-version* "4.70.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -22543,7 +22543,32 @@
       "CONTEN" 0.70 4.20)
     ("CONT-F" "Contenedor raices Tipo F (0,70x4,20)"
       "Suministro y construcción de contenedor de raíces Tipo F (0,70x4,20)m"
-      "CONTEN" 0.70 4.20)))
+      "CONTEN" 0.70 4.20)
+    ;; ---------- mobiliario de PARQUE (2026-09-06): descripciones
+    ;; EXACTAS de los capitulos por parque del presupuesto nuevo; el
+    ;; redireccionamiento por zona los apunta al parque donde caen ----------
+    ("CANECA-IDU" "Caneca tipo IDU"
+      "Canecas tipo idu" "CIRC" 0.50 0.50)
+    ("BANCA-IDU" "Banca tipo IDU sin espaldar"
+      "Bancas tipo idu en concreto(sin espaldar)" "RECT" 2.00 0.60)
+    ("MESA-RURAL" "Mesa rural con asientos"
+      "Mesa rural con asientos" "RECT" 2.20 2.20)
+    ("TOTEM" "Totem de parque"
+      "totem parque" "RECT" 0.60 0.30)
+    ("MAQUINA-GYM" "Maquina de gimnasio"
+      "Maquinas gym" "RECT" 1.50 0.80)
+    ("BICICLETERO" "Bicicletero enrollado (11 bicis)"
+      "Bicicletero enrollado (capacidad: 11 bicicletas)" "RECT" 3.00 0.80)
+    ("JUEGO-D5-02" "Deslizadero recto (D5-02)"
+      "D5-02 deslizadero recto en polimero" "RECT" 3.50 1.00)
+    ("JUEGO-D5-03" "Columpio en canasta (D5-03)"
+      "D5-03 columpio en canasta" "RECT" 3.00 2.00)
+    ("JUEGO-D5-05" "Red piramidal pequeña (D5-05)"
+      "D5-05 red piramidal pequeña" "CIRC" 3.00 3.00)
+    ("JUEGO-D5-09" "Presas de escalada (D5-09)"
+      "D5-09 presas infantiles de escalada" "RECT" 2.40 1.20)
+    ("JUEGO-D2-02" "Laberinto de troncos (D2-02)"
+      "D2-02 laberinto de troncos" "RECT" 3.00 3.00)))
 
 ;; definicion del bloque liviano de un tipo (si no existe): geometria
 ;; simple en planta -- circulo doble (caneca/bolardo/senal), rectangulo
@@ -22893,7 +22918,8 @@
     (urb:ppto-rows-puntos)
     (urb:ppto-rows-mobiliario)
     (urb:ppto-rows-senderos)
-    (urb:ppto-rows-bioswale)))
+    (urb:ppto-rows-bioswale)
+    (urb:ppto-rows-senalizacion)))
 
 (defun urb:track-words-match-p (termwords candwords / ok w)
   (setq ok T)
@@ -23201,7 +23227,132 @@
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.40))
-      "URB-RAMPA-CONCRETO" 0.40)))
+      "URB-RAMPA-CONCRETO" 0.40)
+    ;; ---------- EQUIPAMIENTOS DE PARQUE (2026-09-06, pedido del
+    ;; usuario: mismo comando/icono que anden-senderos, solo cambiar el
+    ;; material). Recetas con las actividades EXACTAS del presupuesto
+    ;; nuevo (capitulos por parque -- el redireccionamiento por zona las
+    ;; apunta al parque donde se dibujen). Factores marcados REVISAR son
+    ;; de dimensionamiento estandar y se ajustan en el catalogo.
+    ("CANCHA-SINT" "Cancha sintetica" "CANCHA-SINTETICA" 92 "CANCHA SINTETICA"
+      (("Localizacion y replanteo" "M2" "AREA" 1.0)
+       ("Descapote con botadero certificado" "M2" "AREA" 1.0)
+       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.45)
+       ("Geotextil tejido 1600" "M2" "AREA" 1.0)
+       ("Geomembrana impermable HDPE 1mm" "M2" "AREA" 1.0)
+       ("Mejoramiento en gravilla(material de filtro)" "M3" "AREA" 0.15)
+       ("Subbase granular 0,20m idu" "M3" "AREA" 0.20)
+       ("Acabado sintetico" "M2" "AREA" 1.0)
+       ("Riego de arena y caucho" "M2" "AREA" 1.0)
+       ("Pintura de trafico peatonal y deportivo antideslizante Demarcacion de cancha" "ML" "PER" 1.2)
+       ("Excavacion manual de vigas cerramiento y zanjas filto perimetral" "M3" "PER" 0.06)
+       ("Concreto 3000psi impermeabilzado" "M3" "PER" 0.05)
+       ("Hierro 60000 psi - losa y vigas" "KG" "PER" 4.0)
+       ("Alambre negro" "KG" "PER" 0.06)
+       ("MO Dados cerramiento" "M3" "PER" 0.012)
+       ("MO Vigas corridas cimentacion cerramiento" "M3" "PER" 0.045)
+       ("Sum + Inst malla eslabonada cerramiento de altura 5m -" "M2" "PER" 5.0)
+       ("Arcos metalicos de futbol(incluyen malla)" "UN" "UN" 2.0))
+      "URB-CANCHA-SINTETICA" 0.45)
+    ("CANCHA-MULT" "Cancha multiple" "CANCHA-MULTIPLE" 32 "CANCHA MULTIPLE"
+      (("Localizacion y replanteo" "M2" "AREA" 1.0)
+       ("Descapote con botadero certificado" "M2" "AREA" 1.0)
+       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.70)
+       ("Geotextil tejido 2400" "M2" "AREA" 1.0)
+       ("Mejoramiento en rajon 0,25m" "M3" "AREA" 0.25)
+       ("base granular 0,20m idu" "M3" "AREA" 0.20)
+       ("Subbase granular 0,20m idu" "M3" "AREA" 0.20)
+       ("Rodadura asfaltica MDC-II de 5.5cm" "M2" "AREA" 1.0)
+       ("Excavacion manual de vigas cerramiento y zanjas filto perimetral" "M3" "PER" 0.06)
+       ("Concreto 3000psi impermeabilzado" "M3" "PER" 0.05)
+       ("Hierro 60000 psi - losa y vigas" "KG" "PER" 4.0)
+       ("Alambre negro" "KG" "PER" 0.06)
+       ("MO Dados cerramiento" "M3" "PER" 0.012)
+       ("MO Vigas corridas cimentacion cerramiento" "M3" "PER" 0.045)
+       ("Sum + MO Bordillo de confinamiento" "ML" "PER" 1.0)
+       ("Filtro perimetral a todo costo" "ML" "PER" 1.0)
+       ("Sum + Inst malla eslabonada cerramiento de altura 5m -" "M2" "PER" 5.0)
+       ("Arcos metalicos de microfutbol altura 1,80 x 2,5 ancho" "UN" "UN" 2.0)
+       ("Tableros para baloncesto" "UN" "UN" 2.0))
+      "URB-CANCHA-MULTIPLE" 0.70)
+    ("SKATEPARK" "Skatepark" "SKATEPARK" 210 "SKATEPARK"
+      (("Localizacion y replanteo" "M2" "AREA" 1.0)
+       ("Descapote con botadero certificado" "M2" "AREA" 1.0)
+       ("Geotextil tejido 2400" "M2" "AREA" 1.0)
+       ("base granular 0,20m idu" "M3" "AREA" 0.20)
+       ("Excavacion manual de muro contencion con zarpa" "M3" "PER" 0.15)
+       ("Concreto 3000psi impermeabilzado" "M3" "AREA" 0.15)
+       ("Hierro 60000 psi - losa y vigas" "KG" "AREA" 12.0)
+       ("Alambre negro" "KG" "AREA" 0.18)
+       ("MO Muro contencion con zarpa" "M3" "PER" 0.15)
+       ("MO Placa de contrapiso" "M3" "AREA" 0.15)
+       ("MO Pulida de concreto con helicoptero" "M2" "AREA" 1.0)
+       ("Sum + MO Tuberia en acero galvanizado 2\"" "ML" "PER" 0.5)
+       ("Sum + MO Baranda M-18 tipo idu" "ML" "PER" 0.3))
+      "URB-SKATEPARK" 0.35)
+    ("ESCALERA" "Escaleras en concreto" "ESCALERAS" 40 "ESCALERAS"
+      (("Localizacion y replanteo" "M2" "AREA" 1.0)
+       ("Descapote con botadero certificado" "M2" "AREA" 1.0)
+       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.30)
+       ("Geotextil tejido 2400" "M2" "AREA" 1.0)
+       ("base granular 0,20m idu" "M3" "AREA" 0.20)
+       ("Concreto 3000psi impermeabilzado" "M3" "AREA" 0.20)
+       ("Hierro 60000 psi - losa y vigas" "KG" "AREA" 16.0)
+       ("Alambre negro" "KG" "AREA" 0.24)
+       ("MO escalera" "M3" "AREA" 0.20))
+      "URB-ESCALERA" 0.30)
+    ("GRADERIA" "Graderia en concreto" "GRADERIA" 30 "GRADERIA"
+      (("Localizacion y replanteo" "M2" "AREA" 1.0)
+       ("Descapote con botadero certificado" "M2" "AREA" 1.0)
+       ("Geotextil tejido 2400" "M2" "AREA" 1.0)
+       ("base granular 0,20m idu" "M3" "AREA" 0.20)
+       ("Excavacion manual de muro contencion con zarpa" "M3" "PER" 0.12)
+       ("Concreto 3000psi impermeabilzado" "M3" "AREA" 0.12)
+       ("Hierro 60000 psi - losa y vigas" "KG" "AREA" 10.0)
+       ("Sc-bloque de concreto graderia" "ML" "AREA" 2.5)
+       ("Alambre negro" "KG" "AREA" 0.15)
+       ("MO Muro contencion con zarpa" "M3" "PER" 0.12))
+      "URB-GRADERIA" 0.25)
+    ("PISTA-CAUCHO" "Pista de trote (caucho)" "PISTA-TROTE" 12 "PISTA DE TROTE"
+      (("Localizacion y replanteo" "M2" "AREA" 1.0)
+       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.35)
+       ("Subabase granular SBG-B" "M3" "AREA" 0.20)
+       ("Geotextil tejido 2100" "M2" "AREA" 1.0)
+       ("mortero de nivelacion" "M3" "AREA" 0.04)
+       ("superficie en caucho reciclado" "M2" "AREA" 1.0))
+      "URB-PISTA-CAUCHO" 0.35)
+    ("PARQUE-NINOS" "Parque de niños (piso)" "PARQUE-NINOS" 41 "PARQUE DE NI"
+      (("Localizacion y replanteo" "M2" "AREA" 1.0)
+       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.40)
+       ("Subabase granular SBG-B" "M3" "AREA" 0.20)
+       ("base granular BG" "M3" "AREA" 0.15)
+       ("Geotextil tejido 2100" "M2" "AREA" 1.0)
+       ("Concreto 3000 psi" "M3" "AREA" 0.10)
+       ("Malla electrosoldada" "KG" "AREA" 2.36)
+       ("Mano de obra losa contrapiso" "M2" "AREA" 1.0)
+       ("Separadores losa" "UN" "AREA" 3.0)
+       ("Piso en mulch de madera inorganico" "M2" "AREA" 1.0))
+      "URB-PARQUE-NINOS" 0.40)
+    ("ZONA-GYM" "Zona gym biosaludable (piso)" "ZONA-GYM" 96 "GYM"
+      (("Localizacion y replanteo" "M2" "AREA" 1.0)
+       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.40)
+       ("Subabase granular SBG-B" "M3" "AREA" 0.20)
+       ("base granular BG" "M3" "AREA" 0.15)
+       ("Geotextil tejido 2100" "M2" "AREA" 1.0)
+       ("Concreto 3000 psi" "M3" "AREA" 0.10)
+       ("Malla electrosoldada" "KG" "AREA" 2.36)
+       ("Mano de obra losa contrapiso" "M2" "AREA" 1.0)
+       ("Separadores losa" "UN" "AREA" 3.0)
+       ("superficie en caucho reciclado" "M2" "AREA" 1.0))
+      "URB-ZONA-GYM" 0.40)
+    ("BICIPARQUEO" "Biciparqueo (piso)" "BICIPARQUEO" 150 "BICIPARQUEO"
+      (("Localizacion y replanteo" "M2" "AREA" 1.0)
+       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.30)
+       ("Subabase granular SBG-B" "M3" "AREA" 0.20)
+       ("Geotextil tejido 2100" "M2" "AREA" 1.0)
+       ("mortero de nivelacion" "M3" "AREA" 0.04)
+       ("superficie en ecopavimento" "M2" "AREA" 1.0))
+      "URB-BICIPARQUEO" 0.30)))
 
 ;; ---------- BIOSWALE (red pluvial, 2026-08-24) ----------
 ;; Mismo catalogo (codigo etiqueta red color hint receta capa
@@ -23209,11 +23360,21 @@
 ;; propio comando/boton en Crear -> Pluvial -- ya no es un tipo de
 ;; Sendero (el usuario aclaro que el bioswale/biorretenedor es un
 ;; elemento de la red pluvial, no de parques).
+;; 2026-09-06: receta actualizada a la CARTILLA real (planchas D B-5 /
+;; D B-6): gravilla 25-40 mm (capa drenante, min 0.12 m) + gravilla
+;; 10-15 mm (capa filtrante, min 0.15 m) + relleno organico + base de
+;; gravilla permeable en la caja + tuberia perforada 6" por el eje
+;; (~ perimetro/2) + rejilla por elemento. SIN geotextil (nota expresa
+;; de la cartilla). Actividades EXACTAS del capitulo 2.5.3.7 del ppto.
 (setq *urb-bioswale-tipo*
-  '("BIOSWALE" "Bioswale / biorretenedor" "ALC-PLUVIAL" 140 "HUMEDAS"
-     (("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
-        "M3" "AREA" 0.60)
-      ("Dren filtro 200 mm (filtro frances)" "ML" "PER" 0.5)
+  '("BIOSWALE" "Bioswale / biorretenedor" "ALC-PLUVIAL" 140 "BIORETENEDORES"
+     (("Excavación manual para bioswale/bioretenedor" "M3" "AREA" 0.60)
+      ("Base de gravilla permeable para bioretenedor" "M3" "AREA" 0.20)
+      ("Suministro y colocación de gravilla 25-40 mm (capa drenante)" "M3" "AREA" 0.12)
+      ("Suministro y colocación de gravilla 10-15 mm (capa filtrante)" "M3" "AREA" 0.15)
+      ("Relleno con material orgánico para bioretenedor" "M3" "AREA" 0.13)
+      ("Tubería perforada PVC Ø6\" para drenaje de bioswale" "ML" "PER" 0.5)
+      ("Rejilla de drenaje para bioswale" "UN" "UN" 1.0)
       ("Jardineria" "M2" "AREA" 1.0))
      "URB-BIOSWALE" 0.60))
 
@@ -23911,6 +24072,269 @@
 (defun urb:ppto-rows-bioswale ()
   (urb:ppto-rows-poly-elemento "URB_BIOSWALE"
     (list *urb-bioswale-tipo*) "BIOSWALE"))
+
+;; ---------- SEÑALIZACION Y DEMARCACION (2026-09-06, pedido del
+;; usuario: comando APARTE de anden/senderos). Tres clases:
+;;  LINEA   -> polilineas seleccionadas/dibujadas; cantidad = longitud x
+;;             factor (factor <1 en discontinuas = ocupacion pintada;
+;;             en actividades M2 el factor es M2 por ML de eje).
+;;  SIMBOLO -> marcador puntual; cantidad = factor (M2 de plantilla).
+;;  SENAL   -> marcador puntual; cantidad = 1 UN (senales verticales,
+;;             tachas).
+;; Actividades EXACTAS del capitulo 2.2.8 del presupuesto. Factores de
+;; plantilla marcados aqui son estandar IDU aproximados -- editarlos en
+;; este catalogo si el APU real difiere.
+(setq *urb-senal-tipos*
+  '(("LC-AM-12" "Linea continua amarilla a=0,12" "LINEA"
+      "Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
+    ("LC-AM-15" "Linea continua amarilla a=0,15" "LINEA"
+      "Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,15m)" "ML" 1.0)
+    ("LC-BL-12" "Linea continua blanca a=0,12" "LINEA"
+      "Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
+    ("LC-BL-CICLO" "Linea continua blanca ciclorruta a=0,10" "LINEA"
+      "Línea continua de color blanco para ciclorruta - Pintura acrílica (a=0,10m)" "ML" 1.0)
+    ("LD-BL-1X1" "Linea discontinua blanca 1m x 1m" "LINEA"
+      "Línea discontinua de color blanco 1m x 1m - Pintura de dos componentes metil metacrilato (a=0,20m)" "ML" 0.5)
+    ("LD-BL-3X5" "Linea discontinua blanca 3m x 5m" "LINEA"
+      "Línea discontinua de color blanco 3m x 5m - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 0.375)
+    ("LD-AM-CICLO" "Linea discontinua amarilla ciclorruta 1m x 2m" "LINEA"
+      "Línea discontinua de color amarillo para ciclorruta 1m x 2m - Pintura acrílica (a=0,10m)" "ML" 0.3333)
+    ("RESALTO" "Resalto en concreto" "LINEA"
+      "Suministro e instalación de resalto en concreto" "ML" 1.0)
+    ("CEBRA" "Linea cebreada paso peatones (eje del paso)" "LINEA"
+      "Línea cebreada para paso de peatones (a=0,4m) - Pintura de dos componentes metil metacrilato" "M2" 2.0)
+    ("PARE-06" "Linea de Pare a=0,6 (metil)" "LINEA"
+      "Línea de Pare - Pintura de dos componentes metil metacrilato (a=0,6m)" "M2" 0.6)
+    ("PARE-02" "Linea de Pare a=0,2 (acrilica)" "LINEA"
+      "Línea de Pare - Pintura acrílica (a=0,2m)" "M2" 0.2)
+    ("POMPEYANO" "Demarcacion rampas de pompeyano (eje)" "LINEA"
+      "Demarcación de rampas de pompeyano (Color amarillo) - Pintura de dos componentes metil metacrilato" "M2" 1.0)
+    ("CRUCE-CICLO" "Cruce ciclorruta por calzada (eje)" "LINEA"
+      "Cruce ciclorruta por calzada (0,4m x 0,4m) - Pintura de dos componentes metil metacrilato" "M2" 1.2)
+    ("CRUCE-CICLO-AZ" "Cruce ciclorruta calzada azul (eje)" "LINEA"
+      "Cruce ciclorruta por calzada (Color azul) - Pintura de dos componentes metil metacrilato" "M2" 3.0)
+    ("FL-DER" "Flecha a la derecha" "SIMBOLO"
+      "Flecha a la derecha - Pintura de dos componentes metil metacrilato" "M2" 1.2)
+    ("FL-IZQ" "Flecha a la izquierda" "SIMBOLO"
+      "Flecha a la izquierda - Pintura de dos componentes metil metacrilato" "M2" 1.2)
+    ("FL-DER-IZQ" "Flecha derecha o izquierda" "SIMBOLO"
+      "Flecha a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato" "M2" 1.5)
+    ("FL-FRENTE" "Flecha de frente" "SIMBOLO"
+      "Flecha de frente - Pintura de dos componentes metil metacrilato" "M2" 1.2)
+    ("FL-FR-DER" "Flecha frente o derecha" "SIMBOLO"
+      "Flecha de frente o a la derecha - Pintura de dos componentes metil metacrilato" "M2" 1.5)
+    ("FL-FR-IZQ" "Flecha frente o izquierda" "SIMBOLO"
+      "Flecha de frente o a la izquierda - Pintura de dos componentes metil metacrilato" "M2" 1.5)
+    ("FL-FR-DER-IZQ" "Flecha frente, derecha o izquierda" "SIMBOLO"
+      "Flecha de frente, a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato" "M2" 1.8)
+    ("FL-CICLO" "Flecha de frente ciclocarril" "SIMBOLO"
+      "Flecha de frente para ciclocarril - Pintura acrílica" "M2" 0.8)
+    ("PICT-BICI" "Pictograma de bicicleta" "SIMBOLO"
+      "Pictograma de bicicleta - Pintura acrílica" "M2" 1.0)
+    ("PICT-PEATON" "Pictograma cruce peatonal" "SIMBOLO"
+      "Pictograma de cruce peatonal - Pintura de dos componentes metil metacrilato" "M2" 1.5)
+    ("LETRAS" "Demarcacion de letras" "SIMBOLO"
+      "Demarcación de letras - Pintura acrílica" "M2" 1.5)
+    ("VEL-20" "Maxima velocidad 20 km/h" "SIMBOLO"
+      "Demarcación máxima velocidad permitida (20 km/h) - Pintura de dos componentes metil metacrilato" "M2" 3.0)
+    ("TRIANGULOS" "Sentido transito pompeyano (triangulos)" "SIMBOLO"
+      "Sentido del tránsito en pompeyanos (Triángulos) - Pintura de dos componentes metil metacrilato" "M2" 0.5)
+    ("SV-60" "Senal vertical 0,60x0,60" "SENAL"
+      "Señal vertical (0,60mx0,60m)" "UN" 1.0)
+    ("SV-CICLO-D" "Senal ciclorruta doble 0,45" "SENAL"
+      "Señal vertical ciclorruta doble (0,45m x 0,45m)" "UN" 1.0)
+    ("SV-CICLO-S" "Senal ciclorruta sencilla 0,45" "SENAL"
+      "Señal vertical ciclorruta sencilla (0,45m x 0,45m)" "UN" 1.0)
+    ("SV-CICLO-INI" "Senal Inicio ciclorruta" "SENAL"
+      "Señal vertical ciclorruta sencilla \"Inicio ciclorruta\"" "UN" 1.0)
+    ("SV-CICLO-FIN" "Senal Fin ciclorruta" "SENAL"
+      "Señal vertical ciclorruta sencilla \"Fin ciclorruta\"" "UN" 1.0)
+    ("SV-SP46A" "Senal SP-46A / SR-30" "SENAL"
+      "Señal vertical SP-46A / SR-30" "UN" 1.0)
+    ("SV-SPB03" "Senal SPB-03" "SENAL"
+      "Señal vertical SPB-03" "UN" 1.0)
+    ("SV-SPB04" "Senal SPB-04" "SENAL"
+      "Señal vertical SPB-04" "UN" 1.0)
+    ("SV-SPC01" "Senal SPC-01 / SPC-01" "SENAL"
+      "Señal vertical SPC-01 / SPC-01" "UN" 1.0)
+    ("SV-SPC01R" "Senal SPC-01 / SRC-01" "SENAL"
+      "Señal vertical SPC-01 / SRC-01" "UN" 1.0)
+    ("SV-SP59A" "Senal cruce ciclistas SP-59A" "SENAL"
+      "Señal vertical ubicación de cruce ciclistas SP-59A" "UN" 1.0)
+    ("SV-SP46" "Senal cruce peatonal SP-46" "SENAL"
+      "Señal vertical ubicación de cruce peatonal SP-46" "UN" 1.0)
+    ("SV-SP46B" "Senal cruce peatonal SP-46B" "SENAL"
+      "Señal vertical ubicación de cruce peatonal SP-46B" "UN" 1.0)
+    ("TACHA-C" "Tacha reflectiva (linea central)" "SENAL"
+      "Tacha reflectiva bidireccional (Línea central)" "UN" 1.0)
+    ("TACHA-B" "Tacha reflectiva (linea de borde)" "SENAL"
+      "Tacha reflectiva bidireccional (Línea de borde)" "UN" 1.0)))
+
+(defun urb:senal-ensure-layer (entry / capa)
+  (setq capa (strcat "URB-SENAL-" (nth 0 entry)))
+  (urb:ensure-layer capa
+    (cond ((= (nth 2 entry) "LINEA") 2)
+          ((= (nth 2 entry) "SIMBOLO") 7)
+          (T 1))
+    T)
+  capa)
+
+;; bloque marcador puntual: circulo + codigo como texto (suficiente para
+;; ubicar y contar; la geometria real del simbolo vive en los planos)
+(defun urb:senal-ensure-block (entry / nombre bdef circ txt)
+  (setq nombre (strcat "URB_SEN_" (nth 0 entry)))
+  (if (not (tblsearch "BLOCK" nombre))
+    (progn
+      (setq bdef
+        (vla-Add (vla-get-Blocks (urb:doc))
+          (vlax-3d-point '(0.0 0.0 0.0)) nombre))
+      (setq circ
+        (vla-AddCircle bdef (vlax-3d-point '(0.0 0.0 0.0)) 0.35))
+      (vla-put-Color circ 256)
+      (setq txt
+        (vla-AddText bdef (nth 0 entry)
+          (vlax-3d-point '(0.0 -0.12 0.0)) 0.22))
+      (vla-put-Alignment txt 1)
+      (vla-put-TextAlignmentPoint txt (vlax-3d-point '(0.0 -0.12 0.0)))
+      (vla-put-Color txt 256)))
+  nombre)
+
+;; lista numerada por linea de comandos; Enter = primer valor
+(defun urb:senal-pick-lista (titulo lst / i n)
+  (if (or (null lst) (= (length lst) 1))
+    (car lst)
+    (progn
+      (prompt (strcat "\n--- " titulo " ---"))
+      (setq i 1)
+      (foreach e lst
+        (prompt (strcat "\n  " (itoa i) ". " e))
+        (setq i (1+ i)))
+      (initget 4)
+      (setq n (getint (strcat "\n" titulo " (1-" (itoa (length lst))
+                        ") <1>: ")))
+      (if (and n (>= n 1) (<= n (length lst)))
+        (nth (1- n) lst)
+        (car lst)))))
+
+(defun urb:senal-pick-tipo (clase / lst i sel n)
+  (setq lst (vl-remove-if-not
+              '(lambda (e) (= (nth 2 e) clase)) *urb-senal-tipos*))
+  (prompt (strcat "\n--- Tipos de " clase " ---"))
+  (setq i 1)
+  (foreach e lst
+    (prompt (strcat "\n  " (itoa i) ". " (nth 1 e)))
+    (setq i (1+ i)))
+  (initget 6)
+  (setq n (getint (strcat "\nNumero del tipo (1-" (itoa (length lst)) "): ")))
+  (if (and n (>= n 1) (<= n (length lst)))
+    (nth (1- n) lst)
+    nil))
+
+(defun c:SENALIZACION (/ clase entry etapa sub ss i en obj capa bloque pt
+                       ref n)
+  (vl-load-com)
+  (initget "Linea Simbolo Vertical")
+  (setq clase
+    (getkword "\nClase de señalizacion [Linea/Simbolo/Vertical] <Linea>: "))
+  (if (null clase) (setq clase "Linea"))
+  (setq clase
+    (cond ((= clase "Linea") "LINEA")
+          ((= clase "Simbolo") "SIMBOLO")
+          (T "SENAL")))
+  (setq entry (urb:senal-pick-tipo clase))
+  (if (null entry)
+    (prompt "\nTipo invalido.")
+    (progn
+      (setq etapa "1" sub "GEN")
+      (if (urb:etapas-enabled-p)
+        (progn
+          (setq etapa
+            (urb:safe-string
+              (urb:senal-pick-lista "Etapa" *urb-etapa-list*) "1"))
+          (setq sub
+            (urb:safe-string
+              (urb:senal-pick-lista "Subetapa"
+                (urb:subetapas-for etapa)) "GEN"))))
+      (setq capa (urb:senal-ensure-layer entry))
+      (if (not (tblsearch "APPID" "URB_SENAL")) (regapp "URB_SENAL"))
+      (cond
+        ((= clase "LINEA")
+          (prompt (strcat "\nSeleccione las polilineas de: " (nth 1 entry)))
+          (setq ss (ssget '((0 . "LWPOLYLINE,LINE,ARC,POLYLINE"))))
+          (if ss
+            (progn
+              (setq i 0 n 0)
+              (repeat (sslength ss)
+                (setq en (ssname ss i)
+                      obj (vlax-ename->vla-object en))
+                (vla-put-Layer obj capa)
+                (urb:set-xdata-strings en "URB_SENAL"
+                  (list (nth 0 entry) etapa sub))
+                (setq n (1+ n) i (1+ i)))
+              (prompt (strcat "\n" (itoa n) " linea(s) marcadas como "
+                (nth 1 entry) ".")))
+            (prompt "\nNada seleccionado.")))
+        (T
+          (setq bloque (urb:senal-ensure-block entry))
+          (setq n 0)
+          (while (setq pt (getpoint (strcat "\nPunto para " (nth 1 entry)
+                            " (Enter termina): ")))
+            (setq ref
+              (vla-InsertBlock (urb:space)
+                (vlax-3d-point pt) bloque 1.0 1.0 1.0 0.0))
+            (vla-put-Layer ref capa)
+            (urb:set-xdata-strings (vlax-vla-object->ename ref) "URB_SENAL"
+              (list (nth 0 entry) etapa sub))
+            (setq n (1+ n)))
+          (prompt (strcat "\n" (itoa n) " " (nth 1 entry) " insertadas.")))))
+    )
+  (princ))
+
+;; colector: lineas (longitud x factor) + marcadores (factor por unidad)
+(defun urb:ppto-rows-senalizacion (/ ss i en datos entry etapa sub qty obj
+                                   rows out zona handle fila)
+  (setq out nil)
+  (if (tblsearch "APPID" "URB_SENAL")
+    (progn
+      (setq ss (ssget "_X"
+        '((-3 ("URB_SENAL")))))
+      (setq i 0)
+      (if ss
+        (repeat (sslength ss)
+          (setq en (ssname ss i)
+                datos (urb:get-xdata-strings en "URB_SENAL")
+                entry (assoc (urb:safe-string (car datos) "")
+                        *urb-senal-tipos*))
+          (if entry
+            (progn
+              (setq etapa (urb:safe-string (cadr datos) "1")
+                    sub (urb:safe-string (caddr datos) "GEN")
+                    handle (cdr (assoc 5 (entget en)))
+                    zona (urb:ppto-zona-de en)
+                    obj (vlax-ename->vla-object en))
+              (setq qty
+                (if (= (nth 2 entry) "LINEA")
+                  (progn
+                    (setq qty
+                      (vl-catch-all-apply
+                        '(lambda () (vla-get-Length obj))))
+                    (if (vl-catch-all-error-p qty)
+                      0.0
+                      (* (nth 5 entry) qty)))
+                  (nth 5 entry)))
+              (if (and (numberp qty) (> qty 0.0))
+                (progn
+                  (setq fila
+                    (urb:ppto-row "SENALIZACION" (nth 3 entry)
+                      (nth 1 entry) "" "" etapa sub (nth 4 entry) qty
+                      handle))
+                  (setq rows (list fila))
+                  (setq rows (urb:ppto-rows+zona rows zona))
+                  (if (/= zona "")
+                    (setq rows (urb:ppto-rows+hint rows "SENALIZACION")))
+                  (foreach r rows (if r (setq out (cons r out))))))))
+          (setq i (1+ i))))))
+  out)
 
 ;; ---------- configuracion por maquina ----------
 (defun urb:ppto-config-file (/ folder)
@@ -25752,7 +26176,11 @@
                     id pini pfin etapa sub "ML" lng handle)))
               ((= red "ACUEDUCTO")
                 ;; PVC va como "PVC presion ØN" en el libro; HD va como
-                ;; "tuberia y piezas especiales HD ØN"
+                ;; "tuberia y piezas especiales HD ØN".
+                ;; 2026-09-06 (regla del usuario: SUMINISTRO siempre en
+                ;; UNIDAD, mano de obra en ML): el suministro se emite en
+                ;; UN = tubos de 6 m (ML/6), igual que el sanitario; la
+                ;; instalacion sigue en ML.
                 (list
                   (urb:ppto-row red
                     (if (= (strcase mat) "PVC")
@@ -25763,7 +26191,7 @@
                     (if (= (strcase mat) "PVC")
                       (strcat "Suministro tuberia PVC presion " diam)
                       (strcat "Suministro tuberia y piezas especiales " mat " " diam))
-                    id pini pfin etapa sub "ML" lng handle)))
+                    id pini pfin etapa sub "UN" (/ lng 6.0) handle)))
               (T
                 (list
                   (urb:ppto-row red
@@ -27593,7 +28021,8 @@
                   (urb:ppto-rows-puntos)
                   (urb:ppto-rows-mobiliario)
                   (urb:ppto-rows-senderos)
-                  (urb:ppto-rows-bioswale)))
+                  (urb:ppto-rows-bioswale)
+    (urb:ppto-rows-senalizacion)))
               ;; 2) match contra el vocabulario vivo (equivalencias del
               ;; LIBRO primero, cascada automatica despues)
               (setq *urb-ppto-stage* "match contra vocabulario")
@@ -27632,7 +28061,8 @@
                         (urb:ppto-rows-puntos)
                   (urb:ppto-rows-mobiliario)
                   (urb:ppto-rows-senderos)
-                  (urb:ppto-rows-bioswale)))
+                  (urb:ppto-rows-bioswale)
+    (urb:ppto-rows-senalizacion)))
                     (setq final (urb:ppto-match-all raw vocab dwg))
                     (setq *urb-ppto-final-prev* final))
                   ;; el usuario eligio otra hoja del presupuesto (boton
@@ -27703,7 +28133,8 @@
                           (urb:ppto-rows-puntos)
                   (urb:ppto-rows-mobiliario)
                   (urb:ppto-rows-senderos)
-                  (urb:ppto-rows-bioswale)))
+                  (urb:ppto-rows-bioswale)
+    (urb:ppto-rows-senalizacion)))
                       (setq final (urb:ppto-match-all raw vocab dwg))))
                   (setq huerfanas *urb-ppto-huerfanas*
                         total *urb-ppto-total*

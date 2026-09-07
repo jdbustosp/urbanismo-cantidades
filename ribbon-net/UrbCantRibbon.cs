@@ -474,6 +474,10 @@ namespace UrbanismoCantidades
                 // 2026-08-21 v4.48: senderos/ciclorruta/plazoleta/rampa
                 // en concreto y bioswale por poligono cerrado
                 AddBigCmd("Sendero", "URBSENDERO", "sendero");
+                // 2026-09-06 v4.70: senalizacion y demarcacion (lineas,
+                // simbolos de piso y senales verticales) -- comando
+                // APARTE por pedido del usuario
+                AddBigCmd("Senalizacion", "SENALIZACION", "perfiles");
             }
             else if (which == "hum")
             {
