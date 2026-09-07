@@ -29,6 +29,15 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-09-07 madrugada (parte 35, PC principal, commits `09f68a3`..`ba29753`) — libro con formato y dinámica viva, perf medido, precios 2026, resolutor multi-PC verificado
+
+- **Libro**: POR EJECUTAR con formato completo (colores por nivel, bordes, agrupador de filas resumen-arriba re-aplicado tras bug ClearOutline, columnas de subetapas colapsables, A/B ocultas con ITEM autónomo, VALOR_TOTAL subtotalizado en las 285 filas de capítulo vía LET/XMATCH); EJECUTADO etapa/subetapa GENERAL (+columna SUBETAPA); hoja BD reconstruida por POWER QUERY (BD_PE unpivot + BD_EJEC 5 niveles + BD_CONSOL 2.687 filas) y DINAMICA nueva compacta (una columna jerárquica, Cant/VU prom/VT, N5 con UM entre paréntesis, slicers) que se refresca con Actualizar-todo.
+- **Perf del export MEDIDO** (urb:perf-log/rows-timed nuevos, v4.70.1): colectores 9,8 s + match 4,4 s = ~14 s de plugin sobre el master real; la lentitud percibida era la apertura del master en frío. No se optimizó a ciegas.
+- **Precios 2026**: 11 ajustes al alza (concreto 560k, granulares de parques igualadas a las oficiales 217-236k, malla/hierro 7,5k, descapote 35k, arena peña 110k) + 1 corrección de unidad (MDC-II 5.5cm: 960k/M2 era precio de M3 → 78k/M2, REVISAR). Bioswale completo (+cargue y retiro). Cobertura planos redes documentada (sin faltantes ni sobrantes de ppto).
+- **Resolutor multi-PC v4.70.2**: nombre de archivo dinámico + test E2E real (config rota → encontró el libro junto al master y self-healeó). Suite 84 checks TODO-OK en 4.70.1 y 4.70.2.
+
+
+
 ### 2026-09-06 (parte 34, PC principal, commits `27d795f`..`e50feaa`+) — v4.70.0: todo lo faltante modelable + reestructuración completa del libro
 
 Jornada doble (Excel + motor), pedido "ejecuta todo de corrido":
