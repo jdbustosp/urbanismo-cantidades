@@ -1,0 +1,3 @@
+1 memorias ; RED ANDEN ; UM ? ; [SIN MATCH x0] jhkjhi
+3 memorias ; RED ALC-PLUVIAL ; UM ML ; [SIN MATCH x28] Tuberia NOVAFORT 12 Hex (2,5-3,5)m
+10 memorias ; RED ALC-PLUVIAL ; UM ML ; [SIN MATCH x28] Tuberia NOVAFORT 14 Hex (0-1,5)m

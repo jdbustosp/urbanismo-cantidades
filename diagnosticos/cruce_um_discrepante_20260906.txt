@@ -1,0 +1,7 @@
+ppto UM UN vs memoria UM ML ; 93 mem ; Suministro tubería PVC presión Ø12"
+ppto UM UN vs memoria UM ML ; 18 mem ; Suministro tubería PVC presión Ø2"
+ppto UM UN vs memoria UM ML ; 10 mem ; Suministro tubería PVC presión Ø3"
+ppto UM UN vs memoria UM ML ; 17 mem ; Suministro tubería PVC presión Ø4"
+ppto UM UN vs memoria UM ML ; 36 mem ; Suministro tubería PVC presión Ø6"
+ppto UM UN vs memoria UM ML ; 118 mem ; Suministro tubería PVC presión Ø8"
+ppto UM UN vs memoria UM ML ; 9 mem ; Suministro tubería y piezas especiales HD Ø12"
