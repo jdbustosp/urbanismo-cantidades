@@ -157,3 +157,22 @@ Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
 - Que los diálogos DCL se ven y comportan bien (combos llenos, valores correctos).
 - Que `urb:draw-polyline-interactive` funciona al dibujar de verdad con el mouse.
 - Que el muestreo de superficie (`mp:tramo-depth-profile`) da números sensatos contra la superficie `SUP_TN` real de un proyecto — para eso hace falta un dibujo con superficie y tramos reales, que Claude no tiene forma de abrir por su cuenta salvo que sea la sesión que el propio usuario ya tiene abierta.
+
+## Verificacion v4.73.0 (2026-09-07, Codex)
+
+Suite reproducible en diagnosticos/hardening4730/ejecutar.ps1; instrucciones y
+limites en el README de esa carpeta. Resultado: 50 OK / 0 FALLOS en AutoCAD
+Core Console 2026, fixture local, XDATA real y adaptadores de ActiveX/DCL.
+No confundir estos adaptadores con pruebas de COM o interfaz reales.
+Dos checks reproducen fallos del baseline 0ffec47 antes de validar el arreglo.
+Se detecto y corrigio ademas el acceso nth a lista vacia del nuevo diagnostico.
+
+Instalador probado con Windows PowerShell 5.1: entrega valida, rechazo de
+version distinta, rechazo de XML invalido y rechazo de DLL ausente. Instalado
+4.73.0 y hash SHA256 motor repo=instalado confirmado. Rutas del cargador ya eran
+correctas: la sospecha inicial no produjo cambios innecesarios en esas lineas.
+
+Civil 3D completo no ejecuto el harness en este entorno (arranques sin ventana
+y COM con RPC_E_CALL_REJECTED); se cerraron solo los procesos propios. Siguen
+pendientes interfaz, ActiveX real, prueba de lote/UNDO y exportacion E2E contra
+copias de DWG/Excel reales. No se modificaron dibujos ni presupuestos vigentes.

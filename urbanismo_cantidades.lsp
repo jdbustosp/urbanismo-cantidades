@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.72.2")
+(setq *urb-version* "4.73.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -8357,21 +8357,87 @@
       (setq value (urb:read-lisp-safe (apply 'strcat chunks)))
       (if (listp value) value nil))))
 
-(defun mp:setatts (ename alist / obj a tag pair changed)
-  ;; Guarda y actualiza cada atributo; devuelve cuantos fueron modificados.
-  (setq obj (vlax-ename->vla-object ename) changed 0)
+;; v4.73.0 -- Escritura parcial segura. El motor permanece en este LSP.
+;; mp:store-cant-data conserva su contrato de REEMPLAZO completo para
+;; migraciones existentes. mp:setatts ahora combina antes de escribir.
+(defun mp:cant-patch-valid-p (patch / valid pair n)
+  (setq n (vl-catch-all-apply 'vl-list-length (list patch))
+        valid (and (not (vl-catch-all-error-p n)) (numberp n)))
+  (if valid
+    (foreach pair patch
+      (if (not (and (listp pair) (= (type (car pair)) 'STR)
+                    (/= (vl-string-trim " " (car pair)) "")
+                    (or (null (cdr pair))
+                        (member (type (cdr pair)) '(STR INT REAL)))))
+        (setq valid nil))))
+  valid)
+
+(defun mp:cant-merge (current patch / result pair tag)
+  ;; Claves sin distincion de mayusculas; el ultimo valor prevalece.
+  ;; Una cadena vacia es un borrado EXPLICITO del valor, no de la clave.
+  (foreach pair (append current patch)
+    (setq tag (strcase (car pair))
+          result (mp:alist-set result tag (mp:safe-str (cdr pair)))))
+  result)
+
+(defun mp:cant-data-equal-p (left right / same pair)
+  (setq same (= (length left) (length right)))
+  (foreach pair left
+    (if (not (equal pair (assoc (car pair) right))) (setq same nil)))
+  same)
+
+(defun mp:setatts (ename alist / obj a tag pair changed before old-data
+                          merged snapshot result restore-result data-changed)
+  ;; Conserva campos ocultos aun cuando el llamador envia solo un campo.
+  ;; Ante error restaura atributos y XDATA de ESTA entidad y aborta la
+  ;; operacion; nunca informa exito despues de una escritura incompleta.
+  (if (not (mp:cant-patch-valid-p alist))
+    (progn (prompt "\nActualizacion cancelada: lista de atributos invalida.") (exit)))
+  (setq obj (vlax-ename->vla-object ename)
+        old-data (mp:read-cant-data ename)
+        before (entget ename '("*"))
+        merged (mp:cant-merge (mp:att-alist ename) alist)
+        alist (mp:cant-merge nil alist)
+        changed 0
+        data-changed (not (mp:cant-data-equal-p merged old-data)))
   (if (= (vla-get-HasAttributes obj) :vlax-true)
     (foreach a (vlax-invoke obj 'GetAttributes)
-      (setq tag (strcase (vla-get-TagString a)))
-      (if (setq pair (assoc tag alist))
-        (progn
-          (vla-put-TextString a (mp:safe-str (cdr pair)))
-          (vla-Update a)
-          (setq changed (1+ changed))))))
-  (vla-Update obj)
-  ;; La copia completa en XDATA permite mostrar en Propiedades solo los
-  ;; campos utiles sin perder controles internos, exportacion ni edicion.
-  (mp:store-cant-data ename alist)
+      (if (and (setq pair (assoc (strcase (vla-get-TagString a)) alist))
+               (/= (vla-get-TextString a) (cdr pair)))
+        (setq snapshot (cons (list a (vla-get-TextString a) (cdr pair)) snapshot)))))
+  (setq result
+    (vl-catch-all-apply
+      '(lambda ()
+         (foreach pair snapshot
+           (vla-put-TextString (car pair) (nth 2 pair))
+           (vla-Update (car pair))
+           (setq changed (1+ changed)))
+         (if data-changed
+           (if (not (and (mp:store-cant-data ename merged)
+                         (mp:cant-data-equal-p merged (mp:read-cant-data ename))))
+             (progn (prompt "\nFallo al verificar los datos guardados.") (exit))))
+         (if (> changed 0) (vla-Update obj))) nil))
+  (if (vl-catch-all-error-p result)
+    (progn
+      (setq restore-result
+        (vl-catch-all-apply
+          '(lambda ()
+             (foreach pair snapshot
+               (vla-put-TextString (car pair) (cadr pair))
+               (vla-Update (car pair)))
+             (if (null (entmod before)) (exit))
+             (entupd ename)) nil))
+      (prompt (strcat "\nActualizacion cancelada: " (vl-catch-all-error-message result)))
+      (if (vl-catch-all-error-p restore-result)
+        (prompt "\nATENCION: no se pudo restaurar todo; deshaga la operacion y revise el objeto.")
+        (prompt "\nSe restauraron los atributos y datos anteriores del objeto."))
+      (exit)))
+  ;; Auditoria separada y acotada: ultima escritura, no crecimiento indefinido.
+  (if (or data-changed (> changed 0))
+    (vl-catch-all-apply 'urb:set-xdata-strings
+      (list ename "URB_DATA_AUDIT"
+        (list "1" *urb-version* (rtos (getvar "CDATE") 2 6)
+              (itoa (length alist))))))
   changed)
 
 (defun mp:getval (tag vals def / a)
@@ -19745,7 +19811,12 @@
 )
 
 (defun urb:batch-stage-command
-  (/ data etapa subetapa ss index ename category counts entry total skipped)
+  (/ data etapa subetapa ss index ename category counts entry total skipped doc undo-open choice failed *error*)
+  (setq doc (urb:doc) failed 0)
+  (defun *error* (msg)
+    (if undo-open (vl-catch-all-apply 'vla-EndUndoMark (list doc)))
+    (if msg (prompt (strcat "\nCambio de etapa interrumpido: " msg
+      "\nPuede deshacer el lote completo con UNDO."))) (princ))
   ;; Cambio rapido de etapa/subetapa en LOTE: primero se seleccionan los
   ;; elementos (mezcla de andenes, vias, redes, prefabricados, zonas
   ;; verdes) y DESPUES sale el dialogo con los desplegables de etapa y
@@ -19763,13 +19834,24 @@
         (prompt "\nComando cancelado.")
         (progn
           (setq etapa (nth 0 data) subetapa (nth 1 data))
-          (setq counts nil total 0 index 0)
+          (prompt (strcat "\nVista previa: " (itoa (sslength ss))
+            " objetos seleccionados -> etapa " etapa " / subetapa " subetapa
+            ". Se modifican metadatos; no se recalcula geometria."))
+          (initget "Aplicar Cancelar")
+          (setq choice (getkword "\nContinuar [Aplicar/Cancelar] <Cancelar>: "))
+          (if (not (equal choice "Aplicar")) (progn (prompt "\nSin cambios.") (exit)))
+          (vla-StartUndoMark doc)
+          (setq undo-open T counts nil total 0 index 0)
           (repeat (sslength ss)
             (setq ename (ssname ss index))
             (setq category
               (vl-catch-all-apply
                 'urb:apply-etapa-subetapa (list ename etapa subetapa)))
-            (if (vl-catch-all-error-p category) (setq category nil))
+            (if (vl-catch-all-error-p category)
+              (progn (setq failed (1+ failed))
+                (prompt (strcat "\nFallo en " (urb:q-handle ename) ": "
+                  (vl-catch-all-error-message category)))
+                (setq category nil)))
             (if category
               (progn
                 (setq total (1+ total))
@@ -19779,7 +19861,10 @@
                     (subst (cons category (1+ (cdr entry))) entry counts)
                     (cons (cons category 1) counts)))))
             (setq index (1+ index)))
-          (setq skipped (- (sslength ss) total))
+          (vla-EndUndoMark doc)
+          (setq undo-open nil skipped (- (sslength ss) total failed))
+          (if (> failed 0) (prompt (strcat "\nObjetos con error: " (itoa failed)
+            ". Revise el dibujo; UNDO deshace todo el lote.")))
           (prompt
             (strcat "\nEtapa " etapa " / Subetapa " subetapa
                     " aplicada a " (itoa total) " elemento(s)."))
@@ -19838,7 +19923,8 @@
         ": button { label = \"Espesor de linea y tamano de datos de tramos\"; key = \"tramo_appearance\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Capas y limpieza\";"
         ": button { label = \"Organizar capas del plugin (filtro URBANISMO)\"; key = \"layers_organize\"; height = 2; width = 40; }"
-        ": button { label = \"Depurar dibujo (purgar elementos basura)\"; key = \"purge_dwg\"; height = 2; width = 40; } }"
+        ": button { label = \"Depurar dibujo (purgar elementos basura)\"; key = \"purge_dwg\"; height = 2; width = 40; }"
+        ": button { label = \"Version instalada y sesion\"; key = \"version_info\"; height = 2; width = 40; } }"
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
         "urb_earthworks : dialog { label = \"Movimiento de tierras\";"
         ": boxed_column { label = \"Vias\";"
@@ -19879,6 +19965,8 @@
         "ok_only; } }"
         "urb_quantities : dialog { label = \"Cantidades\";"
         ": boxed_column { label = \"Seleccione una opcion\";"
+        ": button { label = \"Diagnostico de integridad\"; key = \"diagnostic\"; height = 2; width = 44; }"
+        ": button { label = \"Consultar cantidades de un elemento\"; key = \"trace\"; height = 2; width = 44; }"
         ": button { label = \"Cuadro en dibujo: andenes y prefabricados\"; key = \"table\"; height = 2; width = 44; }"
         ": button { label = \"Memoria de via\"; key = \"road\"; height = 2; width = 40; }"
         ": button { label = \"Tabla de verificacion de via (desplegar)\"; key = \"road_audit\"; height = 2; width = 44; }"
@@ -20113,7 +20201,7 @@
     (urb:safe-string unit "")
     (urb:q-number quantity)
     (urb:safe-string handle "")
-    (urb:safe-string status "")
+    (if (< (urb:q-number quantity) -1e-9) "REVISAR" (urb:safe-string status ""))
     (urb:safe-string link-id "")
     (urb:safe-string link-name ""))
 )
@@ -21351,28 +21439,14 @@
   (reverse result)
 )
 
-(defun urb:q-collect-all
-  (/ anden via prefab green network records controls duplicates)
-  (urb:q-refresh-network-segments)
-  (setq anden (urb:q-collect-andenes)
-        via (urb:q-collect-vias)
-        prefab (urb:q-collect-prefabricados)
-        green (urb:q-collect-green-zones)
-        network (urb:q-collect-networks)
-        records
-          (append
-            (nth 0 anden) (nth 0 via) (nth 0 prefab)
-            (nth 0 green) (nth 0 network))
-        controls
-          (append
-            (nth 2 anden) (nth 2 via) (nth 2 prefab)
-            (nth 2 green) (nth 4 network)
-            (urb:q-scope-controls)))
-  (setq duplicates (urb:q-duplicate-road-id-controls records)
-        records (nth 0 duplicates)
-        controls (append controls (nth 1 duplicates)))
-  (list records controls)
-)
+(defun urb:q-collect-all (/ refreshed)
+  (setq refreshed (urb:q-refresh-network-segments))
+  ;; No exportar valores anteriores como validos tras fallar el recalculo.
+  (if (> (cadr refreshed) 0)
+    (progn
+      (prompt "\nExportacion cancelada: hubo errores al recalcular redes. Revise el diagnostico y EDITAR.")
+      (exit)))
+  (urb:q-collect-readonly))
 
 (defun urb:q-approved-record-count (records / count record)
   (setq count 0)
@@ -21409,7 +21483,7 @@
       " | " (itoa (length controls)) " controles."
       (if (and migrate (> migrate 0))
         (strcat " Hay " (itoa migrate)
-          " registro(s) de red por migrar; use Configuracion > Diagnosticar y migrar redes.")
+          " registro(s) de red por revisar; use Cantidades > Diagnostico de integridad y EDITAR.")
         "")
       (if (> xrefs 0)
         (strcat " Aviso: hay " (itoa xrefs)
@@ -29426,10 +29500,179 @@
                 (itoa (length audit)) " estaciones, capa URB-VIA-PERFIL)."))))))))
   (princ))
 
+;; v4.73.0 -- Diagnostico y consulta sin recalcular ni escribir el dibujo.
+(defun urb:q-integrity-controls (records / result record handle seen key)
+  (foreach record records
+    (setq handle (nth 8 record))
+    (cond
+      ((or (not (numberp (nth 7 record))) (< (nth 7 record) -1e-9))
+        (setq result (cons (urb:q-control-row "ALTA" (nth 0 record) handle
+          (nth 2 record) "Cantidad negativa o no numerica."
+          "Revisar geometria, datos y memoria antes de exportar.") result)))
+      ((not (urb:q-approved-status-p (nth 9 record)))
+        (setq key (list handle (nth 9 record)))
+        (if (not (member key seen))
+          (progn
+            (setq seen (cons key seen))
+            (setq result (cons (urb:q-control-row "ALTA" (nth 0 record) handle
+              (nth 2 record) (strcat "Cantidad sin aprobar: " (nth 9 record))
+              "Revisar el elemento con EDITAR y consultar su memoria.") result)))))))
+  (reverse result))
+
+(defun urb:q-collect-readonly
+  (/ anden via prefab green network records controls duplicates)
+  (setq anden (urb:q-collect-andenes)
+        via (urb:q-collect-vias)
+        prefab (urb:q-collect-prefabricados)
+        green (urb:q-collect-green-zones)
+        network (urb:q-collect-networks)
+        records (append (nth 0 anden) (nth 0 via) (nth 0 prefab)
+                        (nth 0 green) (nth 0 network))
+        controls (append (nth 2 anden) (nth 2 via) (nth 2 prefab)
+                         (nth 2 green) (nth 4 network) (urb:q-scope-controls))
+        duplicates (urb:q-duplicate-road-id-controls records)
+        records (nth 0 duplicates)
+        controls (append controls (nth 1 duplicates) (urb:q-integrity-controls records)))
+  (list records controls))
+
+(defun urb:q-report-dialog (title rows / filename dcl result index row running *error*)
+  ;; Fila = severidad, categoria, handle, elemento, hallazgo, accion.
+  (defun *error* (msg)
+    (if dcl (unload_dialog dcl))
+    (if filename (vl-file-delete filename))
+    (if msg (prompt (strcat "\nConsulta: " msg))) (princ))
+  (setq filename (urb:temp-file "urb_diagnostico" ".dcl"))
+  (if (urb:write-lines filename
+    '("urb_report : dialog { label = \"Revision de cantidades\";"
+      ": text { key = \"titulo\"; width = 100; }"
+      ": text { label = \"Estado | Grupo | Handle | Elemento | Hallazgo\"; }"
+      ": list_box { key = \"filas\"; width = 110; height = 23; }"
+      ": row { : button { key = \"detalle\"; label = \"Ver detalle\"; }"
+      ": button { key = \"localizar\"; label = \"Seleccionar objeto y cerrar\"; }"
+      ": button { key = \"cancel\"; label = \"Cerrar\"; is_cancel = true; } } }"))
+    (progn
+      (setq dcl (load_dialog filename) running T index 0)
+      (while (and running (>= dcl 0) (new_dialog "urb_report" dcl))
+        (set_tile "titulo" title)
+        (start_list "filas")
+        (foreach row rows
+          (add_list (strcat (nth 0 row) " | " (nth 1 row) " | " (nth 2 row)
+                     " | " (nth 3 row) " | " (nth 4 row))))
+        (end_list)
+        (if rows (set_tile "filas" (itoa index))
+          (progn (mode_tile "detalle" 1) (mode_tile "localizar" 1)))
+        (action_tile "filas" "(setq index (atoi $value))")
+        (action_tile "detalle" "(done_dialog 2)")
+        (action_tile "localizar" "(done_dialog 3)")
+        (action_tile "cancel" "(done_dialog 0)")
+        (setq result (start_dialog) row (if rows (nth index rows) nil))
+        (cond
+          ((and (= result 2) row)
+            (alert (strcat (nth 3 row) "\nHandle: " (nth 2 row) "\n\n"
+                     (nth 4 row) "\n\n" (nth 5 row))))
+          ((and (= result 3) row)
+            (if (and (/= (nth 2 row) "") (handent (nth 2 row)))
+              (progn (sssetfirst nil (ssadd (handent (nth 2 row))))
+                     (setq running nil))
+              (alert "El registro no tiene un objeto seleccionable en este dibujo.")))
+          (T (setq running nil))))
+      (if (>= dcl 0) (unload_dialog dcl))
+      (setq dcl nil)))
+  (if filename (vl-file-delete filename))
+  (princ))
+
+(defun urb:q-diagnostic-command (/ result records controls)
+  (prompt "\nRevisando cantidades guardadas (sin recalcular)...")
+  (setq result (vl-catch-all-apply 'urb:q-collect-readonly nil))
+  (if (vl-catch-all-error-p result)
+    (alert (strcat "No se pudo completar el diagnostico. No se modificaron cantidades.\n"
+             (vl-catch-all-error-message result)))
+    (progn
+      (setq records (car result) controls (cadr result))
+      (urb:q-report-dialog
+        (strcat "Motor " *urb-version* " | " (itoa (length records)) " cantidades | "
+          (itoa (urb:q-approved-record-count records)) " aprobadas | "
+          (itoa (length controls)) " observaciones. No evalua correspondencia con Excel.")
+        controls)))
+  (princ))
+
+(defun urb:q-trace-command (/ picked en handle result rows record pair audit data)
+  (if (setq picked (entsel "\nSeleccione el bloque del elemento para consultar sus cantidades: "))
+    (progn
+      (setq en (car picked) handle (urb:q-handle en)
+            result (vl-catch-all-apply 'urb:q-collect-readonly nil))
+      (if (vl-catch-all-error-p result)
+        (alert (strcat "Consulta incompleta: " (vl-catch-all-error-message result)))
+        (progn
+          (foreach record (car result)
+            (if (= handle (nth 8 record))
+              (setq rows (cons (urb:q-control-row (nth 9 record) (nth 0 record) handle
+                (nth 2 record) (strcat (rtos (nth 7 record) 2 6) " " (nth 6 record))
+                (strcat "Especificacion: " (nth 3 record) "\nEtapa/subetapa: "
+                  (nth 4 record) "/" (nth 5 record) "\nReferencia: " (nth 10 record)
+                  " " (nth 11 record))) rows))))
+          (setq data (mp:read-cant-data en))
+          (if (mp:cant-patch-valid-p data)
+            (foreach pair data
+              (setq rows (cons (urb:q-control-row "DATO" "Red" handle (car pair)
+                (mp:safe-str (cdr pair)) "Valor guardado del elemento; no se ha recalculado.") rows))))
+          (setq audit (urb:get-xdata-strings en "URB_DATA_AUDIT"))
+          (if audit
+            (setq rows (cons (urb:q-control-row "INFO" "Ultima escritura" handle
+              (strcat "Motor " (nth 1 audit)) (nth 2 audit)
+              "Fecha local en formato AAAAMMDD.HHMMSS. Es una escritura de datos, no una certificacion de calculo.") rows)))
+          (urb:q-report-dialog (strcat "Consulta del elemento " handle " | motor " *urb-version*)
+            (reverse rows))))))
+  (princ))
+
+(defun urb:quality-selftests (/ merged negative zero)
+  ;; Autoprueba pura y repetible; no crea entidades ni abre Excel.
+  (setq merged (mp:cant-merge '(("ID" . "A") ("OCULTO" . "123"))
+                            '(("id" . "B")))
+        negative (urb:q-record "TEST" "" "X" "" "1" "1" "M3" -5 "" "OK" "" "")
+        zero (urb:q-record "TEST" "" "X" "" "1" "1" "M3" 0 "" "OK" "" ""))
+  (list
+    (list "Parche conserva campos ocultos" (equal (cdr (assoc "OCULTO" merged)) "123"))
+    (list "Parche normaliza claves" (equal (cdr (assoc "ID" merged)) "B"))
+    (list "Parche permite vaciado explicito"
+      (equal (cdr (assoc "ID" (mp:cant-merge merged '(("ID" . ""))))) ""))
+    (list "Rechaza datos mal formados" (not (mp:cant-patch-valid-p '(("ID" "valor")))))
+    (list "Rechaza lista punteada" (not (mp:cant-patch-valid-p '(("ID" . "A") . "B"))))
+    (list "Acepta parche vacio" (mp:cant-patch-valid-p nil))
+    (list "Cantidad negativa bloqueada" (not (urb:q-approved-status-p (nth 9 negative))))
+    (list "Cantidad cero permitida" (urb:q-approved-status-p (nth 9 zero)))
+    (list "Diagnostico detecta negativo" (= 1 (length (urb:q-integrity-controls (list negative)))))
+    (list "Cama: espesor minimo" (equal 0.1 (mp:pipe-bedding-thickness 0.2) 1e-9))
+    (list "Cama: espesor intermedio" (equal 0.125 (mp:pipe-bedding-thickness 0.5) 1e-9))
+    (list "Cama: espesor maximo" (equal 0.15 (mp:pipe-bedding-thickness 1.0) 1e-9))
+    (list "Volumen de zanja constante" (equal 20.0 (mp:integrate-trench-volume '(2.0 2.0 2.0) 10.0 1.0) 1e-9))
+    (list "Volumen de zanja variable" (equal 25.0 (mp:integrate-trench-volume '(1.0 3.0 3.0) 10.0 1.0) 1e-9))))
+
+(defun urb:version-info-command (/ installed file line disk-version checks ok item)
+  (setq installed (strcat (getenv "APPDATA")
+    "/Autodesk/ApplicationPlugins/UrbanismoCantidades.bundle/Contents/urbanismo_cantidades.lsp"))
+  (if (setq file (open installed "r"))
+    (progn
+      (while (and (null disk-version) (setq line (read-line file)))
+        (if (vl-string-search "(setq *urb-version* " line)
+          (setq disk-version (caddr (read line)))))
+      (close file)))
+  (setq checks (urb:quality-selftests) ok 0)
+  (foreach item checks (if (cadr item) (setq ok (1+ ok))
+    (prompt (strcat "\nAutoprueba con fallo: " (car item)))))
+  (alert (strcat "Motor en esta sesion: " *urb-version*
+    "\nEsquema: " *urb-schema-version* "\nAutoCAD: " (getvar "ACADVER")
+    "\n\nMotor instalado en disco:\n" (if disk-version disk-version "No localizado")
+    "\n\n" installed "\n\nAutoprueba de logica: " (itoa ok) "/" (itoa (length checks))
+    " correctas. No valida este dibujo.\nTras instalar una entrega, reinicie Civil 3D."))
+  (princ))
+
+
 (defun urb:quantities-menu (/ action)
   (setq action
     (urb:simple-menu-dialog "urb_quantities"
-      '(("table" "table") ("road" "road") ("road_audit" "road_audit")
+      '(("diagnostic" "diagnostic") ("trace" "trace")
+        ("table" "table") ("road" "road") ("road_audit" "road_audit")
         ("scope" "scope")
         ("excel" "excel") ("link_excel" "link_excel")
         ("update_excel" "update_excel")
@@ -29437,6 +29680,8 @@
         ("cuadros" "cuadros") ("via_perfil" "via_perfil"))))
   (cond
     ((or (null action) (= action "back")) "back")
+    ((= action "diagnostic") (urb:q-diagnostic-command))
+    ((= action "trace") (urb:q-trace-command))
     ((= action "table") (urb:insert-quantities-table-command))
     ((= action "road") (urb:road-quantity-command))
     ((= action "road_audit") (urb:road-audit-table-command))
@@ -29465,7 +29710,7 @@
         ("earthworks_config" "earthworks_config")
         ("tramo_appearance" "tramo_appearance")
         ("layers_organize" "layers_organize")
-        ("purge_dwg" "purge_dwg"))))
+        ("purge_dwg" "purge_dwg") ("version_info" "version_info"))))
   (cond
     ((or (null action) (= action "back")) "back")
     ((= action "etapas_config") (urb:etapas-manager-command))
@@ -29478,7 +29723,8 @@
       ;; lambda, solo el catch-all pasa por apply
       (vl-catch-all-apply '(lambda () (command "_URBLAYERFILTER")) nil)
       (princ))
-    ((= action "purge_dwg") (urb:purge-command)))
+    ((= action "purge_dwg") (urb:purge-command))
+    ((= action "version_info") (urb:version-info-command)))
   (if (or (null action) (= action "back")) "back" nil))
 
 (defun c:URBANISMO (/ action done result)

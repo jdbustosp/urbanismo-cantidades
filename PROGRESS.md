@@ -1,5 +1,42 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado actual — 2026-09-07, v4.73.0 (Codex)
+
+Repositorio: esta carpeta `URBANISMO EXTERNO`, con `.git` dentro y remoto
+`jdbustosp/urbanismo-cantidades`. El motor se mantiene en
+`urbanismo_cantidades.lsp`. Civil 3D carga la copia instalada en
+`%AppData%/Autodesk/ApplicationPlugins/UrbanismoCantidades.bundle/Contents`.
+Para actualizar: `INSTALAR.bat`; para comprobar la entrega sin instalar:
+`powershell -File instalar_bundle.ps1 -ValidateOnly`.
+
+Continuidad entre agentes/computadores: leer `CLAUDE.md` y el unico handoff
+`../../handoffs/urbanismo-externo.md`. Las rutas antiguas que siguen abajo son
+historia; no deben usarse como instrucciones de instalacion vigentes.
+
+### v4.73.0 — Integridad de datos, diagnostico y validacion de entrega
+
+- `mp:setatts`: parche con merge por clave, validacion previa, conservacion de
+  campos ocultos, vaciado explicito, idempotencia y rollback ante fallo.
+  `mp:store-cant-data` mantiene contrato de reemplazo completo para migraciones.
+- `URB_DATA_AUDIT`: version/fecha de ultima escritura. No implica que todas las
+  cantidades hayan sido calculadas por esa version.
+- Cantidades: Diagnostico de integridad y Consulta de cantidades de un elemento,
+  reutilizando colectores existentes sin invocar preactualizacion de redes.
+  Lista navegable, detalle y seleccion por handle. No evalua el match Excel ni
+  detecta todo cambio geometrico externo; no certifica cantidades.
+- Registros negativos quedan REVISAR; exportacion general se cancela ante
+  fallos de preactualizacion, en vez de exportar silenciosamente datos antiguos.
+- Cambio de etapa/subetapa por lote: vista previa del alcance, Aplicar/Cancelar,
+  UNDO agrupado y errores separados de objetos no compatibles.
+- Configuracion: consultar version en sesion y motor instalado en disco.
+- Instalador: prevalidacion y hashes de componentes; rutas del cargador
+  verificadas (la conversion original ya era correcta). Manifiesto 4.73.0 y comentario XML invalido corregido.
+- Pruebas y limites: ver TESTING_CIVIL3D.md y el handoff. No se alteraron DWG
+  ni libros de presupuesto de trabajo. No se dividio el motor en modulos.
+
+## Historial anterior (las rutas y estados de estas entradas son historicos)
+
+
 Bitácora de trabajo con Claude Code sobre este repositorio. Úsala para retomar el hilo en otra máquina o en una sesión nueva.
 
 ## Estado del repo

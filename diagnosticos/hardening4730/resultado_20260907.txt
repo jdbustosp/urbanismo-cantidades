@@ -1,0 +1,53 @@
+OK BASELINE reproduce perdida de campo oculto
+OK BASELINE reproduce cantidad negativa aprobada
+OK LOAD motor 4.73.0
+OK Parche cambia un atributo
+OK Parche preserva campo oculto
+OK Parche actualiza visible
+OK Preserva XDATA ajena
+OK Idempotente cuenta cero
+OK Idempotente no reescribe XDATA
+OK Claves normalizadas ultimo prevalece
+OK Permite vaciar explicitamente
+OK Vaciado no pierde otros campos
+OK Rechaza lista mal formada
+OK Datos invalidos no modifican entidad
+OK Rechaza lista punteada
+OK Acepta parche vacio
+OK Fallo escritura aborta
+OK Fallo escritura restaura atributo
+OK Fallo escritura conserva registro
+OK Cantidad negativa queda REVISAR
+OK Cantidad negativa no aprobada
+OK Diagnostico detecta cantidad negativa
+OK Cantidad cero valida conserva estado
+OK Cama tuberia piso
+OK Cama tuberia intermedio
+OK Cama tuberia techo
+OK Volumen constante
+OK Volumen variable trapezoidal
+OK Generacion DCL menus
+OK Autoprueba integrada: Parche conserva campos ocultos
+OK Autoprueba integrada: Parche normaliza claves
+OK Autoprueba integrada: Parche permite vaciado explicito
+OK Autoprueba integrada: Rechaza datos mal formados
+OK Autoprueba integrada: Rechaza lista punteada
+OK Autoprueba integrada: Acepta parche vacio
+OK Autoprueba integrada: Cantidad negativa bloqueada
+OK Autoprueba integrada: Cantidad cero permitida
+OK Autoprueba integrada: Diagnostico detecta negativo
+OK Autoprueba integrada: Cama: espesor minimo
+OK Autoprueba integrada: Cama: espesor intermedio
+OK Autoprueba integrada: Cama: espesor maximo
+OK Autoprueba integrada: Volumen de zanja constante
+OK Autoprueba integrada: Volumen de zanja variable
+OK Exportacion aborta tras fallo de recalculo
+OK No recoge datos obsoletos tras fallo
+OK Dialogo abre detalle
+OK Dialogo selecciona entidad correcta
+OK Dialogo elimina temporal
+OK Dialogo vacio cierra sin error
+OK Version muestra autopruebas
+Las pruebas ActiveX usan un adaptador de prueba; no validan la interfaz de Civil 3D completo.
+RESULTADO 50 OK / 0 FALLOS
+DONE

@@ -1,4 +1,4 @@
-# Instala (o REINSTALA tras cada edicion) el plugin Urbanismo Cantidades.
+﻿# Instala (o REINSTALA tras cada edicion) el plugin Urbanismo Cantidades.
 # Doble clic a INSTALAR.bat (que llama a este script) o directo:
 #   powershell -ExecutionPolicy Bypass -File instalar_bundle.ps1
 # Hace 3 cosas:
@@ -7,6 +7,8 @@
 #     cargar; si quedara uno viejo, cargaria una interfaz desactualizada).
 #  3. Agrega la carpeta del bundle a TRUSTEDPATHS de TODOS los perfiles de
 #     AutoCAD del usuario (evita el dialogo "Unsigned Executable File").
+
+param([switch]$ValidateOnly)
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -19,8 +21,29 @@ $contents = Join-Path $dest "Contents"
 if (-not (Test-Path $lsp)) { throw "No se encontro urbanismo_cantidades.lsp junto al script." }
 if (-not (Test-Path $xml)) { throw "No se encontro bundle\PackageContents.xml en el repo." }
 
+# Validar la entrega completa ANTES de modificar la instalacion.
+$verMatch = [regex]::Match((Get-Content -LiteralPath $lsp -Raw), '\*urb-version\*\s+"([^"]+)"')
+if (-not $verMatch.Success) { throw "No se pudo leer la version del motor." }
+$ver = $verMatch.Groups[1].Value
+[xml]$manifest = Get-Content -LiteralPath $xml -Raw
+if ($manifest.ApplicationPackage.AppVersion -ne $ver) {
+  throw "Versiones distintas: motor $ver / manifiesto $($manifest.ApplicationPackage.AppVersion)."
+}
+$requiredFiles = @()
+foreach ($entry in $manifest.ApplicationPackage.Components.ComponentEntry) {
+  $module = [string]$entry.ModuleName
+  if (-not $module.StartsWith('./Contents/')) { throw "Ruta de componente no admitida: $module" }
+  $relative = $module.Substring('./Contents/'.Length).Replace('/', '\')
+  $source = if ($relative -eq 'urbanismo_cantidades.lsp') { $lsp } else { Join-Path (Join-Path $repo 'bundle') $relative }
+  if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Falta un componente: $source" }
+  $requiredFiles += [pscustomobject]@{ Source=$source; Relative=$relative }
+}
+if ($ValidateOnly) {
+  Write-Output "Entrega ${ver}: manifiesto y $($requiredFiles.Count) referencias de componentes validos. No se instalo nada."
+  return
+}
+
 New-Item -ItemType Directory -Force -Path $contents | Out-Null
-Copy-Item $xml (Join-Path $dest "PackageContents.xml") -Force
 Copy-Item $lsp (Join-Path $contents "urbanismo_cantidades.lsp") -Force
 
 # 2026-08-11 fase .NET: la pestana la dibuja el DLL (ribbon dinamico).
@@ -58,6 +81,17 @@ if (Test-Path $icoDir) {
   Get-ChildItem $icoDir -Filter "*.png" | ForEach-Object {
     Copy-Item $_.FullName (Join-Path $contents ("net\iconos\" + $_.Name)) -Force }
 }
+
+# No anunciar una instalacion correcta si quedo una DLL vieja/bloqueada.
+foreach ($item in $requiredFiles) {
+  $installedFile = Join-Path $contents $item.Relative
+  if (-not (Test-Path -LiteralPath $installedFile -PathType Leaf)) { throw "No se instalo: $installedFile" }
+  if ((Get-FileHash -LiteralPath $item.Source -Algorithm SHA256).Hash -ne
+      (Get-FileHash -LiteralPath $installedFile -Algorithm SHA256).Hash) {
+    throw "Componente no actualizado: $installedFile. Cierre AutoCAD y vuelva a instalar."
+  }
+}
+Copy-Item -LiteralPath $xml -Destination (Join-Path $dest 'PackageContents.xml') -Force
 
 # TRUSTEDPATHS en todos los perfiles de AutoCAD/Civil 3D del usuario.
 # OJO (2026-08-24): TRUSTEDPATHS solo confia en el nivel EXACTO de la
@@ -155,7 +189,7 @@ Get-ChildItem (Join-Path $env:APPDATA "Autodesk") -Directory -Filter "C3D *" -Er
   if (Test-Path $supp) {
     # 2023/2024 (.NET FW 4.8, DLL con nombre versionado del manifiesto);
     # 2025/2026 (.NET 8)
-    $dllName = if ($_.Name -match '202[34]$') { $dll2023Name } else { "UrbCantRibbon2025.dll" }
+    $dllName = if ($_.Name -match '(2019|202[0-4])$') { $dll2023Name } else { "UrbCantRibbon2025.dll" }
     $dllForLisp = ($contents + "\net\" + $dllName).Replace('\', '\\')
     $bloque = $plantilla.Replace('__DLL__', $dllForLisp).Replace('__LSP__', $lspForLisp)
     $acaddoc = Join-Path $supp "acaddoc.lsp"
