@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.71.1")
+(setq *urb-version* "4.72.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -557,19 +557,65 @@
     (T nil))
 )
 
+;; 2026-09-07 (rediseño pedido por el usuario): el dialogo va por DOS
+;; niveles -- Tipo = CATEGORIA (Anden / Sendero / Cancha / Ciclorruta /
+;; Equipamiento de parque) y Material = la VARIANTE de esa categoria.
+;; La rampa salio de aqui (tiene su boton propio). El bloque de
+;; movimiento de tierras desaparecio: la superficie se reconoce sola
+;; (SUP_TN) y tras dibujar solo se piden las COTAS DE IMPLANTACION (una
+;; o varias) con el picker universal. Guia/toperol/formato solo aplican
+;; a Anden en Loseta (se deshabilitan en vivo para el resto).
+(setq *urb-elem-categorias*
+  '("Anden" "Sendero" "Cancha" "Ciclorruta" "Equipamiento de parque"))
+;; variantes por categoria: (etiqueta . codigo de *urb-send-tipos*);
+;; codigo "" = anden nativo en loseta (todo el motor de losetas)
+(setq *urb-elem-variantes*
+  '(("Anden" ("Loseta" . "") ("Concreto" . "ANDEN-CONC"))
+    ("Sendero" ("Sendero de trote" . "SEND-TROTE")
+               ("Sendero ecologico" . "SEND-ECO"))
+    ("Cancha" ("Cancha sintetica" . "CANCHA-SINT")
+              ("Cancha multiple" . "CANCHA-MULT"))
+    ("Ciclorruta" ("Ciclorruta" . "CICLORRUTA"))
+    ("Equipamiento de parque"
+      ("Plazoleta en concreto" . "PLAZOLETA")
+      ("Skatepark" . "SKATEPARK")
+      ("Escaleras en concreto" . "ESCALERA")
+      ("Graderia en concreto" . "GRADERIA")
+      ("Pista de trote (caucho)" . "PISTA-CAUCHO")
+      ("Parque de ninos (piso)" . "PARQUE-NINOS")
+      ("Zona gym biosaludable (piso)" . "ZONA-GYM")
+      ("Biciparqueo (piso)" . "BICIPARQUEO"))))
+
+(defun urb:elem-variantes-de (cat)
+  (cdr (assoc cat *urb-elem-variantes*)))
+
+;; refresca el popup de variantes y habilita/deshabilita los tiles de
+;; loseta segun la seleccion actual (corre en vivo desde action_tile)
+(defun urb:anden-refresh-variantes (cat-idx / cat vars)
+  (setq cat (nth cat-idx *urb-elem-categorias*))
+  (setq vars (urb:elem-variantes-de cat))
+  (urb:fill-popup "material" (mapcar 'car vars) 0)
+  (urb:anden-refresh-loseta cat-idx 0))
+
+(defun urb:anden-refresh-loseta (cat-idx mat-idx / cat vars es-loseta modo)
+  (setq cat (nth cat-idx *urb-elem-categorias*))
+  (setq vars (urb:elem-variantes-de cat))
+  (setq es-loseta
+    (and (= cat "Anden")
+         (= (urb:safe-string (cdr (nth mat-idx vars)) "") "")))
+  (setq modo (if es-loseta 0 1))
+  (mode_tile "formato" modo)
+  (mode_tile "guia" modo)
+  (mode_tile "toperol" modo))
+
 (defun urb:write-anden-dcl ()
   (urb:write-dialog-dcl
     "urbanismo_anden"
     '*urb-anden-dcl-ok*
     (list
-      "urbanismo_anden : dialog { label = \"Datos del anden / sendero\";"
+      "urbanismo_anden : dialog { label = \"Datos del elemento de urbanismo\";"
       ": boxed_column { label = \"Clasificacion\";"
-      ;; 2026-09-02 (pedido del usuario: "anden y sendero por el mismo
-      ;; icono"): el tipo de elemento va PRIMERO -- Anden (loseta) o
-      ;; cualquier tipo de sendero. Si elige sendero, el flujo delega en
-      ;; urb:poly-element-draw y el presupuesto se va a su capitulo
-      ;; propio (SENDERO/CICLORRUTA), sin interferir con el de ANDEN.
-      ": popup_list { label = \"Tipo de elemento\"; key = \"tipoelem\"; }"
+      ": popup_list { label = \"Tipo\"; key = \"tipoelem\"; }"
       ": popup_list { label = \"Material\"; key = \"material\"; }"
       ": popup_list { label = \"Formato de loseta\"; key = \"formato\"; }"
       ;; 2026-08-12: si las etapas estan deshabilitadas los tiles NO se
@@ -580,15 +626,9 @@
       (if (urb:etapas-enabled-p)
         ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }" "")
       "}"
-      ": boxed_column { label = \"Accesibilidad\";"
+      ": boxed_column { label = \"Accesibilidad (solo loseta)\";"
       ": popup_list { label = \"Loseta guia\"; key = \"guia\"; }"
       ": popup_list { label = \"Loseta toperol\"; key = \"toperol\"; }"
-      "}"
-      ;; 2026-08-12: Modulacion (orientacion/extremo) eliminada del dialogo
-      ;; y "Calcular" tambien (el movimiento de tierras SIEMPRE se calcula).
-      ": boxed_column { label = \"Movimiento de tierras\";"
-      ": popup_list { label = \"Superficie TN\"; key = \"superficie\"; }"
-      ": popup_list { label = \"Rasante desde\"; key = \"rasante\"; }"
       "}"
       ;; 2026-08-24 (pedido del usuario): igual que el sendero -- fuera
       ;; el anillo perimetral, entran los COSTADOS automaticos (tipo por
@@ -597,7 +637,9 @@
       ": popup_list { label = \"Derecha\"; key = \"lado_der\"; }"
       ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
       ": popup_list { label = \"Posicion\"; key = \"costpos\"; }"
-      "} ok_cancel; }"))
+      "}"
+      ": text { label = \"Al dibujar: superficie SUP_TN automatica + cotas de implantacion.\"; }"
+      " ok_cancel; }"))
 )
 
 (defun urb:dialog-anden
@@ -630,14 +672,13 @@
            (> (setq dcl-id (load_dialog filename)) 0)
            (new_dialog "urbanismo_anden" dcl-id))
     (progn
-      (urb:fill-popup "tipoelem"
-        (cons "Anden (loseta)"
-          (mapcar '(lambda (e) (nth 1 e)) *urb-send-tipos*))
-        0)
-      (urb:fill-popup
-        "material"
-        *urb-material-list*
-        (urb:index-of current-material *urb-material-list*))
+      ;; 2026-09-07: dos niveles -- categoria + variante dependiente
+      (urb:fill-popup "tipoelem" *urb-elem-categorias* 0)
+      (urb:anden-refresh-variantes 0)
+      (action_tile "tipoelem"
+        "(urb:anden-refresh-variantes (atoi $value))")
+      (action_tile "material"
+        "(urb:anden-refresh-loseta (atoi (get_tile \"tipoelem\")) (atoi $value))")
       (urb:fill-popup
         "formato"
         *urb-loseta-format-list*
@@ -667,11 +708,6 @@
         "toperol"
         *urb-yes-no-list*
         (urb:index-of current-toperol *urb-yes-no-list*))
-      (urb:fill-popup
-        "superficie" surfaces (urb:index-of current-surface surfaces))
-      (urb:fill-popup
-        "rasante" *urb-anden-grade-source-list*
-        (urb:index-of current-grade-source *urb-anden-grade-source-list*))
       (urb:fill-popup "lado_der" *urb-anillo-prefab-list*
         (urb:list-index-ci (urb:send-costado-de 1) *urb-anillo-prefab-list*))
       (urb:fill-popup "lado_izq" *urb-anillo-prefab-list*
@@ -690,8 +726,6 @@
             "")
           " *urb-dialog-guia-index* (atoi (get_tile \"guia\"))"
           " *urb-dialog-toperol-index* (atoi (get_tile \"toperol\"))"
-          " *urb-dialog-surface-index* (atoi (get_tile \"superficie\"))"
-          " *urb-dialog-grade-index* (atoi (get_tile \"rasante\"))"
           " *urb-dialog-lado-der-index* (atoi (get_tile \"lado_der\"))"
           " *urb-dialog-lado-izq-index* (atoi (get_tile \"lado_izq\"))"
           " *urb-dialog-costpos-index* (atoi (get_tile \"costpos\"))"
@@ -701,8 +735,9 @@
       (unload_dialog dcl-id)
       (if accepted
         (progn
-          (setq current-material
-            (nth *urb-dialog-material-index* *urb-material-list*))
+          ;; 2026-09-07: el material del ANDEN nativo sigue siendo Loseta
+          ;; (el motor de losetas); la VARIANTE elegida viaja en nth 14
+          (setq current-material "Loseta")
           (setq current-format
             (nth *urb-dialog-format-index* *urb-loseta-format-list*))
           (if (urb:etapas-enabled-p)
@@ -716,12 +751,13 @@
             (nth *urb-dialog-guia-index* *urb-yes-no-list*))
           (setq current-toperol
             (nth *urb-dialog-toperol-index* *urb-yes-no-list*))
-          ;; Movimiento de tierras SIEMPRE se calcula (2026-08-12).
+          ;; Movimiento de tierras SIEMPRE se calcula (2026-08-12);
+          ;; 2026-09-07: superficie AUTOMATICA (SUP_TN si existe, si no
+          ;; la primera del dibujo) y rasante por cotas de implantacion
           (setq current-calculate "Si")
           (setq current-surface
-            (nth *urb-dialog-surface-index* surfaces))
-          (setq current-grade-source
-            (nth *urb-dialog-grade-index* *urb-anden-grade-source-list*))
+            (if (member "SUP_TN" surfaces) "SUP_TN" (car surfaces)))
+          (setq current-grade-source "Cotas seleccionadas")
           ;; Modulacion eliminada del dialogo: la orientacion y el extremo
           ;; conservan lo que paso el llamador (creacion = "Automatico"/
           ;; "Normal"; EDITAR = "Conservar").
@@ -743,9 +779,14 @@
                   (nth *urb-dialog-lado-der-index* *urb-anillo-prefab-list*)
                   (nth *urb-dialog-lado-izq-index* *urb-anillo-prefab-list*)
                   (nth *urb-dialog-costpos-index* *urb-anillo-pos-list*)
-                  ;; nth 14 (2026-09-02): tipo de elemento -- 0 = anden,
-                  ;; 1.. = indice+1 en *urb-send-tipos* (sendero)
-                  *urb-dialog-tipoelem-index*)))))
+                  ;; nth 14 (2026-09-07): CODIGO de la variante elegida en
+                  ;; *urb-send-tipos*; "" = anden nativo en loseta
+                  (urb:safe-string
+                    (cdr (nth *urb-dialog-material-index*
+                      (urb:elem-variantes-de
+                        (nth *urb-dialog-tipoelem-index*
+                          *urb-elem-categorias*))))
+                    ""))))))
   )
   result
 )
@@ -5814,6 +5855,47 @@
                           pend-total-text "."))
                       T)))))))))))
 
+;; 2026-09-07 (pedido del usuario: MT implicito, "solo espichar una o
+;; varias cotas de implantacion"): corte/relleno del anden con el MISMO
+;; motor de plano de zonas verdes/senderos (urb:earthworks-from-picks)
+;; sobre su contorno. La superficie es automatica (SUP_TN); 1 cota =
+;; plano horizontal, 2 = rasante lineal, 3+ = plano ajustado. Enter sin
+;; cotas = queda PENDIENTE (se puede recalcular con EDITAR).
+(defun urb:anden-earthworks-por-cotas (block-ref points / picks pts pl mov)
+  (prompt (strcat "\nCotas de IMPLANTACION del anden"
+    " (via/pozo/etiqueta o Digitar; Enter sin cotas = pendiente):"))
+  (setq picks (urb:pick-design-cotas))
+  (if (and picks (>= (length picks) 1))
+    (progn
+      (setq pts (mapcar '(lambda (p) (list (car p) (cadr p))) points))
+      (entmake (append
+        (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity")
+              '(100 . "AcDbPolyline") (cons 90 (length pts)) '(70 . 1))
+        (mapcar '(lambda (p) (cons 10 p)) pts)))
+      (setq pl (entlast))
+      (setq mov (vl-catch-all-apply 'urb:earthworks-from-picks
+        (list pl picks)))
+      (if (and pl (entget pl)) (entdel pl))
+      (if (and mov (not (vl-catch-all-error-p mov)))
+        (progn
+          (urb:set-block-attribute block-ref "ANDEN_CORTE_M3"
+            (rtos (car mov) 2 2))
+          (urb:set-block-attribute block-ref "ANDEN_RELLENO_M3"
+            (rtos (cadr mov) 2 2))
+          (urb:mark-anden-earthworks-status block-ref
+            "OK - cotas de implantacion")
+          (prompt (strcat "\nCorte: " (rtos (car mov) 2 2)
+            " m3 | Relleno: " (rtos (cadr mov) 2 2) " m3"))
+          T)
+        (progn
+          (urb:mark-anden-earthworks-status block-ref
+            "PENDIENTE - sin superficie SUP_TN")
+          nil)))
+    (progn
+      (urb:mark-anden-earthworks-status block-ref
+        "PENDIENTE - sin cotas de implantacion")
+      T)))
+
 (defun urb:prompt-anden-earthworks
   (block-ref points area calculate surface grade-source / result)
   (if (urb:yes-p calculate)
@@ -5902,13 +5984,15 @@
         "Automatico" "Normal"
         '("Automatico" "Girar90") '("Normal" "Opuesto"))
       nil))
-  ;; 2026-09-02: mismo icono para anden y sendero -- si el usuario eligio
-  ;; un tipo de sendero en el dialogo, delega al flujo de senderos (capas,
-  ;; simbolo y presupuesto propios) y termina.
-  (if (and data (> (length data) 14) (> (nth 14 data) 0))
+  ;; 2026-09-07: mismo icono para todas las areas -- la variante viaja
+  ;; como CODIGO de *urb-send-tipos* en nth 14 ("" = anden en loseta).
+  ;; Cualquier codigo delega al flujo de poligono+receta con sus capas,
+  ;; colores y capitulo de presupuesto propios.
+  (if (and data (> (length data) 14)
+           (= (type (nth 14 data)) 'STR) (/= (nth 14 data) ""))
     (progn
       (urb:poly-element-draw
-        (nth (1- (nth 14 data)) *urb-send-tipos*)
+        (assoc (nth 14 data) *urb-send-tipos*)
         (nth 2 data) (nth 3 data)
         (nth 11 data) (nth 12 data) (nth 13 data)
         "URB_SENDERO")
@@ -6014,9 +6098,9 @@
       (vla-Regen (urb:doc) 1)
       (if block-ref
         (progn
+          ;; 2026-09-07: MT por cotas de implantacion (superficie auto)
           (setq earthworks-ok
-            (urb:prompt-anden-earthworks
-              block-ref anden-points anden-area calculate surface grade-source))
+            (urb:anden-earthworks-por-cotas block-ref anden-points))
           (prompt
             (strcat
               "\nAnden creado: " (strcase material)
@@ -8992,14 +9076,15 @@
         ("SUPERFICIE_TN" "Superficie de terreno" "SUP_TN")
         ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE")
         ("ORIGEN_CREACION" "Origen de creacion" "MANUAL")))
+    ;; 2026-09-07 (pedido del usuario: panel de propiedades LIMPIO):
+    ;; fuera LOTE / SUPERFICIE_TN / ESTADO_COTA_TN / ORIGEN_CREACION --
+    ;; la maquinaria que los leia usa defaults cuando faltan (verificado:
+    ;; mp:getval con default en cada lector).
     ((= base "ACCESORIO_ACUEDUCTO")
       '(("ETAPA" "Etapa" "") ("SUBETAPA" "Subetapa" "") ("ID" "ID / Codigo" "")
         ("TIPO_ACCESORIO" "Tipo accesorio" "") ("DIAMETRO" "Diametro principal" "")
-        ("DIAMETRO_SALIDA" "Diametro salida" "") ("MATERIAL" "Material" "") ("LOTE" "Lote/Sector" "")
-        ("COTA_TN_INI" "Cota terreno" "")
-        ("SUPERFICIE_TN" "Superficie de terreno" "SUP_TN")
-        ("ESTADO_COTA_TN" "Estado cota terreno" "PENDIENTE")
-        ("ORIGEN_CREACION" "Origen de creacion" "MANUAL")))
+        ("DIAMETRO_SALIDA" "Diametro salida" "") ("MATERIAL" "Material" "")
+        ("COTA_TN_INI" "Cota terreno" "")))
     ((= base "LUMINARIA_AP")
       '(("ETAPA" "Etapa" "") ("SUBETAPA" "Subetapa" "") ("CODIGO" "Codigo" "")
         ("TIPO_LUMINARIA" "Tipo luminaria" "") ("FUENTE_LED" "Fuente LED" "")
@@ -9320,15 +9405,21 @@
 (defun mp:write-dcl-puntos (/ fn f)
   (mp:reset-dialog-capture)
   (setq *mp-dialog-edit-mode* nil)
-  (setq fn (urb:temp-file "maipore_puntos_v11" ".dcl"))
+  (setq fn (urb:temp-file "maipore_puntos_v12" ".dcl"))
   (if (and *mp-dcl-puntos-ok* (findfile fn))
     fn
     (progn
   (setq f (open fn "w"))
+  ;; 2026-09-07 (pedido del usuario: ventana de pozos/sumideros con solo
+  ;; lo necesario): fuera "Cota terreno" (automatica de SUP_TN) y fuera
+  ;; "Profundidad" (se DERIVA sola: cota tapa - cota clave; la tapa
+  ;; manda, como en el cuadro de pozos del plano). La cota de tapa es
+  ;; opcional: vacia = terreno natural en el punto.
   (write-line "maipore_punto_hidro : dialog { label = \"Maipore - Punto hidrosanitario\"; : boxed_column {" f)
   (write-line (mp:dcl-etapa-str) f)
   (write-line ": edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
-  (write-line ": edit_box { label = \"Cota terreno (automatica SUP_TN)\"; key = \"ctn\"; edit_width = 12; } : edit_box { label = \"Cota clave\"; key = \"cclave\"; edit_width = 12; } : edit_box { label = \"Profundidad\"; key = \"prof\"; edit_width = 12; } } ok_cancel; }" f)
+  (write-line ": edit_box { label = \"Cota tapa (vacia = terreno SUP_TN)\"; key = \"ctapa\"; edit_width = 12; } : edit_box { label = \"Cota clave / fondo\"; key = \"cclave\"; edit_width = 12; }" f)
+  (write-line ": text { label = \"La profundidad se calcula sola: tapa - clave.\"; } } ok_cancel; }" f)
   (write-line "maipore_caja_elec : dialog { label = \"Maipore - Caja / camara electrica\"; : boxed_column {" f)
   (write-line ": popup_list { label = \"Tipo\"; key = \"tipo\"; }" f)
   (write-line (mp:dcl-etapa-str) f)
@@ -9338,7 +9429,7 @@
   (setq *mp-dcl-puntos-ok* T)
   fn)))
 
-(defun mp:dialog-punto-hidro (red tipo / dcl ok etapa res)
+(defun mp:dialog-punto-hidro (red tipo / dcl ok etapa res tapa clave prof)
   (setq dcl (load_dialog (mp:write-dcl-puntos)))
   (if (not (new_dialog "maipore_punto_hidro" dcl)) (exit))
   (mp:fill-popup "etapa" *mp-etapa-list* 0)
@@ -9351,10 +9442,20 @@
   (if ok
     (progn
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
+      ;; 2026-09-07: profundidad DERIVADA (tapa - clave); la tapa
+      ;; digitada manda sobre el terreno automatico (COTA_TN_INI) --
+      ;; si queda vacia, mp:auto-terrain-values pone el TN del punto y
+      ;; la profundidad se deriva alla si hay clave.
+      (setq tapa (mp:numeric-real (mp:gettile "ctapa")))
+      (setq clave (mp:numeric-real (mp:gettile "cclave")))
+      (setq prof
+        (if (and tapa clave) (rtos (- tapa clave) 2 3) ""))
       (setq res
         (list (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
               (cons "RED" red) (cons "ID" (mp:gettile "id")) (cons "DIAMETRO" (if (= red "Acueducto") (mp:item *mp-diam-acu-list* "diam") (mp:item *mp-diam-alc-list* "diam")))
-              (cons "COTA_TN_INI" (mp:gettile "ctn")) (cons "COTA_CLAVE_INI" (mp:gettile "cclave")) (cons "PROFUNDIDAD" (mp:gettile "prof"))))))
+              (cons "COTA_TN_INI" (if tapa (rtos tapa 2 3) ""))
+              (cons "COTA_CLAVE_INI" (mp:gettile "cclave"))
+              (cons "PROFUNDIDAD" prof)))))
   (unload_dialog dcl)
   res)
 
@@ -9980,18 +10081,13 @@
     ((= base "POZO_PLUVIAL") id)
     ((= base "SUMIDERO") (strcat "SUM " id))
     ((member base '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281")) (mp:caja-tipo-label base vals))
-    ;; 2026-09-02 (pedido del usuario): nomenclatura = NUMERACION +
-    ;; NOMBRE del accesorio ("AC-461 TEE"); sin numero se conserva el
-    ;; formato corto anterior (token + diametro).
+    ;; 2026-09-07 (pedido del usuario: "en la cota del accesorio solo
+    ;; quiero el numero y ya" -- como los nodos del plano): SOLO el ID;
+    ;; sin numero, el token corto como respaldo.
     ((= base "ACCESORIO_ACUEDUCTO")
       (if (/= id "")
-        (vl-string-right-trim " "
-          (strcat id " "
-            (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" vals ""))))
-        (vl-string-right-trim " "
-          (strcat (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" vals ""))
-            (if (/= (mp:getval "DIAMETRO" vals "") "")
-              (strcat " D" (mp:getval "DIAMETRO" vals "")) "")))))
+        id
+        (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" vals ""))))
     ((= base "CABEZAL_PLUVIAL") (strcat "CAB " id))
     ((= base "LUMINARIA_AP") (strcat "LUM " (mp:getval "CODIGO" vals id)))
     ((= base "POSTE_ELEC") id)
@@ -11136,7 +11232,7 @@
     (setq a (entnext a))))
 
 (defun mp:insert-cant-point
-  (base p vals / doc ms blk br en vals2 lay added sync-result rot)
+  (base p vals / doc ms blk br en vals2 lay added sync-result rot tapa clave)
   (vl-load-com)
   ;; rotacion opcional (2026-09-02, accesorios ACU orientables): viaja en
   ;; la pseudo-clave __ROT (radianes) y NO se guarda como atributo.
@@ -11144,6 +11240,16 @@
   (if (null rot) (setq rot 0.0))
   (setq vals (vl-remove-if '(lambda (x) (= (car x) "__ROT")) vals))
   (setq vals2 (mp:auto-terrain-values vals p nil))
+  ;; 2026-09-07: pozos/sumideros -- PROFUNDIDAD derivada sola:
+  ;; tapa (la digitada, o el terreno automatico del punto) - clave
+  (if (and (member base '("POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO"))
+           (= (mp:getval "PROFUNDIDAD" vals2 "") ""))
+    (progn
+      (setq tapa (mp:numeric-real (mp:getval "COTA_TN_INI" vals2 "")))
+      (setq clave (mp:numeric-real (mp:getval "COTA_CLAVE_INI" vals2 "")))
+      (if (and tapa clave)
+        (setq vals2 (mp:alist-set vals2 "PROFUNDIDAD"
+          (rtos (- tapa clave) 2 3))))))
   (if (= (mp:getval "ORIGEN_CREACION" vals2 "") "")
     (setq vals2
       (mp:alist-set vals2 "ORIGEN_CREACION" "MANUAL")))
@@ -19782,7 +19888,9 @@
         ": button { label = \"Vincular o cambiar Excel maestro\"; key = \"link_excel\"; height = 2; width = 44; }"
         ": button { label = \"Actualizar Excel vinculado\"; key = \"update_excel\"; height = 2; width = 44; }"
         ": button { label = \"Eliminar vinculo con Excel\"; key = \"unlink_excel\"; height = 2; width = 44; }"
-        ": button { label = \"Exportar detalle tecnico de redes (CSV)\"; key = \"network\"; height = 2; width = 44; } }"
+        ": button { label = \"Exportar detalle tecnico de redes (CSV)\"; key = \"network\"; height = 2; width = 44; }"
+        ": button { label = \"Cuadros de red en el dibujo (accesorios/tramos/pozos)\"; key = \"cuadros\"; height = 2; width = 44; }"
+        ": button { label = \"Perfil esquematico de mov. de tierras de via\"; key = \"via_perfil\"; height = 2; width = 44; } }"
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"))
     filename))
 
@@ -23211,7 +23319,20 @@
 ;; 2026-08-24 el usuario lo edita en Ajustes en vez de verlo en la
 ;; ventana de creacion (urb:send-espesor-de aplica el valor efectivo).
 (setq *urb-send-tipos*
-  '(("SEND-TROTE" "Sendero de trote" "SENDERO" 40 "TROTE"
+  '(;; 2026-09-07 (rediseño del dialogo): ANDEN EN CONCRETO -- variante
+    ;; del anden nativo cuando el material no es loseta; su presupuesto
+    ;; va a la red ANDEN (o al capitulo del parque si se dibuja adentro)
+    ("ANDEN-CONC" "Anden en concreto" "ANDEN" 9 ""
+      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
+       ("Concreto 3000 psi" "M3" "AREA" 0.10)
+       ("Malla electrosoldada" "KG" "AREA" 2.36)
+       ("Subbase granular SBG" "M3" "AREA" 0.30)
+       ("Geotextil tejido 2100" "M2" "AREA" 1.0)
+       ("MO Escobillado concreto" "M2" "AREA" 1.0)
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+         "M3" "AREA" 0.40))
+      "URB-ANDEN-CONCRETO" 0.40)
+    ("SEND-TROTE" "Sendero de trote" "SENDERO" 40 "TROTE"
       (("Concreto 3000 psi" "M3" "AREA" 0.10)
        ("Malla electrosoldada" "KG" "AREA" 2.36)
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
@@ -23758,23 +23879,22 @@
     ;; 2026-09-02 (pedido del usuario): corte/relleno OPCIONAL del sendero
     ;; contra SUP_TN con rasante de cotas clickeadas (via/pozo/etiqueta) --
     ;; mismo motor de la zona verde; queda en xdata URB_SEND_MOV.
+    ;; 2026-09-07 (MT implicito): cotas de implantacion DIRECTAS (sin
+    ;; pregunta previa) para todo elemento de area; Enter = sin MT
     (if (= appid "URB_SENDERO")
       (progn
-        (initget "Si No")
-        (setq kw2
-          (getkword "\nCalcular CORTE/RELLENO de este sendero? [Si/No] <No>: "))
-        (if (= kw2 "Si")
+        (prompt (strcat "\nCotas de IMPLANTACION"
+          " (via/pozo/etiqueta o Digitar; Enter = sin corte/relleno):"))
+        (setq picks2 (urb:pick-design-cotas))
+        (if (and picks2 (>= (length picks2) 1))
           (progn
-            (setq picks2 (urb:pick-design-cotas))
-            (if (and picks2 (>= (length picks2) 1))
+            (setq mov2 (urb:earthworks-from-picks ename picks2))
+            (if mov2
               (progn
-                (setq mov2 (urb:earthworks-from-picks ename picks2))
-                (if mov2
-                  (progn
-                    (urb:set-xdata-strings ename "URB_SEND_MOV"
-                      (list (rtos (car mov2) 2 2) (rtos (cadr mov2) 2 2)))
-                    (prompt (strcat "\nCorte: " (rtos (car mov2) 2 2)
-                      " m3 | Relleno: " (rtos (cadr mov2) 2 2) " m3"))))))))))
+                (urb:set-xdata-strings ename "URB_SEND_MOV"
+                  (list (rtos (car mov2) 2 2) (rtos (cadr mov2) 2 2)))
+                (prompt (strcat "\nCorte: " (rtos (car mov2) 2 2)
+                  " m3 | Relleno: " (rtos (cadr mov2) 2 2) " m3"))))))))
     (setq n (1+ n))
     (prompt (strcat "\n" (nth 1 entry) " " (itoa n)
       " creado. Otro contorno (Enter termina): ")))
@@ -23894,15 +24014,13 @@
     "urb_bioswale"
     '*urb-bioswale-dcl-ok*
     (list
+      ;; 2026-09-07 (pedido del usuario): el bioswale va SIN prefabricados
+      ;; a los costados -- fuera los popups; el comando fuerza Ninguno.
       "urb_bioswale : dialog { label = \"Bioswale / biorretenedor\";"
       ": boxed_column { label = \"Datos del elemento\";"
       ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; } }"
-      ": boxed_column { label = \"Prefabricado por costados (automatico, en bloque)\";"
-      ": popup_list { label = \"Derecha\"; key = \"lado_der\"; }"
-      ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
-      ": popup_list { label = \"Posicion\"; key = \"costpos\"; }"
-      ": text { label = \"Externo = fuera del area; Interno = franja dentro (se descuenta del area).\"; } }"
+      ": text { label = \"Sin prefabricados a los costados (asi va el bioswale).\"; }"
       ": text { label = \"Aceptar y CERRAR EL POLIGONO del contorno (como una via o un anden).\"; }"
       "ok_cancel; }")))
 
@@ -23922,23 +24040,12 @@
           (end_list)
           (set_tile "etapa" "0")
           (urb:send-fill-sub 0)
-          (urb:fill-popup "lado_der" *urb-anillo-prefab-list*
-            (urb:list-index-ci (urb:send-costado-de 1) *urb-anillo-prefab-list*))
-          (urb:fill-popup "lado_izq" *urb-anillo-prefab-list*
-            (urb:list-index-ci (urb:send-costado-de 2) *urb-anillo-prefab-list*))
-          (urb:fill-popup "costpos" *urb-anillo-pos-list*
-            (urb:list-index-ci (urb:send-costpos-de) *urb-anillo-pos-list*))
           (action_tile "etapa" "(urb:send-fill-sub (atoi $value))")
-          (setq *urb-send-etapa* "0" *urb-send-sub* "0"
-                *urb-send-lado-der* "0" *urb-send-lado-izq* "0"
-                *urb-send-costpos* "0")
+          (setq *urb-send-etapa* "0" *urb-send-sub* "0")
           (action_tile "accept"
             (strcat
               "(setq *urb-send-etapa* (get_tile \"etapa\")"
-              " *urb-send-sub* (get_tile \"subetapa\")"
-              " *urb-send-lado-der* (get_tile \"lado_der\")"
-              " *urb-send-lado-izq* (get_tile \"lado_izq\")"
-              " *urb-send-costpos* (get_tile \"costpos\"))"
+              " *urb-send-sub* (get_tile \"subetapa\"))"
               "(done_dialog 1)"))
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))
@@ -23953,18 +24060,10 @@
             (urb:safe-string
               (nth (atoi (urb:safe-string *urb-send-sub* "0")) subs)
               etapa))
-          (setq lado-der
-            (nth (atoi (urb:safe-string *urb-send-lado-der* "0"))
-              *urb-anillo-prefab-list*))
-          (setq lado-izq
-            (nth (atoi (urb:safe-string *urb-send-lado-izq* "0"))
-              *urb-anillo-prefab-list*))
-          (setq costpos
-            (nth (atoi (urb:safe-string *urb-send-costpos* "0"))
-              *urb-anillo-pos-list*))
-          (urb:config-write "URB_SEND_COSTADO1" lado-der)
-          (urb:config-write "URB_SEND_COSTADO2" lado-izq)
-          (urb:config-write "URB_SEND_COSTPOS" costpos)
+          ;; 2026-09-07 (pedido del usuario): el bioswale va SIN
+          ;; prefabricados a los costados, siempre (y sin tocar los
+          ;; defaults de costados que usan anden/senderos)
+          (setq lado-der "Ninguno" lado-izq "Ninguno" costpos "Externo")
           (urb:poly-element-draw entry etapa sub lado-der lado-izq
             costpos "URB_BIOSWALE")))))
   (princ))
@@ -29135,6 +29234,272 @@
   (princ)
 )
 
+;; ------------------------------------------------------------------
+;; 2026-09-07 (pedido del usuario: "poder hacer tablas o esquemas como
+;; los del plano"): CUADROS DE RED generados desde el MODELO como tablas
+;; de AutoCAD (misma maquinaria vla-AddTable de la tabla de verificacion
+;; de vias). Capa propia URB-CUADROS para prender/apagar.
+(defun urb:cuadro-tabla-base (point titulo headers filas / table n cols
+   th rh cw r c item)
+  (urb:ensure-layer "URB-CUADROS" 4 T)
+  (setq th (* 0.60 (max 0.20 (getvar "TEXTSIZE")))
+        rh (* th 2.2)
+        cw (* th 9.0)
+        cols (length headers)
+        n (+ 2 (length filas)))
+  (setq table (vla-AddTable (urb:space) (vlax-3d-point point) n cols rh cw))
+  (vla-put-Layer table "URB-CUADROS")
+  (vla-put-Color table 256)
+  (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed (list table :vlax-true))
+  (vl-catch-all-apply 'vla-MergeCells (list table 0 0 0 (1- cols)))
+  (urb:set-table-text-safe table 0 0 titulo)
+  (setq c 0)
+  (foreach item headers
+    (urb:set-table-text-safe table 1 c item)
+    (setq c (1+ c)))
+  (setq r 2)
+  (foreach item filas
+    (setq c 0)
+    (foreach v item
+      (urb:set-table-text-safe table r c (urb:safe-string v ""))
+      (setq c (1+ c)))
+    (setq r (1+ r)))
+  (vl-catch-all-apply 'vla-put-RegenerateTableSuppressed (list table :vlax-false))
+  (vl-catch-all-apply 'vla-RecomputeTableBlock (list table :vlax-true))
+  table)
+
+;; numero del ID para ordenar ("AC-102" -> 102; sin numero -> 999999)
+(defun urb:cuadro-id-num (id / i c num)
+  (setq num "" i 1)
+  (while (<= i (strlen id))
+    (setq c (substr id i 1))
+    (if (vl-string-search c "0123456789") (setq num (strcat num c)))
+    (setq i (1+ i)))
+  (if (= num "") 999999 (atoi num)))
+
+(defun urb:cuadro-accesorios (/ ss i en atts ed p filas point)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_ACC_ACU*"))) i 0 filas nil)
+  (if (null ss)
+    (prompt "\nNo hay accesorios de acueducto en el modelo.")
+    (progn
+      (while (< i (sslength ss))
+        (setq en (ssname ss i)
+              atts (mp:att-alist en)
+              ed (entget en)
+              p (cdr (assoc 10 ed)))
+        (setq filas (cons
+          (list (mp:getval "ID" atts "")
+                (mp:acc-tipo-token (mp:getval "TIPO_ACCESORIO" atts ""))
+                (mp:getval "DIAMETRO" atts "")
+                (mp:getval "DIAMETRO_SALIDA" atts "")
+                (mp:getval "MATERIAL" atts "")
+                (rtos (car p) 2 2)
+                (rtos (cadr p) 2 2))
+          filas))
+        (setq i (1+ i)))
+      (setq filas (vl-sort filas
+        '(lambda (a b) (< (urb:cuadro-id-num (car a))
+                          (urb:cuadro-id-num (car b))))))
+      (setq point (getpoint "\nPunto de insercion del cuadro: "))
+      (if point
+        (progn
+          (urb:cuadro-tabla-base (trans point 1 0)
+            (strcat "CUADRO DE ACCESORIOS - ACUEDUCTO ("
+              (itoa (length filas)) ")")
+            '("NODO" "TIPO" "D (pulg)" "D SALIDA" "MATERIAL" "ESTE" "NORTE")
+            filas)
+          (prompt (strcat "\nCuadro creado con " (itoa (length filas))
+            " accesorios (capa URB-CUADROS.")))))))
+
+(defun urb:cuadro-tramos-alc (patron red-label / ss i en atts filas point)
+  (setq ss (ssget "_X" (list (cons 0 "INSERT") (cons 2 patron))) i 0 filas nil)
+  (if (null ss)
+    (prompt (strcat "\nNo hay tramos de " red-label " en el modelo."))
+    (progn
+      (while (< i (sslength ss))
+        (setq en (ssname ss i)
+              atts (mp:att-alist en))
+        (setq filas (cons
+          (list (mp:getval "POZO_INI" atts "")
+                (mp:getval "POZO_FIN" atts "")
+                (mp:getval "LONGITUD" atts "")
+                (mp:getval "COTA_CLAVE_INI" atts "")
+                (mp:getval "COTA_CLAVE_FIN" atts "")
+                (mp:getval "PENDIENTE_CALCULADA" atts
+                  (mp:getval "PENDIENTE" atts ""))
+                (mp:getval "DIAMETRO" atts "")
+                (mp:getval "MATERIAL" atts ""))
+          filas))
+        (setq i (1+ i)))
+      (setq filas (vl-sort filas
+        '(lambda (a b) (< (urb:cuadro-id-num (car a))
+                          (urb:cuadro-id-num (car b))))))
+      (setq point (getpoint "\nPunto de insercion del cuadro: "))
+      (if point
+        (progn
+          (urb:cuadro-tabla-base (trans point 1 0)
+            (strcat "CUADRO DE TRAMOS - " red-label " ("
+              (itoa (length filas)) ")")
+            '("POZO INI" "POZO FIN" "LONG (m)" "CLAVE INI" "CLAVE FIN"
+              "PEND (%)" "D (pulg)" "MATERIAL")
+            filas)
+          (prompt (strcat "\nCuadro creado con " (itoa (length filas))
+            " tramos (capa URB-CUADROS).")))))))
+
+(defun urb:cuadro-pozos (/ ss i en atts bname filas point red)
+  (setq ss (ssget "_X" '((0 . "INSERT")
+             (2 . "MP_PUNTO_POZO_SAN,MP_PUNTO_POZO_PLU"))) i 0 filas nil)
+  (if (null ss)
+    (prompt "\nNo hay pozos en el modelo.")
+    (progn
+      (while (< i (sslength ss))
+        (setq en (ssname ss i)
+              atts (mp:att-alist en)
+              bname (strcase (vla-get-EffectiveName
+                (vlax-ename->vla-object en))))
+        (setq red (if (vl-string-search "_PLU" bname) "PLUVIAL" "SANITARIO"))
+        (setq filas (cons
+          (list (mp:getval "ID" atts "")
+                red
+                (mp:getval "COTA_TN_INI" atts "")
+                (mp:getval "COTA_CLAVE_INI" atts "")
+                (mp:getval "PROFUNDIDAD" atts "")
+                (mp:getval "DIAMETRO" atts ""))
+          filas))
+        (setq i (1+ i)))
+      (setq filas (vl-sort filas
+        '(lambda (a b) (< (urb:cuadro-id-num (car a))
+                          (urb:cuadro-id-num (car b))))))
+      (setq point (getpoint "\nPunto de insercion del cuadro: "))
+      (if point
+        (progn
+          (urb:cuadro-tabla-base (trans point 1 0)
+            (strcat "CUADRO DE POZOS DE ALCANTARILLADO ("
+              (itoa (length filas)) ")")
+            '("POZO" "RED" "COTA TAPA" "COTA CLAVE" "PROF (m)" "D (pulg)")
+            filas)
+          (prompt (strcat "\nCuadro creado con " (itoa (length filas))
+            " pozos (capa URB-CUADROS).")))))))
+
+(defun urb:cuadros-red-command (/ kw)
+  (initget "Accesorios TramosSanitario TramosPluvial TramosAcueducto Pozos")
+  (setq kw (getkword (strcat "\nCuadro a generar "
+    "[Accesorios/TramosSanitario/TramosPluvial/TramosAcueducto/Pozos]"
+    " <Accesorios>: ")))
+  (if (null kw) (setq kw "Accesorios"))
+  (cond
+    ((= kw "Accesorios") (urb:cuadro-accesorios))
+    ((= kw "TramosSanitario")
+      (urb:cuadro-tramos-alc "MP_TRAMO_SAN_*" "ALC. SANITARIO"))
+    ((= kw "TramosPluvial")
+      (urb:cuadro-tramos-alc "MP_TRAMO_PLU_*" "ALC. PLUVIAL"))
+    ((= kw "TramosAcueducto")
+      (urb:cuadro-tramos-alc "MP_TRAMO_ACU_*" "ACUEDUCTO"))
+    ((= kw "Pozos") (urb:cuadro-pozos)))
+  (princ))
+
+;; PERFIL ESQUEMATICO del movimiento de tierras de una via (2026-09-07,
+;; pedido del usuario: "un corte como el de redes"): TN vs rasante vs
+;; fondo de estructura a lo largo de la via, con exageracion vertical,
+;; leido de las filas YA CALCULADAS de la verificacion (URB_VIA_AUDIT --
+;; si no existen, correr primero Memoria de via). Capa URB-VIA-PERFIL.
+(defun urb:via-perfil-esquema-command (/ sel be ldat audit rows point exv
+   base-z s0 z0 pts-tn pts-ras pts-fon row st tn ras fon x fila minz maxz
+   ln tx last-st paso)
+  (setq sel (entsel "\nSeleccione la VIA (su bloque): "))
+  (if (null sel)
+    (prompt "\nNada seleccionado.")
+    (progn
+      (setq be (urb:road-parent-from-entity (car sel)))
+      (if (null be) (setq be (car sel)))
+      (setq ldat (vl-catch-all-apply 'vlax-ldata-get
+        (list be "URB_VIA_AUDIT")))
+      (if (or (vl-catch-all-error-p ldat) (null ldat))
+        (prompt (strcat "\nEsta via no tiene la verificacion calculada -- "
+          "corra primero URBANISMO > Cantidades > Memoria de via."))
+        (progn
+          (setq audit (car ldat))
+          (setq point (getpoint "\nPunto de insercion del perfil: "))
+          (if point
+            (progn
+              (setq point (trans point 1 0))
+              (setq exv 5.0)  ;; exageracion vertical 5x (H 1:1)
+              ;; base: cota minima redondeada hacia abajo
+              (setq minz nil maxz nil)
+              (foreach row audit
+                (foreach v (list (nth 1 row) (nth 2 row) (nth 3 row))
+                  (if (numberp v)
+                    (progn
+                      (if (or (null minz) (< v minz)) (setq minz v))
+                      (if (or (null maxz) (> v maxz)) (setq maxz v))))))
+              (setq base-z (- (float (fix minz)) 1.0))
+              (urb:ensure-layer "URB-VIA-PERFIL" 4 T)
+              (setq pts-tn nil pts-ras nil pts-fon nil last-st 0.0)
+              (foreach row audit
+                (setq st (nth 0 row) tn (nth 1 row)
+                      ras (nth 2 row) fon (nth 3 row))
+                (setq x (+ (car point) st) last-st st)
+                (if (numberp tn)
+                  (setq pts-tn (cons (list x (+ (cadr point)
+                    (* exv (- tn base-z)))) pts-tn)))
+                (if (numberp ras)
+                  (setq pts-ras (cons (list x (+ (cadr point)
+                    (* exv (- ras base-z)))) pts-ras)))
+                (if (numberp fon)
+                  (setq pts-fon (cons (list x (+ (cadr point)
+                    (* exv (- fon base-z)))) pts-fon))))
+              ;; polilineas: TN verde, rasante roja, fondo amarilla
+              (foreach fila (list (list pts-tn 3) (list pts-ras 1)
+                                  (list pts-fon 2))
+                (if (> (length (car fila)) 1)
+                  (progn
+                    (entmake (append
+                      (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity")
+                            (cons 8 "URB-VIA-PERFIL")
+                            (cons 62 (cadr fila))
+                            '(100 . "AcDbPolyline")
+                            (cons 90 (length (car fila))) '(70 . 0))
+                      (mapcar '(lambda (p) (cons 10 p))
+                        (reverse (car fila))))))))
+              ;; reticula: linea base + verticales cada 20 m con abscisa,
+              ;; y cotas de referencia cada 1 m (exageradas)
+              (entmake (list '(0 . "LINE") (cons 8 "URB-VIA-PERFIL")
+                (cons 62 8)
+                (cons 10 (list (car point) (cadr point) 0.0))
+                (cons 11 (list (+ (car point) last-st) (cadr point) 0.0))))
+              (setq st 0.0)
+              (while (<= st (+ last-st 0.01))
+                (entmake (list '(0 . "LINE") (cons 8 "URB-VIA-PERFIL")
+                  (cons 62 8)
+                  (cons 10 (list (+ (car point) st) (cadr point) 0.0))
+                  (cons 11 (list (+ (car point) st)
+                    (+ (cadr point) (* exv (- (+ maxz 0.5) base-z))) 0.0))))
+                (entmake (list '(0 . "TEXT") (cons 8 "URB-VIA-PERFIL")
+                  (cons 62 8)
+                  (cons 10 (list (+ (car point) st)
+                    (- (cadr point) 1.2) 0.0))
+                  (cons 40 0.6) (cons 50 (/ pi 2.0))
+                  (cons 1 (urb:format-station st))))
+                (setq st (+ st 20.0)))
+              (setq z0 (float (fix minz)) paso 1.0)
+              (while (<= z0 (+ maxz 0.5))
+                (entmake (list '(0 . "TEXT") (cons 8 "URB-VIA-PERFIL")
+                  (cons 62 8)
+                  (cons 10 (list (- (car point) 4.0)
+                    (+ (cadr point) (* exv (- z0 base-z))) 0.0))
+                  (cons 40 0.6) (cons 1 (rtos z0 2 0))))
+                (setq z0 (+ z0 paso)))
+              (entmake (list '(0 . "TEXT") (cons 8 "URB-VIA-PERFIL")
+                (cons 62 4)
+                (cons 10 (list (car point)
+                  (+ (cadr point) (* exv (- (+ maxz 1.2) base-z))) 0.0))
+                (cons 40 1.0)
+                (cons 1 (strcat "PERFIL MT VIA | TN=verde Rasante=rojo "
+                  "Fondo estr.=amarillo | V x" (rtos exv 2 0)))))
+              (prompt (strcat "\nPerfil esquematico creado ("
+                (itoa (length audit)) " estaciones, capa URB-VIA-PERFIL)."))))))))
+  (princ))
+
 (defun urb:quantities-menu (/ action)
   (setq action
     (urb:simple-menu-dialog "urb_quantities"
@@ -29142,7 +29507,8 @@
         ("scope" "scope")
         ("excel" "excel") ("link_excel" "link_excel")
         ("update_excel" "update_excel")
-        ("unlink_excel" "unlink_excel") ("network" "network"))))
+        ("unlink_excel" "unlink_excel") ("network" "network")
+        ("cuadros" "cuadros") ("via_perfil" "via_perfil"))))
   (cond
     ((or (null action) (= action "back")) "back")
     ((= action "table") (urb:insert-quantities-table-command))
@@ -29153,7 +29519,9 @@
     ((= action "link_excel") (urb:excel-link-command))
     ((= action "update_excel") (urb:excel-update-linked-command))
     ((= action "unlink_excel") (urb:excel-unlink-command))
-    ((= action "network") (urb:export-networks-csv-command)))
+    ((= action "network") (urb:export-networks-csv-command))
+    ((= action "cuadros") (urb:cuadros-red-command))
+    ((= action "via_perfil") (urb:via-perfil-esquema-command)))
   (if (or (null action) (= action "back")) "back" nil))
 
 (defun urb:configuration-menu (/ action)
