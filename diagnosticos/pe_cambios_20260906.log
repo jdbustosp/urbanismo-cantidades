@@ -1,0 +1,55 @@
+ELIMINADA: 2.2.3.2.1 Grano de caucho reciclado
+AGREGADA: ciclorruta Suministro de cañuela prefabricada UN
+AGREGADA: ciclorruta M.O. instalación de cañuela prefabricada ML
+ELIMINADA: 2.2.3.3.2 Relleno con material seleccionado B-200
+RENOMBRADA: 2.2.3.3.3 'Suministro y colocación de recebo' -> 'Suministro y colocación de recebo B-200'
+REUBICADA: Sardinel prefabricado A-10 -> Suministro rampa vehicular
+RENOMBRADA: 2.2.4.2.2 'sardinel alto A-86 para rampas' -> 'Suministro sardinel alto A-86 para rampas'
+RENOMBRADA: 2.2.4.2.3 'sardinel bajo A-85 para rampa' -> 'Suministro sardinel bajo A-85 para rampa'
+RENOMBRADA: 2.2.4.2.4 'sardinel especial A-100 para rampa' -> 'Suministro sardinel especial A-100 para rampa'
+AGREGADAS: rampa vehicular M.O. localizacion + nivelacion arena + pieza remate
+ELIMINADO capitulo: 2.2.4.3 Mezclas asfalticas (rampa vehicular)
+RENOMBRADA: 2.2.4.5.2 'Suministro y colocación de recebo' -> 'Suministro y colocación de recebo B-200'
+RENOMBRADA: 2.2.5.2.8 'Suministro e instalación de sardinel alto A-86 para rampas' -> 'Suministro sardinel alto A-86 para rampas'
+SEPARADO SUMINISTRO: 'Suministro e instalación de sardinel bajo A-85 para rampa' -> 'Suministro sardinel bajo A-85 para rampa' UN
+SEPARADO SUMINISTRO: 'Suministro e instalación de sardinel especial A-100 para rampa' -> 'Suministro sardinel especial A-100 para rampa' UN
+AGREGADA: rampa peatonal M.O. instalación de sardinel prefabricado ML
+ELIMINADA: 2.2.5.3.2 Relleno con material seleccionado B-200
+RENOMBRADA: 2.2.5.3.3 'Suministro y colocación de recebo' -> 'Suministro y colocación de recebo B-200'
+AGREGADO: ZONA VERDE capitulo Excavaciones y rellenos (corte + recebo B-200)
+UM: 2.5.1.1.01 Suministro tubería PVC presión Ø1" ML -> UN
+ELIMINADA: 2.5.1.1.11 CARCAMO
+UM: 2.5.1.1.02 Suministro tubería PVC presión Ø2" ML -> UN
+UM: 2.5.1.1.03 Suministro tubería PVC presión Ø3" ML -> UN
+UM: 2.5.1.1.04 Suministro tubería PVC presión Ø4" ML -> UN
+UM: 2.5.1.1.05 Suministro tubería PVC presión Ø6" ML -> UN
+UM: 2.5.1.1.06 Suministro tubería PVC presión Ø8" ML -> UN
+UM: 2.5.1.1.07 Suministro tubería PVC presión Ø10" ML -> UN
+UM: 2.5.1.1.08 Suministro tubería PVC presión Ø12" ML -> UN
+UM: 2.5.1.1.09 Suministro tubería y piezas especiales HD Ø4" ML -> UN
+UM: 2.5.1.1.10 Suministro tubería y piezas especiales HD Ø12" ML -> UN
+ELIMINADA: 2.5.1.4.11 Cárcamo o placa de protección para tubería (Red de acueducto)
+RENOMBRADA: 2.5.1.8.09 'Relleno y conformación con recebo' -> 'Suministro y colocación de recebo B-200'
+AGREGADOS: MT acueducto entibados E-1A/E-1B/E-2 (reemplazan entibado generico)
+ELIMINADA: 2.5.1.8.11 Entibado temporal de zanja
+RENOMBRADA: 2.5.1.8.13 'Cinta preventiva para red' -> 'Cinta de señalización'
+REUBICADA: carcamo acueducto -> MT como ML
+ELIMINADA: 2.5.2.2.10 CARCAMO
+RENOMBRADA: 2.5.2.3.21 'Suministro y colocación de recebo' -> 'Suministro y colocación de recebo B-200'
+ELIMINADA: 2.5.3.1.21 CARCAMO
+ELIMINADO capitulo duplicado: 2.5.3.3 SUMINISTRO E INSTALACIÓN DE TUBERÍA (DOMICILIARIAS ALL)
+  (fusionada en tramos: Tubería NOVAFORT 12" Hex (1,5-2,5)m)
+  (fusionada en tramos: Tubería NOVAFORT 14" Hex (2,5-3,5)m)
+  (fusionada en tramos: Tubería NOVAFORT 16" Hex (1,5-2,5)m)
+  (fusionada en tramos: Tubería CSR 14" Hex (0-1,5)m)
+  (fusionada en tramos: Tubería CSR 14" Hex (1,5-2,5)m)
+  (fusionada en tramos: Tubería CSR 16" Hex (1,5-2,5)m)
+ELIMINADO capitulo duplicado: 2.5.3.4 CONSTRUCCIONES EN MAMPOSTERÍA Y CONCRETO TRAMOS (DOMICILIARIAS ALL)
+  (fusionada en tramos: Suministro e instalación base, cono y tapa para pozo de inspección)
+  (fusionada en tramos: Anillo en concreto prefabricado)
+  (fusionada en tramos: Cámara de caída)
+AGREGADO: PLUVIAL capitulo MOVIMIENTO DE TIERRAS (espejo sanitario, con carcamo ML)
+AGREGADO: PLUVIAL capitulo BIORETENEDORES Y BIOSWALES (cartilla D B-5/D B-6)
+AGREGADO: PLUVIAL capitulo CABEZALES DE DESCARGA
+REUBICADA: Cabezal de entrega -> capitulo CABEZALES DE DESCARGA
+2.3 duplicados unificados: 0 grupos

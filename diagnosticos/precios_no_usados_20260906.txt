@@ -1,0 +1,546 @@
+DEMOLICIONES  ;  Demolición de pavimento asfáltico (Incluye cargue, transporte y disposición final)  ;  M2
+DEMOLICIONES  ;  Demolición de concreto hidráulico (Incluye cargue, transporte y disposición final)  ;  M2
+DEMOLICIONES  ;  Demolición de andenes (Incluye cargue, transporte y disposición final)  ;  M2
+DEMOLICIONES  ;  Demolición manual de sardinel existente (Incluye cargue, transporte y disposición final)  ;  ML
+DEMOLICIONES  ;  Demolición y reposición de calzada en pavimento flexible (Incluye estructura de pavimentos)  ;  M2
+DEMOLICIONES  ;  Demolición y reposición de andenes (Incluye estructura de pavimentos)  ;  M2
+EXCAVACIONES Y RELLENOS  ;  Excavación mecánica en material común (Incluye cargue, transporte y disposición interna)  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Relleno con material seleccionado proveniente de la excavación  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro e instalación de base granular BG-A  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro e instalación de subbase granular SBG-A  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro e instalación de sello en subbase granular SBG-A  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro e instalación de base granular BG-B  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro e instalación de subbase granular SBG-B  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro e instalación de sello en subbase granular SBG-B  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro e instalación de base granular BG-C  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro e instalación de subbase granular SBG-C  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro e instalación de sello en subbase granular SBG-C  ;  M3
+EXCAVACIONES Y RELLENOS  ;  Suministro y colocación de piedra rajón y/o media zonga  ;  M3
+ASFALTOS  ;  Suministro, extendida y compactación de Base Asfáltica MD-20  ;  M3
+ASFALTOS  ;  Suministro, extendida y compactación de Rodadura Asfáltica MD-12  ;  M3
+ACABADOS Y PREFABRICADOS  ;  Suministro e instalación de sardinel A-10  ;  ML
+ACABADOS Y PREFABRICADOS  ;  Suministro e instalación de bordillo A-80  ;  ML
+ACABADOS Y PREFABRICADOS  ;  Suministro e instalación de bordillo para contenedor  ;  ML
+ACABADOS Y PREFABRICADOS  ;  Suministro e instalación de adoquín de arcilla color natural 20x10x6cm (Incluye base de arena y sello)  ;  M2
+ACABADOS Y PREFABRICADOS  ;  Cenefa lineal en loseta prefabricada guía color natural A-56 (0,40x0,40)m  ;  ML
+ACABADOS Y PREFABRICADOS  ;  Cenefa lineal en loseta prefabricada alerta color natural A-55 (0,40x0,40)m  ;  ML
+ACABADOS Y PREFABRICADOS  ;  Suministro e instalación de sardinel especial A-100 para rampa  ;  UN
+ACABADOS Y PREFABRICADOS  ;  Suministro e instalación de sardinel bajo A-85 para rampa  ;  ML
+ACABADOS Y PREFABRICADOS  ;  Suministro e instalación de sardinel alto A-86 para rampas  ;  ML
+ACABADOS Y PREFABRICADOS  ;  Suministro e instalación de pieza remate A-105 para rampa  ;  UN
+ACABADOS Y PREFABRICADOS  ;  Losa de concreto MR-40MPa para rampa vehicular reforzada e=0,17m  ;  M2
+ACABADOS Y PREFABRICADOS  ;  Pompeyanos con piso en concreto MR-40MPa reforzado e=0,15m (Incluye estampado, suministro y colocación de concreto, moldes, desmoldante, curado, corte y sellado de juntas)  ;  M2
+GEOTEXTILES  ;  Suministro y colocación de geotextil Tejido 2100  ;  M2
+GEOTEXTILES  ;  Suministro e instalación de geotextil NT 1600  ;  M2
+GEOMEMBRANAS  ;  Suministro e instalación de Geomembrana (Incluye excavación)  ;  M2
+GEOMEMBRANAS  ;  Suministro e instalación de geomalla en fibra de vidrio  ;  M2
+GEOMEMBRANAS  ;  Suministro y colocación de geomalla biaxial  ;  M2
+FILTRO  ;  Suministro e instalación de filtro tipo francés  ;  ML
+PERFILES VIALES  ;  Perfil 1 - Vía peatonal (ancho=15,00m)  ;  M2
+PERFILES VIALES  ;  Área de calzada perfil 2 - Vía tipo V-7  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 2 (ancho=3,25m) - Vía tipo V-7  ;  M2
+PERFILES VIALES  ;  Área de calzada perfil 3 - Vía tipo V-7  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 3 (ancho=3,00m) - Vía tipo V-7  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 3 (ancho=3,50m) - Vía tipo V-7  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 4 (ancho=2,80m) - Vía tipo V-4  ;  M2
+PERFILES VIALES  ;  Área de ciclorruta perfil 4 - Vía tipo V-4  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 4 (ancho=1,20m) - Vía tipo V-4 PFP  ;  M2
+PERFILES VIALES  ;  Área de ciclorruta perfil 4 - Vía tipo V-4 PFP  ;  M2
+PERFILES VIALES  ;  Área de calzada perfil 5 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 5 contra calzada (ancho=2,80m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 5 contra ciclorruta (ancho=2,80m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de anden perfil 5 (ancho=1,20m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de ciclorruta perfil 5 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de separador perfil 5 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de calzada perfil 6 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 6 (ancho=2,80m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 6 (ancho=4,00m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de ciclorruta perfil 6 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de separador perfil 6 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de calzada perfil 7 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 7 (ancho=2,80m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 7 (ancho=4,00m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de ciclorruta perfil 7 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de separador perfil 7 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de calzada perfil 8 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 8 contra calzada (ancho=2,80m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 8 contra ciclorruta (ancho=2,80m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de anden perfil 8 (ancho=1,20m) - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de ciclorruta perfil 8 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de separador perfil 8 - Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Área de calzada perfil 8 - Vía tipo V-4E PFP  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 8 contra calzada (ancho=2,80m) - Vía tipo V-4E PFP  ;  M2
+PERFILES VIALES  ;  Área de andén perfil 8 contra ciclorruta (ancho=2,80m) - Vía tipo V-4E PFP  ;  M2
+PERFILES VIALES  ;  Área de anden perfil 8 (ancho=1,20m) - Vía tipo V-4E PFP  ;  M2
+PERFILES VIALES  ;  Área de ciclorruta perfil 8 - Vía tipo V-4E PFP  ;  M2
+PERFILES VIALES  ;  Área de separador perfil 8 - Vía tipo V-4E PFP  ;  M2
+PERFILES VIALES  ;  Área de bocacalle del perfil 3 con Carrera 123  ;  M2
+PERFILES VIALES  ;  Área de bocacalle del perfil 5 con Carrera 123  ;  M2
+PERFILES VIALES  ;  Área de pompeyano perfil 6 -Vía tipo V-4E  ;  M2
+PERFILES VIALES  ;  Esquina con rampas peatonales (Incluye estructura de pavimentos)  ;  M2
+PERFILES VIALES  ;  Rampa vehicular (Incluye estructura de pavimentos)  ;  M2
+PERFILES VIALES  ;  Paso peatonal seguro  ;  M2
+SUMINISTRO Y APLICACIÓN DE IMPRIMANTE  ;  Suministro y aplicación de pintura de tráfico y/o imprimante negro a=15cm  ;  ML
+SUMINISTRO Y APLICACIÓN DE IMPRIMANTE  ;  Suministro y aplicación de pintura de tráfico y/o imprimante negro  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color blanco - Pintura acrílica (a=0,12m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color amarillo - Pintura acrílica (a=0,12m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color blanco - Pintura acrílica (a=0,15m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,15m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color amarillo - Pintura acrílica (a=0,15m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color blanco - Pintura acrílica (a=0,20m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,20m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color amarillo - Pintura acrílica (a=0,20m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,20m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea discontinua de color blanco 3m x 5m - Pintura acrílica (a=0,12m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea discontinua de color blanco 1m x 1m - Pintura acrílica (a=0,20m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,25m)  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color naranja - Pintura de dos componentes metil metacrilato (a=0,30m)  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color amarillo - Pintura acrílica (a=0,30m)  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,30m)  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Flecha de frente - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Flecha a la derecha - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Flecha a la izquierda - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Flecha de frente o a la derecha - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Flecha de frente o a la izquierda - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Flecha de frente, a la derecha o a la izquierda - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Flecha a la derecha o a la izquierda - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Flecha de terminación de carril - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Flecha de terminación de carril - Pintura de dos componentes metil metacrilato  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Ceda el paso para vehiculos - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Ceda el paso para vehiculos - Pintura de dos componentes metil metacrilato  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea de ceda el paso (0,4m x 0,8m) - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea de ceda el paso (0,4m x 0,8m) - Pintura de dos componentes metil metacrilato  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea de Pare - Pintura acrílica (a=0,6m)  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Línea cebreada para paso de peatones - Pintura acrílica (a=0,4m)  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Pictograma de cruce peatonal - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Demarcación máxima velocidad permitida (20 km/h) - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Cruce ciclorruta por calzada (0,4m x 0,4m) - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Cruce ciclorruta por calzada (Color azul) - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Demarcación de transición en el ancho de pavimento (a=1,00m) - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Demarcación de transición en el ancho de pavimento (a=1,00m) - Pintura de dos componentes metil metacrilato  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Sentido del tránsito en pompeyanos (Triángulos) - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Demarcación de rampas de pompeyano (Color amarillo) - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL  ;  Demarcación de letras - Pintura de dos componentes metil metacrilato  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL  ;  Línea continua de color amarillo para ciclorruta - Pintura acrílica (a=0,10m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL  ;  Línea discontinua de color blanco para ciclorruta 1m x 2m - Pintura acrílica (a=0,10m)  ;  ML
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL  ;  Ceda el paso para ciclorruta - Pintura acrílica  ;  M2
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL  ;  Línea de ceda el paso (0,2m x 0,2m) - Pintura acrílica  ;  M2
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS  ;  Banda sonora en agregado pétreo y material epóxico (a=0,40m)  ;  M2
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS  ;  Tacha reflectiva bidireccional  ;  UN
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS  ;  Segregador de bicicleta e hito (3 y 1 respectivamente)  ;  UN
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS  ;  Segregador de bicicleta (Tachón de polipropileno de alto impacto con estructura de refuerzo y elementos reflectivos. 40,5cm x 15,0cm x 8,5cm)  ;  UN
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS  ;  Suministro e instalación de hito  ;  UN
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS  ;  Suministro e instalación de estoperol plástico  ;  UN
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS  ;  Suministro e instalación de resalto en caucho  ;  ML
+RETIRO DE SEÑALIZACIÓN HORIZONTAL  ;  Borrado mecánico de demarcación existente obsoleta  ;  M2
+RETIRO DE SEÑALIZACIÓN HORIZONTAL  ;  Retiro de segregador de bicicleta  ;  UN
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL  ;  Señal vertical SR-28 / Plaqueta  ;  UN
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL  ;  Señal vertical Paradero SITP SI-08 / Plaqueta  ;  UN
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL  ;  Señal vertical SI-07A  ;  UN
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL  ;  Señal vertical Chevrón  ;  UN
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL  ;  Suministro e instalación de paradero de buses Tipo M-10  ;  UN
+RETIRO DE SEÑALIZACIÓN  ;  Retiro de señales verticales  ;  UN
+ACABADOS Y PREFABRICADOS  ;  Suministro e instalación de adoquín ecológico en concreto de 40x40x8cm (Incluye 0,02m de tierra y grama)  ;  M2
+DRENAJE  ;  Drenaje  ;  M2
+ZONAS VERDES Y PARQUES  ;  Parque 1  ;  M2
+ZONAS VERDES Y PARQUES  ;  Parque 2  ;  M2
+ZONAS VERDES Y PARQUES  ;  Parque 3  ;  M2
+ZONAS VERDES Y PARQUES  ;  Parque en vía 2 (V-7)  ;  M2
+ZONAS VERDES Y PARQUES  ;  Área de ciclorruta - Parque 3  ;  M2
+CONTROLES AMBIENTALES  ;  Área de ciclorruta - Control ambiental  ;  M2
+CONTROLES AMBIENTALES  ;  Área de zona verde - Control ambiental  ;  M2
+ZMPA  ;  Área sendero peatonal - ZMPA  ;  M2
+ZMPA  ;  Área sendero peatonal - Parque en ZMPA  ;  M2
+CIMENTACIÓN REDES HIDROSANITARIAS  ;  Excavación manual en material común (No incluye cargue, transporte ni disposición)  ;  M3
+CIMENTACIÓN REDES HIDROSANITARIAS  ;  Cargue y retiro externo de sobrantes de la excavación manual  ;  M3
+CIMENTACIÓN REDES HIDROSANITARIAS  ;  Cargue y retiro interno de sobrantes de la excavación manual  ;  M3
+CIMENTACIÓN REDES HIDROSANITARIAS  ;  Relleno con arena de peña  ;  M3
+CIMENTACIÓN REDES HIDROSANITARIAS  ;  Suministro e instalación de subbase granular tipo B-400  ;  M3
+CIMENTACIÓN REDES HIDROSANITARIAS  ;  Instalación de Tubería de acueducto PVC  ;  PULG
+CIMENTACIÓN REDES HIDROSANITARIAS  ;  Instalación de tubería de alcantarillado  ;  PULG
+CIMENTACIÓN REDES HIDROSANITARIAS  ;  Entibado para excavaciones <=3m  ;  M2
+CIMENTACIÓN REDES HIDROSANITARIAS  ;  Prueba hidrostática para tubería (Incluye desinfección)  ;  ML
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Cámara en concreto (Diám.<36"-Prof.>7m)  ;  UN
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Conexión de tramos nuevos a pozos existentes  ;  UN
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Conexión de tramos existentes a pozos nuevos  ;  UN
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Demolición de tubería en concreto (Incluye cargue, transporte y disposición final)  ;  ML
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Demolición de pozos de inspección (Incluye cargue, transporte y disposición final)  ;  UN
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  M.O. Construcción de cañuela en concreto  ;  ML
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Concreto 3.000 psi  ;  M3
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Acero de refuerzo  ;  KG
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Construcción de cañuela en concreto sección 0,60m x 0,40m  ;  ML
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Sistema Ramming 14"   ;  ML
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Sistema Ramming 16"   ;  ML
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Sistema Ramming 18"   ;  ML
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Sistema Ramming 20"   ;  ML
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Sistema Ramming 32"   ;  ML
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA  ;  Caja de lanzamiento para red de Alcantarillado  ;  UN
+RED DE ACUEDUCTO  ;  Tapón 1,1/2"  ;  UN
+RED DE ACUEDUCTO  ;  Tapón 2"  ;  UN
+RED DE ACUEDUCTO  ;  Tapón 2,1/2"  ;  UN
+RED DE ACUEDUCTO  ;  Tapón 4"  ;  UN
+RED DE ACUEDUCTO  ;  Atraques  ;  UN
+RED DE ACUEDUCTO  ;  Válvula 1,1/2"  ;  UN
+RED DE ACUEDUCTO  ;  Válvula 2"  ;  UN
+RED DE ACUEDUCTO  ;  Válvula 2,1/2"  ;  UN
+RED DE ACUEDUCTO  ;  Válvula 4"  ;  UN
+RED DE ACUEDUCTO  ;  Estación reguladora de presión 12"  ;  UN
+RED DE ACUEDUCTO  ;  Hidrante 6"  ;  UN
+RED DE ACUEDUCTO  ;  Conexión a red existente de acueducto Ø6"x12"  ;  UN
+RED DE ACUEDUCTO  ;  Conexión a red existente de acueducto Ø8"x12"  ;  UN
+RED DE ACUEDUCTO  ;  Retiro de red existente PVC Ø=6"  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería tubería PVC 1/2" RDE 13.5  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería tubería PVC 3/4" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería tubería PVC 1" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 1,1/2" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 2" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 2,1/2" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 3" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 4" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 6" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 8" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 10" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 12" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 14" RDE 21  ;  ML
+SUMINISTRO RED DE AGUA POTABLE PVC  ;  Suministro de tubería PVC 16" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 1,1/2" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 2" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 2,1/2" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 3" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 4" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 6" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 8" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 10" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 12" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 14" RDE 21  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC  ;  Tubería PVC 16" RDE 21  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 12"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 14"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60"  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 4" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 6" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 8" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 10" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 12" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 12" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 12" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 12" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 12" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 12" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 12" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 14" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 14" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 14" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 14" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 14" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 14" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 14" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 16" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 18" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 20" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 24" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 27" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 30" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 33" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 36" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 39" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVAFORT 42" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 45" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 48" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 51" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 54" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 57" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (0-1,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (2,5-3,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (3,5-4,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (4,5-5,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (5,5-6,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (6,5-7,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (7,5-8,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (8,5-9,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC  ;  Tubería NOVALOC 60" Hex (9,5-10,5)m  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 8"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 10"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 12"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 14"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 16"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 18"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 20"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 24"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CER 8"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CER 10"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CER 12"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CER 14"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CER 16"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CER 18"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CER 20"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 24"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 27"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 32"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 36"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 40"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 44"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 48"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 52"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 56"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 60"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 64"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 68"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 72"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 80"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 86"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 92"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 98"  ;  ML
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 110"  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 14" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO  ;  Tubería CSR 16" Hex (1,5-2,5)m  ;  ML
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO  ;  Tubería CCR 30" Hex (3,5-4,5)m  ;  ML
+RED DE MEDIA TENSIÓN  ;  Suministro e instalación Celda RMU 1 (Entrada: 1 - Salidas: 6). Incluye obra civil  ;  UN
+RED DE MEDIA TENSIÓN  ;  Suministro e instalación Celda RMU 2 (Entrada: 1 - Salidas: 5). Incluye obra civil  ;  UN
+RED DE MEDIA TENSIÓN  ;  Suministro e instalación Celda RMU 3 (Entrada: 2 - Salidas: 5). Incluye obra civil  ;  UN
+RED DE MEDIA TENSIÓN  ;  Ramming 51"  ;  ML
+RED DE MEDIA TENSIÓN  ;  Caja de lanzamiento para red de media tensión  ;  UN
+RED DE MEDIA TENSIÓN  ;  Caja de llegada para red de media tensión  ;  UN
+RED DE MEDIA TENSIÓN  ;  Suministro de tubería TDP 6"  ;  ML
+RED DE ALUMBRADO PÚBLICO  ;  Suministro e instalación Caja de paso en mamposteria según norma CS-275  ;  UN
+EQUIPAMIENTOS  ;  Cerramiento con Eugenias  ;  ML
+EQUIPAMIENTOS  ;  Suministro e instalación de valla 3x2m  ;  UN
+SISTEMA URBANO DE DRENAJE  ;  Perfilado de taludes y base del canal  ;  M2
+SISTEMA URBANO DE DRENAJE  ;  Empradización de taludes para canal  ;  M2
+RED DE ACUEDUCTO  ;  Codo 11,25° según diámetro  ;  UN
+RED DE ACUEDUCTO  ;  Codo 22,5° según diámetro  ;  UN
+RED DE ACUEDUCTO  ;  Codo 45° según diámetro  ;  UN
+RED DE ACUEDUCTO  ;  Codo 90° según diámetro  ;  UN
+RED DE ACUEDUCTO  ;  Tee igual o reducida según diámetros  ;  UN
+RED DE ACUEDUCTO  ;  Reducción concéntrica según diámetros  ;  UN
+RED DE ACUEDUCTO  ;  Tapón según diámetro  ;  UN
+RED DE ACUEDUCTO  ;  Unión Dresser / unión de reparación  ;  UN
+RED DE ACUEDUCTO  ;  Relleno y conformación con recebo  ;  M3
+RED DE ACUEDUCTO  ;  Entibado temporal de zanja  ;  M2
+RED DE ACUEDUCTO  ;  Cinta preventiva para red  ;  ML
+RED DE ACUEDUCTO  ;  Empate mediante tee  ;  UN
+RED DE ALCANTARILLADO SANITARIO  ;  Excavación manual complementaria  ;  M3
+RED DE ALCANTARILLADO SANITARIO  ;  Cimentación de tubería modelo 4  ;  ML
+RED DE ALCANTARILLADO SANITARIO  ;  Cimentación de tubería modelo 4.1  ;  ML
+RED DE ALCANTARILLADO SANITARIO  ;  Relleno y conformación con granular/recebo B-400  ;  M3
+RED DE ALCANTARILLADO SANITARIO  ;  Manejo, bombeo y agotamiento de aguas  ;  DÍA
+RED DE ALCANTARILLADO SANITARIO  ;  Adecuación y conexión a pozo existente  ;  UN
+RED DE ALCANTARILLADO SANITARIO  ;  Demolición de pozo existente  ;  UN
+RED DE ALCANTARILLADO SANITARIO  ;  Conexión de tramo existente a pozo nuevo  ;  UN
+RED DE ALCANTARILLADO SANITARIO  ;  Empate a colector sanitario existente  ;  UN
+RED DE ALCANTARILLADO SANITARIO  ;  Taponamiento de colector abandonado con mampostería  ;  UN
+RED DE ALCANTARILLADO SANITARIO  ;  Retiro/demolición de tubería existente  ;  ML
+RED DE ALCANTARILLADO SANITARIO  ;  Abandono controlado de tubería existente  ;  ML
+RED DE ALCANTARILLADO SANITARIO  ;  Manejo provisional o bypass de aguas residuales  ;  DÍA
+TRONCAL Y CABEZAL MUÑA  ;  INTERCEPTOR MUÑA  ;  GB
+TRONCAL Y CABEZAL MUÑA  ;  CABEZAL DE DESCARGA  ;  GB
+NO EJECUTADO COINVER  ;  MOBILIARIO URBANO - ETAPA 03  ;  GB
+NO EJECUTADO COINVER  ;  MOBILIARIO URBANO - ETAPA 07  ;  GB
+NO EJECUTADO COINVER  ;  SEÑALIZACION HORIZONTAL Y VERTICAL - ETAPA 03  ;  GB
+NO EJECUTADO COINVER  ;  SEÑALIZACION HORIZONTAL Y VERTICAL - ETAPA 07  ;  GB
+NO EJECUTADO COINVER  ;  PEATONAL (PTN 5)  ;  GB
+NO EJECUTADO COINVER  ;  ARBORIZACION - ETAPA 03  ;  UN
+NO EJECUTADO COINVER  ;  ARBORIZACION - ETAPA 04  ;  UN
+NO EJECUTADO COINVER  ;  ARBORIZACION - ETAPA 05  ;  UN
+NO EJECUTADO COINVER  ;  ARBORIZACION - ETAPA 08  ;  UN
+NO EJECUTADO COINVER  ;  ARBORIZACION - ETAPA 09  ;  UN
+NO EJECUTADO COINVER  ;  INTERFERENCIA AP3  ;  GB
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Bloque de cemento gris 10x20x6 (adoquín, material)  ;  UN
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Bloque de cemento 20x20x6 alerta (material)  ;  UN
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Bloque de cemento 20x20x6 guía (material)  ;  UN
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Bordillo prefabricado A-80 (material)  ;  UN
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Sardinel prefabricado A-10 (material)  ;  UN
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Arena de peña para nivelación (material)  ;  M3
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Transporte de arena de peña  ;  M3
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Subbase granular SBG (suministro)  ;  M3
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Subbase granular SBG (transporte)  ;  M3
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  M.O. instalación de subbase granular SBG  ;  M3
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  Geotextil tejido 2100 (suministro)  ;  M2
+ANDENES Y RAMPAS (CC MONGUI 06-2026)  ;  M.O. instalación de geotextil 2100  ;  M2
