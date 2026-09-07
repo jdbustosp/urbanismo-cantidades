@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.70.1")
+(setq *urb-version* "4.70.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -24387,20 +24387,31 @@
     line
     (progn
       (setq cand nil)
-      ;; 1) junto al master: <padre del DWG>\urbanismo maipore.xlsx
+      ;; 1) junto al master: <padre del DWG> o <carpeta del DWG>.
+      ;; 2026-09-07: el NOMBRE del libro ya no va quemado -- se prueba
+      ;; primero el nombre de archivo de la ruta guardada (por si el
+      ;; usuario renombra el libro) y "urbanismo maipore.xlsx" como
+      ;; respaldo.
       (setq dwgdir (urb:safe-string (getvar "DWGPREFIX") ""))
       (if (/= dwgdir "")
         (progn
           (setq parent
             (vl-filename-directory
               (vl-string-right-trim "\\/" dwgdir)))
-          (if (and parent
-                   (findfile (strcat parent "\\urbanismo maipore.xlsx")))
-            (setq cand (strcat parent "\\urbanismo maipore.xlsx")))
-          ;; o en la MISMA carpeta del DWG
-          (if (and (null cand)
-                   (findfile (strcat dwgdir "urbanismo maipore.xlsx")))
-            (setq cand (strcat dwgdir "urbanismo maipore.xlsx")))))
+          (foreach nombre
+            (vl-remove nil
+              (list
+                (if (/= line "")
+                  (strcat (vl-filename-base line)
+                          (urb:safe-string (vl-filename-extension line)
+                            ".xlsx")))
+                "urbanismo maipore.xlsx"))
+            (if (and (null cand) parent
+                     (findfile (strcat parent "\\" nombre)))
+              (setq cand (strcat parent "\\" nombre)))
+            (if (and (null cand)
+                     (findfile (strcat dwgdir nombre)))
+              (setq cand (strcat dwgdir nombre))))))
       ;; 2) la cola colsubsidio.com\... de la ruta guardada en otra base
       (if (and (null cand) (/= line "")
                (setq pos (vl-string-search "colsubsidio.com" line)))
