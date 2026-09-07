@@ -148,6 +148,110 @@
   (f7:log (strcat "CLEANACCATTS total: " (itoa tot) " attdefs eliminados"))
   (princ))
 
+;; ---------- REPOSACC: reposicionar accesorios CORRIDOS al punto exacto
+;; del simbolo del DISENO (acu_diseno.tsv volcado de TOTALES\ACUEDUCTO.dwg)
+;; match por FAMILIA + vecino mas cercano (<= 5 m). No toca los que ya
+;; estan clavados (<= 5 cm).
+(defun f7:diseno-familia (nm / up)
+  (setq up (strcase nm))
+  (cond
+    ((vl-string-search "TEE" up) "TEE")
+    ((vl-string-search "11.25" up) "C11")
+    ((vl-string-search "22.5" up) "C22")
+    ((vl-string-search "CODO90" up) "C90")
+    ((vl-string-search "CODO 45" up) "C45")
+    ((and (vl-string-search "CODO" up) (vl-string-search "45" up)) "C45")
+    ((vl-string-search "TAPON" up) "TAP")
+    ((vl-string-search "BUJE" up) "RDC")
+    ((vl-string-search "VALVULA HIDRANTE" up) "VPH")
+    ((vl-string-search "HIDRANTE" up) "HID")
+    ((vl-string-search "VENTOSA" up) "VEN")
+    ((vl-string-search "VALVULA PROY" up) "VAL")
+    ((vl-string-search "UNION" up) "UNI")
+    ((= up "VCP") "VCP")
+    (T nil)))
+
+(defun f7:parse-tsv-linea (linea / out pos)
+  (setq out nil)
+  (while (setq pos (vl-string-search "\t" linea))
+    (setq out (cons (substr linea 1 pos) out))
+    (setq linea (substr linea (+ pos 2))))
+  (reverse (cons linea out)))
+
+(defun f7:cargar-diseno (/ f linea campos fam plan)
+  (setq plan nil)
+  (setq f (open "C:/Users/jdbus/Documents/URBANISMO/work/pdf0907/acu_diseno.tsv" "r"))
+  (if f
+    (progn
+      (read-line f)  ;; encabezado
+      (while (setq linea (read-line f))
+        (setq campos (f7:parse-tsv-linea linea))
+        (if (and (= (car campos) "INSERT")
+                 (setq fam (f7:diseno-familia (cadr campos))))
+          (setq plan (cons (list fam
+            (distof (nth 2 campos)) (distof (nth 3 campos))
+            (distof (nth 4 campos))) plan))))
+      (close f)))
+  plan)
+
+(defun c:REPOSACC (/ plan ss i en obj bname tok atts ed ip best bd item d
+                   n-ok n-mov n-sin usados key)
+  (setq plan (f7:cargar-diseno))
+  (f7:log (strcat "REPOSACC: " (itoa (length plan))
+    " accesorios del diseno cargados"))
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_ACC_ACU_*")))
+        i 0 n-ok 0 n-mov 0 n-sin 0 usados nil)
+  (if ss
+    (while (< i (sslength ss))
+      (setq en (ssname ss i)
+            obj (vlax-ename->vla-object en)
+            bname (strcase (vla-get-EffectiveName obj))
+            tok (substr bname 18)  ;; MP_PUNTO_ACC_ACU_<TOK>
+            ed (entget en)
+            ip (cdr (assoc 10 ed)))
+      (setq best nil bd 1e9)
+      (foreach item plan
+        (if (= (car item) tok)
+          (progn
+            (setq d (distance (list (car ip) (cadr ip))
+                              (list (nth 1 item) (nth 2 item))))
+            (if (and (< d bd) (not (member item usados)))
+              (setq bd d best item)))))
+      (cond
+        ((null best) (setq n-sin (1+ n-sin)))
+        ((<= bd 0.05) (setq n-ok (1+ n-ok)) (setq usados (cons best usados)))
+        ((<= bd 5.0)
+          ;; mover al punto del diseno (solo posicion; la etiqueta y el
+          ;; simbolo acompanan al insert)
+          (entmod (subst (cons 10 (list (nth 1 best) (nth 2 best)
+            (caddr ip))) (assoc 10 ed) ed))
+          ;; los ATTRIB tambien se corren con el delta
+          (f7:mover-attribs en
+            (- (nth 1 best) (car ip)) (- (nth 2 best) (cadr ip)))
+          (setq usados (cons best usados))
+          (setq n-mov (1+ n-mov)))
+        (T (setq n-sin (1+ n-sin))))
+      (setq i (1+ i))))
+  (f7:log (strcat "REPOSACC: clavados " (itoa n-ok)
+    " | MOVIDOS al punto del diseno " (itoa n-mov)
+    " | sin par a <=5m " (itoa n-sin)))
+  (vla-Regen (vla-get-ActiveDocument (vlax-get-acad-object)) 1)
+  (princ))
+
+(defun f7:mover-attribs (en dx dy / a ed p)
+  (setq a (entnext en))
+  (while (and a (= (cdr (assoc 0 (setq ed (entget a)))) "ATTRIB"))
+    (setq p (cdr (assoc 10 ed)))
+    (setq ed (subst (cons 10 (list (+ (car p) dx) (+ (cadr p) dy)
+      (caddr p))) (assoc 10 ed) ed))
+    (if (assoc 11 ed)
+      (progn
+        (setq p (cdr (assoc 11 ed)))
+        (setq ed (subst (cons 11 (list (+ (car p) dx) (+ (cadr p) dy)
+          (caddr p))) (assoc 11 ed) ed))))
+    (entmod ed)
+    (setq a (entnext a))))
+
 (defun f7:tramo-ends (en / ed p rot atts l)
   (setq ed (entget en))
   (setq p (cdr (assoc 10 ed)) rot (cdr (assoc 50 ed)))
