@@ -41,3 +41,5 @@ Validacion manual pendiente en una copia del proyecto:
 
 DLL 2019–2024: sigue pendiente recompilarla con referencias AutoCAD/AEC 2023
 para eliminar el boton Sendero heredado. No se afirma validada esa interfaz.
+
+Revalidacion: ver REVALIDACION_20260907.md. verify_real.lsp es experimental y no ha sido validado con ActiveX nativo.

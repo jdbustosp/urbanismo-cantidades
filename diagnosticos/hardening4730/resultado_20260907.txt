@@ -1,6 +1,12 @@
+FIXTURE BLOCK ((0 . BLOCK) (2 . URB_HARDEN_TEST) (70 . 2) (4 . ) (10 0.0 0.0 0.0) (-2 . <Entity name: 2c652cd7b50>))
+FIXTURE INSERT ((0 . INSERT) (2 . URB_HARDEN_TEST) (66 . 1) (10 0 0 0))
+FIXTURE EN <Entity name: 2c652cd7b70>
 OK BASELINE reproduce perdida de campo oculto
 OK BASELINE reproduce cantidad negativa aprobada
 OK LOAD motor 4.73.0
+FIXTURE BLOCK ((0 . BLOCK) (2 . URB_HARDEN_TEST) (70 . 2) (4 . ) (10 0.0 0.0 0.0) (-2 . <Entity name: 2c652cd7b50>))
+FIXTURE INSERT ((0 . INSERT) (2 . URB_HARDEN_TEST) (66 . 1) (10 0 0 0))
+FIXTURE EN <Entity name: 2c652cd7bc0>
 OK Parche cambia un atributo
 OK Parche preserva campo oculto
 OK Parche actualiza visible

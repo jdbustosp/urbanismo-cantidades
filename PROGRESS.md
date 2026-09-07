@@ -945,3 +945,6 @@ Un análisis previo (sin commit, solo lectura) identificó como próximas mejora
 1. Probar en la sesión real del usuario (no solo la verificación headless) que un tramo de red creado desde el diálogo normal (`URBANISMO → Crear → Red`) calcula bien el movimiento de tierras ahora que `*mp-network-construction-enabled*` está en `T` — la verificación headless llamó `mp:insert-cant-tramo` directo, saltándose el diálogo `mp:dialog-tramo-red`.
 2. El diálogo de tramo no expone `ESPESOR_CAMA` como campo editable — siempre usa el valor por defecto (ahora la fórmula Bc/4). Si en algún proyecto puntual el usuario necesita otro criterio de cama, no hay forma de digitarlo sin agregar el campo al diálogo.
 3. Nada más quedó pendiente de las dos limpiezas de código de 2026-08-02 (dead code + duplicados) — verificadas en Civil 3D real.
+
+### Revalidacion 2026-09-07 (Codex)
+Motor 4.73.0 sin cambios: suite 50/50, instalador 4/4, estructura LSP y hash instalado correctos. Evidencia y prioridades en diagnosticos/hardening4730/REVALIDACION_20260907.md. ActiveX/Civil/Excel reales siguen pendientes; verify_real.lsp experimental.
