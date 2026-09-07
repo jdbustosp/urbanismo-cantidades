@@ -471,9 +471,10 @@ namespace UrbanismoCantidades
                 // 2026-08-19 v4.45: mobiliario urbano (canecas, bancas,
                 // contenedores de raices por tipologia, etc.)
                 AddBigCmd("Mobiliario", "URBMOBILIARIO", "mobiliario");
-                // 2026-08-21 v4.48: senderos/ciclorruta/plazoleta/rampa
-                // en concreto y bioswale por poligono cerrado
-                AddBigCmd("Sendero", "URBSENDERO", "sendero");
+                // 2026-09-08 (pedido del usuario): boton "Sendero" fuera
+                // del ribbon -- esa lista de tipos (sendero/ciclorruta/
+                // plazoleta/etc.) ya se crea desde "Anden" (Tipo=Sendero/
+                // Cancha/Ciclorruta/Equipamiento de parque, v4.72.0).
                 // 2026-09-06 v4.70: senalizacion y demarcacion (lineas,
                 // simbolos de piso y senales verticales) -- comando
                 // APARTE por pedido del usuario

@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.72.1")
+(setq *urb-version* "4.72.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -193,7 +193,6 @@
 (setq *urb-ppto-vinc-dcl-ok* nil)
 (setq *urb-ppto-params-dcl-ok* nil)
 (setq *urb-mob-dcl-ok* nil)
-(setq *urb-send-dcl-ok* nil)
 (setq *urb-rampa-dcl-ok* nil)
 (setq *urb-loc-dcl-ok* nil)
 
@@ -23902,111 +23901,19 @@
     " creados. Sus cantidades salen solas al exportar."))
   (princ))
 
-;; ventana ESTILO ANDEN (pedido del usuario 2026-08-21): desplegables de
-;; tipo/etapa/subetapa. 2026-08-24 (pedido del usuario): se retiro de
-;; aqui el texto de movimiento de tierras (el espesor ahora se edita en
-;; Ajustes, sin verse ni pedirse en esta ventana) y el campo de ancho del
-;; prefabricado perimetral (las piezas ya tienen ancho predeterminado,
-;; editable tambien en Ajustes).
-;; 2026-08-24 v2 (pedido del usuario, corrigiendo el diseño anterior): el
-;; prefabricado NO es un anillo perimetral (no envuelve las puntas) --
-;; son dos costados independientes (Derecha/Izquierda). Se eligen AQUI,
-;; en la misma ventana de creacion (no solo en Ajustes); cada seleccion
-;; queda como el valor por defecto la proxima vez.
-(defun urb:send-write-dcl ()
-  (urb:write-dialog-dcl
-    "urb_sendero"
-    '*urb-send-dcl-ok*
-    (list
-      "urb_sendero : dialog { label = \"Sendero / Ciclorruta\";"
-      ": boxed_column { label = \"Datos del elemento\";"
-      ": popup_list { label = \"Tipo\"; key = \"tipo\"; }"
-      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
-      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; } }"
-      ": boxed_column { label = \"Prefabricado por costados (automatico, en bloque)\";"
-      ": popup_list { label = \"Derecha\"; key = \"lado_der\"; }"
-      ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
-      ": popup_list { label = \"Posicion\"; key = \"costpos\"; }"
-      ": text { label = \"Externo = fuera del area; Interno = franja dentro (se descuenta del area).\"; } }"
-      ": text { label = \"Aceptar y CERRAR EL POLIGONO del contorno (como una via o un anden).\"; }"
-      "ok_cancel; }")))
-
+;; 2026-09-08 (pedido del usuario): el comando/boton independiente
+;; "Sendero" (ventana propia con Tipo=Sendero/Ciclorruta/Plazoleta/...)
+;; SALIO -- toda esa lista (*urb-send-tipos*) ya se crea desde ANDEN
+;; (Tipo=Sendero/Cancha/Ciclorruta/Equipamiento de parque, v4.72.0) via
+;; urb:create-sidewalk-command + urb:poly-element-draw, que sigue siendo
+;; el motor de dibujo real. urb:send-write-dcl/urb:sendero-command se
+;; eliminaron por quedar sin uso; urb:send-fill-sub sigue viva porque
+;; Bioswale la comparte.
 (defun urb:send-fill-sub (idx)
   (start_list "subetapa")
   (foreach s (urb:subetapas-for (nth idx *urb-etapa-list*)) (add_list s))
   (end_list)
   (set_tile "subetapa" "0"))
-
-(defun urb:sendero-command (/ dclfile dcl done entry etapa sub subs
-                            lado-der lado-izq costpos)
-  (vl-load-com)
-  (setq dclfile (urb:send-write-dcl))
-  (if (null dclfile)
-    (alert "No se pudo preparar la ventana de senderos (revise permisos de la carpeta temporal de Windows).")
-    (progn
-      (setq dcl (load_dialog dclfile))
-      (if (and dcl (> dcl 0) (new_dialog "urb_sendero" dcl))
-        (progn
-          (start_list "tipo")
-          (foreach entry *urb-send-tipos* (add_list (nth 1 entry)))
-          (end_list)
-          (set_tile "tipo" "0")
-          (start_list "etapa")
-          (foreach entry *urb-etapa-list* (add_list entry))
-          (end_list)
-          (set_tile "etapa" "0")
-          (urb:send-fill-sub 0)
-          (urb:fill-popup "lado_der" *urb-anillo-prefab-list*
-            (urb:list-index-ci (urb:send-costado-de 1) *urb-anillo-prefab-list*))
-          (urb:fill-popup "lado_izq" *urb-anillo-prefab-list*
-            (urb:list-index-ci (urb:send-costado-de 2) *urb-anillo-prefab-list*))
-          (urb:fill-popup "costpos" *urb-anillo-pos-list*
-            (urb:list-index-ci (urb:send-costpos-de) *urb-anillo-pos-list*))
-          (action_tile "etapa" "(urb:send-fill-sub (atoi $value))")
-          ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
-          (setq *urb-send-sel* "0" *urb-send-etapa* "0" *urb-send-sub* "0"
-                *urb-send-lado-der* "0" *urb-send-lado-izq* "0"
-                *urb-send-costpos* "0")
-          (action_tile "accept"
-            (strcat
-              "(setq *urb-send-sel* (get_tile \"tipo\")"
-              " *urb-send-etapa* (get_tile \"etapa\")"
-              " *urb-send-sub* (get_tile \"subetapa\")"
-              " *urb-send-lado-der* (get_tile \"lado_der\")"
-              " *urb-send-lado-izq* (get_tile \"lado_izq\")"
-              " *urb-send-costpos* (get_tile \"costpos\"))"
-              "(done_dialog 1)"))
-          (setq done (start_dialog))))
-      (if (and dcl (> dcl 0)) (unload_dialog dcl))
-      (if (= done 1)
-        (progn
-          (setq entry
-            (nth (atoi (urb:safe-string *urb-send-sel* "0"))
-              *urb-send-tipos*))
-          (setq etapa
-            (urb:safe-string
-              (nth (atoi (urb:safe-string *urb-send-etapa* "0"))
-                *urb-etapa-list*) "1"))
-          (setq subs (urb:subetapas-for etapa))
-          (setq sub
-            (urb:safe-string
-              (nth (atoi (urb:safe-string *urb-send-sub* "0")) subs)
-              etapa))
-          (setq lado-der
-            (nth (atoi (urb:safe-string *urb-send-lado-der* "0"))
-              *urb-anillo-prefab-list*))
-          (setq lado-izq
-            (nth (atoi (urb:safe-string *urb-send-lado-izq* "0"))
-              *urb-anillo-prefab-list*))
-          (setq costpos
-            (nth (atoi (urb:safe-string *urb-send-costpos* "0"))
-              *urb-anillo-pos-list*))
-          (urb:config-write "URB_SEND_COSTADO1" lado-der)
-          (urb:config-write "URB_SEND_COSTADO2" lado-izq)
-          (urb:config-write "URB_SEND_COSTPOS" costpos)
-          (urb:poly-element-draw entry etapa sub lado-der lado-izq
-            costpos "URB_SENDERO")))))
-  (princ))
 
 ;; ---------- BIOSWALE: comando propio (red pluvial, 2026-08-24) --------
 (defun urb:bioswale-write-dcl ()
@@ -29814,7 +29721,11 @@
       c:POZO_SANITARIO
       c:POZO_PLUVIAL
       c:CAMARA_ELECTRICA
-      c:ACCESORIO_ACUEDUCTO)
+      c:ACCESORIO_ACUEDUCTO
+      ;; 2026-09-08: boton "Sendero" del ribbon eliminado (Tipo=Sendero
+      ;; ya se crea desde ANDEN) -- limpia el comando si quedo en memoria
+      ;; de una sesion con el lsp/bundle viejo.
+      c:URBSENDERO)
     (vl-acad-undefun command-symbol))
   (princ))
 
@@ -29832,7 +29743,6 @@
 (defun c:ZONAVERDE () (urb:create-green-zone-command) (princ))
 (defun c:PREFABRICADO () (urb:create-precast-command) (princ))
 (defun c:URBMOBILIARIO () (urb:mobiliario-command) (princ))
-(defun c:URBSENDERO () (urb:sendero-command) (princ))
 (defun c:URBBIOSWALE () (urb:bioswale-command) (princ))
 (defun c:ZONAPARQUE () (urb:zona-parque-command) (princ))
 ;; Redes
