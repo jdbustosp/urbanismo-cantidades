@@ -1,0 +1,1338 @@
+NOMBRE_LIBRO	VU_LIBRO	MATCH_IDU	TIPO	UM_IDU	VU_IDU	RATIO	BANDERA
+Demolición de pavimento asfáltico (Incluye cargue, transporte y disposición final)	29181.9620105862	DEMOLICION PAVIMENTO ASFALTICO (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	APU	M3	43555.0	0.67	ok
+Demolición de concreto hidráulico (Incluye cargue, transporte y disposición final)	49442.6218483126	DEMOLICIÓN PISOS DE CONCRETO (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	APU	M3	64547.0	0.77	ok
+Demolición de andenes (Incluye cargue, transporte y disposición final)	15574.3834654349	DEMOLICION PAVIMENTO ASFALTICO (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	APU	M3	43555.0	0.36	REVISAR: MUY POR DEBAJO de IDU
+Demolición manual de sardinel existente (Incluye cargue, transporte y disposición final)	16651.2504136125	DEMOLICION MANUAL SARDINEL EXISTENTE (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	APU	ML	8176.0	2.04	ok
+Demolición y reposición de calzada en pavimento flexible (Incluye estructura de pavimentos)	494220.416756838	(sin par IDU claro)					sin referencia
+Demolición y reposición de andenes (Incluye estructura de pavimentos)	432761.412610333	(sin par IDU claro)					sin referencia
+Implementación de Plan de manejo de tránsito (Incluye señalización)	100612.152505191	(sin par IDU claro)					sin referencia
+Descapote mecánico de material vegetal (Incluye cargue y retiro externo)	7348.93268485577	(sin par IDU claro)					sin referencia
+Compactación de subrasante (Incluye nivelación)	2836.96528475516	NIVELACION Y COMPACTACIÓN DE SUBRASANTE	APU	M2	1919.0	1.48	ok
+Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)	79829.3512	EXCAVACIÓN MECÁNICA EN MATERIAL COMÚN (INCLUYE CARGUE)	APU	M3	5998.0	13.31	REVISAR: MUY POR ENCIMA de IDU
+Excavación mecánica en material común (Incluye cargue, transporte y disposición interna)	79829.3512	EXCAVACIÓN MECÁNICA EN MATERIAL COMÚN (INCLUYE CARGUE)	APU	M3	5998.0	13.31	REVISAR: MUY POR ENCIMA de IDU
+Relleno con material seleccionado proveniente de la excavación	23203.0077192135	RELLENO EN MATERIAL SELECCIONADO PROVENIENTE DE LA EXCAVACIÓN (EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	48122.0	0.48	ok
+Suministro e instalación de base granular BG-A	251774.327954005	BASE GRANULAR CLASE A (BG_A) (SUMINISTRO, EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	255369.0	0.99	ok
+Suministro e instalación de subbase granular SBG-A	223251.402045504	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	2.87	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación de sello en subbase granular SBG-A	223251.402045504	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	2.87	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación de base granular BG-B	236515.277774975	BASE GRANULAR CLASE A (BG_A) (SUMINISTRO, EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	255369.0	0.93	ok
+Suministro e instalación de subbase granular SBG-B	217337.457620457	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	2.80	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación de sello en subbase granular SBG-B	217337.457620457	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	2.80	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación de base granular BG-C	227359.847667556	BASE GRANULAR CLASE A (BG_A) (SUMINISTRO, EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	255369.0	0.89	ok
+Suministro e instalación de subbase granular SBG-C	211423.513195411	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	2.72	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación de sello en subbase granular SBG-C	211423.513195411	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	2.72	REVISAR: MUY POR ENCIMA de IDU
+Relleno con material seleccionado B-200	101915.14034583	GEOCOMPUESTO PARA DRENAJE, CONFORMADO POR GEODREN (RED DRENANTE DE POLIETILENO DE ALTA DENSIDAD PEAD-HDPE Y GEOTEXTIL NO TEJIDO) CON ALTURA DE 1.0 M Y TUBERIA FLEXIBLE CORRUGADA DE DRENAJE CON DIAMETRO DE 200 MM. (INCLUYE EXCAVACION MANUAL DE 30CM DE ANCHO Y RELLENO EN MATERIAL SELECCIONADO PROVENIENTE DE EXCAVACION).	APU	ML	230522.0	0.44	REVISAR: MUY POR DEBAJO de IDU
+Suministro y colocación de piedra rajón y/o media zonga	144708.17426594	(sin par IDU claro)					sin referencia
+Suministro, extendida y compactación de Base Asfáltica MD-20	1058203.95485693	(sin par IDU claro)					sin referencia
+Suministro, extendida y compactación de Rodadura Asfáltica MD-12	1112765.68478365	(sin par IDU claro)					sin referencia
+Suministro, extendida y compactación de Rodadura Asfáltica MD-13	1173933.33955304	(sin par IDU claro)					sin referencia
+Grano de caucho reciclado	296861.779806465	GRANO DE CAUCHO RECICLADO (GCR)	INSUMO	KG	3000.0	98.95	REVISAR: MUY POR ENCIMA de IDU (vs INSUMO: IDU es solo material)
+Suministro y colocación de Emulsión Asfáltica de Rompimiento Lento CRL-1 (Imprimación)	3398.214370125	IMPRIMACIÓN CON EMULSIÓN ASFÁLTICA CRL-1 (INCLUYE SUMINISTRO, BARRIDO DE SUPERFICIE Y RIEGO MECANICO).	APU	M2	3721.0	0.91	ok
+Suministro y colocación de Emulsión Asfáltica de Rompimiento rápido CRR-2 (Riego de liga)	4077.85724415	RIEGO DE LIGA CON EMULSION ASFALTICA CRR-2 (SUMINISTRO, BARRIDO SUPERFICIE Y RIEGO MECANICO)	APU	M2	4114.0	0.99	ok
+Transporte de equipos para asfaltos	3534142.94493	(sin par IDU claro)					sin referencia
+Suministro e instalación de sardinel A-10	110328.419230028	(sin par IDU claro)					sin referencia
+Suministro e instalación de bordillo A-80	97654.3501538502	CAJA DE PASO DOBLE EN CALZADA ETB (INCLUYE BASE, MUROS, PAÑETE, BORDILLO PERIMETRAL, MARCO Y TAPA). MEDIDAS EXTERNAS: 1.80 X 1.01M. MEDIDAS INTERNAS: 1.30 X 0.50M. ALTURA: 1.33M.	APU	UN	3347324.0	0.03	REVISAR: MUY POR DEBAJO de IDU
+Suministro e instalación de bordillo para contenedor	70600.7016290592	(sin par IDU claro)					sin referencia
+Suministro e instalación de adoquín de arcilla color natural 20x10x6cm (Incluye base de arena y sello)	120430.202598596	PISO EN ADOQUIN DE ARCILLA 20X10X6CM (SUMINISTRO E INSTALACIÓN. INCLUYE BASE 3CM ARENA NIVELACION Y ARENA DE SELLO)	APU	M2	85309.0	1.41	ok
+Cenefa lineal en loseta prefabricada guía color natural A-56 (0,40x0,40)m	53978.3736626223	(sin par IDU claro)					sin referencia
+Cenefa lineal en loseta prefabricada alerta color natural A-55 (0,40x0,40)m	53978.3736626223	CENEFA LINEAL EN LOSETA PREFABRICADA TÁCTIL ALERTA A57 / A58 ANCHO 0.20M COLOR AMARILLO. (SUMINISTRO E INSTALACIÓN. INCLUYE BASE EN ARENA DE NIVELACIÓN E= 4CM Y ARENA DE SELLO).	APU	ML	34645.0	1.56	ok
+Suministro e instalación de sardinel especial A-100 para rampa	68825.1210278114	SARDINEL ESPECIAL A100 PARA RAMPA TIPO A (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	APU	UN	68170.0	1.01	ok
+Suministro e instalación de sardinel bajo A-85 para rampa	69050.356715192	CONSTRUCCIÓN PIEZA FUNDIDA EN SITIO SIMILAR A SARDINEL BAJO RAMPA. (INCLUYE SUMINISTRO Y COLOCACIÓN DE CONCRETO DE 3000 PSI GRAVA COMÚN, FORMALETA Y MANO DE OBRA)	APU	ML	61413.0	1.12	ok
+Suministro e instalación de sardinel alto A-86 para rampas	75529.5818536341	SARDINEL PREFABRICADO ALTO RAMPAS A86 (SUMINISTRO E INSTALACIÓN. SIN MATERIAL DE BASE)	APU	ML	65944.0	1.15	ok
+Suministro e instalación de pieza remate A-105 para rampa	115542.619513976	PIEZA REMATE A105 PARA RAMPA TIPO A (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	APU	UN	102699.0	1.13	ok
+Suministro y construcción de remate de rampa en concreto fundido en sitio	87656.4870352203	PIEZA DE REMATE PARA RAMPA PEATONAL, LONGITUD 1,40MTS FUNDIDO EN SITIO EN CONCRETO PREMEZCLADO DE 3000 PSI (GRAVA COMUN) INCLUYE FORMALETA EN MADERA. SUMINISTRO Y CONSTRUCCION.	APU	UN	167920.0	0.52	ok
+Losa de concreto MR-40MPa para rampa vehicular reforzada e=0,17m	311626.035436263	(sin par IDU claro)					sin referencia
+Pompeyanos con piso en concreto MR-40MPa reforzado e=0,15m (Incluye estampado, suministro y colocación de concreto, moldes, desmoldante, curado, corte y sellado de juntas)	348177.41430886	PISO EN CONCRETO MR 41 (280 Kg/Cm2) GRAVA 1" 28 DIAS, ESTAMPADO e=0.10m (INCLUYE SUMINISTRO Y COLOCACIÓN DE CONCRETO, JUEGO DE MOLDES,  DESMOLDANTE EN POLVO, CURADOR PARA CONCRETO, CORTE Y SELLADO DE JUNTAS.).	APU	M2	201952.0	1.72	ok
+Suministro y colocación de geotextil Tejido 2100	10971.9085275392	PROTECCION A SUMIDEROS. (INCLUYE SUMINISTRO Y COLOCACION DE BOLSAS DE LONA Y GEOTEXTIL NO TEJIDO CON RESISTENCIA A LA TENSION GRAB DE 400 N).	APU	UN/MES	21674.0	0.51	ok
+Suministro y colocación de geotextil Tejido 2400	11840.4921205432	PROTECCION A SUMIDEROS. (INCLUYE SUMINISTRO Y COLOCACION DE BOLSAS DE LONA Y GEOTEXTIL NO TEJIDO CON RESISTENCIA A LA TENSION GRAB DE 400 N).	APU	UN/MES	21674.0	0.55	ok
+Suministro e instalación de geotextil NT 1600	7973.6721444924	(sin par IDU claro)					sin referencia
+Suministro e instalación de Geomembrana (Incluye excavación)	44856.42968565	(sin par IDU claro)					sin referencia
+Suministro e instalación de geomalla en fibra de vidrio	10928.7933428968	(sin par IDU claro)					sin referencia
+Suministro y colocación de geomalla biaxial	16862.1843759949	(sin par IDU claro)					sin referencia
+Suministro e instalación de filtro tipo francés	108740.603429658	(sin par IDU claro)					sin referencia
+Suministro e instalación de filtro tipo francés (Ancho=0,30m. Incluye tubo PVC perforado Ø=4", geotextil, arena lavada + gravilla 1/2" 0,60:0,40)	240149.216304976	(sin par IDU claro)					sin referencia
+Suministro e instalación de dos canecas M-121	1658328.612621	(sin par IDU claro)					sin referencia
+Suministro e instalación de banca en concreto con espaldar M-30	1148590.20982495	BANCA EN CONCRETO CON ESPALDAR M30	INSUMO	UN	856800.0	1.34	ok (vs INSUMO: IDU es solo material)
+Suministro e instalación de banca L=2,06m (CIO106682)	2126100.67624826	(sin par IDU claro)					sin referencia
+Suministro y construcción de contenedor de raíces (Dimensiones: 2,0x1,2m). Incluye tierra negra	2442321.97209972	CONTENEDOR DE RAICES TIPO B23 (TIPO D) (2.00M X 2.00M X 1.40M). (INCLUYE FILTRO EN GRAVILLA, TIERRA NEGRA. SUMINISTRO Y CONSTRUCCIÓN).	APU	UN	2059073.0	1.19	ok
+Suministro e instalación de protector de árbol de dos tubos Tipo M-91	328904.933651694	PROTECTOR DE ARBOL DE DOS TUBOS TIPO M91 (INCLUYE SUMINISTRO E INSTALACIÓN. NO INCLUYE BASES)	APU	UN	286851.0	1.15	ok
+Suministro e instalación de bolardo alto en hierro Tipo M-63	243534.031910033	BOLARDO ALTO EN HIERRO M63	INSUMO	UN	237405.0	1.03	ok (vs INSUMO: IDU es solo material)
+Perfil 1 - Vía peatonal (ancho=15,00m)	246800.864806011	(sin par IDU claro)					sin referencia
+Área de calzada perfil 2 - Vía tipo V-7	456616.99425814	(sin par IDU claro)					sin referencia
+Área de andén perfil 2 (ancho=3,25m) - Vía tipo V-7	412225.075704452	(sin par IDU claro)					sin referencia
+Área de calzada perfil 3 - Vía tipo V-7	446871.735266087	(sin par IDU claro)					sin referencia
+Área de andén perfil 3 (ancho=3,00m) - Vía tipo V-7	418707.955243222	(sin par IDU claro)					sin referencia
+Área de andén perfil 3 (ancho=3,50m) - Vía tipo V-7	373780.354614989	(sin par IDU claro)					sin referencia
+Área de andén perfil 4 (ancho=2,80m) - Vía tipo V-4	328113.023934078	(sin par IDU claro)					sin referencia
+Área de ciclorruta perfil 4 - Vía tipo V-4	252330.943586567	(sin par IDU claro)					sin referencia
+Área de andén perfil 4 (ancho=1,20m) - Vía tipo V-4 PFP	530629.773581377	(sin par IDU claro)					sin referencia
+Área de ciclorruta perfil 4 - Vía tipo V-4 PFP	252330.943586567	(sin par IDU claro)					sin referencia
+Área de calzada perfil 5 - Vía tipo V-4E	476086.536457312	(sin par IDU claro)					sin referencia
+Área de andén perfil 5 contra calzada (ancho=2,80m) - Vía tipo V-4E	464778.525088081	(sin par IDU claro)					sin referencia
+Área de andén perfil 5 contra ciclorruta (ancho=2,80m) - Vía tipo V-4E	372539.236142755	(sin par IDU claro)					sin referencia
+Área de anden perfil 5 (ancho=1,20m) - Vía tipo V-4E	515861.786533767	(sin par IDU claro)					sin referencia
+Área de ciclorruta perfil 5 - Vía tipo V-4E	220699.435157635	(sin par IDU claro)					sin referencia
+Área de separador perfil 5 - Vía tipo V-4E	34697.3687906929	(sin par IDU claro)					sin referencia
+Área de calzada perfil 6 - Vía tipo V-4E	471898.163562354	(sin par IDU claro)					sin referencia
+Área de andén perfil 6 (ancho=2,80m) - Vía tipo V-4E	452119.599943598	(sin par IDU claro)					sin referencia
+Área de andén perfil 6 (ancho=4,00m) - Vía tipo V-4E	302545.340478097	(sin par IDU claro)					sin referencia
+Área de ciclorruta perfil 6 - Vía tipo V-4E	349252.227872035	(sin par IDU claro)					sin referencia
+Área de separador perfil 6 - Vía tipo V-4E	34697.3687906929	(sin par IDU claro)					sin referencia
+Área de calzada perfil 7 - Vía tipo V-4E	473704.009626998	(sin par IDU claro)					sin referencia
+Área de andén perfil 7 (ancho=2,80m) - Vía tipo V-4E	455745.860606097	(sin par IDU claro)					sin referencia
+Área de andén perfil 7 (ancho=4,00m) - Vía tipo V-4E	302545.340478097	(sin par IDU claro)					sin referencia
+Área de ciclorruta perfil 7 - Vía tipo V-4E	349252.227872035	(sin par IDU claro)					sin referencia
+Área de separador perfil 7 - Vía tipo V-4E	34697.3687906929	(sin par IDU claro)					sin referencia
+Área de calzada perfil 8 - Vía tipo V-4E	438465.109338343	(sin par IDU claro)					sin referencia
+Área de andén perfil 8 contra calzada (ancho=2,80m) - Vía tipo V-4E	443020.754055132	(sin par IDU claro)					sin referencia
+Área de andén perfil 8 contra ciclorruta (ancho=2,80m) - Vía tipo V-4E	350398.827596513	(sin par IDU claro)					sin referencia
+Área de anden perfil 8 (ancho=1,20m) - Vía tipo V-4E	496467.74447813	(sin par IDU claro)					sin referencia
+Área de ciclorruta perfil 8 - Vía tipo V-4E	220699.435157635	(sin par IDU claro)					sin referencia
+Área de separador perfil 8 - Vía tipo V-4E	34697.3687906929	(sin par IDU claro)					sin referencia
+Área de calzada perfil 8 - Vía tipo V-4E PFP	462660.101263523	(sin par IDU claro)					sin referencia
+Área de andén perfil 8 contra calzada (ancho=2,80m) - Vía tipo V-4E PFP	443020.754055132	(sin par IDU claro)					sin referencia
+Área de andén perfil 8 contra ciclorruta (ancho=2,80m) - Vía tipo V-4E PFP	350398.827596513	(sin par IDU claro)					sin referencia
+Área de anden perfil 8 (ancho=1,20m) - Vía tipo V-4E PFP	496467.74447813	(sin par IDU claro)					sin referencia
+Área de ciclorruta perfil 8 - Vía tipo V-4E PFP	220699.435157635	(sin par IDU claro)					sin referencia
+Área de separador perfil 8 - Vía tipo V-4E PFP	34697.3687906929	(sin par IDU claro)					sin referencia
+Área de bocacalle del perfil 3 con Carrera 123	481742.654260303	(sin par IDU claro)					sin referencia
+Área de bocacalle del perfil 5 con Carrera 123	498049.371691575	(sin par IDU claro)					sin referencia
+Área de pompeyano perfil 6 -Vía tipo V-4E	667338.737137441	(sin par IDU claro)					sin referencia
+Esquina con rampas peatonales (Incluye estructura de pavimentos)	274444.097373617	(sin par IDU claro)					sin referencia
+Rampa vehicular (Incluye estructura de pavimentos)	533397.355234591	(sin par IDU claro)					sin referencia
+Paso peatonal seguro	324880.195778451	(sin par IDU claro)					sin referencia
+Suministro y aplicación de pintura de tráfico y/o imprimante negro a=15cm	2021.80162164957	PINTURA DE TRÁFICO - IMPRIMANTE NEGRO A=15CM. SUMINISTRO Y APLICACIÓN.	APU	ML	4735.0	0.43	REVISAR: MUY POR DEBAJO de IDU
+Suministro y aplicación de pintura de tráfico y/o imprimante negro	23924.6525228532	PINTURA DE TRÁFICO - IMPRIMANTE NEGRO. SUMINISTRO Y APLICACIÓN.	APU	M2	29829.0	0.80	ok
+Línea continua de color blanco - Pintura acrílica (a=0,12m)	2611.49376129736	DEMARCACION METROS LINEALES EN PINTURA TIPO TRAFICO BASE SOLVENTE COLOR BLANCO Y/O AMARILLA. LINEA 0.12M Y 16 MILS (INCLUYE SUMINISTRO Y APLICACION CON EQUIPO. INCLUYE MICROESFERAS TIPO DROP ON PARA LINEAS DE BORDE Y DE CARRIL).	APU	ML	7983.0	0.33	REVISAR: MUY POR DEBAJO de IDU
+Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,12m)	8845.38209471687	(sin par IDU claro)					sin referencia
+Línea continua de color amarillo - Pintura acrílica (a=0,12m)	2611.49376129736	(sin par IDU claro)					sin referencia
+Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,12m)	8845.38209471687	(sin par IDU claro)					sin referencia
+Línea continua de color blanco - Pintura acrílica (a=0,15m)	3264.3672016217	(sin par IDU claro)					sin referencia
+Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,15m)	10083.7355879772	(sin par IDU claro)					sin referencia
+Línea continua de color amarillo - Pintura acrílica (a=0,15m)	3264.3672016217	(sin par IDU claro)					sin referencia
+Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,15m)	10083.7355879772	(sin par IDU claro)					sin referencia
+Línea continua de color blanco - Pintura acrílica (a=0,20m)	4361.19458136659	DEMARCACIÓN EN PINTURA TIPO TRAFICO BASE SOLVENTE COLOR BLANCO. LINEA 0.20M Y 16 MILS (INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS TIPO DROP ON PARA LINEAS DE CARRIL).	APU	M2	66467.0	0.07	REVISAR: MUY POR DEBAJO de IDU
+Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,20m)	13444.9807839696	(sin par IDU claro)					sin referencia
+Línea continua de color amarillo - Pintura acrílica (a=0,20m)	4361.19458136659	(sin par IDU claro)					sin referencia
+Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,20m)	13444.9807839696	(sin par IDU claro)					sin referencia
+Línea discontinua de color blanco 3m x 5m - Pintura acrílica (a=0,12m)	979.310160486511	(sin par IDU claro)					sin referencia
+Línea discontinua de color blanco 3m x 5m - Pintura de dos componentes metil metacrilato (a=0,12m)	3317.01828551883	(sin par IDU claro)					sin referencia
+Línea discontinua de color blanco 1m x 1m - Pintura acrílica (a=0,20m)	2180.5972906833	DEMARCACIÓN EN PINTURA TIPO TRAFICO BASE SOLVENTE COLOR BLANCO. LINEA 0.20M Y 16 MILS (INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS TIPO DROP ON PARA LINEAS DE CARRIL).	APU	M2	66467.0	0.03	REVISAR: MUY POR DEBAJO de IDU
+Línea discontinua de color blanco 1m x 1m - Pintura de dos componentes metil metacrilato (a=0,20m)	6722.49039198482	(sin par IDU claro)					sin referencia
+Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,25m)	73290.3087847969	(sin par IDU claro)					sin referencia
+Línea continua de color naranja - Pintura de dos componentes metil metacrilato (a=0,30m)	82612.3995979074	(sin par IDU claro)					sin referencia
+Línea continua de color amarillo - Pintura acrílica (a=0,30m)	27799.7722976816	(sin par IDU claro)					sin referencia
+Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,30m)	73290.3087847969	(sin par IDU claro)					sin referencia
+Flecha de frente - Pintura acrílica	27799.7722976816	FLECHA DE FRENTE PARA CICLORRUTA EN PINTURA TERMOPLASTICA. (INCLUYE SUMINISTRO, APLICACION CON MICROESFERA)	APU	UN	50521.0	0.55	ok
+Flecha de frente - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Flecha a la derecha - Pintura acrílica	27799.7722976816	FLECHA DIRECCIONAL "A LA DERECHA" (E=15 MILS, ACRÍLICA BASE AGUA. INC. SUMIN. Y APLIC. CON EQUIPO. INCL. MICROESFERAS)	APU	UN	69162.0	0.40	REVISAR: MUY POR DEBAJO de IDU
+Flecha a la derecha - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Flecha a la izquierda - Pintura acrílica	27799.7722976816	FLECHA DIRECCIONAL "FRENTE, DERECHA E IZQUIERDA" PARA PAVIMENTO FLEXIBLE (E= 15 MILS. ACRILICA BASE AGUA. INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS.	APU	UN	551597.0	0.05	REVISAR: MUY POR DEBAJO de IDU
+Flecha a la izquierda - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Flecha de frente o a la derecha - Pintura acrílica	27799.7722976816	FLECHA DIRECCIONAL "DE FRENTE A LA DERECHA" (E=15 MILS, ACRÍLICA BASE AGUA. INC. SUMIN. Y APLIC. CON EQUIPO. INCL. MICR	APU	UN	99849.0	0.28	REVISAR: MUY POR DEBAJO de IDU
+Flecha de frente o a la derecha - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Flecha de frente o a la izquierda - Pintura acrílica	27799.7722976816	FLECHA DIRECCIONAL "FRENTE, DERECHA E IZQUIERDA" PARA PAVIMENTO FLEXIBLE (E= 15 MILS. ACRILICA BASE AGUA. INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS.	APU	UN	551597.0	0.05	REVISAR: MUY POR DEBAJO de IDU
+Flecha de frente o a la izquierda - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Flecha de frente, a la derecha o a la izquierda - Pintura acrílica	27799.7722976816	FLECHA DIRECCIONAL "FRENTE, DERECHA E IZQUIERDA" PARA PAVIMENTO FLEXIBLE (E= 15 MILS. ACRILICA BASE AGUA. INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS.	APU	UN	551597.0	0.05	REVISAR: MUY POR DEBAJO de IDU
+Flecha de frente, a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Flecha a la derecha o a la izquierda - Pintura acrílica	27799.7722976816	FLECHA DIRECCIONAL "FRENTE, DERECHA E IZQUIERDA" PARA PAVIMENTO FLEXIBLE (E= 15 MILS. ACRILICA BASE AGUA. INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS.	APU	UN	551597.0	0.05	REVISAR: MUY POR DEBAJO de IDU
+Flecha a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Flecha de terminación de carril - Pintura acrílica	27799.7722976816	DEMARCACIÓN DE FLECHA DE TERMINACIÓN DE CARRIL (E= 15 MILS. ACRÍLICA BASE AGUA. INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS.	APU	UN	191682.0	0.15	REVISAR: MUY POR DEBAJO de IDU
+Flecha de terminación de carril - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Ceda el paso para vehiculos - Pintura acrílica	27799.7722976816	PICTOGRAMA DE CEDA EL PASO EN CICLORRUTA (4 TRIÁNGULOS), (PINTURA ACRÍLICA BASE AGUA (E= 15 MILS. INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS.	APU	UN	17772.0	1.56	ok
+Ceda el paso para vehiculos - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Línea de ceda el paso (0,4m x 0,8m) - Pintura acrílica	27799.7722976816	(sin par IDU claro)					sin referencia
+Línea de ceda el paso (0,4m x 0,8m) - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Línea de Pare - Pintura acrílica (a=0,6m)	27799.7722976816	(sin par IDU claro)					sin referencia
+Línea de Pare - Pintura de dos componentes metil metacrilato (a=0,6m)	73290.3087847969	(sin par IDU claro)					sin referencia
+Línea cebreada para paso de peatones - Pintura acrílica (a=0,4m)	27799.7722976816	(sin par IDU claro)					sin referencia
+Línea cebreada para paso de peatones (a=0,4m) - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Pictograma de cruce peatonal - Pintura acrílica	27799.7722976816	(sin par IDU claro)					sin referencia
+Pictograma de cruce peatonal - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Demarcación máxima velocidad permitida (20 km/h) - Pintura acrílica	27799.7722976816	(sin par IDU claro)					sin referencia
+Demarcación máxima velocidad permitida (20 km/h) - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Cruce ciclorruta por calzada (0,4m x 0,4m) - Pintura acrílica	27799.7722976816	PINTURA ACRILICA DE TRAFICO COLOR BLANCA PARA CUADROS CRUCE CICLORRUTA DE 0.4MT X 0.4MT. SUMINISTRO Y APLICACION.	APU	UN	7329.0	3.79	REVISAR: MUY POR ENCIMA de IDU
+Cruce ciclorruta por calzada (0,4m x 0,4m) - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Cruce ciclorruta por calzada (Color azul) - Pintura acrílica	27799.7722976816	PINTURA ACRILICA DE TRAFICO COLOR BLANCA PARA CUADROS CRUCE CICLORRUTA DE 0.4MT X 0.4MT. SUMINISTRO Y APLICACION.	APU	UN	7329.0	3.79	REVISAR: MUY POR ENCIMA de IDU
+Cruce ciclorruta por calzada (Color azul) - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Demarcación de transición en el ancho de pavimento (a=1,00m) - Pintura acrílica	27799.7722976816	(sin par IDU claro)					sin referencia
+Demarcación de transición en el ancho de pavimento (a=1,00m) - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Sentido del tránsito en pompeyanos (Triángulos) - Pintura acrílica	27799.7722976816	(sin par IDU claro)					sin referencia
+Sentido del tránsito en pompeyanos (Triángulos) - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Demarcación de rampas de pompeyano (Color amarillo) - Pintura acrílica	27799.7722976816	(sin par IDU claro)					sin referencia
+Demarcación de rampas de pompeyano (Color amarillo) - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Demarcación de letras - Pintura acrílica	27799.7722976816	DEMARCACION PICTOGRAMA NIÑOS CON PINTURA ACRILICA BASE SOLVENTE (INCLUYE SUMINISTRO Y APLICACIÓN MEDIDO COMO EL AREA DEL PAÑO QUE CONTIENE EL DIBUJO)	APU	M2	81832.0	0.34	REVISAR: MUY POR DEBAJO de IDU
+Demarcación de letras - Pintura de dos componentes metil metacrilato	73290.3087847969	(sin par IDU claro)					sin referencia
+Línea continua de color blanco para ciclorruta - Pintura acrílica (a=0,10m)	2176.24480108113	(sin par IDU claro)					sin referencia
+Línea continua de color amarillo para ciclorruta - Pintura acrílica (a=0,10m)	2176.24480108113	(sin par IDU claro)					sin referencia
+Línea discontinua de color blanco para ciclorruta 1m x 2m - Pintura acrílica (a=0,10m)	725.414933693712	(sin par IDU claro)					sin referencia
+Línea discontinua de color amarillo para ciclorruta 1m x 2m - Pintura acrílica (a=0,10m)	725.414933693712	(sin par IDU claro)					sin referencia
+Flecha de frente para ciclocarril - Pintura acrílica	27799.7722976816	(sin par IDU claro)					sin referencia
+Pictograma de bicicleta - Pintura acrílica	27799.7722976816	PICTOGRAMA DE CEDA EL PASO EN CICLORRUTA (4 TRIÁNGULOS), (PINTURA ACRÍLICA BASE AGUA (E= 15 MILS. INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS.	APU	UN	17772.0	1.56	ok
+Ceda el paso para ciclorruta - Pintura acrílica	27799.7722976816	PICTOGRAMA DE CEDA EL PASO EN CICLORRUTA (4 TRIÁNGULOS), (PINTURA ACRÍLICA BASE AGUA (E= 15 MILS. INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO. INCLUYE MICROESFERAS.	APU	UN	17772.0	1.56	ok
+Línea de Pare - Pintura acrílica (a=0,2m)	27799.7722976816	(sin par IDU claro)					sin referencia
+Línea de ceda el paso (0,2m x 0,2m) - Pintura acrílica	27799.7722976816	DEMARCACION LINEA CEDA EL PASO DISCONTINUA DE 0.8MT ESPACIADO 0.4MT E=2.3MM EN PINTURA TERMOPLASTICA, INCLUYE SUMINISTRO Y APLICACION CON EQUIPO, INCLUYE MICROESFERAS.	APU	ML	8629.0	3.22	REVISAR: MUY POR ENCIMA de IDU
+Banda sonora en agregado pétreo y material epóxico (a=0,40m)	539147.099106552	(sin par IDU claro)					sin referencia
+Tacha reflectiva bidireccional (Línea de borde)	13141.7105407222	TACHA REFLECTIVA BIDIRECCIONAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	21787.0	0.60	ok
+Tacha reflectiva bidireccional (Línea central)	13141.7105407222	TACHA REFLECTIVA BIDIRECCIONAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	21787.0	0.60	ok
+Tacha reflectiva bidireccional	13141.7105407222	TACHA REFLECTIVA BIDIRECCIONAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	21787.0	0.60	ok
+Segregador de bicicleta e hito (3 y 1 respectivamente)	101890.377557715	(sin par IDU claro)					sin referencia
+Segregador de bicicleta (Tachón de polipropileno de alto impacto con estructura de refuerzo y elementos reflectivos. 40,5cm x 15,0cm x 8,5cm)	98899.7959923581	INSTALACIÓN SEGREGADOR BICICLETA (TACHÓN PLÁSTICO O CAUCHO ALTA RESISTENCIA COMO POLIPROPILENO DE ALTO IMPACTO, CON INSTALACIÓN ESTRUCTURA DE REFUERZO, ELEMENTOS REFLECTIVOS DE ALTA EFICIENCIA. TIPO TRANSMILENIO 40.5cmx15cmx8.5cm).(Instalación).	APU	UN	41927.0	2.36	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación de hito	110862.122253785	HITO DE 75CM DE ALTURA Y 8 CM DE DIAMETRO CON REFLECTIVOS DE COLOR AMARILLO. SUMINISTRO E INSTALACION.	APU	UN	94206.0	1.18	ok
+Suministro e instalación de estoperol plástico	9856.28290554166	(sin par IDU claro)					sin referencia
+Suministro e instalación de resalto en caucho	453175.34752818	RESALTO EN CAUCHO DE L=1m, ANCHO 30cm, ALTO 4.5cm (INCLUYE PERNOS)	INSUMO	UN	221495.0	2.05	ok (vs INSUMO: IDU es solo material)
+Suministro e instalación de resalto en concreto	499385.000547444	REDUCTOR DE VELOCIDAD TIPO RESALTO PARABOLICO DE 4 METROS DE ANCHO. EN CONCRETO PREMEZCLADO 4000 PSI  (280 Kg/cm2) GRAVA COMÚN.  SUMINISTRO E INSTALACION. (INCLUYE FORMALETA,  REFUERZO, CURADO Y PINTURA).	APU	ML	1822438.0	0.27	REVISAR: MUY POR DEBAJO de IDU
+Borrado mecánico de demarcación existente obsoleta	56914.7351137464	(sin par IDU claro)					sin referencia
+Retiro de segregador de bicicleta	25962.9015020542	(sin par IDU claro)					sin referencia
+Señal vertical (0,60mx0,60m)	650076.614747725	SEÑAL VERTICAL UNA CARA PARA CICLORUTA PARAL 3M, ÁNGULO DE 2X1/4X3M LAMINA CAL. 16 PINTADA POR UNA CARA 0.60M X 0.60M O 0.75M X 0.75M (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	UN	514697.0	1.26	ok
+Señal vertical SR-28 / Plaqueta	835341.036678214	SEÑAL VERTICAL SR 90X30 , INCLUYE POSTE. SUMINISTRO E INSTALACIÓN	APU	UN	489804.0	1.71	ok
+Señal vertical SP-46A / SR-30	888750.296183457	SEÑAL VERTICAL DE TRÁNSITO TIPO SP/SR CON LÁMINA RETRORREFLECTIVA PARA CICLORUTA DE 0.45 M X 0.45 M, INCLUYE POSTE. SUMINISTRO E INSTALACIÓN.	APU	UN	434882.0	2.04	ok
+Señal vertical Paradero SITP SI-08 / Plaqueta	1000270.31002073	(sin par IDU claro)					sin referencia
+Señal vertical SI-07A	650076.614747725	SEÑAL VERTICAL INFORMATIVA SI-27C (70 CM X 100 CM). INCLUYE SUMINISTRO E INSTALACION.	APU	UN	673479.0	0.97	ok
+Señal vertical ubicación de cruce peatonal SP-46	765134.422667676	(sin par IDU claro)					sin referencia
+Señal vertical ubicación de cruce ciclistas SP-59A	765134.422667676	(sin par IDU claro)					sin referencia
+Señal vertical Chevrón	682695.014243672	SEÑAL VERTICAL GRUPO I (60X60CM) (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	UN	479154.0	1.42	ok
+Suministro e instalación de paradero de buses Tipo M-10	19799813.1082519	(sin par IDU claro)					sin referencia
+Señal vertical ciclorruta sencilla (0,45m x 0,45m)	656243.109693756	SEÑAL VERTICAL DE TRÁNSITO TIPO SR CON LÁMINA REFLECTIVA PARA CICLORUTA D=0.45M. INCLUYE POSTE. SUMINISTRO E INSTALACIÓN	APU	UN	797760.0	0.82	ok
+Señal vertical ciclorruta doble (0,45m x 0,45m)	800296.475236288	SEÑAL VERTICAL DE TRÁNSITO TIPO SR CON LÁMINA REFLECTIVA PARA CICLORUTA D=0.45M. INCLUYE POSTE. SUMINISTRO E INSTALACIÓN	APU	UN	797760.0	1.00	ok
+Señal vertical ciclorruta sencilla "Inicio ciclorruta"	656243.109693756	(sin par IDU claro)					sin referencia
+Señal vertical ciclorruta sencilla "Fin ciclorruta"	656243.109693756	(sin par IDU claro)					sin referencia
+Señal vertical SPC-01 / SPC-01	800296.475236288	SEÑAL VERTICAL GRUPO DE REGLAMENTARIAS SR-01 TIPO OCTAGONO CON ALTURA DE 75CM. INCLUYE SUMINISTRO E INSTALACION.	APU	UN	599695.0	1.33	ok
+Señal vertical SPC-01 / SRC-01	800296.475236288	(sin par IDU claro)					sin referencia
+Señal vertical SPB-03	656243.109693756	(sin par IDU claro)					sin referencia
+Señal vertical SPB-04	656243.109693756	(sin par IDU claro)					sin referencia
+Retiro de señales verticales	188821.101833122	REUBICACIÓN DE SEÑALES VERTICALES (APLICA PARA RETIRO Y REINSTALACIÓN DE SEÑALES SENCILLAS Y DÚPLEX. INCLUYE DEMOLICIÓN DE PISO, RETIRO Y DISPOSICIÓN FINAL DE ESCOMBROS)	APU	UN	54009.0	3.50	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación de adoquín ecológico en concreto de 40x40x8cm (Incluye 0,02m de tierra y grama)	112849.250761478	ADOQUIN ECOLOGICO EN CONCRETO DE 40 X 40 X 8CM. SUMINISTRO E INSTALACION. (INCLUYE SUMINISTRO, EXTENDIDO, NIVELACIÓN Y COMPACTACIÓN DE RECEBO E=0,15M, 0,02M DE TIERRA, GRAMA Y MANO DE OBRA)	APU	M2	150053.0	0.75	ok
+Empradización y conformación	17483.1332914191	(sin par IDU claro)					sin referencia
+Suministro e instalación de árbol	172584.430346137	PROTECTOR DE ARBOL TIPO M90 (INCLUYE SUMINISTRO E INSTALACIÓN. NO INCLUYE BASES)	APU	UN	1048451.0	0.16	REVISAR: MUY POR DEBAJO de IDU
+Drenaje	8256.06001214466	TUBERIA PVC PARA DRENAJE D=4" CON FILTRO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	46154.0	0.18	REVISAR: MUY POR DEBAJO de IDU
+Parque 1	347210.914872589	(sin par IDU claro)					sin referencia
+Parque 2	347210.914872589	(sin par IDU claro)					sin referencia
+Parque 3	347210.914872589	(sin par IDU claro)					sin referencia
+Parque en vía 2 (V-7)	347210.914872589	CAJA SUBTERRÁNEA EN VÍA PACIFICADA CST2. INCLUYE CONCRETO GRAVA COMÚN DE 4000 PSI, ADITIVO IMPERMEABILIZANTE, ACERO, MICROFIBRA DE POLIPROPILENO, PASOS DE ESCALERA DE GATO. SUMINISTRO E INSTALACIÓN. ÁREA TANQUE A1-7.30M A2-2.21M PERÍMETRO 18.25M, ALTURA- 2.55M.	APU	UN	25209604.0	0.01	REVISAR: MUY POR DEBAJO de IDU
+Área de ciclorruta - Parque 3	486294.094946592	(sin par IDU claro)					sin referencia
+Área de ciclorruta - Control ambiental	349252.227872035	(sin par IDU claro)					sin referencia
+Área de zona verde - Control ambiental	38537.8870488968	(sin par IDU claro)					sin referencia
+Área sendero peatonal - ZMPA	603423.425899566	DEMARCACION DE LINEA SENDERO PEATONAL. AREA: 0.30 M2. (E= 2.3 MILS, TERMOPLASTICA. SUMINISTRO Y APLICACION CON EQUIPO. INCLUYE MICROESFERAS.	APU	ML	58204.0	10.37	REVISAR: MUY POR ENCIMA de IDU
+Área sendero peatonal - Parque en ZMPA	603423.425899566	(sin par IDU claro)					sin referencia
+Excavación manual en material común (No incluye cargue, transporte ni disposición)	52405.9326346062	EXCAVACIÓN MANUAL EN MATERIAL COMÚN (INCL CARGUE, TRANSPORTE Y DISPOSICION FINAL)	APU	M3	117926.0	0.44	REVISAR: MUY POR DEBAJO de IDU
+Cargue y retiro externo de sobrantes de la excavación manual	56603.2078892225	EXCAVACIÓN PARA CAISSON D=1.50M (INCL. EXCAVACIÓN, CARGUE Y RETIRO DE SOBRANTES)	APU	ML	1155312.0	0.05	REVISAR: MUY POR DEBAJO de IDU
+Cargue y retiro interno de sobrantes de la excavación manual	17231.1564401149	EXCAVACIÓN PARA CAISSON D=1.50M (INCL. EXCAVACIÓN, CARGUE Y RETIRO DE SOBRANTES)	APU	ML	1155312.0	0.01	REVISAR: MUY POR DEBAJO de IDU
+Relleno con arena de peña	165393.412415048	RELLENO PARA REDES EN ARENA DE PEÑA (SUMINISTRO, EXTENDIDO, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	182185.0	0.91	ok
+Suministro y colocación de recebo	101915.14034583	MURETE CONTENEDOR DE ZONA VERDE H=0.60M A=0.40M. SUMINISTRO Y CONSTRUCCION. (INCLUYE SUMINISTRO Y COLOCACION DE RECEBO COMUN, GEOMEMBRANA DE POLIETILENO DE ALTA DENSIDAD (PEAD-HDPE) CON ESPESOR DE 30 MILS (0,75 MM) Y ACERO DE REFUERZO PARA ANCLAJE).	APU	ML	243625.0	0.42	REVISAR: MUY POR DEBAJO de IDU
+Suministro y colocación de triturado 3/4	149872.750773661	RELLENO EN TRITURADO DE 3/4`` (INCLUYE TRANSPORTE, SUMINISTRO, EXTENDIDO MANUAL Y COLOCACIÓN)	APU	M3	178829.0	0.84	ok
+Suministro e instalación de subbase granular tipo B-400	136342.969376722	RELLENO PARA REDES EN SUBBASE GRANULAR B-400 (SUMINISTRO, EXTENDIDO, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	134047.0	1.02	ok
+Instalación de Tubería de acueducto PVC	2541.76357140814	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	9728.0	0.26	REVISAR: MUY POR DEBAJO de IDU
+Instalación de tubería de alcantarillado	3558.4689999714	TUBERÍA ALCANTARILLADO PEAD 1500 mm (60") SN-8	INSUMO	ML	5484690.0	0.00	REVISAR: MUY POR DEBAJO de IDU (vs INSUMO: IDU es solo material)
+Instalación de tubería de alcantarillado en concreto	4260.40765318736	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	817846.0	0.01	REVISAR: MUY POR DEBAJO de IDU
+Entibado para excavaciones <=3m	51958.7110402116	(sin par IDU claro)					sin referencia
+Entibado para excavaciones >3m	125356.271004673	(sin par IDU claro)					sin referencia
+Cinta de señalización	508.013338690341	SEÑALIZACIÓN CON CINTA DE DEMARCACION CALIBRE 3 (INCLUYE SUMINISTRO Y COLOCACIÓN)	APU	ML	1094.0	0.46	ok
+Prueba hidrostática para tubería (Incluye desinfección)	19893.1469227118	PRUEBA HIDROSTÁTICA EN TUBERÍAS HASTA 12" DE DIÁMETRO, TRAMOS MÁXIMOS DE 500M. INCLUYE DESINFECCIÓN DE TUBERÍA.	APU	UN	1667960.0	0.01	REVISAR: MUY POR DEBAJO de IDU
+Prueba de hermeticidad	15750.1036971938	PRUEBA DE HERMETICIDAD POR EL MÉTODO DE PRESIÓN POSITIVA CON AIRE PARA REDES DE ALCANTARILLADO - TRAMOS DE Ø 27" A Ø 40"	APU	UN	833000.0	0.02	REVISAR: MUY POR DEBAJO de IDU
+Inspección con cámara para tubería	12681.4681444941	(sin par IDU claro)					sin referencia
+Transporte de tubería en concreto	48.526501205385	TUBERIA GRP 300MM (INCLUYE TRANSPORTE). SUMINISTRO E INSTALACION.	APU	ML	438466.0	0.00	REVISAR: MUY POR DEBAJO de IDU
+Suministro e instalación base, cono y tapa para pozo de inspección	6292914.64494694	CONO POZO INSPECCIÓN PREFABRICADO D= 1.20M X 0.60M E=0.10M H= 0.75M (INC. SUMINISTRO E INST. NO INC. ARO DE AJUSTE, ARO-TAPA Y TAPA)	APU	UN	959614.0	6.56	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación cono y tapa para pozo de inspección	4383706.73966559	CONO POZO INSPECCIÓN PREFABRICADO D= 1.20M X 0.60M E=0.10M H= 0.75M (INC. SUMINISTRO E INST. NO INC. ARO DE AJUSTE, ARO-TAPA Y TAPA)	APU	UN	959614.0	4.57	REVISAR: MUY POR ENCIMA de IDU
+Anillo en concreto prefabricado	1916374.23154609	(sin par IDU claro)					sin referencia
+Cámara en concreto (Diám.>=36")	62030724.8981993	(sin par IDU claro)					sin referencia
+Cámara en concreto (Diám.<36"-Prof.>7m)	22901780.4050841	(sin par IDU claro)					sin referencia
+Cámara de caída	3896089.76065249	CÁMARA DE CAIDA D=10" H=1.70M (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	UN	1651400.0	2.36	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación de sumidero	14543853.2322303	MARCO REJILLA SUMIDERO LATERAL 100 X 65 (SUMINISTRO E INSTALACIÓN)	APU	UN	230595.0	63.07	REVISAR: MUY POR ENCIMA de IDU
+Cabezal de entrega	37186137.0100324	(sin par IDU claro)					sin referencia
+Conexión de tramos nuevos a pozos existentes	1220574.03567587	(sin par IDU claro)					sin referencia
+Conexión de tramos existentes a pozos nuevos	1220574.03567587	(sin par IDU claro)					sin referencia
+Demolición de tubería en concreto (Incluye cargue, transporte y disposición final)	26791.6986719806	DEMOLICIÓN PISOS DE CONCRETO (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	APU	M3	64547.0	0.42	REVISAR: MUY POR DEBAJO de IDU
+Demolición de pozos de inspección (Incluye cargue, transporte y disposición final)	848000.854594823	DEMOLICION PAVIMENTO ASFALTICO (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	APU	M3	43555.0	19.47	REVISAR: MUY POR ENCIMA de IDU
+Construcción de biofiltros	28086737.5	(sin par IDU claro)					sin referencia
+M.O. Construcción de cañuela en concreto	68945.41331685	CAÑUELA TIPO FUNDIDA EN SITIO 1000X300X225 CON CONCRETO 3000 PSI HECHO EN OBRA (SUMINISTRO Y CONSTRUCCIÓN. INCLUYE CONCRETO DE 3000 PSI HECHO EN OBRA, IMPERMEABILIZANTE PARA CONCRETO).	APU	ML	132627.0	0.52	ok
+Concreto 3.000 psi	542694.188914	CONCRETO 2000 PSI (HECHO EN OBRA 1:3:3 CON MATERIAL DE RÍO)	APU	M3	503160.0	1.08	ok
+Acero de refuerzo	4672.565823975	ACERO DE REFUERZO - HORARIO NOCTURNO. (INCLUYE SUMINISTRO, FIGURADO Y FIJACIÓN)	APU	KG	6043.0	0.77	ok
+Alambre negro	5347.71482	SARDINEL FUNDIDO EN SITIO EN CONCRETO PREMEZCLADO DE 3000PSI. SUMINISTRO Y CONSTRUCCION. (GRAVA COMÚN) E=0.20M H=0.35M (INCLUYE FORMALETA METÁLICA, ACERO DE REFUERZO Y ALAMBRE NEGRO).	APU	ML	65653.0	0.08	REVISAR: MUY POR DEBAJO de IDU
+Construcción de cañuela en concreto sección 0,60m x 0,40m	554834.163443218	(sin par IDU claro)					sin referencia
+Sistema Ramming 14" 	2217728.793	(sin par IDU claro)					sin referencia
+Sistema Ramming 16" 	2534547.192	(sin par IDU claro)					sin referencia
+Sistema Ramming 18" 	2851365.591	(sin par IDU claro)					sin referencia
+Sistema Ramming 20" 	3168183.99	(sin par IDU claro)					sin referencia
+Sistema Ramming 32" 	5069094.384	(sin par IDU claro)					sin referencia
+Caja de lanzamiento para red de Alcantarillado	27269089.5822087	(sin par IDU claro)					sin referencia
+Tapón 1,1/2"	35024.7209400227	REDUCCION PVC E.L. D= 1 1/2" X 1" (SUMINISTRO E INSTALACIÓN)	APU	UN	13889.0	2.52	REVISAR: MUY POR ENCIMA de IDU
+Tapón 2"	85211.5118993448	TAPON DE PRUEBA PVC SANITARIA D=2" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	UN	6016.0	14.16	REVISAR: MUY POR ENCIMA de IDU
+Tapón 2,1/2"	135510.113878592	UNION PVC TIPO U.M. D= 2 1/2" (SUMINISTRO E INSTALACIÓN)	APU	UN	32223.0	4.21	REVISAR: MUY POR ENCIMA de IDU
+Tapón 4"	293052.33051294	TAPON PVC TIPO U.M. D=4" (SUMINISTRO E INSTALACIÓN)	APU	UN	109473.0	2.68	REVISAR: MUY POR ENCIMA de IDU
+Atraques	285243.395656796	(sin par IDU claro)					sin referencia
+Válvula 1,1/2"	1358452.50588645	VÁLVULA 1 1/2" PARA EXPULSIÓN DE AIRE (SUMINISTRO E INSTALACIÓN)	APU	UN	603102.0	2.25	REVISAR: MUY POR ENCIMA de IDU
+Válvula 2"	1501208.7730039	VÁLVULA CHEQUE O ANTIRETORNO DE 2" CLASE 300 (Incluye suministro e instalación).	APU	UN	441945.0	3.40	REVISAR: MUY POR ENCIMA de IDU
+Válvula 2,1/2"	1972963.95020208	UNION PVC TIPO U.M. D= 2 1/2" (SUMINISTRO E INSTALACIÓN)	APU	UN	32223.0	61.23	REVISAR: MUY POR ENCIMA de IDU
+Válvula 4"	3044363.85364974	VÁLVULA DE GLOBO DE 4" (A). SUMINISTRO E INSTALACIÓN	APU	UN	2729315.0	1.12	ok
+Estación reguladora de presión 12"	234756286.667175	(sin par IDU claro)					sin referencia
+Hidrante 6"	15270446.77672	HIDRANTE EXTREMO BRIDA D=6" TIPO POSTE (SUMINISTRO E INSTALACIÓN. NO INCLUYE KIT DE NIVELACIÓN)	APU	UN	3508938.0	4.35	REVISAR: MUY POR ENCIMA de IDU
+Conexión a red existente de acueducto Ø6"x12"	9652085.9915016	(sin par IDU claro)					sin referencia
+Conexión a red existente de acueducto Ø8"x12"	9652085.9915016	(sin par IDU claro)					sin referencia
+Retiro de red existente PVC Ø=6"	4106.74837852167	(sin par IDU claro)					sin referencia
+Suministro de tubería tubería PVC 1/2" RDE 13.5	4134.46761771406	TUBERIA PVC E.L. D= 1/2`` RDE 13.5 - 315 PSI (INCLUYE SUMINISTRO E INSTALACIÓN, SOLDADURA).	APU	ML	9739.0	0.42	REVISAR: MUY POR DEBAJO de IDU
+Suministro de tubería tubería PVC 3/4" RDE 21	5122.97042004597	TUBERÍA PVC D=3/4" RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	10115.0	0.51	ok
+Suministro de tubería tubería PVC 1" RDE 21	7189.11128968667	TUBERÍA PVC D=1" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN).	APU	ML	12748.0	0.56	ok
+Suministro de tubería PVC 1,1/2" RDE 21	16908.0125521225	TUBERIA PVC PRESION E.L. D=1 1/2" RDE 21 PSI 200 (INCLUYE LIMPIEZA Y SOLDADURA). SUMINISTRO E INSTALACION.	APU	ML	20615.0	0.82	ok
+Suministro de tubería PVC 2" RDE 21	25927.4327161024	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	26617.0	0.97	ok
+Suministro de tubería PVC 2,1/2" RDE 21	42020.1126128372	TUBERIA PVC D=2 1/2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	36526.0	1.15	ok
+Suministro de tubería PVC 3" RDE 21	49789.4531887083	TUBERIA PVC D=3" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	59868.0	0.83	ok
+Suministro de tubería PVC 4" RDE 21	65764.0956500786	TUBERIA PVC D=4" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	76083.0	0.86	ok
+Suministro de tubería PVC 6" RDE 21	135112.060428219	TUBERIA PVC D=6" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	151759.0	0.89	ok
+Suministro de tubería PVC 8" RDE 21	228863.657779505	TUBERIA PVC D=8" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	250672.0	0.91	ok
+Suministro de tubería PVC 10" RDE 21	360277.940525782	TUBERIA PVC D=10" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	390190.0	0.92	ok
+Suministro de tubería PVC 12" RDE 21	504098.054879015	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	533659.0	0.94	ok
+Suministro de tubería PVC 14" RDE 21	625143.016091444	TUBERIA PVC D=14" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	641522.0	0.97	ok
+Suministro de tubería PVC 16" RDE 21	820509.544142494	(sin par IDU claro)					sin referencia
+Tubería PVC 1,1/2" RDE 21	152574.13097355	TUBERIA PVC PRESION E.L. D=1 1/2" RDE 21 PSI 200 (INCLUYE LIMPIEZA Y SOLDADURA). SUMINISTRO E INSTALACION.	APU	ML	20615.0	7.40	REVISAR: MUY POR ENCIMA de IDU
+Tubería PVC 2" RDE 21	165432.679496161	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	26617.0	6.22	REVISAR: MUY POR ENCIMA de IDU
+Tubería PVC 2,1/2" RDE 21	183626.516228879	TUBERIA PVC D=2 1/2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	36526.0	5.03	REVISAR: MUY POR ENCIMA de IDU
+Tubería PVC 3" RDE 21	202256.203749483	TUBERIA PVC D=3" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	59868.0	3.38	REVISAR: MUY POR ENCIMA de IDU
+Tubería PVC 4" RDE 21	228892.70616258	TUBERIA PVC D=4" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	76083.0	3.01	REVISAR: MUY POR ENCIMA de IDU
+Tubería PVC 6" RDE 21	315666.494993932	TUBERIA PVC D=6" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	151759.0	2.08	ok
+Tubería PVC 8" RDE 21	424699.715175971	TUBERIA PVC D=8" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	250672.0	1.69	ok
+Tubería PVC 10" RDE 21	597723.864324947	TUBERIA PVC D=10" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	390190.0	1.53	ok
+Tubería PVC 12" RDE 21	753777.440559946	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	533659.0	1.41	ok
+Tubería PVC 14" RDE 21	956259.248452375	TUBERIA PVC D=14" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	641522.0	1.49	ok
+Tubería PVC 16" RDE 21	1162587.74316766	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 4"	27001.6705280715	TUBERIA PVC SANITARIA D=4" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	46152.0	0.59	ok
+Tubería NOVAFORT 6"	52250.2665531376	TUBERIA PVC SANITARIA D=6" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	93174.0	0.56	ok
+Tubería NOVAFORT 8"	74691.9517952676	TUBERÍA HDPE 8" (SUMINISTRO E INSTALACIÓN)	APU	ML	127982.0	0.58	ok
+Tubería NOVAFORT 10"	109091.120690274	TUBERÍA HDPE 10" (SUMINISTRO E INSTALACIÓN)	APU	ML	280316.0	0.39	REVISAR: MUY POR DEBAJO de IDU
+Tubería NOVAFORT 12"	156975.459387215	TUBERÍA HDPE 12" (SUMINISTRO E INSTALACIÓN)	APU	ML	301911.0	0.52	ok
+Tubería NOVAFORT 14"	235248.608681349	TUBERÍA HDPE 14" (SUMINISTRO E INSTALACIÓN)	APU	ML	435500.0	0.54	ok
+Tubería NOVAFORT 16"	287734.464354453	TUBERÍA HDPE 16" (SUMINISTRO E INSTALACIÓN)	APU	ML	679962.0	0.42	REVISAR: MUY POR DEBAJO de IDU
+Tubería NOVAFORT 18"	371609.048570006	TUBERIA CONCRETO D=18" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	315153.0	1.18	ok
+Tubería NOVAFORT 20"	484468.380802831	TUBERIA CONCRETO D=20" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	403869.0	1.20	ok
+Tubería NOVAFORT 24"	663867.4218749	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	817846.0	0.81	ok
+Tubería NOVAFORT 27"	794898.61541381	TUBERIA CONCRETO D=27" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	991864.0	0.80	ok
+Tubería NOVAFORT 30"	991956.56498643	TUBERIA CONCRETO D=30" CL. IV REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1478460.0	0.67	ok
+Tubería NOVAFORT 33"	1319889.89419942	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36"	1841194.54888792	TUBERIA CONCRETO D=36" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1512469.0	1.22	ok
+Tubería NOVAFORT 39"	2463439.93090011	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42"	2892054.3723368	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45"	3148427.08599886	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48"	3769620.21976246	TUBERIA CONCRETO D=48" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	2515311.0	1.50	ok
+Tubería NOVALOC 51"	4422808.78477127	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54"	4656058.04331286	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57"	4862069.79933104	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60"	5507338.19815212	TUBERIA CONCRETO D=60" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	3580389.0	1.54	ok
+Tubería NOVAFORT 4" Hex (0-1,5)m	283197.659320344	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 4" Hex (1,5-2,5)m	539250.453178088	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 4" Hex (2,5-3,5)m	832557.383336259	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 4" Hex (3,5-4,5)m	1757702.48243337	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 4" Hex (4,5-5,5)m	2188284.0878249	TUBERIA PVC D=4" TIPO U.M. RDE 32.5 (SUMINISTRO E INSTALACIÓN)	APU	ML	54140.0	40.42	REVISAR: MUY POR ENCIMA de IDU
+Tubería NOVAFORT 4" Hex (5,5-6,5)m	2618865.69321643	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 4" Hex (6,5-7,5)m	3049447.29860796	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 4" Hex (7,5-8,5)m	3480028.90399949	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 4" Hex (8,5-9,5)m	3910610.50939102	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 4" Hex (9,5-10,5)m	4341192.11478255	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 6" Hex (0-1,5)m	315199.052319491	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 6" Hex (1,5-2,5)m	568216.494324524	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 6" Hex (2,5-3,5)m	861669.599279279	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 6" Hex (3,5-4,5)m	1786960.87317298	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 6" Hex (4,5-5,5)m	2217542.47856451	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 6" Hex (5,5-6,5)m	2648124.08395604	TUBERIA PVC D=6" TIPO U.M. RDE 32.5 (SUMINISTRO E INSTALACIÓN)	APU	ML	106141.0	24.95	REVISAR: MUY POR ENCIMA de IDU
+Tubería NOVAFORT 6" Hex (6,5-7,5)m	3078705.68934757	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 6" Hex (7,5-8,5)m	3509287.2947391	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 6" Hex (8,5-9,5)m	3939868.90013063	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 6" Hex (9,5-10,5)m	4370450.50552215	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (0-1,5)m	344538.431876397	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (1,5-2,5)m	594366.205820989	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (2,5-3,5)m	887965.485572329	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (3,5-4,5)m	1813402.93426261	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (4,5-5,5)m	2243984.53965414	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (5,5-6,5)m	2674566.14504567	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (6,5-7,5)m	3105147.7504372	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (7,5-8,5)m	3535729.35582873	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (8,5-9,5)m	3966310.96122026	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 8" Hex (9,5-10,5)m	4396892.56661179	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (0-1,5)m	383216.061558182	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (1,5-2,5)m	629699.851234602	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (2,5-3,5)m	923445.305782525	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (3,5-4,5)m	1849028.92926939	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (4,5-5,5)m	2279610.53466092	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (5,5-6,5)m	2710192.14005245	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (6,5-7,5)m	3140773.74544398	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (7,5-8,5)m	3571355.35083551	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (8,5-9,5)m	4001936.95622704	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 10" Hex (9,5-10,5)m	4432518.56161857	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (0-1,5)m	432473.62022382	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (1,5-2,5)m	675459.109424337	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (2,5-3,5)m	969350.738768845	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (3,5-4,5)m	1895080.5370523	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (4,5-5,5)m	2325662.14244383	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (5,5-6,5)m	2756243.74783536	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (6,5-7,5)m	3186825.35322688	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (7,5-8,5)m	3617406.95861841	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (8,5-9,5)m	4047988.56400994	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 12" Hex (9,5-10,5)m	4478570.16940147	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (0-1,5)m	512339.443065156	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (1,5-2,5)m	745382.989170329	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (2,5-3,5)m	1039420.79331142	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (3,5-4,5)m	1965296.76639146	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (4,5-5,5)m	2395878.37178299	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (5,5-6,5)m	2826459.97717451	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (6,5-7,5)m	3257041.58256604	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (7,5-8,5)m	3687623.18795757	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (8,5-9,5)m	4118204.7933491	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 14" Hex (9,5-10,5)m	4548786.39874063	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (0-1,5)m	591188.830011813	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (1,5-2,5)m	832018.456495021	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (2,5-3,5)m	1148693.74157314	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (3,5-4,5)m	2041834.76305192	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (4,5-5,5)m	2479910.91275104	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (5,5-6,5)m	2917987.06245016	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (6,5-7,5)m	3356063.21214928	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (7,5-8,5)m	3794139.3618484	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (8,5-9,5)m	4232215.51154752	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 16" Hex (9,5-10,5)m	4670291.66124664	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (0-1,5)m	679041.848544405	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (1,5-2,5)m	919446.357699748	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (2,5-3,5)m	1243823.26804728	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (3,5-4,5)m	2144458.83383365	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (4,5-5,5)m	2590029.52784036	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (5,5-6,5)m	3035600.22184708	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (6,5-7,5)m	3481170.91585379	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (7,5-8,5)m	3926741.6098605	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (8,5-9,5)m	4372312.30386721	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 18" Hex (9,5-10,5)m	4817882.99787392	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (0-1,5)m	790719.755778866	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (1,5-2,5)m	1030104.7618226	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (2,5-3,5)m	1362183.29743955	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (3,5-4,5)m	2270313.40753351	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (4,5-5,5)m	2723378.64584782	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (5,5-6,5)m	3176443.88416212	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (6,5-7,5)m	3629509.12247642	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (7,5-8,5)m	4082574.36079072	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (8,5-9,5)m	4535639.59910502	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 20" Hex (9,5-10,5)m	4988704.83741933	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (0-1,5)m	980242.400317368	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (1,5-2,5)m	1221434.94385619	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (2,5-3,5)m	1576399.76449307	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (3,5-4,5)m	2507013.50750981	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (4,5-5,5)m	2982562.37874688	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (5,5-6,5)m	3458111.24998396	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (6,5-7,5)m	3933660.12122103	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (7,5-8,5)m	4409208.99245811	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (8,5-9,5)m	4884757.86369518	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 24" Hex (9,5-10,5)m	5360306.73493226	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (0-1,5)m	1108846.49257531	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (1,5-2,5)m	1345630.87234202	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (2,5-3,5)m	1708309.49948137	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (3,5-4,5)m	2646417.78680569	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (4,5-5,5)m	3129461.20235036	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (5,5-6,5)m	3612504.61789502	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (6,5-7,5)m	4095548.03343969	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (7,5-8,5)m	4578591.44898436	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (8,5-9,5)m	5061634.86452902	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 27" Hex (9,5-10,5)m	5544678.28007369	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (0-1,5)m	1324487.41380429	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (1,5-2,5)m	1575384.62228247	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (2,5-3,5)m	1975755.23315465	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (3,5-4,5)m	2951336.24201693	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (4,5-5,5)m	3471852.37909955	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (5,5-6,5)m	3992368.51618217	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (6,5-7,5)m	4512884.65326479	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (7,5-8,5)m	5033400.79034741	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (8,5-9,5)m	5553916.92743003	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 30" Hex (9,5-10,5)m	6074433.06451265	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (0-1,5)m	1612898.45421934	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (1,5-2,5)m	1856829.25190397	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (2,5-3,5)m	2264913.66927861	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (3,5-4,5)m	3247989.22244848	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (4,5-5,5)m	3775999.9038387	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (5,5-6,5)m	4304010.58522891	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (6,5-7,5)m	4832021.26661912	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (7,5-8,5)m	5360031.94800933	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (8,5-9,5)m	5888042.62939955	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 33" Hex (9,5-10,5)m	6416053.31078976	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (0-1,5)m	2066246.42634462	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (1,5-2,5)m	2306765.22971814	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (2,5-3,5)m	2730057.99790284	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (3,5-4,5)m	3728122.6396879	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (4,5-5,5)m	4271122.40969329	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (5,5-6,5)m	4814122.17969869	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (6,5-7,5)m	5357121.94970408	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (7,5-8,5)m	5900121.71970947	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (8,5-9,5)m	6443121.48971487	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 36" Hex (9,5-10,5)m	6986121.25972026	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (0-1,5)m	2601505.49474635	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (1,5-2,5)m	2837333.18029805	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (2,5-3,5)m	3275834.29929281	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (3,5-4,5)m	4288888.02969304	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (4,5-5,5)m	4846876.88831362	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (5,5-6,5)m	5404865.7469342	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (6,5-7,5)m	5962854.60555477	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (7,5-8,5)m	6520843.46417535	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (8,5-9,5)m	7078832.32279592	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 39" Hex (9,5-10,5)m	7636821.1814165	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (0-1,5)m	2971276.01263524	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (1,5-2,5)m	3197231.82890456	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (2,5-3,5)m	3643446.75440178	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (3,5-4,5)m	4663995.02910961	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (4,5-5,5)m	5229478.43203778	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (5,5-6,5)m	5794961.83496594	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (6,5-7,5)m	6360445.23789411	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (7,5-8,5)m	6925928.64082228	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (8,5-9,5)m	7491412.04375044	(sin par IDU claro)					sin referencia
+Tubería NOVAFORT 42" Hex (9,5-10,5)m	8056895.44667861	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (0-1,5)m	3413682.07979392	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (1,5-2,5)m	3632621.5092308	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (2,5-3,5)m	4094044.78553809	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (3,5-4,5)m	5129582.1488611	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (4,5-5,5)m	5710054.64040445	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (5,5-6,5)m	6290527.13194779	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (6,5-7,5)m	6870999.62349114	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (7,5-8,5)m	7451472.11503449	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (8,5-9,5)m	8031944.60657784	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 45" Hex (9,5-10,5)m	8612417.09812119	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (0-1,5)m	3978500.94596363	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (1,5-2,5)m	4185709.1931292	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (2,5-3,5)m	4654846.27593895	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (3,5-4,5)m	5697878.18356955	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (4,5-5,5)m	6285845.21942049	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (5,5-6,5)m	6873812.25527143	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (6,5-7,5)m	7461779.29112237	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (7,5-8,5)m	8049746.32697331	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (8,5-9,5)m	8637713.36282425	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 48" Hex (9,5-10,5)m	9225680.39867519	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (0-1,5)m	4614555.03942522	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (1,5-2,5)m	4833614.25144002	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (2,5-3,5)m	5328858.77904238	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (3,5-4,5)m	6409363.40821093	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (4,5-5,5)m	7034803.16559983	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (5,5-6,5)m	7660242.92298872	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (6,5-7,5)m	8285682.68037762	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (7,5-8,5)m	8911122.43776651	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (8,5-9,5)m	9536562.19515541	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 51" Hex (9,5-10,5)m	10162001.9525443	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (0-1,5)m	4842742.31880574	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (1,5-2,5)m	5064200.31811084	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (2,5-3,5)m	5550470.43563261	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (3,5-4,5)m	6638469.60910876	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (4,5-5,5)m	7271403.91080524	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (5,5-6,5)m	7904338.21250173	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (6,5-7,5)m	8537272.51419821	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (7,5-8,5)m	9170206.8158947	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (8,5-9,5)m	9803141.11759119	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 54" Hex (9,5-10,5)m	10436075.4192877	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (0-1,5)m	5058626.14323046	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (1,5-2,5)m	5284881.71711616	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (2,5-3,5)m	5769196.75198126	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (3,5-4,5)m	6872185.01407259	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (4,5-5,5)m	7520108.40438426	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (5,5-6,5)m	8168031.79469593	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (6,5-7,5)m	8815955.18500759	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (7,5-8,5)m	9463878.57531926	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (8,5-9,5)m	10111801.9656309	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 57" Hex (9,5-10,5)m	10759725.3559426	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (0-1,5)m	5645428.21781822	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (1,5-2,5)m	5874082.57899422	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (2,5-3,5)m	6347563.89078979	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (3,5-4,5)m	7458046.69718871	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (4,5-5,5)m	8113464.63180797	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (5,5-6,5)m	8768882.56642723	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (6,5-7,5)m	9424300.50104648	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (7,5-8,5)m	10079718.4356657	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (8,5-9,5)m	10735136.370285	(sin par IDU claro)					sin referencia
+Tubería NOVALOC 60" Hex (9,5-10,5)m	11390554.3049043	(sin par IDU claro)					sin referencia
+Tubería CSR 8"	89513.9251835014	TUBERÍA HDPE 8" (SUMINISTRO E INSTALACIÓN)	APU	ML	127982.0	0.70	ok
+Tubería CSR 10"	114754.176010462	TUBERÍA HDPE 10" (SUMINISTRO E INSTALACIÓN)	APU	ML	280316.0	0.41	REVISAR: MUY POR DEBAJO de IDU
+Tubería CSR 12"	146010.418946859	TUBERÍA HDPE 12" (SUMINISTRO E INSTALACIÓN)	APU	ML	301911.0	0.48	ok
+Tubería CSR 14"	194435.985029737	TUBERÍA HDPE 14" (SUMINISTRO E INSTALACIÓN)	APU	ML	435500.0	0.45	REVISAR: MUY POR DEBAJO de IDU
+Tubería CSR 16"	252987.414364138	TUBERÍA HDPE 16" (SUMINISTRO E INSTALACIÓN)	APU	ML	679962.0	0.37	REVISAR: MUY POR DEBAJO de IDU
+Tubería CSR 18"	340740.151063892	TUBERIA CONCRETO D=18" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	315153.0	1.08	ok
+Tubería CSR 20"	408388.681824263	TUBERIA CONCRETO D=20" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	403869.0	1.01	ok
+Tubería CSR 24"	586682.81149304	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	817846.0	0.72	ok
+Tubería CER 8"	253573.614498699	TUBERÍA HDPE 8" (SUMINISTRO E INSTALACIÓN)	APU	ML	127982.0	1.98	ok
+Tubería CER 10"	327826.925583131	TUBERÍA HDPE 10" (SUMINISTRO E INSTALACIÓN)	APU	ML	280316.0	1.17	ok
+Tubería CER 12"	397530.391914546	TUBERÍA HDPE 12" (SUMINISTRO E INSTALACIÓN)	APU	ML	301911.0	1.32	ok
+Tubería CER 14"	486603.049447086	TUBERÍA HDPE 14" (SUMINISTRO E INSTALACIÓN)	APU	ML	435500.0	1.12	ok
+Tubería CER 16"	541192.128203064	TUBERÍA HDPE 16" (SUMINISTRO E INSTALACIÓN)	APU	ML	679962.0	0.80	ok
+Tubería CER 18"	673115.627360008	TUBERIA CONCRETO D=18" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	315153.0	2.14	ok
+Tubería CER 20"	793298.301305313	TUBERIA CONCRETO D=20" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	403869.0	1.96	ok
+Tubería CCR 24"	669838.470978604	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	817846.0	0.82	ok
+Tubería CCR 27"	891891.85837435	TUBERIA CONCRETO D=27" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	991864.0	0.90	ok
+Tubería CCR 32"	1111901.30953932	TUBERIA CONCRETO D=32" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1203427.0	0.92	ok
+Tubería CCR 36"	1394128.20544976	TUBERIA CONCRETO D=36" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1512469.0	0.92	ok
+Tubería CCR 40"	1747483.95278702	TUBERIA CONCRETO D=40" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1874457.0	0.93	ok
+Tubería CCR 44"	1954411.95326706	TUBERIA CONCRETO D=44" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	2121420.0	0.92	ok
+Tubería CCR 48"	2292969.70581674	TUBERIA CONCRETO D=48" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	2515311.0	0.91	ok
+Tubería CCR 52"	2543229.28379312	TUBERIA CONCRETO D=52" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	2826050.0	0.90	ok
+Tubería CCR 56"	2815889.98876594	TUBERIA CONCRETO D=56" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	3199492.0	0.88	ok
+Tubería CCR 60"	3361375.74179565	TUBERIA CONCRETO D=60" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	3580389.0	0.94	ok
+Tubería CCR 64"	3534374.6596529	TUBERIA CONCRETO D=64" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	4007114.0	0.88	ok
+Tubería CCR 68"	3997039.90956538	TUBERIA CONCRETO D=68" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	4483069.0	0.89	ok
+Tubería CCR 72"	4672274.52747802	TUBERIA CONCRETO D=72" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	5014211.0	0.93	ok
+Tubería CCR 80"	5545035.29801716	TUBERIA CONCRETO D=80" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	6210364.0	0.89	ok
+Tubería CCR 86"	6223949.5187612	TUBERIA CONCRETO D=86" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	6969979.0	0.89	ok
+Tubería CCR 92"	6942515.71417019	TUBERIA CONCRETO D=92" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	7803527.0	0.89	ok
+Tubería CCR 98"	8836590.46285849	(sin par IDU claro)					sin referencia
+Tubería CCR 110"	10903664.129404	(sin par IDU claro)					sin referencia
+Tubería CSR 12" Hex (0-1,5)m	444526.101805857	(sin par IDU claro)					sin referencia
+Tubería CSR 14" Hex (0-1,5)m	504201.880007714	(sin par IDU claro)					sin referencia
+Tubería CSR 14" Hex (1,5-2,5)m	734010.932896524	(sin par IDU claro)					sin referencia
+Tubería CSR 16" Hex (1,5-2,5)m	843609.991691312	(sin par IDU claro)					sin referencia
+Tubería CSR 18" Hex (1,5-2,5)m	939821.906093562	(sin par IDU claro)					sin referencia
+Tubería CSR 20" Hex (1,5-2,5)m	1017768.3070634	(sin par IDU claro)					sin referencia
+Tubería CSR 24" Hex (1,5-2,5)m	1211363.69728101	(sin par IDU claro)					sin referencia
+Tubería CER 12" Hex (0-1,5)m	657981.516511453	(sin par IDU claro)					sin referencia
+Tubería CER 18" Hex (0-1,5)m	978705.464965887	(sin par IDU claro)					sin referencia
+Tubería CCR 24" Hex (0-1,5)m	1039466.32603461	(sin par IDU claro)					sin referencia
+Tubería CCR 24" Hex (1,5-2,5)m	1280041.68656757	(sin par IDU claro)					sin referencia
+Tubería CCR 27" Hex (1,5-2,5)m	1505351.72637951	(sin par IDU claro)					sin referencia
+Tubería CCR 30" Hex (0-1,5)m	1529301.90705095	(sin par IDU claro)					sin referencia
+Tubería CCR 30" Hex (3,5-4,5)m	3164945.93430461	(sin par IDU claro)					sin referencia
+Tubería CCR 36" Hex (1,5-2,5)m	2052222.18055123	(sin par IDU claro)					sin referencia
+Tubería CCR 40" Hex (1,5-2,5)m	2391250.96204317	(sin par IDU claro)					sin referencia
+Excavaciones, atraque en arena, rellenos e instalación de cinta para red de gas	64706.9163182937	(sin par IDU claro)					sin referencia
+Construcción de caja para válvulas de gas	924678.067425602	(sin par IDU claro)					sin referencia
+Suministro e instalación Caja de paso en mamposteria según norma CS-276	5742982.28551125	(sin par IDU claro)					sin referencia
+Suministro e instalación Celda RMU 1 (Entrada: 1 - Salidas: 6). Incluye obra civil	177901953.981893	(sin par IDU claro)					sin referencia
+Suministro e instalación Celda RMU 2 (Entrada: 1 - Salidas: 5). Incluye obra civil	154941033.695121	(sin par IDU claro)					sin referencia
+Suministro e instalación Celda RMU 3 (Entrada: 2 - Salidas: 5). Incluye obra civil	154941033.695121	(sin par IDU claro)					sin referencia
+Suministro e instalación de tubería 9Ф6" TDP (Incluye excavación, retiro de escombros y relleno)	916963.345634154	(sin par IDU claro)					sin referencia
+Suministro e instalación de estructura para poste de MT LA-220	9683376.77434195	(sin par IDU claro)					sin referencia
+Suministro e instalacion de bajante galvanizada de 4"x6m	2783830.12522101	(sin par IDU claro)					sin referencia
+Suministro e instalación de terminales premoldeados 35 kV Tipo exterior (Juegox3)	2282192.48234975	(sin par IDU claro)					sin referencia
+Suministro e instalación de codo premoldeado de (200-600)A	3121324.974765	(sin par IDU claro)					sin referencia
+Suministro e instalación de cable 3x185 XLPE Al	374004.755004461	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	229288.0	1.63	ok
+Ramming 51"	8041534.4854638	(sin par IDU claro)					sin referencia
+Caja de lanzamiento para red de media tensión	11526743.143464	(sin par IDU claro)					sin referencia
+Caja de llegada para red de media tensión	11526743.143464	(sin par IDU claro)					sin referencia
+Suministro de tubería TDP 6"	51796.691337949	TUBERIA PVC SANITARIA D=6" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	93174.0	0.56	ok
+Retiro de estructura de MT según norma LA-212/LA-202/LA-231/LA-206 o similar	149521.4322855	(sin par IDU claro)					sin referencia
+Retiro de Caja de borneras para derivación de acometidas, estructuras de BT o similares	146080.230123867	(sin par IDU claro)					sin referencia
+Retiro de red de MT 3x2ACSR	15265.8184411517	RETIRO DE POSTES DE MT (INCLUYE TRASLADO A SITIO DE ACOPIO, RETIRO DE POSTE, RETENIDAS, ESTRUCTURAS DE AMARRE Y SOPORTE DE RED AÉREA).	APU	UN	432413.0	0.04	REVISAR: MUY POR DEBAJO de IDU
+Suministro e instalación Caja de paso en mamposteria según norma CS-274	964228.37537974	(sin par IDU claro)					sin referencia
+Suministro e instalación Caja de paso en mamposteria según norma CS-275	3192945.91074047	(sin par IDU claro)					sin referencia
+Suministro e instalación de luminaria LED DECOLED 100 W (Incluye brazo)	3927668.68574674	(sin par IDU claro)					sin referencia
+Suministro e instalación poste de concreto 10 m. Tipo recto AP  (Incluye ahoyada, hincada y plomada)	2071401.95859591	(sin par IDU claro)					sin referencia
+Suministro e instalación poste de concreto 12 m. Tipo recto AP  (Incluye ahoyada, hincada y plomada)	2478929.41871879	(sin par IDU claro)					sin referencia
+Transformador tipo pedestal 30 KVA 11400 / 380 / 220V (Incluye obra civil, cerramiento en malla eslabonada y todos los elementos eléctricos necesarios para su correcto funcionamiento)	196438343.659188	(sin par IDU claro)					sin referencia
+Suministro e instalación de Barraje preformado de B.T. para fusibles limitadores de corriente de cable de 6 salidas según norma AP820	1474887.56377866	(sin par IDU claro)					sin referencia
+Suministro e instalación de tuberia 2Ф3" TDP (incluye excavación, retiro de escombros y relleno)	174404.481476632	(sin par IDU claro)					sin referencia
+Suministro e instalación de cable 4x4 THW Al	34491.8758567687	(sin par IDU claro)					sin referencia
+Suministro e instalación de alambre 2x12 AWG-THW (Acometida para luminarias)	11926.5770462529	(sin par IDU claro)					sin referencia
+Suministro e instalación de empalmes en resina (Juegox2)	338195.731257832	(sin par IDU claro)					sin referencia
+Suministro e instalación de malla a tierra de iluminación exterior conformada por 1 Varilla copper de 2.4 m, soldadura exotérmica, 1 Empalme bimetálico y 1 m de Cable de Cobre 2/0 AWG	436629.767988621	(sin par IDU claro)					sin referencia
+Indicador de red de alumbrado público parques	29726.4785848146	(sin par IDU claro)					sin referencia
+Cerramiento con Eugenias	32026.2209997426	(sin par IDU claro)					sin referencia
+Suministro e instalación de valla 3x2m	2759961.66366798	(sin par IDU claro)					sin referencia
+Perfilado de taludes y base del canal	5273.94068602003	(sin par IDU claro)					sin referencia
+Empradización de taludes para canal	20201.7047875191	(sin par IDU claro)					sin referencia
+Retiro y transporte de poste de 12m 510kgF	495459.655164225	(sin par IDU claro)					sin referencia
+Señal vertical ubicación de cruce peatonal SP-46B	800633.44217323	(sin par IDU claro)					sin referencia
+Suministro tubería PVC presión Ø1"	7189.11128968667	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	9728.0	0.74	ok
+Suministro tubería PVC presión Ø2"	25927.4327161024	TUBERIA CONDUIT PVC D=2" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	21606.0	1.20	ok
+Suministro tubería PVC presión Ø3"	49789.4531887083	TUBERIA PVC SANITARIA D=3`` TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	ML	31829.0	1.56	ok
+Suministro tubería PVC presión Ø4"	65764.0956500786	TUBERIA PVC SANITARIA D=4" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	46152.0	1.42	ok
+Suministro tubería PVC presión Ø6"	135112.060428219	TUBERIA PVC SANITARIA D=6" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	93174.0	1.45	ok
+Suministro tubería PVC presión Ø8"	228863.657779505	TUBERIA PVC SANITARIA D=8`` TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	ML	160366.0	1.43	ok
+Suministro tubería PVC presión Ø10"	360277.940525782	TUBERÍA PVC SANITARIA D=10" TIPO U.S. (Incluye suministro e instalación)	APU	ML	242906.0	1.48	ok
+Suministro tubería PVC presión Ø12"	504098.054879015	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	533659.0	0.94	ok
+Suministro tubería y piezas especiales HD Ø4"	339200.0	(sin par IDU claro)					sin referencia
+Instalación tubería PVC presión Ø1"	2541.76357140814	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	9728.0	0.26	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC presión Ø2"	5083.52714281628	TUBERIA CONDUIT PVC D=2" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	21606.0	0.24	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC presión Ø3"	7625.29071422442	TUBERIA PVC SANITARIA D=3`` TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	ML	31829.0	0.24	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC presión Ø4"	10167.0542856326	TUBERIA PVC SANITARIA D=4" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	46152.0	0.22	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC presión Ø6"	15250.5814284488	TUBERIA PVC SANITARIA D=6" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	93174.0	0.16	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC presión Ø8"	20334.1085712651	TUBERIA PVC SANITARIA D=8`` TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	ML	160366.0	0.13	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC presión Ø10"	25417.6357140814	TUBERÍA PVC SANITARIA D=10" TIPO U.S. (Incluye suministro e instalación)	APU	ML	242906.0	0.10	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC presión Ø12"	30501.1628568977	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	533659.0	0.06	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería y piezas especiales HD Ø4"	127200.0	(sin par IDU claro)					sin referencia
+Construcción y conexión de acometida Ø1"	1590000.0	ACOMETIDA EN CONDUCTORES DE COBRE, (4NO. 1/0 + 1NO. 4) AWG, AISLADOS PARA 600 V C.A. INCLUYE CONDUCTORES, CONEXIONES, ACCESORIOS DE MONTAJE, ELEMENTOS DE CONEXIÓN Y DE MARCACIÓN. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	195578.0	8.13	REVISAR: MUY POR ENCIMA de IDU
+Construcción y conexión de acometida Ø2"	2120000.0	ACOMETIDA EN CONDUCTORES DE COBRE, (4NO. 2 + 1NO. 4) AWG, AISLADOS PARA 600 V C.A. INCLUYE CONDUCTORES, CONEXIONES, ACCESORIOS DE MONTAJE, ELEMENTOS DE CONEXIÓN Y DE MARCACIÓN.(INCLUYE SUMINISTRO E INSTALACIÓN).	APU	ML	124640.0	17.01	REVISAR: MUY POR ENCIMA de IDU
+Construcción y conexión de acometida Ø3"	2650000.0	(sin par IDU claro)					sin referencia
+Construcción y conexión de acometida Ø4"	3392000.0	ACOMETIDA EN CONDUCTORES DE COBRE, (5 NO. 4) AWG, AISLADOS PARA 600 V C.A. INCLUYE CONDUCTORES, CONEXIONES, ACCESORIOS DE MONTAJE, ELEMENTOS DE CONEXIÓN Y DE MARCACIÓN. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	98251.0	34.52	REVISAR: MUY POR ENCIMA de IDU
+Acometida domiciliaria Ø1/2" con collar Ø4" y cajilla de medidor	2332000.0	ACOMETIDA DOMICILIARIA DE 1/2" CON COLLAR DE DERIVACION DE 4" X 1/2". SUMINISTRO E INSTALACION. (INCLUYE TUBERIA PF, REGISTROS Y ACCESORIOS, LONGITUD PROMEDIO DE 6.5M, INCLUYE CAJILLA EN POLIPROPILENO PARA MEDIDOR)	APU	UN	470326.0	4.96	REVISAR: MUY POR ENCIMA de IDU
+Codo 11,25° según diámetro	901000.0	CODO G.RAD. PVC 11.25° TIPO U.M. D=2" (SUMINISTRO E INSTALACIÓN)	APU	UN	54400.0	16.56	REVISAR: MUY POR ENCIMA de IDU
+Codo 22,5° según diámetro	1060000.0	CODO G.RAD. PVC 22.5° TIPO U.M. D=2" (SUMINISTRO E INSTALACIÓN)	APU	UN	47973.0	22.10	REVISAR: MUY POR ENCIMA de IDU
+Codo 45° según diámetro	1166000.0	(sin par IDU claro)					sin referencia
+Codo 90° según diámetro	1325000.0	(sin par IDU claro)					sin referencia
+Tee igual o reducida según diámetros	1696000.0	(sin par IDU claro)					sin referencia
+Reducción concéntrica según diámetros	1272000.0	(sin par IDU claro)					sin referencia
+Tapón según diámetro	477000.0	(sin par IDU claro)					sin referencia
+Unión Dresser / unión de reparación	3180000.0	EMPATES DE TUBERÍA EN PVC A HA 12" LINEAL SEGÚN NORMA NS-023 (INCLUYE TUBERIA PVC U.M. D=12" RDE 21=1M; TEE HD EXTREMO LISO 12"X12" =1UN; UNION DRESSER HD D=12"=2UN; UNION REPARACION HD EXTREMO LISO D=12"=1UN; UNION PVC U.M. NORMA NTC 382 D=12"=1UN). SUMINISTRO E INSTALACIÓN	APU	UN	9529408.0	0.33	REVISAR: MUY POR DEBAJO de IDU
+Niples, pasamuros, bridas y piezas especiales	2120000.0	(sin par IDU claro)					sin referencia
+Anclaje de concreto para accesorios	689000.0	(sin par IDU claro)					sin referencia
+Cárcamo o placa de protección para tubería (Red de acueducto)	9010000.0	CARCAMO PROTECCIÓN DE TUBERÍA Ø 8" (TIPO PLACA) NORMA EAAB NS-090	APU	ML	254780.0	35.36	REVISAR: MUY POR ENCIMA de IDU
+Tubería de acero al carbón SCH 40 Ø4"	445200.0	TUBERIA DE ACERO AL CARBON SIN COSTURA SCH40 D=4". SUMINISTRO E INSTALACION.	APU	ML	198139.0	2.25	REVISAR: MUY POR ENCIMA de IDU
+Válvula de compuerta Ø4"	1610000.0	VÁLVULA DE COMPUERTA DE Ø 4" (A) CON SELLO EN BRONCE. (SUMINISTRO E INSTALACIÓN)	APU	UN	3038072.0	0.53	ok
+Válvula de compuerta Ø6"	3030000.0	VALVULA COMPUERTA ELASTICA VASTAGO NO ASCENDENTE EXTREMO LISO D=6" (SUMINISTRO E INSTALACIÓN)	APU	UN	2247570.0	1.35	ok
+Válvula de compuerta Ø8"	5110000.0	VALVULA COMPUERTA ELASTICA VASTAGO NO ASCENDENTE EXTREMO LISO D=8" (SUMINISTRO E INSTALACIÓN)	APU	UN	3785326.0	1.35	ok
+Válvula de compuerta Ø12"	10250000.0	VALVULA COMPUERTA ELASTICA VASTAGO NO ASCENDENTE EXTREMO LISO D=12" (SUMINISTRO E INSTALACIÓN)	APU	UN	7593696.0	1.35	ok
+Válvula ventosa	7420000.0	VÁLVULA VENTOSA HD COMBINADA TRIPLE ACCIÓN (TRIPLE EFECTO) D=3" EXTREMO BRIDA CLASE 150 (Suministro e instalacion)	APU	UN	1614844.0	4.59	REVISAR: MUY POR ENCIMA de IDU
+Válvula de purga	5300000.0	(sin par IDU claro)					sin referencia
+Válvula de cierre permanente VCP	9540000.0	VÁLVULA TIPO MARIPOSA DE Ø 12" CON EXTREMOS LISOS TUBERIA EN PVC INCLUYE UNIONES Y TAPA DE SEGURIDAD CIERRE PERMANENTE (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	10619048.0	0.90	ok
+Caja convencional para válvula	1010000.0	MANIJA DE IZAJE D= 1" PARA TAPA DE CAJA VÁLVULA. SUMINISTRO E INSTALACIÓN	APU	UN	122735.0	8.23	REVISAR: MUY POR ENCIMA de IDU
+Caja estructural para válvula Ø12"	37100000.0	CONSTRUCCIÓN DE CAJA PARA VALVULA D= 10", D= 12" DE 0.5M X0.6M H=2.0M (INCLUYE TAPA VÁLVULA DE SEGURIDAD).	APU	UN	1116245.0	33.24	REVISAR: MUY POR ENCIMA de IDU
+Hidrante de torre Ø4"	7420000.0	(sin par IDU claro)					sin referencia
+Válvula de pie y accesorios para hidrante	2120000.0	(sin par IDU claro)					sin referencia
+Kit de nivelación para hidrante de tráfico	530000.0	HIDRANTE EXTREMO BRIDA D=4" TIPO TRÁFICO (SUMINISTRO E INSTALACIÓN. NO INCLUYE KIT DE NIVELACIÓN)	APU	UN	6261344.0	0.08	REVISAR: MUY POR DEBAJO de IDU
+Obra civil VRP asimétrica costado norte	159000000.0	(sin par IDU claro)					sin referencia
+Equipamiento hidromecánico VRP costado norte	371000000.0	(sin par IDU claro)					sin referencia
+Obra civil VRP simétrica costado sur	159000000.0	(sin par IDU claro)					sin referencia
+Equipamiento hidromecánico VRP costado sur	371000000.0	(sin par IDU claro)					sin referencia
+Localización y replanteo topográfico	4770.0	(sin par IDU claro)					sin referencia
+Excavación manual en material común	52654.0	EXCAVACION MANUAL EN MATERIAL COMUN. INCLUYE CARGUE.	APU	M3	58471.0	0.90	ok
+Excavación mecánica en material común	79829.3512	EXCAVACIÓN MECÁNICA EN MATERIAL COMÚN (INCLUYE CARGUE)	APU	M3	5998.0	13.31	REVISAR: MUY POR ENCIMA de IDU
+Excavación en conglomerado	79500.0	(sin par IDU claro)					sin referencia
+Cargue, transporte y disposición de sobrantes	56603.2078892225	EXCAVACIÓN MANUAL EN MATERIAL COMÚN (INCL CARGUE, TRANSPORTE Y DISPOSICION FINAL)	APU	M3	117926.0	0.48	ok
+Cama y atraque en arena de peña	166177.0	(sin par IDU claro)					sin referencia
+Relleno inicial alrededor de tubería	102398.0	(sin par IDU claro)					sin referencia
+Relleno con material seleccionado de excavación	23203.0077192135	RELLENO EN MATERIAL SELECCIONADO PROVENIENTE DE LA EXCAVACIÓN (EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	48122.0	0.48	ok
+Relleno y conformación con recebo	102398.0	(sin par IDU claro)					sin referencia
+Geotextil NT 1600	7973.6721444924	(sin par IDU claro)					sin referencia
+Entibado temporal de zanja	52205.0	(sin par IDU claro)					sin referencia
+Manejo y agotamiento de aguas	848000.0	MANEJO DE AGUAS (INCLUYE MOTOBOMBA CON COMBUSTIBLE Y OPERADOR)	APU	HR	12135.0	69.88	REVISAR: MUY POR ENCIMA de IDU
+Cinta preventiva para red	508.013338690341	(sin par IDU claro)					sin referencia
+Demolición de pavimento flexible	58300.0	PARCHEO EN PAVIMENTO FLEXIBLE CON MD12. (INCLUYE DEMOLICIÓN MANUAL Y CARGUE DE PAVIMENTO FLEXIBLE, TRANSPORTE Y DISPOSICIÓN FINAL DE ESCOMBROS, IMPRIMACIÓN, COLOCACIÓN Y COMPACTACIÓN BASE ASFÁLTICA MD12, RIEGO CRR-1)	APU	M3	1672459.0	0.03	REVISAR: MUY POR DEBAJO de IDU
+Reposición de pavimento flexible y estructura	477000.0	FRESADO Y REPOSICIÓN DE PAVIMENTO FLEXIBLE E=0.12M	APU	M2	188913.0	2.52	REVISAR: MUY POR ENCIMA de IDU
+Demolición y reposición de andén	212000.0	DEMOLICIÓN Y REPOSICIÓN DE TAPAS PARA POZO (en concreto).	APU	UN	297218.0	0.71	ok
+Empate a red existente Ø4"	8480000.0	(sin par IDU claro)					sin referencia
+Empate a red existente Ø6"	10600000.0	(sin par IDU claro)					sin referencia
+Empate a red existente Ø10"	15900000.0	(sin par IDU claro)					sin referencia
+Empate a red existente Ø12"	21200000.0	(sin par IDU claro)					sin referencia
+Empate mediante tee	12720000.0	(sin par IDU claro)					sin referencia
+Conexión especial Ø6" × Ø12"	9697831.0	(sin par IDU claro)					sin referencia
+Retiro de red existente	4106.74837852167	RETIRO DE RED AÉREA (INCLUYE TRANSPORTE Y DISPOSICIÓN DE SOBRANTES)	APU	ML	4120.0	1.00	ok
+Taponamiento o abandono de red existente	2120000.0	(sin par IDU claro)					sin referencia
+Prueba hidrostática, lavado y desinfección	19893.1469227118	(sin par IDU claro)					sin referencia
+Pruebas de válvulas, hidrantes y ventosas	159000.0	(sin par IDU claro)					sin referencia
+Planos récord y levantamiento final (Red de acueducto)	37100000.0	(sin par IDU claro)					sin referencia
+Manual de operación, entrega y puesta en servicio	21200000.0	CONTROLADOR CON CAPACIDAD PARA 32 GRUPOS VEHICULARES O PEATONALES.CON POSIBILIDAD DE AMPLIACIÓN HASTA 32 GRUPOS, RELOJ EN TIEMPO REAL, 32 PROGRAMAS, AUTOMÁTICO SEMANAL PROGRAMABLE CON DÍAS FESTIVOS, MODO DE OPERACIÓN COORDINADA CON CENTRAL DE TRÁFICO, LOCAL CON AUTOMÁTICO DE SEMANA, MANUAL O CON DEPENDENCIA DE TRÁFICO, CIRCUÍTOS DE SUPERVISIÓN DE VERDES CONFLICTIVOS, RUTINA DE SEGURIDAD POR FALLA LÁMPARAS ROJAS, ACTIVACIÓN ERRÓNEAS DE SEÑALES, RUTINAS DE SOFTWARE PARA EL MANEJO PRIORITARIO DE TRANSPORTE PÚBLICO CON EL EMPLEO DE DETECTORES DE TRÁFICO.  PROTOCOLO ABIERTO OCIT.  (INCLUYE SUMINISTRO DE CONTROLADOR, INSTALACIÓN, PUESTA EN SERVICIO,  Y TRANSPORTE).	APU	UN	175904917.0	0.12	REVISAR: MUY POR DEBAJO de IDU
+Suministro tubería PVC flexible Ø8"	448151.710771605	TUBERIA PVC SANITARIA D=8`` TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	ML	160366.0	2.79	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería PVC flexible Ø10"	654546.724141644	TUBERÍA PVC SANITARIA D=10" TIPO U.S. (Incluye suministro e instalación)	APU	ML	242906.0	2.69	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería PVC flexible Ø12"	941852.756323293	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	533659.0	1.76	ok
+Suministro tubería PVC flexible Ø14"	1411491.65208809	TUBERIA PVC D=14" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	641522.0	2.20	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería PVC flexible Ø16"	1726406.78612671	TUBERIA PVC U.M. EXT CORRUGADO/INT LISO U.M. NORMA NTC 3722-1 D=16" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	317101.0	5.44	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería PVC flexible Ø18"	2229654.29142004	TUBERIA PVC U.M. EXT CORRUGADO/INT LISO U.M. NORMA NTC 3722-1 D=18" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	430046.0	5.18	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería PVC flexible Ø24"	3983204.5312494	TUBERIA PVC U.M. EXT/INT LISO NORMA NTC 5070 D=24" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	732840.0	5.44	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería PVC flexible Ø30"	5951739.38991858	TUBERIA PVC U.M. EXT/INT LISO NORMA NTC 5070 D=30" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1070516.0	5.56	REVISAR: MUY POR ENCIMA de IDU
+Instalación tubería PVC flexible Ø8"	28467.7519997712	TUBERIA PVC SANITARIA D=8`` TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	ML	160366.0	0.18	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC flexible Ø10"	35584.689999714	TUBERÍA PVC SANITARIA D=10" TIPO U.S. (Incluye suministro e instalación)	APU	ML	242906.0	0.15	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC flexible Ø12"	42701.6279996568	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	533659.0	0.08	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC flexible Ø14"	49818.5659995995	TUBERIA PVC D=14" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	ML	641522.0	0.08	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC flexible Ø16"	56935.5039995423	TUBERIA PVC U.M. EXT CORRUGADO/INT LISO U.M. NORMA NTC 3722-1 D=16" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	317101.0	0.18	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC flexible Ø18"	64052.4419994851	TUBERIA PVC U.M. EXT CORRUGADO/INT LISO U.M. NORMA NTC 3722-1 D=18" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	430046.0	0.15	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC flexible Ø24"	85403.2559993135	TUBERIA PVC U.M. EXT/INT LISO NORMA NTC 5070 D=24" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	732840.0	0.12	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC flexible Ø30"	106754.069999142	TUBERIA PVC U.M. EXT/INT LISO NORMA NTC 5070 D=30" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1070516.0	0.10	REVISAR: MUY POR DEBAJO de IDU
+Excavación manual complementaria	52654.0	EXCAVACION MANUAL EN MATERIAL COMUN. INCLUYE CARGUE.	APU	M3	58471.0	0.90	ok
+Cimentación de tubería modelo 4	148400.0	(sin par IDU claro)					sin referencia
+Cimentación de tubería modelo 4.1	190800.0	TUBERIA CONDUIT PVC D=1 1/4" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	12922.0	14.77	REVISAR: MUY POR ENCIMA de IDU
+Relleno y conformación con granular/recebo B-400	136342.969376722	(sin par IDU claro)					sin referencia
+Entibado continuo E-1A, H≤2,00 m	52205.0	(sin par IDU claro)					sin referencia
+Entibado continuo E-1B, 2,00<H≤3,00 m	95400.0	(sin par IDU claro)					sin referencia
+Entibado E-2, H>3,00 m	125356.271004673	(sin par IDU claro)					sin referencia
+Manejo, bombeo y agotamiento de aguas	1590000.0	(sin par IDU claro)					sin referencia
+Cárcamo o placa de protección para tubería (Red de alcantarillado sanitario)	12720000.0	(sin par IDU claro)					sin referencia
+Base de pozo de inspección	1908000.0	TAPA PARA POZO DE INSPECCIÓN, D=0.70 M. INCLUYE SUMINISTRO E INSTALACIÓN.	APU	UN	284083.0	6.72	REVISAR: MUY POR ENCIMA de IDU
+Cañuela y acabado interior de pozo	954000.0	(sin par IDU claro)					sin referencia
+Anillo/cilindro prefabricado de pozo	1916374.23154609	POZO DE INSPECCION D=1.7 M (INCL. SUMINISTRO E INSTALACION). INCLUYE CILINDRO POZO DE INSPECCION EN MAMPOSTERIA, CONO PREFABRICADO, PLACA FONDO.	APU	UN	4518654.0	0.42	REVISAR: MUY POR DEBAJO de IDU
+Cono de reducción para pozo	1272000.0	(sin par IDU claro)					sin referencia
+Marco y tapa de pozo	1590000.0	TAPA PARA POZO DE INSPECCIÓN, D=0.70 M. INCLUYE SUMINISTRO E INSTALACIÓN.	APU	UN	284083.0	5.60	REVISAR: MUY POR ENCIMA de IDU
+Pasos o escalera de acceso	106000.0	(sin par IDU claro)					sin referencia
+Adecuación y conexión a pozo existente	2120000.0	CONEXIÓN GEODRÉN VIAL 100MMX1.00M A POZO EXISTENTE (INC. EXCAVACION MANUAL, TRANSPORTE Y DISPOSICIÓN FINAL, RELLENOS EN BASE GRANULAR CLASE B,SUMINISTRO E INSTALACION TUBERIA SANITARIA PVC D=4" Y ACCESORIOS PVC SANITARIA.	APU	UN	603955.0	3.51	REVISAR: MUY POR ENCIMA de IDU
+Demolición de pozo existente	848000.854594823	DEMOLICIÓN MANUAL DE TAPA EXISTENTE DE POZO DE INSPECCIÓN Y REPOSICIÓN TAPA PARA POZO DE D= 0.70 M. SUMINISTRO E INSTALACIÓN.	APU	UN	298919.0	2.84	REVISAR: MUY POR ENCIMA de IDU
+Construcción de conexión domiciliaria sanitaria Ø8"	1272000.0	(sin par IDU claro)					sin referencia
+Empate de domiciliaria a pozo o colector	848000.0	(sin par IDU claro)					sin referencia
+Accesorios de conexión domiciliaria	530000.0	(sin par IDU claro)					sin referencia
+Conexión de tramo existente a pozo nuevo	1226359.0	(sin par IDU claro)					sin referencia
+Empate a colector sanitario existente	3180000.0	(sin par IDU claro)					sin referencia
+Taponamiento de colector abandonado con mampostería	2120000.0	(sin par IDU claro)					sin referencia
+Retiro/demolición de tubería existente	424000.0	RETIRO DE TUBERÍA METÁLICA EXISTENTE. INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL.	APU	ML	42416.0	10.00	REVISAR: MUY POR ENCIMA de IDU
+Abandono controlado de tubería existente	106000.0	(sin par IDU claro)					sin referencia
+Manejo provisional o bypass de aguas residuales	1590000.0	(sin par IDU claro)					sin referencia
+Limpieza interna de tubería y pozos	10600.0	(sin par IDU claro)					sin referencia
+Inspección CCTV	12681.4681444941	INSPECCIÓN DE REDES DE ALCANTARILLADO CON SISTEMAS CCTV PARA DIÁMETROS MAYORES A 36"	APU	ML	15500.0	0.82	ok
+Verificación de cotas y pendientes	5300.0	(sin par IDU claro)					sin referencia
+Plan de manejo de tránsito y señalización	100612.152505191	(sin par IDU claro)					sin referencia
+Planos récord y levantamiento final (Red de alcantarillado sanitario)	42400000.0	(sin par IDU claro)					sin referencia
+Manual, entrega y puesta en servicio	21200000.0	(sin par IDU claro)					sin referencia
+REPARACION VIAS Y ANDENES ETAPA 1	1359841311.0	(sin par IDU claro)					sin referencia
+PQ-1A - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+PQ-1B - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+PL 1 - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+REPARACION VIAS Y ANDENES ETAPA 2	1359841311.0	(sin par IDU claro)					sin referencia
+PQ-7 - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+PQ-8 - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+VIA PEATONAL V-PE - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+PQ-12 - MANTENIMIENTO	14629.7909676083	(sin par IDU claro)					sin referencia
+PQ-13 - MANTENIMIENTO	14629.7909676083	(sin par IDU claro)					sin referencia
+PQ-14 - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+VIA PEATONAL PTN3 - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+VIA PEATONAL PTN4 - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+PQ-4 - MANTENIMIENTO	15000.0	(sin par IDU claro)					sin referencia
+PQ-6 - MANTENIMIENTO	14629.7909676083	(sin par IDU claro)					sin referencia
+PQ-9 - MANTENIMIENTO	14629.7909676083	(sin par IDU claro)					sin referencia
+PQ-10A Y PQ-10B - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+PQ-11 - MANTENIMIENTO	15000.0	(sin par IDU claro)					sin referencia
+PQ-5 - MANTENIMIENTO	15000.0	(sin par IDU claro)					sin referencia
+PL 3 - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+PQ-2 - MANTENIMIENTO	10000.0	(sin par IDU claro)					sin referencia
+PQ-3 - MANTENIMIENTO	14629.7909676083	(sin par IDU claro)					sin referencia
+PQ-15 - MANTENIMIENTO	13151.4293536325	(sin par IDU claro)					sin referencia
+PQ-16 - MANTENIMIENTO	22002.6498755403	(sin par IDU claro)					sin referencia
+PQ-17 - MANTENIMIENTO	15000.0	(sin par IDU claro)					sin referencia
+PQ-18 - MANTENIMIENTO	15000.0	(sin par IDU claro)					sin referencia
+VIA PEATONAL PTN2 - MANTENIMIENTO	30000.0	(sin par IDU claro)					sin referencia
+PQ-19 - MANTENIMIENTO	11779.4357107361	(sin par IDU claro)					sin referencia
+REFORESTACION LADERA	1350000000.0	(sin par IDU claro)					sin referencia
+CERRAMIENTO ANTIINVASION	1742507650.0	(sin par IDU claro)					sin referencia
+OBRAS CIVILES CONEXIONES LOTE 05 (ZARZAL)	412188000.0	(sin par IDU claro)					sin referencia
+HABILITACION LOTES SOBRE COTA ACUEDUCTO 2570 (LOTE 45)	977706915.6	(sin par IDU claro)					sin referencia
+ARREGLO LOTE 3 (DESMONTE CAMPAMENTO Y SALA DE VENTAS)	25000.0	(sin par IDU claro)					sin referencia
+OBRAS DE MITIGACION ETAPA 8	840000.0	(sin par IDU claro)					sin referencia
+OBRAS DE MITIGACION ETAPA 9	840000.0	(sin par IDU claro)					sin referencia
+INTERCEPTOR MUÑA	22000645266.0	(sin par IDU claro)					sin referencia
+CABEZAL DE DESCARGA	2553117742.38	(sin par IDU claro)					sin referencia
+PTAR BOMBAS PARA ESTACION ELEVADORA	220000000.0	(sin par IDU claro)					sin referencia
+TUBERIA PVC-RDE21 4"	228893.0	TUBERIA PVC SANITARIA D=4" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	46152.0	4.96	REVISAR: MUY POR ENCIMA de IDU
+TUBERIA PVC-RDE21 1"	6856.89583333333	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	9728.0	0.70	ok
+ACCESORIOS 4"	191811.75	ELEMENTO DE VENTILACIÓN PARA CÁMARA DE ACCESORIOS EN HG D= 4". (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	448058.0	0.43	REVISAR: MUY POR DEBAJO de IDU
+ACCESORIOS 1"	16250.0	TUBERIA METALICA EMT DE D= 1". SUMINISTRO E INSTALACION. (INCLUYE ACCESORIOS DE INSTALACION Y FIJACION).	APU	ML	30750.0	0.53	ok
+MACROMEDIDOR 4	42542500.0	(sin par IDU claro)					sin referencia
+VALVULA 1"	52000.0	VÁLVULA CHEQUE 1" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	UN	67462.0	0.77	ok
+SUMINISTRO E INSTALACIÓN CINTA PREVENTIVA REDES	6000.0	SEÑALIZACIÓN PREVENTIVA PARA REDES DE SERVICIOS PÚBLICOS CON CINTA DE 500 MT X 4" PELIGRO CALIBRE 3.5 (INCLUYE SUMINISTRO Y COLOCACIÓN)	APU	ML	531.0	11.30	REVISAR: MUY POR ENCIMA de IDU
+EMPATE A PUNTO DE CONEXIÓN (INCLUYE UNIONES DE REPARACION Y ACCESORIOS)	50000000.0	(sin par IDU claro)					sin referencia
+EXCAVACIÓN MANUAL, INCLUYE RETIRO INTERNO DE ESCOMBROS	30000.0	(sin par IDU claro)					sin referencia
+RELLENO EN ARENA DE PEÑA	110000.0	RELLENO PARA REDES EN ARENA DE PEÑA (SUMINISTRO, EXTENDIDO, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	182185.0	0.60	ok
+RELLENO EN RECEBO B-200	110000.0	(sin par IDU claro)					sin referencia
+PLAN DE MANEJO DE TRAFICO	25000000.0	(sin par IDU claro)					sin referencia
+CERRAMIENTO POLISOMBRA	28000.0	POLISOMBRA VERDE PARA CERRAMIENTO. (INCLUYE SUMINISTRO E INSTALACION).	APU	M2	2147.0	13.04	REVISAR: MUY POR ENCIMA de IDU
+CARCAMO	107400.0	CARCAMO AGUAS LLUVIAS 0.45 X 0.60 M. (INCLUYE REJILLA) SUMINISTRO E INSTALACIÓN	APU	ML	1445650.0	0.07	REVISAR: MUY POR DEBAJO de IDU
+REPARACIONES VIALES	172000.0	(sin par IDU claro)					sin referencia
+RESTAURACION Y AMPLIACION DE LA CASONA	440000000.0	(sin par IDU claro)					sin referencia
+PIPEJACKING	18417889.0	(sin par IDU claro)					sin referencia
+PTAR FASE III (2025)	2996950427.13305	(sin par IDU claro)					sin referencia
+PTAR FASE IV (2027)	2996950427.13305	(sin par IDU claro)					sin referencia
+PTAR FASE V (2029)	2996950427.13305	(sin par IDU claro)					sin referencia
+MOBILIARIO URBANO - ETAPA 03	200000000.0	(sin par IDU claro)					sin referencia
+MOBILIARIO URBANO - ETAPA 07	200000000.0	(sin par IDU claro)					sin referencia
+SEÑALIZACION HORIZONTAL Y VERTICAL - ETAPA 03	115000000.0	(sin par IDU claro)					sin referencia
+SEÑALIZACION HORIZONTAL Y VERTICAL - ETAPA 07	115000000.0	(sin par IDU claro)					sin referencia
+PEATONAL (PTN 5)	165000000.0	(sin par IDU claro)					sin referencia
+ARBORIZACION - ETAPA 03	500000.0	(sin par IDU claro)					sin referencia
+ARBORIZACION - ETAPA 04	500000.0	(sin par IDU claro)					sin referencia
+ARBORIZACION - ETAPA 05	500000.0	(sin par IDU claro)					sin referencia
+ARBORIZACION - ETAPA 08	500000.0	(sin par IDU claro)					sin referencia
+ARBORIZACION - ETAPA 09	500000.0	(sin par IDU claro)					sin referencia
+INTERFERENCIA AP3	200000000.0	(sin par IDU claro)					sin referencia
+OPERACIÓN PTAR (AGOSTO 2023 - AGOSTO 2024)	258634835.0	(sin par IDU claro)					sin referencia
+OPERACIÓN PTAR (AGOSTO 2024 - AGOSTO 2025)	300000000.0	(sin par IDU claro)					sin referencia
+OPERACIÓN PTAR (AGOSTO 2025 - AGOSTO 2026)	300000000.0	(sin par IDU claro)					sin referencia
+OPERACIÓN PTAR (AGOSTO 2026 - AGOSTO 2027)	300000000.0	(sin par IDU claro)					sin referencia
+OPERACIÓN PTAR (AGOSTO 2027 - AGOSTO 2028)	300000000.0	(sin par IDU claro)					sin referencia
+OPERACIÓN PTAR (AGOSTO 2028 - AGOSTO 2029)	300000000.0	(sin par IDU claro)					sin referencia
+LIMPIEZA PERIODICA	250000000.0	(sin par IDU claro)					sin referencia
+SEGUIMIENTO Y MONITORIEO	150000000.0	(sin par IDU claro)					sin referencia
+PROGRAMA DE EDUCACION AMBIENTAL	60000000.0	(sin par IDU claro)					sin referencia
+LIMPIEZA DE LODOS	1050000000.0	EQUIPO DE PRESION - SUCCION - SONDEO - LIMPIEZA - RECOLECCIÓN DE LODOS NO PELIGROSOS (No incluye agua).	INSUMO	HR	380000.0	2763.16	REVISAR: MUY POR ENCIMA de IDU (vs INSUMO: IDU es solo material)
+VALLAS INFORMATIVAS HUMEDAL	47679333.0	(sin par IDU claro)					sin referencia
+PLAN DE GESTION URBANA (PGU) ETAPA 01	11128725492.3992	(sin par IDU claro)					sin referencia
+PLAN DE GESTION URBANA (PGU) ETAPA 02	1828918499.0	(sin par IDU claro)					sin referencia
+PLAN DE GESTION URBANA (PGU) ETAPA 03	13208977046.1337	(sin par IDU claro)					sin referencia
+PLAN DE GESTION URBANA (PGU) ETAPA 04	16487623174.3517	(sin par IDU claro)					sin referencia
+PLAN DE GESTION URBANA (PGU) ETAPA 05	29909045493.2993	(sin par IDU claro)					sin referencia
+PLAN DE GESTION URBANA (PGU) ETAPA 07	1506894081.77456	(sin par IDU claro)					sin referencia
+PLAN DE GESTION URBANA (PGU) ETAPA 08	24366374974.3265	(sin par IDU claro)					sin referencia
+PLAN DE GESTION URBANA (PGU) ETAPA 09	10226246098.4319	(sin par IDU claro)					sin referencia
+COSTOS GESTION AMBIENTAL (CAR) ETAPA 01	11128725492.3992	(sin par IDU claro)					sin referencia
+COSTOS GESTION AMBIENTAL (CAR) ETAPA 02	1828918499.0	(sin par IDU claro)					sin referencia
+COSTOS GESTION AMBIENTAL (CAR) ETAPA 03	13208977046.1337	(sin par IDU claro)					sin referencia
+COSTOS GESTION AMBIENTAL (CAR) ETAPA 04	16487623174.3517	(sin par IDU claro)					sin referencia
+COSTOS GESTION AMBIENTAL (CAR) ETAPA 05	29909045493.2993	(sin par IDU claro)					sin referencia
+COSTOS GESTION AMBIENTAL (CAR) ETAPA 07	1506894081.77456	(sin par IDU claro)					sin referencia
+COSTOS GESTION AMBIENTAL (CAR) ETAPA 08	24366374974.3265	(sin par IDU claro)					sin referencia
+COSTOS GESTION AMBIENTAL (CAR) ETAPA 09	10226246098.4319	(sin par IDU claro)					sin referencia
+COSTOS GESTION AMBIENTAL (CAR) GENERAL	37488693000.6307	(sin par IDU claro)					sin referencia
+VIGILACIA AÑO 2024	12835000.0	(sin par IDU claro)					sin referencia
+VIGILACIA AÑO 2025	12835000.0	(sin par IDU claro)					sin referencia
+VIGILACIA AÑO 2026	12835000.0	(sin par IDU claro)					sin referencia
+VIGILACIA AÑO 2027	12835000.0	(sin par IDU claro)					sin referencia
+VIGILACIA AÑO 2028	12835000.0	(sin par IDU claro)					sin referencia
+VIGILACIA AÑO 2029	12835000.0	(sin par IDU claro)					sin referencia
+VIGILACIA AÑO 2030	12835000.0	(sin par IDU claro)					sin referencia
+VIGILACIA AÑO 2031	12835000.0	(sin par IDU claro)					sin referencia
+VIGILACIA AÑO 2032	12835000.0	(sin par IDU claro)					sin referencia
+PMT - ETAPA 01	11128725492.3992	(sin par IDU claro)					sin referencia
+PMT - ETAPA 02	1828918499.0	(sin par IDU claro)					sin referencia
+PMT - ETAPA 03	13208977046.1337	(sin par IDU claro)					sin referencia
+PMT - ETAPA 04	16487623174.3517	(sin par IDU claro)					sin referencia
+PMT - ETAPA 05	29909045493.2993	(sin par IDU claro)					sin referencia
+PMT - ETAPA 07	1506894081.77456	(sin par IDU claro)					sin referencia
+PMT - ETAPA 08	24366374974.3265	(sin par IDU claro)					sin referencia
+PMT - ETAPA 09	10226246098.4319	(sin par IDU claro)					sin referencia
+ADMIN DELEGAD + HON + REEMB ETAPA 01	11128725492.3992	(sin par IDU claro)					sin referencia
+ADMIN DELEGAD + HON + REEMB ETAPA 02	1828918499.0	(sin par IDU claro)					sin referencia
+ADMIN DELEGAD + HON + REEMB ETAPA 03	13208977046.1337	(sin par IDU claro)					sin referencia
+ADMIN DELEGAD + HON + REEMB ETAPA 04	16487623174.3517	(sin par IDU claro)					sin referencia
+ADMIN DELEGAD + HON + REEMB ETAPA 05	29909045493.2993	(sin par IDU claro)					sin referencia
+ADMIN DELEGAD + HON + REEMB ETAPA 07	1506894081.77456	(sin par IDU claro)					sin referencia
+ADMIN DELEGAD + HON + REEMB ETAPA 08	24366374974.3265	(sin par IDU claro)					sin referencia
+ADMIN DELEGAD + HON + REEMB ETAPA 09	10226246098.4319	(sin par IDU claro)					sin referencia
+ADMIN DELEGAD + HON + REEMB GENERAL	37488693000.6307	(sin par IDU claro)					sin referencia
+INTERVENTORIA + HON + REEMB ETAPA 01	11128725492.3992	(sin par IDU claro)					sin referencia
+INTERVENTORIA + HON + REEMB ETAPA 02	1828918499.0	(sin par IDU claro)					sin referencia
+INTERVENTORIA + HON + REEMB ETAPA 03	13208977046.1337	(sin par IDU claro)					sin referencia
+INTERVENTORIA + HON + REEMB ETAPA 04	16487623174.3517	(sin par IDU claro)					sin referencia
+INTERVENTORIA + HON + REEMB ETAPA 05	29909045493.2993	(sin par IDU claro)					sin referencia
+INTERVENTORIA + HON + REEMB ETAPA 07	1506894081.77456	(sin par IDU claro)					sin referencia
+INTERVENTORIA + HON + REEMB ETAPA 08	24366374974.3265	(sin par IDU claro)					sin referencia
+INTERVENTORIA + HON + REEMB ETAPA 09	10226246098.4319	(sin par IDU claro)					sin referencia
+INTERVENTORIA + HON + REEMB GENERAL	37488693000.6307	(sin par IDU claro)					sin referencia
+ESTUDIOS Y DISEÑOS ETAPA 01	11128725492.3992	(sin par IDU claro)					sin referencia
+ESTUDIOS Y DISEÑOS ETAPA 02	1828918499.0	(sin par IDU claro)					sin referencia
+ESTUDIOS Y DISEÑOS ETAPA 03	13208977046.1337	(sin par IDU claro)					sin referencia
+ESTUDIOS Y DISEÑOS ETAPA 04	16487623174.3517	(sin par IDU claro)					sin referencia
+ESTUDIOS Y DISEÑOS ETAPA 05	29909045493.2993	(sin par IDU claro)					sin referencia
+ESTUDIOS Y DISEÑOS ETAPA 07	1506894081.77456	(sin par IDU claro)					sin referencia
+ESTUDIOS Y DISEÑOS ETAPA 08	24366374974.3265	(sin par IDU claro)					sin referencia
+ESTUDIOS Y DISEÑOS ETAPA 09	10226246098.4319	(sin par IDU claro)					sin referencia
+ESTUDIOS Y DISEÑOS GENERAL	37488693000.6307	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2023 (GENERAL)	163278318.859484	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 01)	24314513.029477	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 02)	18526047.9143745	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 03)	87898908.9093637	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 07)	5083377.45597091	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2024 (GENERAL)	648418128.292378	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 01)	96558876.5185795	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 02)	73571466.1763003	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 03)	349068059.936371	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 04)	315256695.092978	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 05)	577733222.622701	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 07)	20187334.8429132	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2025 (GENERAL)	1069320369.00771	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 01)	149464998.070098	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 02)	113882425.381566	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 03)	575655692.481899	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 04)	519896638.943086	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 05)	952752361.242368	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 07)	33291370.8016695	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2026 (GENERAL)	1283533093.26791	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 03)	677241738.094104	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 04)	624045478.32699	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 05)	1143613477.10838	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 07)	39960499.5683831	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 08)	1319893070.09918	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 09)	555291529.369549	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2027 (GENERAL)	1546351957.00337	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 03)	815915142.787509	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 04)	751826307.97087	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 05)	1377782113.80549	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 07)	48142893.2643059	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 08)	1590157077.12418	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 09)	668994159.676695	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2028 (GENERAL)	1765267708.43721	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 04)	858261728.711775	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 05)	1572833573.72044	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 07)	54958442.3425239	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 08)	1815274282.72534	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 09)	763703102.558162	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2029 (GENERAL)	2001282698.75198	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 04)	973010688.669113	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 05)	1783120262.18935	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 07)	62306345.5388435	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 08)	2057975115.13073	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 09)	865809643.958159	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2030 (GENERAL)	2260987718.88104	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 04)	1099277587.71551	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 05)	2014514499.43191	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 07)	70391795.3018503	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 08)	2325037069.46304	(sin par IDU claro)					sin referencia
+INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 09)	978165140.336714	(sin par IDU claro)					sin referencia
+Codo 11,25° Ø4"	311640.0	CODO G.RAD. PVC 11.25° TIPO U.M. D=4" RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	UN	134877.0	2.31	REVISAR: MUY POR ENCIMA de IDU
+Codo 11,25° Ø6"	527880.0	CODO G.RAD. PVC 11.25° TIPO U.M. D=6" (SUMINISTRO E INSTALACIÓN)	APU	UN	304534.0	1.73	ok
+Codo 11,25° Ø8"	767440.0	CODO G.RAD. PVC 11.25° TIPO U.M. D=8" (SUMINISTRO E INSTALACIÓN)	APU	UN	606781.0	1.26	ok
+Codo 11,25° Ø12"	1299560.0	CODO G.RAD. PVC 11.25° TIPO U.M. D=12" (SUMINISTRO E INSTALACIÓN)	APU	UN	1690591.0	0.77	ok
+Codo 22,5° Ø6"	737760.0	CODO G.RAD. PVC 22.5° TIPO U.M D=6" (SUMINISTRO E INSTALACIÓN)	APU	UN	338771.0	2.18	ok
+Codo 22,5° Ø8"	1071660.0	CODO G.RAD. PVC 22.5° TIPO U.M. D=8" (SUMINISTRO E INSTALACIÓN)	APU	UN	703493.0	1.52	ok
+Codo 22,5° Ø12"	1815780.0	CODO G.RAD. PVC 22.5° TIPO U.M. D=12" (SUMINISTRO E INSTALACIÓN)	APU	UN	2095131.0	0.87	ok
+Codo 45° Ø6"	664620.0	CODO G.RAD. PVC 45º TIPO U.M. D=6" (SUMINISTRO E INSTALACIÓN)	APU	UN	328958.0	2.02	ok
+Codo 45° Ø8"	965660.0	CODO G.RAD. PVC 45º TIPO U.M. D=8" (SUMINISTRO E INSTALACIÓN)	APU	UN	898567.0	1.07	ok
+Codo 45° Ø12"	1635580.0	CODO G.RAD. PVC 45º TIPO U.M. D=12" (SUMINISTRO E INSTALACIÓN)	APU	UN	2673808.0	0.61	ok
+Codo 90° Ø6"	697480.0	CODO G.RAD. PVC 90º TIPO U.M. D=6" (SUMINISTRO E INSTALACIÓN)	APU	UN	376664.0	1.85	ok
+Codo 90° Ø8"	1013360.0	CODO G.RAD. PVC 90º TIPO U.M. D=8" (SUMINISTRO E INSTALACIÓN)	APU	UN	1342870.0	0.75	ok
+Codo 90° Ø12"	1716140.0	CODO G.RAD. PVC 90º TIPO U.M. D=12" (SUMINISTRO E INSTALACIÓN)	APU	UN	3937485.0	0.44	REVISAR: MUY POR DEBAJO de IDU
+Tee Ø6" × Ø1"	754720.0	EMPATE ORTOGONAL PVC - HG 6"X6" SEGÚN NORMA NS-023, INCLUYE SUMINISTRO E INSTALACIÓN DE TUBERÍA PVC D=6" U.M RDE 21=1 ML, TEE HD 6"X6" PARA PVC=1 UN, UR HD D=6"=1 UN, UZ U.M PVC D=6"=1 UN, UD HD D=6"=1 UN (Suministro e instalación).	APU	UN	2042131.0	0.37	REVISAR: MUY POR DEBAJO de IDU
+Tee Ø6" × Ø2"	809840.0	EMPATE ORTOGONAL PEAD-PEAD 6"X4" (INCLUYE SUMINISTRO E INSTALACIÓN DE TEE  6"X4"PEAD, 2 UNIONES, TUBERÍA RDE 21) (SUMINISTRO E INSTALACIÓN)	APU	UN	758258.0	1.07	ok
+Tee Ø6" × Ø4"	921140.0	TEE PVC U.M. 6" X 4" (SUMINISTRO E INSTALACIÓN)	APU	UN	1926775.0	0.48	ok
+Tee Ø6" × Ø6"	1035620.0	TEE PVC U.M. 6" X 6" (SUMINISTRO E INSTALACIÓN)	APU	UN	752605.0	1.38	ok
+Tee Ø8" × Ø2"	1136320.0	EMPATE ORTOGONAL PEAD-PEAD 8"X4" (INCLUYE SUMINISTRO E INSTALACIÓN DE TEE  8"X4"PEAD, 2 UNIONES, TUBERÍA RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	UN	1117192.0	1.02	ok
+Tee Ø8" × Ø4"	1257160.0	TEE PVC U.M. 8" X 4" (SUMINISTRO E INSTALACIÓN)	APU	UN	3234266.0	0.39	REVISAR: MUY POR DEBAJO de IDU
+Tee Ø8" × Ø6"	1380120.0	TEE PVC U.M. 8" X 6" (SUMINISTRO E INSTALACIÓN)	APU	UN	3309710.0	0.42	REVISAR: MUY POR DEBAJO de IDU
+Tee Ø8" × Ø8"	1505200.0	TEE PVC U.M. 8" X 8" (SUMINISTRO E INSTALACIÓN)	APU	UN	3384809.0	0.44	REVISAR: MUY POR DEBAJO de IDU
+Tee Ø10" × Ø8"	1878320.0	TEE HD E.L. D=10" x 8"	INSUMO	UN	2738190.0	0.69	ok (vs INSUMO: IDU es solo material)
+Tee Ø12" × Ø4"	1992800.0	EMPATE ORTOGONAL PVC-PVC 12"X8" (INCLUYE SUMINISTRO E INSTALACIÓN DE TEE 12"X8"HD, 4 UNIONES, TUBERÍA RDE 21) (SUMINISTRO E INSTALACIÓN)	APU	UN	4865148.0	0.41	REVISAR: MUY POR DEBAJO de IDU
+Tee Ø12" × Ø6"	2129540.0	TEE HD E.L. D=12" x 6"	INSUMO	UN	2308600.0	0.92	ok (vs INSUMO: IDU es solo material)
+Tee Ø12" × Ø8"	2268400.0	TEE HD E.L. D=12" x 8"	INSUMO	UN	2778650.0	0.82	ok (vs INSUMO: IDU es solo material)
+Tee Ø12" × Ø12"	2550360.0	TEE PVC U.M. 12" X 12" (SUMINISTRO E INSTALACIÓN)	APU	UN	5065423.0	0.50	ok
+Reducción concéntrica Ø4" × Ø2"	822560.0	REDUCCION CONCENTRICA HD 4" X 2" (SUMINISTRO E INSTALACIÓN).	APU	UN	234394.0	3.51	REVISAR: MUY POR ENCIMA de IDU
+Reducción concéntrica Ø4" × Ø3"	1005940.0	REDUCCIÓN CONCENTRICA HD EL 4" X 3". SUMINISTRO E INSTALACIÓN.	APU	UN	282870.0	3.56	REVISAR: MUY POR ENCIMA de IDU
+Reducción concéntrica Ø6" × Ø2"	1195680.0	REDUCCION CONCENTRICA HD 6"X3" (SUMINISTRO E INSTALACIÓN)	APU	UN	536004.0	2.23	REVISAR: MUY POR ENCIMA de IDU
+Reducción concéntrica Ø6" × Ø4"	1598480.0	REDUCCION CONCENTRICA HD 6" X 4" (SUMINISTRO E INSTALACIÓN).	APU	UN	560019.0	2.85	REVISAR: MUY POR ENCIMA de IDU
+Reducción concéntrica Ø8" × Ø4"	2026720.0	REDUCCIÓN CONCENTRICA HD EL 4" X 3". SUMINISTRO E INSTALACIÓN.	APU	UN	282870.0	7.16	REVISAR: MUY POR ENCIMA de IDU
+Reducción concéntrica Ø8" × Ø6"	2476160.0	REDUCCIÓN CONCENTRICA HD EL 8" X 6". SUMINISTRO E INSTALACIÓN.	APU	UN	803555.0	3.08	REVISAR: MUY POR ENCIMA de IDU
+Reducción concéntrica Ø12" × Ø8"	3936840.0	REDUCCION CONCENTRICA HD 12"X6" (SUMINISTRO E INSTALACIÓN)	APU	UN	1748855.0	2.25	REVISAR: MUY POR ENCIMA de IDU
+Tapón Ø1"	98580.0	TAPON PVC SOLDADO D=1"	INSUMO	UN	1805.0	54.61	REVISAR: MUY POR ENCIMA de IDU (vs INSUMO: IDU es solo material)
+Tapón Ø2"	227900.0	TAPON DE PRUEBA PVC SANITARIA D=2" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	UN	6016.0	37.88	REVISAR: MUY POR ENCIMA de IDU
+Tapón Ø3"	369940.0	TAPON PVC TIPO U.M. D=3" (SUMINISTRO E INSTALACIÓN)	APU	UN	85764.0	4.31	REVISAR: MUY POR ENCIMA de IDU
+Tapón Ø4"	522580.0	TAPON PVC TIPO U.M. D=4" (SUMINISTRO E INSTALACIÓN)	APU	UN	109473.0	4.77	REVISAR: MUY POR ENCIMA de IDU
+Tapón Ø6"	850120.0	TAPON PVC TIPO U.M. D=6" (SUMINISTRO E INSTALACIÓN)	APU	UN	243337.0	3.49	REVISAR: MUY POR ENCIMA de IDU
+Tapón Ø8"	1200980.0	TAPON HD EXTREMO LISO D=8" (SUMINISTRO E INSTALACIÓN)	APU	UN	897197.0	1.34	ok
+Tapón Ø12"	1952520.0	TAPÓN HD EXTREMO JUNTA HIDRÁULICA D=12" (Suministro e instalación)	APU	UN	1738875.0	1.12	ok
+Unión Ø12"	3180000.0	UNION GIBAULT D=12" (SUMINISTRO E INSTALACIÓN)	APU	UN	1041325.0	3.05	REVISAR: MUY POR ENCIMA de IDU
+Unión de reparación según diámetro	3180000.0	EMPATES DE TUBERÍA EN PVC A HA 12" LINEAL SEGÚN NORMA NS-023 (INCLUYE TUBERIA PVC U.M. D=12" RDE 21=1M; TEE HD EXTREMO LISO 12"X12" =1UN; UNION DRESSER HD D=12"=2UN; UNION REPARACION HD EXTREMO LISO D=12"=1UN; UNION PVC U.M. NORMA NTC 382 D=12"=1UN). SUMINISTRO E INSTALACIÓN	APU	UN	9529408.0	0.33	REVISAR: MUY POR DEBAJO de IDU
+Empate en tee Ø6" × Ø6"	13389920.0	EMPATE ORTOGONAL PVC-PVC 6"X4" (INCLUYE SUMINISTRO E INSTALACIÓN DE TEE 6"X4"PVC, 4 UNIONES, TUBERÍA RDE 21) (SUMINISTRO E INSTALACIÓN)	APU	UN	1983390.0	6.75	REVISAR: MUY POR ENCIMA de IDU
+Empate en tee Ø8" × Ø2"	10563960.0	EMPATE ORTOGONAL PEAD-PEAD 8"X4" (INCLUYE SUMINISTRO E INSTALACIÓN DE TEE  8"X4"PEAD, 2 UNIONES, TUBERÍA RDE 21 (SUMINISTRO E INSTALACIÓN)	APU	UN	1117192.0	9.46	REVISAR: MUY POR ENCIMA de IDU
+Empate en tee Ø8" × Ø6"	16361100.0	TEE PVC U.M. 8" X 6" (SUMINISTRO E INSTALACIÓN)	APU	UN	3309710.0	4.94	REVISAR: MUY POR ENCIMA de IDU
+Replanteo, localización y coordinación de la red de media tensión	21200000.0	(sin par IDU claro)					sin referencia
+Señalización y plan de manejo de tránsito para frentes de red MT	37100000.0	(sin par IDU claro)					sin referencia
+Excavación para canalización MT, incluye cargue	118952.0	(sin par IDU claro)					sin referencia
+Relleno en arena limpia para protección de ductos	267915.0	(sin par IDU claro)					sin referencia
+Relleno y compactación con base granular clase B	309998.0	BASE GRANULAR CLASE A (BG_A) (SUMINISTRO, EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	255369.0	1.21	ok
+Transporte y disposición final de sobrantes	106000.0	PERFORACIÓN HORIZONTAL PARA DUCTO DE POLIETILENO D=4" (INCLUYE TUBERÍA).SUMINISTRO, INSTALACIÓN, TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	APU	ML	530446.0	0.20	REVISAR: MUY POR DEBAJO de IDU
+Reposición de pavimento, andén o zona dura afectada	265000.0	(sin par IDU claro)					sin referencia
+Suministro e instalación de banco de ductos PVC-TDP 4Ø6"	347042.0	3 DUCTOS DE D=4" Y 3 DUCTOS DE D=6" PVC-TDP (INCLUYE SUMINISTRO E INSTALACIÓN. NO INCLUYE RELLENOS)	APU	ML	276443.0	1.26	ok
+Suministro e instalación de banco de ductos PVC-TDP 6Ø6"	464651.0	9 DUCTOS D=6" + 2 DUCTOS DE 3" - PVC-TDP INCLUYE SUMINISTRO E INSTALACIÓN.	APU	ML	649111.0	0.72	ok
+Suministro e instalación de banco de ductos PVC-TDP 12Ø6"	848000.0	9 DUCTOS D=6" + 2 DUCTOS DE 3" - PVC-TDP INCLUYE SUMINISTRO E INSTALACIÓN.	APU	ML	649111.0	1.31	ok
+Suministro e instalación de banco de ductos PVC-TDP 9Ø6"	921310.0	9 DUCTOS D=6" + 2 DUCTOS DE 3" - PVC-TDP INCLUYE SUMINISTRO E INSTALACIÓN.	APU	ML	649111.0	1.42	ok
+Bajante o transición en tubería conduit IMC Ø6"	3445000.0	(sin par IDU claro)					sin referencia
+Cinta de señalización para red de media tensión	1696.0	(sin par IDU claro)					sin referencia
+Limpieza, mandrilado y verificación de ductos MT	12720.0	(sin par IDU claro)					sin referencia
+Construcción de caja de inspección doble norma CS276	5770200.0	CONSTRUCCION DE CAJA DE INSPECCION DOBLE PARA CANALIZACION DE M.T. Y B.T. TIPO CS 276  (Norma 2018) (Incluye concreto de base, muro de espesor 0.25m, pañete, recebo comun, escalera de gato, concreto para viga de soporte de marco y marco y tapa. No incluye tuberia). Medidas Externas: 1.69 x 1.99m. Medidas Internas: 1.19 x 1.49m. Altura total: 1.85m	APU	UN	3981431.0	1.45	ok
+Construcción de cárcamo de protección para red MT en cruce	596971.0	(sin par IDU claro)					sin referencia
+Suministro cable 3x120 mm² Al XLPE 15 kV	206700.0	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	229288.0	0.90	ok
+Tendido, conexionado e identificación cable 3x120 mm² Al XLPE 15 kV	53000.0	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	229288.0	0.23	REVISAR: MUY POR DEBAJO de IDU
+Suministro cable 3x185 mm² Al XLPE 15 kV	307400.0	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	229288.0	1.34	ok
+Tendido, conexionado e identificación cable 3x185 mm² Al XLPE 15 kV	68377.0	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	229288.0	0.30	REVISAR: MUY POR DEBAJO de IDU
+Suministro cable 3x240 mm² Al XLPE 15 kV	398560.0	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	229288.0	1.74	ok
+Tendido, conexionado e identificación cable 3x240 mm² Al XLPE 15 kV	84800.0	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	229288.0	0.37	REVISAR: MUY POR DEBAJO de IDU
+Juego de terminales premoldeados 15 kV para cable MT	8480000.0	(sin par IDU claro)					sin referencia
+Empalme premoldeado 15 kV	10600000.0	(sin par IDU claro)					sin referencia
+Celda MT SF6 17,5 kV - 630 A norma CTS508	28194007.0	(sin par IDU claro)					sin referencia
+Fusible limitador de corriente norma CTS507	1590000.0	(sin par IDU claro)					sin referencia
+Caja de maniobra pedestal de 5 vías ET512 Fig. 4	106000000.0	(sin par IDU claro)					sin referencia
+Caja de maniobra pedestal de 3 vías ET512 Fig. 1	79500000.0	(sin par IDU claro)					sin referencia
+Suministro e instalación CDMT-7, 1 entrada, 1 salida y 2 derivaciones	180200000.0	(sin par IDU claro)					sin referencia
+Retiro controlado de barraje preformado B-2 existente	5300000.0	(sin par IDU claro)					sin referencia
+Suministro e instalación transformador trifásico tipo aceite 30 kVA, 11,4 kV / 208-120 V	42400000.0	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	6694730.0	6.33	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación transformador trifásico tipo aceite 45 kVA, 11,4 kV / 208-120 V	46640000.0	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	6694730.0	6.97	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación transformador trifásico tipo aceite 112,5 kVA, 11,4 kV / 208-120 V	58300000.0	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	6694730.0	8.71	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación transformador trifásico tipo aceite 150 kVA, 11,4 kV / 208-120 V	65720000.0	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 150 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	14133951.0	4.65	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación transformador trifásico tipo aceite 225 kVA, 11,4 kV / 208-120 V	79500000.0	TRANSFORMADOR SEMISUMERGIBLE 225 KVA 11.4 /0.208-0.120 KV DYN5. (SUMINISTRO E INSTALACIÓN)	APU	UN	61785163.0	1.29	ok
+Suministro e instalación transformador trifásico tipo aceite 300 kVA, 11,4 kV / 208-120 V	90100000.0	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	6694730.0	13.46	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación transformador trifásico tipo aceite 400 kVA, 11,4 kV / 208-120 V	106000000.0	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	6694730.0	15.83	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación transformador trifásico tipo aceite 500 kVA, 11,4 kV / 208-120 V	127200000.0	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	6694730.0	19.00	REVISAR: MUY POR ENCIMA de IDU
+Suministro e instalación transformador trifásico tipo aceite 630 kVA, 11,4 kV / 208-120 V	153700000.0	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	6694730.0	22.96	REVISAR: MUY POR ENCIMA de IDU
+Base, foso de aceite, cerramiento y adecuación civil del centro de transformación	12720000.0	(sin par IDU claro)					sin referencia
+Sistema de puesta a tierra completo por centro de transformación	8480000.0	PUESTA A TIERRA PARA CENTRO D3E TRANSFORMACION SUBTERRANEO PARCIALMENTE SUMERGIBLE CON CUATRO PUNTOS A TIERRA. INCLUYE SUMINISTRO, TRANSPORTE Y CONSTRUCCION, VARILLA COOPER WELD 5/8" 2,44MM, CUARENTA METROS DE CABLE DE COBRE DESNUDO 2/0 AWG, CAJAS DE INSPECCION DEL SISTEMA DE PUESTA A TIERRA, SOLDADURA EXOTERMICA Y TERMINALES.	APU	UN	3346665.0	2.53	REVISAR: MUY POR ENCIMA de IDU
+Malla o puesta a tierra para CDMT y cajas de maniobra	6360000.0	MALLA DE PUESTA A TIERRA PARA CAJAS DE MANIOBRA SEMISUMERGIBLE EN CAJA CS 290, RESISTIVIDADES DE TERRENO ENTRE (24.62 Y 42.42) OMNIOS-M. (INCLUYE SISTEMA DE PUESTA A TIERRA, POZOS CAPACITIVOS, TRATAMIENTO DE SUELO TIPO HIDROSOLTA, CABLE 2/0 CU DESNUDO, CONECTORES CERTIFICADOS.) ( INCLUYE SUMINISTRO E INSTALACIÓN).	APU	UN	2589379.0	2.46	REVISAR: MUY POR ENCIMA de IDU
+Estructura de transición aérea-subterránea MT en punto de conexión	15900000.0	(sin par IDU claro)					sin referencia
+Retiro de cable existente 3x120 mm² Al entre Colegio L6 y Supermercado L12	47700.0	(sin par IDU claro)					sin referencia
+Prueba VLF para circuito de media tensión	3011081.0	(sin par IDU claro)					sin referencia
+Pruebas, coordinación, energización y recibo por operador de red	31800000.0	(sin par IDU claro)					sin referencia
+Planos récord, rotulado e inventario final de red MT	21200000.0	(sin par IDU claro)					sin referencia
+Bloque de cemento gris 10x20x6 (adoquín, material)	1168.11	(sin par IDU claro)					sin referencia
+Bloque de cemento 20x20x6 alerta (material)	2336.2	(sin par IDU claro)					sin referencia
+Bloque de cemento 20x20x6 guía (material)	2447.24	(sin par IDU claro)					sin referencia
+Bordillo prefabricado A-80 (material)	30774.0	BORDILLO PREFABRICADO A80 (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	APU	ML	77801.0	0.40	REVISAR: MUY POR DEBAJO de IDU
+Sardinel prefabricado A-10 (material)	38000.0	SARDINEL PREFABRICADO ALTO RAMPAS A86 (SUMINISTRO E INSTALACIÓN. SIN MATERIAL DE BASE)	APU	ML	65944.0	0.58	ok
+Transporte de prefabricados	62.66	TRANSPORTE TUBERIA Y PREFABRICADOS	INSUMO	KG	42.0	1.49	ok (vs INSUMO: IDU es solo material)
+Arena de peña para nivelación (material)	15012.0	1 DUCTO D= 3" PVC-TDP CON 3 CABLES. SUMINISTRO E INSTALACIÓN. INCL. EXCAV. EXTENDIDO, HUMEDECIMIENTO Y COMPACTACIÓN DE RELLENOS PARA REDES EN ARENA DE PEÑA Y EN MATERIAL SELECC. PROVENIENTE DE LA EXCAVACIÓN.	APU	ML	168178.0	0.09	REVISAR: MUY POR DEBAJO de IDU
+Transporte de arena de peña	135108.0	RELLENO EN ARENA DE PEÑA (INCLUYE TRANSPORTE, SUMINISTRO, EXTENDIDO MANUAL Y COMPACTACIÓN).	APU	M3	127489.0	1.06	ok
+M.O. localización y replanteo	6201.6304	(sin par IDU claro)					sin referencia
+M.O. instalación de adoquín y tabletas	41159.8216	(sin par IDU claro)					sin referencia
+M.O. nivelación con arena	33265.4812	PISO EN ADOQUIN DE ARCILLA 26X6X6CM (SUMINISTRO E INSTALACIÓN. INCLUYE BASE 4CM ARENA NIVELACIÓN Y ARENA DE SELLO)	APU	M2	114489.0	0.29	REVISAR: MUY POR DEBAJO de IDU
+M.O. instalación de bordillo prefabricado	41730.1788	BORDILLO PREFABRICADO A80 (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	APU	ML	77801.0	0.54	ok
+M.O. instalación de sardinel prefabricado	41730.1788	SARDINEL PREFABRICADO ALTO RAMPAS A86 (SUMINISTRO E INSTALACIÓN. SIN MATERIAL DE BASE)	APU	ML	65944.0	0.63	ok
+Subbase granular SBG (suministro)	51170.0	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	0.66	ok
+Subbase granular SBG (transporte)	18000.0	CONSTRUCCIÓN DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT INCLUYE TRANSPORTE Y DISPOSICIÓN DE ESCOMBRO Y TRATAMIENTO SUPERFICIAL SIMPLE	APU	M2	143068.0	0.13	REVISAR: MUY POR DEBAJO de IDU
+M.O. instalación de subbase granular SBG	51178.3696	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	0.66	ok
+Geotextil tejido 2100 (suministro)	3836.56	(sin par IDU claro)					sin referencia
+M.O. instalación de geotextil 2100	3687.2388	(sin par IDU claro)					sin referencia
+Suministro, extendida y compactación de Rodadura Asfáltica MDC-19	1112765.68478365	(sin par IDU claro)					sin referencia
+Suministro, extendida y compactación de Capa intermedia asfáltica MDC-25	1058203.95485693	(sin par IDU claro)					sin referencia
+Suministro y construcción de contenedor de raíces Tipo A (2,00x2,20)m	4477590.28218282	CONTENEDOR DE RAICES TIPO B23 (TIPO D) (2.00M X 2.00M X 1.40M). (INCLUYE FILTRO EN GRAVILLA, TIERRA NEGRA. SUMINISTRO Y CONSTRUCCIÓN).	APU	UN	2059073.0	2.17	ok
+Suministro y construcción de contenedor de raíces Tipo B (1,50x2,20)m	3358192.71163712	CONTENEDOR DE RAICES TIPO B20 (TIPO A) (1.2X1.2X1.40M. INC. SUMINISTRO, CONSTRUCCIÓN Y FILTRO EN GRAVILLA. NO INC. TIERRA)	APU	UN	974631.0	3.45	REVISAR: MUY POR ENCIMA de IDU
+Suministro y construcción de contenedor de raíces Tipo C (1,20x2,20)m	2686554.16930969	CONTENEDOR DE RAICES TIPO B20 (TIPO A) (1.2X1.2X1.40M. INC. SUMINISTRO, CONSTRUCCIÓN Y FILTRO EN GRAVILLA. NO INC. TIERRA)	APU	UN	974631.0	2.76	REVISAR: MUY POR ENCIMA de IDU
+Suministro y construcción de contenedor de raíces Tipo D (0,84x4,20)m	3590213.29898659	(sin par IDU claro)					sin referencia
+Suministro y construcción de contenedor de raíces Tipo E (0,70x4,20)m	2991844.41582216	(sin par IDU claro)					sin referencia
+Suministro y construcción de contenedor de raíces Tipo F (0,70x4,20)m	2991844.41582216	(sin par IDU claro)					sin referencia
+Adoquín gris 10x20x6	1168.11	(sin par IDU claro)					sin referencia
+Loseta toperol 20x20x6	2336.2	(sin par IDU claro)					sin referencia
+Loseta guía 20x20x6	2447.24	CENEFA EN LOSETA PREFABRICADA A58 GUIA (20X20X6) CM. SUMINISTRO E INSTALACIÓN. (INCLUYE 4CM DE MORTERO 1:5 HECHO EN OBRA PARA BASE Y ARENA DE PEÑA PARA SELLO)	APU	M2	137916.0	0.02	REVISAR: MUY POR DEBAJO de IDU
+Loseta lisa 20x20x6	2336.2	(sin par IDU claro)					sin referencia
+Bordillo prefabricado A-80	30774.0	BORDILLO PREFABRICADO A80 (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	APU	ML	77801.0	0.40	REVISAR: MUY POR DEBAJO de IDU
+Sardinel prefabricado A-10	38000.0	(sin par IDU claro)					sin referencia
+Arena de nivelación	150120.0	PISO EN ADOQUIN DE ARCILLA 26X6X6CM (SUMINISTRO E INSTALACIÓN. INCLUYE BASE 4CM ARENA NIVELACIÓN Y ARENA DE SELLO)	APU	M2	114489.0	1.31	ok
+Subbase granular SBG	120348.3696	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	1.55	ok
+Subbase granular SBG (sello subrasante)	120348.3696	ESTABILIZACION O MEJORAMIENTO DE SUBRASANTE CON RAJON = 6" A 12" (15 - 30 cm) Y SELLO CON SUBBASE GRANULAR CLASE C - Gr1 (SBGC_Gr1). INCLUYE (SUMINISTRO, EXTENDIDO, NIVELACION Y COMPACTACION MECANICA CON RETROEXCAVADORA, TRANSPORTE DEL RAJON Y SELLO HASTA 21 KM)	APU	M3	182509.0	0.66	ok
+Base granular BG	251774.327954005	BASE GRANULAR CLASE A (BG_A) (SUMINISTRO, EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	255369.0	0.99	ok
+Geotextil tejido 2100	7523.7988	(sin par IDU claro)					sin referencia
+Geotextil tejido 2400	11840.4921205432	GEOTEXTIL TEJIDO CON RESISTENCIA A LA TENSION METODO TIRA ANCHA SENTIDO LONGITUDINAL DE 60 KN/M, Y RESISTENCIA A LA TENSION GRAB DE 2400 N	INSUMO	M2	19656.0	0.60	ok (vs INSUMO: IDU es solo material)
+Piedra rajón (mejoramiento subrasante)	144708.17426594	ESTABILIZACION O MEJORAMIENTO DE SUBRASANTE CON RAJON = 6" A 12" (15 - 30 cm) Y SELLO CON SUBBASE GRANULAR CLASE C - Gr1 (SBGC_Gr1). INCLUYE (SUMINISTRO, EXTENDIDO, NIVELACION Y COMPACTACION MECANICA CON RETROEXCAVADORA, TRANSPORTE DEL RAJON Y SELLO HASTA 21 KM)	APU	M3	182509.0	0.79	ok
+M.O. instalación de loseta guía y toperol	8231.9643	(sin par IDU claro)					sin referencia
+Cimentación de tubería en gravilla (cama y atraque)	149872.75	(sin par IDU claro)					sin referencia
+Construcción de cuneta en concreto fundida en sitio	105000.0	CAÑUELA TIPO FUNDIDA EN SITIO 1000X300X225 CON CONCRETO 3000 PSI HECHO EN OBRA (SUMINISTRO Y CONSTRUCCIÓN. INCLUYE CONCRETO DE 3000 PSI HECHO EN OBRA, IMPERMEABILIZANTE PARA CONCRETO).	APU	ML	132627.0	0.79	ok
+Construcción de captación de aguas lluvias	14543853.2322303	CONSTRUCCIÓN CANALETA DE AGUAS LLUVIAS DE 0.4 X 0.4 MT EN CONCRETO DE 3000 PSI GRAVA COMÚN INCLUYE REJILLA PREFABRICADA.	APU	ML	372429.0	39.05	REVISAR: MUY POR ENCIMA de IDU
+Alcantarilla rural con cabezales (descole)	37186137.0100324	(sin par IDU claro)					sin referencia
+Conformación de dique del reservorio con material del sitio	23203.0077192135	(sin par IDU claro)					sin referencia
+Canalización banco de ductos TDP PVC 8Ø3" EPM RS1-003	301685.576478172	(sin par IDU claro)					sin referencia
+Canalización banco de ductos TDP PVC 7Ø3" EPM RS1-003	222617.0135125	(sin par IDU claro)					sin referencia
+Canalización banco de ductos TDP PVC 6Ø3" EPM RS1-003	226252.258027543	CANALIZACION VIA PUBLICA NUEVE (9) DUCTOS PVC TIPO TDP 9Ø6"+2Ø3"	APU	ML	1345327.0	0.17	REVISAR: MUY POR DEBAJO de IDU
+Canalización banco de ductos TDP PVC 5Ø3" EPM RS1-003	188537.983668445	(sin par IDU claro)					sin referencia
+Cárcamo de protección de ductos ETB	763157.18951	(sin par IDU claro)					sin referencia
+Caja de inspección prefabricada 0,80x0,80 m (incluye base, muros, cubierta y aros)	2861839.4606625	(sin par IDU claro)					sin referencia
+Excavación manual para redes profundidad 0-2 m (incluye cargue)	112219.164391363	EXCAVACION MANUAL PARA REDES PROFUNDIDAD 0M - 2M (INCLUYE CARGUE)	APU	M3	58471.0	1.92	ok
+Relleno para redes en arena de peña	252749.552620573	RELLENO PARA REDES EN ARENA DE PEÑA (SUMINISTRO, EXTENDIDO, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	182185.0	1.39	ok
+Base granular clase B (BG38/BG25) para telecomunicaciones	292451.3350625	BASE GRANULAR CLASE A (BGA_BG38) (Suministro, Extendido, Nivelación, Humedecimiento y Compactación con vibrocompactador)	APU	M3	230570.0	1.27	ok
+Sub-base granular clase C para telecomunicaciones	327919.104867578	(sin par IDU claro)					sin referencia
+Transporte y disposición final de escombros (21 km)	69249.0166084375	DESCABECE DE PILOTES (INCLUYE COMPRESOR Y MARTILLO DEMOLEDOR, INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE ESCOMBROS EN SITIO AUTORIZADO A 21 KM.	APU	M3	355050.0	0.20	REVISAR: MUY POR DEBAJO de IDU
+Obras preliminares generales	1.0	(sin par IDU claro)					sin referencia
+M.O. instalación de loseta guía y toperol	8231.9643	(sin par IDU claro)					sin referencia
+Suministro de cañuela prefabricada	95000.0	CAÑUELA PREFABRICADA A120 (800x300x225mm)	INSUMO	UN	51943.0	1.83	ok (vs INSUMO: IDU es solo material)
+M.O. instalación de cañuela prefabricada	70000.0	CAÑUELA PREFABRICADA A120 (800x300x225mm)	INSUMO	UN	51943.0	1.35	ok (vs INSUMO: IDU es solo material)
+Suministro y colocación de recebo B-200	110000.0	(sin par IDU claro)					sin referencia
+Suministro pieza remate A-105 para rampa	95000.0	PIEZA REMATE A105 PARA RAMPA TIPO A (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	APU	UN	102699.0	0.93	ok
+Suministro sardinel alto A-86 para rampas	60000.0	SARDINEL PREFABRICADO ALTO RAMPAS A86 (SUMINISTRO E INSTALACIÓN. SIN MATERIAL DE BASE)	APU	ML	65944.0	0.91	ok
+Suministro sardinel bajo A-85 para rampa	55000.0	CONSTRUCCIÓN PIEZA FUNDIDA EN SITIO SIMILAR A SARDINEL BAJO RAMPA. (INCLUYE SUMINISTRO Y COLOCACIÓN DE CONCRETO DE 3000 PSI GRAVA COMÚN, FORMALETA Y MANO DE OBRA)	APU	ML	61413.0	0.90	ok
+Suministro sardinel especial A-100 para rampa	55000.0	SARDINEL ESPECIAL A100 PARA RAMPA TIPO A (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	APU	UN	68170.0	0.81	ok
+M.O. instalación pieza remate A-105	48000.0	PIEZA REMATE A105 PARA RAMPA TIPO A (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	APU	UN	102699.0	0.47	ok
+Reproceso de pintura	15000000.0	(sin par IDU claro)					sin referencia
+Localizacion y replanteo	6201.6304	(sin par IDU claro)					sin referencia
+Descapote con botadero certificado	35000.0	(sin par IDU claro)					sin referencia
+Subabase granular SBG-B	217337.0	CONSTRUCCION DE CAMINO CON SUBBASE GRANULAR TIPO C SBG-C E=0.30MT	APU	M2	77671.0	2.80	REVISAR: MUY POR ENCIMA de IDU
+Relleno Material seleccionado(montañas)	67000.0	RELLENO EN MATERIAL SELECCIONADO PROVENIENTE DE LA EXCAVACIÓN (EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	48122.0	1.39	ok
+Relleno Manual Tierra Negra X 30CM	90000.0	RELLENO EN TIERRA NEGRA PARA EMPRADIZACION (SUMINISTRO Y EXTENDIDO)	APU	M3	111152.0	0.81	ok
+Arboles 80 cm	60000.0	(sin par IDU claro)					sin referencia
+Arboles 120 cm	120000.0	(sin par IDU claro)					sin referencia
+Jardineria	65000.0	PLANTACION DE JARDINERÍA DE PORTE ALTO. (INCLUYE SUMINISTRO AL SITIO DE OBRA, PLANTACION, TIERRA NEGRA Y ABONO. EN BOLSA DE 26" DE ALTURA DE 50CM A 80CM)	APU	M2	122393.0	0.53	ok
+Coberturas Zonas Verdes	32000.0	(sin par IDU claro)					sin referencia
+Excavacion y retiro a maquina con batadero certificado	79829.3512	(sin par IDU claro)					sin referencia
+Concreto 3000 psi	560000.0	TALÓN EN CONCRETO DE 3000 PSI (SUMINISTRO E INSTALACIÓN).	APU	ML	107810.0	5.19	REVISAR: MUY POR ENCIMA de IDU
+Malla electrosoldada	7500.0	MALLA ELECTROSOLDADA 0.15X0.15M, D=5MM, 5MM (INCLUYE SUMINISTRO, FIJACIÓN E INSTALACIÓN)	APU	KG	7569.0	0.99	ok
+Mano de obra losa contrapiso	53000.0	(sin par IDU claro)					sin referencia
+Separadores losa	1000.0	(sin par IDU claro)					sin referencia
+Cañuela prefabricado	63000.0	(sin par IDU claro)					sin referencia
+Bordillo de confinamiento	63000.0	(sin par IDU claro)					sin referencia
+MO Escobillado concreto	33000.0	(sin par IDU claro)					sin referencia
+Señalizacion zonas	10000000.0	(sin par IDU claro)					sin referencia
+Canecas tipo idu	450000.0	(sin par IDU claro)					sin referencia
+totem parque	4000000.0	(sin par IDU claro)					sin referencia
+Mesa rural con asientos	1200000.0	(sin par IDU claro)					sin referencia
+Bancas tipo idu en concreto(sin espaldar)	750000.0	(sin par IDU claro)					sin referencia
+Bancas tipo idu en concreto(con espaldar)	750000.0	(sin par IDU claro)					sin referencia
+Piso en mulch de madera inorganico	115200.0	(sin par IDU claro)					sin referencia
+D5-02 deslizadero recto en polimero	25000000.0	(sin par IDU claro)					sin referencia
+D5-03 columpio en canasta	11000000.0	(sin par IDU claro)					sin referencia
+D5-05 red piramidal pequeña	47000000.0	(sin par IDU claro)					sin referencia
+D5-07 arco con red y rocodromo	47000000.0	(sin par IDU claro)					sin referencia
+D5-10,11,12 juegos de muelle	5000000.0	(sin par IDU claro)					sin referencia
+D2-01 troncos de equilibrio en madera	5000000.0	(sin par IDU claro)					sin referencia
+D2-02 laberinto de troncos	5000000.0	(sin par IDU claro)					sin referencia
+superficie en caucho reciclado	128000.0	(sin par IDU claro)					sin referencia
+Maquinas gym	1200000.0	(sin par IDU claro)					sin referencia
+mortero de nivelacion	480000.0	BORDILLO PREFABRICADO A80 (SUMINISTRO E INSTALACIÓN. INCLUYE 3CM MORTERO DE NIVELACIÓN 2000 PSI)	APU	ML	82582.0	5.81	REVISAR: MUY POR ENCIMA de IDU
+Bicicletero enrollado (capacidad: 11 bicicletas)	230000.0	(sin par IDU claro)					sin referencia
+superficie en ecopavimento	128000.0	(sin par IDU claro)					sin referencia
+Mejoramiento en rajon 0,25m	95000.0	ESTABILIZACION O MEJORAMIENTO DE SUBRASANTE CON RAJON = 6" A 12" (15 - 30 cm) Y SELLO CON SUBBASE GRANULAR CLASE C - Gr1 (SBGC_Gr1). INCLUYE (SUMINISTRO, EXTENDIDO, NIVELACION Y COMPACTACIÓN MECANICA CON EXCAVADORA MEDIANA SOBRE ORUGAS Y RODILLO VIBROCOMPACTADOR TANDEM (2,5 - 3,0 TON), TRANSPORTE DEL RAJON Y SELLO HASTA 21 KM)	APU	M3	191937.0	0.49	ok
+base granular 0,20m idu	236515.0	ESTABILIZACIÓN DE BASE GRANULAR CON EMULSIÓN + CEMENTO 5% E= 0.20M	APU	M2	15099.0	15.66	REVISAR: MUY POR ENCIMA de IDU
+Subbase granular 0,20m idu	217337.0	(sin par IDU claro)					sin referencia
+Rodadura asfaltica MDC-II de 5.5cm	78000.0	(sin par IDU claro)					sin referencia
+Excavacion manual de vigas cerramiento y zanjas filto perimetral	35000.0	(sin par IDU claro)					sin referencia
+Concreto 3000psi impermeabilzado	590000.0	(sin par IDU claro)					sin referencia
+Hierro 60000 psi - losa y vigas	7500.0	(sin par IDU claro)					sin referencia
+MO Dados cerramiento	360000.0	(sin par IDU claro)					sin referencia
+MO Vigas corridas cimentacion cerramiento	360000.0	(sin par IDU claro)					sin referencia
+Sum + MO Bordillo de confinamiento	63000.0	(sin par IDU claro)					sin referencia
+Filtro perimetral a todo costo	77000.0	(sin par IDU claro)					sin referencia
+Sum + Inst malla eslabonada cerramiento de altura 5m -	346500.0	(sin par IDU claro)					sin referencia
+Pintura de trafico peatonal y deportivo antideslizante Demarcacion de cancha	27500.0	(sin par IDU claro)					sin referencia
+Arcos metalicos de microfutbol altura 1,80 x 2,5 ancho	1815000.0	(sin par IDU claro)					sin referencia
+Tableros para baloncesto	4950000.0	(sin par IDU claro)					sin referencia
+Acabado sintetico	32000.0	(sin par IDU claro)					sin referencia
+Riego de arena y caucho	12000.0	(sin par IDU claro)					sin referencia
+Geotextil tejido 1600	17000.0	(sin par IDU claro)					sin referencia
+Mejoramiento en gravilla(material de filtro)	135000.0	(sin par IDU claro)					sin referencia
+Geomembrana impermable HDPE 1mm	49500.0	(sin par IDU claro)					sin referencia
+Arcos metalicos de futbol(incluyen malla)	4950000.0	(sin par IDU claro)					sin referencia
+Excavacion manual de muro contencion con zarpa	35000.0	(sin par IDU claro)					sin referencia
+MO Muro contencion con zarpa	650000.0	(sin par IDU claro)					sin referencia
+MO Placa de contrapiso	53000.0	(sin par IDU claro)					sin referencia
+MO Pulida de concreto con helicoptero	308000.0	(sin par IDU claro)					sin referencia
+Sum + MO Tuberia en acero galvanizado 2"	88000.0	TUBERIA EN ACERO GALVANIZADA D= 2" (NO INCLUYE RELLENOS). SUMINISTRO E INSTALACIÓN.	APU	ML	71514.0	1.23	ok
+Sum + MO Baranda M-18 tipo idu	135000.0	(sin par IDU claro)					sin referencia
+Excavacion mecanica material	79829.3512	EXCAVACIÓN MECÁNICA EN MATERIAL COMÚN (INCLUYE CARGUE)	APU	M3	5998.0	13.31	REVISAR: MUY POR ENCIMA de IDU
+Relleno en recebo b400	107000.0	(sin par IDU claro)					sin referencia
+Relleno en arena peña	110000.0	RELLENO PARA REDES EN ARENA DE PEÑA (SUMINISTRO, EXTENDIDO, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	182185.0	0.60	ok
+Relleno con mezcla de gravilla de 3/4" y arena de rio	135000.0	RELLENO CON MEZCLA DE GRAVILLA DE 3/4" Y ARENA DE RIO (RELACIÓN 1:1) SUMINISTRO Y COLOCACIÓN. (INCLUYE TRANSPORTE, SUMINISTRO, EXTENDIDO MANUAL Y COLOCACIÓN).	APU	M3	223097.0	0.61	ok
+Mano de obra tuberia novafort 315 mm - 6"	42702.0	(sin par IDU claro)					sin referencia
+Suministro tuberia novafor 315 mm 6"- 6 mts	941853.0	(sin par IDU claro)					sin referencia
+Dren filtro 100 mm(filtro frances)	80000.0	(sin par IDU claro)					sin referencia
+Dren filtro 200 mm (filtro frances)	110000.0	(sin par IDU claro)					sin referencia
+Tuberia plana 12"x1"	151716.4	(sin par IDU claro)					sin referencia
+Empate a punto de conexión	5000000.0	(sin par IDU claro)					sin referencia
+Pozo de inspeccion en concreto hmax=2m, tapa en concreto	6624000.0	(sin par IDU claro)					sin referencia
+Caja de desague h=1 m, incluye marco y tapa	1200000.0	CAJA DE PASO SENCILLA EN CALZADA ETB (INCLUYE BASE, MUROS, PAÑETE, BORDILLO PERIMETRAL, MARCO Y TAPA). MEDIDAS EXTERNAS: 1.10 X 1.00M. MEDIDAS INTERNAS 0.60X0.50M. ALTURA: 1.33M.	APU	UN	2291728.0	0.52	ok
+Sumidero de concreto prefabricado	1200000.0	SUMIDERO PARA CANAL DE DRENAJE PREFABRICADO EN POLYCONCRETO CON REJA DE FUNDICIÓN, PD-150V, CLASE DE CARGA D400, LONG=500MM, H= 575 MM, ANCHO= 180 MM, EN COLOR NATURAL, (NO INCLUYE: EXCAVACIÓN, CONCRETO, DRENAJE, RELLENOS, TAPAS O ACCESORIOS)	APU	UN	1548481.0	0.77	ok
+INSTALACIONES REDES ELECTRICAS	922669044.265641	(sin par IDU claro)					sin referencia
+IMPREVISTOS	5729404832.87934	(sin par IDU claro)					sin referencia
+D5-01 casa con malla y deslizadero	20600000.0	(sin par IDU claro)					sin referencia
+D5-04 Columpio Convencional doble estruc. Madera	11000000.0	(sin par IDU claro)					sin referencia
+D5-06 red de escalar hexa piramidal	47000000.0	(sin par IDU claro)					sin referencia
+D5-08 juego de rotacion	25500000.0	(sin par IDU claro)					sin referencia
+Demarcacion cicloruta	27500.0	DEMARCACION PICTOGRAMA CICLORUTA EN PINTURA TERMOPLASTICA (E=2.3MM INCLUYE SUMINISTRO Y APLICACIÓN CON EQUIPO, INCLUYE MICROESFERAS. AREA =2MT2).	APU	UN	343674.0	0.08	REVISAR: MUY POR DEBAJO de IDU
+BIORETENEDORES	404707458.747129	(sin par IDU claro)					sin referencia
+excavacion mecanica	79829.3512	EXCAVACIÓN MECÁNICA EN TÚNEL.	APU	M3	94195.0	0.85	ok
+D5-09 presas infantiles de escalada	2000000.0	(sin par IDU claro)					sin referencia
+MO escalera	560000.0	(sin par IDU claro)					sin referencia
+Sc-bloque de concreto graderia	49500.0	(sin par IDU claro)					sin referencia
+Mano de obra tuberia novafort 250 mm - 8"	35978.2	(sin par IDU claro)					sin referencia
+Suministro tuberia novafor 250 mm 8"- 6 mts	654547.0	(sin par IDU claro)					sin referencia
+Mano de obra tuberia novafort 315 mm - 4"	42702.0	(sin par IDU claro)					sin referencia
+Suministro tuberia novafor 315 mm 4"- 6 mts	941853.0	(sin par IDU claro)					sin referencia
+Suministro tubería y piezas especiales HD Ø12"	9200000.0	(sin par IDU claro)					sin referencia
+Instalación tubería y piezas especiales HD Ø12"	320000.0	(sin par IDU claro)					sin referencia
+Suministro tubería PVC flexible Ø6"	340000.0	TUBERIA PVC SANITARIA D=6" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	93174.0	3.65	REVISAR: MUY POR ENCIMA de IDU
+Instalación tubería PVC flexible Ø6"	30000.0	TUBERIA PVC SANITARIA D=6" TIPO U.S. (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	93174.0	0.32	REVISAR: MUY POR DEBAJO de IDU
+Cimentación de tubería en gravilla (cama y atraque)	149872.75	(sin par IDU claro)					sin referencia
+Construcción de cuneta en concreto fundida en sitio	105000.0	CAÑUELA TIPO FUNDIDA EN SITIO 1000X300X225 CON CONCRETO 3000 PSI HECHO EN OBRA (SUMINISTRO Y CONSTRUCCIÓN. INCLUYE CONCRETO DE 3000 PSI HECHO EN OBRA, IMPERMEABILIZANTE PARA CONCRETO).	APU	ML	132627.0	0.79	ok
+Construcción de captación de aguas lluvias	14543853.2322303	CONSTRUCCIÓN CANALETA DE AGUAS LLUVIAS DE 0.4 X 0.4 MT EN CONCRETO DE 3000 PSI GRAVA COMÚN INCLUYE REJILLA PREFABRICADA.	APU	ML	372429.0	39.05	REVISAR: MUY POR ENCIMA de IDU
+Alcantarilla rural con cabezales (descole)	37186137.0100324	(sin par IDU claro)					sin referencia
+Conformación de dique del reservorio con material del sitio	23203.0077192135	(sin par IDU claro)					sin referencia
+Cárcamo o placa de protección para tubería (Red de alcantarillado pluvial)	800000.0	(sin par IDU claro)					sin referencia
+Excavación manual para bioswale/bioretenedor	115000.0	(sin par IDU claro)					sin referencia
+Base de gravilla permeable para bioretenedor	150000.0	(sin par IDU claro)					sin referencia
+Suministro y colocación de gravilla 10-15 mm (capa filtrante)	150000.0	(sin par IDU claro)					sin referencia
+Suministro y colocación de gravilla 25-40 mm (capa drenante)	150000.0	(sin par IDU claro)					sin referencia
+Relleno con material orgánico para bioretenedor	100000.0	(sin par IDU claro)					sin referencia
+Tubería perforada PVC Ø6" para drenaje de bioswale	95000.0	TUBERIA PVC PARA DRENAJE D=6" CON FILTRO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	98731.0	0.96	ok
+Rejilla de drenaje para bioswale	450000.0	(sin par IDU claro)					sin referencia
+Cabezal de descarga en concreto para tubería Ø12"-Ø16" (incluye aletas y solado)	8500000.0	(sin par IDU claro)					sin referencia
+Cabezal de descarga en concreto para tubería Ø18"-Ø24" (incluye aletas y solado)	12500000.0	(sin par IDU claro)					sin referencia
+Cabezal de descarga en concreto para tubería Ø8"-Ø10" (incluye aletas y solado)	6000000.0	(sin par IDU claro)					sin referencia
+Construccion de camara de paso MT norma CS280	7500000.0	(sin par IDU claro)					sin referencia
+Suministro e instalación poste de concreto 14 m. Tipo recto AP  (Incluye ahoyada, hincada y plomada)	3500000.0	(sin par IDU claro)					sin referencia
+Canalización banco de ductos TDP PVC 8Ø3" EPM RS1-003	301685.576478172	(sin par IDU claro)					sin referencia
+Canalización banco de ductos TDP PVC 7Ø3" EPM RS1-003	222617.0135125	(sin par IDU claro)					sin referencia
+Canalización banco de ductos TDP PVC 6Ø3" EPM RS1-003	226252.258027543	CANALIZACION VIA PUBLICA NUEVE (9) DUCTOS PVC TIPO TDP 9Ø6"+2Ø3"	APU	ML	1345327.0	0.17	REVISAR: MUY POR DEBAJO de IDU
+Canalización banco de ductos TDP PVC 5Ø3" EPM RS1-003	188537.983668445	(sin par IDU claro)					sin referencia
+Cárcamo de protección de ductos ETB	763157.18951	(sin par IDU claro)					sin referencia
+Caja de inspección prefabricada 0,80x0,80 m (incluye base, muros, cubierta y aros)	2861839.4606625	(sin par IDU claro)					sin referencia
+Excavación manual para redes profundidad 0-2 m (incluye cargue)	112219.164391363	EXCAVACION MANUAL PARA REDES PROFUNDIDAD 0M - 2M (INCLUYE CARGUE)	APU	M3	58471.0	1.92	ok
+Relleno para redes en arena de peña	252749.552620573	RELLENO PARA REDES EN ARENA DE PEÑA (SUMINISTRO, EXTENDIDO, HUMEDECIMIENTO Y COMPACTACIÓN)	APU	M3	182185.0	1.39	ok
+Base granular clase B (BG38/BG25) para telecomunicaciones	292451.3350625	BASE GRANULAR CLASE A (BGA_BG38) (Suministro, Extendido, Nivelación, Humedecimiento y Compactación con vibrocompactador)	APU	M3	230570.0	1.27	ok
+Sub-base granular clase C para telecomunicaciones	327919.104867578	(sin par IDU claro)					sin referencia
+Transporte y disposición final de escombros (21 km)	69249.0166084375	DESCABECE DE PILOTES (INCLUYE COMPRESOR Y MARTILLO DEMOLEDOR, INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE ESCOMBROS EN SITIO AUTORIZADO A 21 KM.	APU	M3	355050.0	0.20	REVISAR: MUY POR DEBAJO de IDU
+Cerramiento en tela para tramos de ejecucion para la totalidad del proyecto	21734.49	(sin par IDU claro)					sin referencia
+Acondicionamiento de acopio y campamentos(incluye servicios, logistica y seguridad para totalidad del proyecto)	124526.050191591	(sin par IDU claro)					sin referencia
+Construcción lavado de llantas	61511267.05	(sin par IDU claro)					sin referencia
+PMT(incluye suministro, tramite y personal de obra)	133048652.88	(sin par IDU claro)					sin referencia
+Comision topografica	12000000.0	(sin par IDU claro)					sin referencia
+Stand-by	9000000.0	(sin par IDU claro)					sin referencia
+Instalación de tubería de concreto reforzado mediante tecnología sin zanja Pipe Jacking de DI 900mm	3334353.0	(sin par IDU claro)					sin referencia
+Suministro de tubería de concreto reforzado DI 900mm tipo Pipe Jacking	1682020.0	(sin par IDU claro)					sin referencia
+Instalación de tubería de concreto reforzado mediante tecnología sin zanja Pipe Jacking de DI 30"	3334353.0	(sin par IDU claro)					sin referencia
+Suministro de tubería de concreto reforzado DI 30" tipo Pipe Jacking	1682020.0	TUBERIA CONCRETO D=30" CL. IV REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1478460.0	1.14	ok
+Construcción de pozos de lanzamiento	541481565.4	(sin par IDU claro)					sin referencia
+Construcción de pozos de salida	398057499.4	(sin par IDU claro)					sin referencia
+Construcción de pozos intermedios	128990281.5	(sin par IDU claro)					sin referencia
+Excavación mecánica en material común (Incluye cargue, transporte y disposición Final)	79829.3512	EXCAVACIÓN MANUAL EN MATERIAL COMÚN (INCL CARGUE, TRANSPORTE Y DISPOSICION FINAL)	APU	M3	117926.0	0.68	ok
+Descargue y acopio de tubería en concreto	12884.1232257206	(sin par IDU claro)					sin referencia
+Suministro de Tubería	1038889.80276727	TUBERÍA HDPE 8" (SUMINISTRO E INSTALACIÓN)	APU	ML	127982.0	8.12	REVISAR: MUY POR ENCIMA de IDU
+Campaña geotécnica	30150000.0	(sin par IDU claro)					sin referencia
+Identificación de interferencias	28795260.0	(sin par IDU claro)					sin referencia
+Pruebas de hermeticidad y CCTV según norma EAAB de tramos acabados	50000000.0	(sin par IDU claro)					sin referencia
+Rotura de anden	65000.0	(sin par IDU claro)					sin referencia
+Reparación (Andenes)	311147.56275	(sin par IDU claro)					sin referencia
+Reparación de parques	50292.414350009	(sin par IDU claro)					sin referencia
+Imprevistos 3%	21475257339.6472	(sin par IDU claro)					sin referencia
+Incrementos	21475257339.6472	(sin par IDU claro)					sin referencia
+Pago de Servidumbres con cuantía	200000000.0	(sin par IDU claro)					sin referencia
+Gastos notariales, beneficencia y registro de Servidumbres	15787333.3333333	(sin par IDU claro)					sin referencia
+Estudio de gestión predial	31356500.0	(sin par IDU claro)					sin referencia
+Incoporación catastral	31356500.0	(sin par IDU claro)					sin referencia
+Actas de vecindad	1000000.0	(sin par IDU claro)					sin referencia
+Polizas	23784362.448	(sin par IDU claro)					sin referencia
+Gestión Tramites - Asesoria juridica	100000000.0	(sin par IDU claro)					sin referencia
+Gastos de mantenimiento	2000000.0	(sin par IDU claro)					sin referencia
+Tramite PMT y permiso de circulacion de volquetas	7592200.0	(sin par IDU claro)					sin referencia
+Tramite Licencias de intervencion de espacio publico	5800000.0	(sin par IDU claro)					sin referencia
+Arqueologicos	15000000.0	(sin par IDU claro)					sin referencia
+Planos record	20000000.0	(sin par IDU claro)					sin referencia
+Honorarios Interventoría	26414566527.7661	(sin par IDU claro)					sin referencia
+Honorarios Tramitador (Entrega obras Acueducto)	26414566527.7661	(sin par IDU claro)					sin referencia
+Impuesto 4x1000	29312419249.2412	(sin par IDU claro)					sin referencia
+Apertura Fideicomiso	5000000.0	(sin par IDU claro)					sin referencia
+Costo Fideicomiso	2900000.0	(sin par IDU claro)					sin referencia
+CERRAMIENTO PROVISIONAL EN POLISOMBRA H=2.20MTS	22000.0	(sin par IDU claro)					sin referencia
+CAMPAMENTO DE OBRA - CONTENEDOR OFICINAS 12FT (1 UN - 6 MESES)	870000.0	(sin par IDU claro)					sin referencia
+INSTALACIÓN PROVISIONAL DE ACUEDUCTO (SUMINISTRO CARROTANQUE)	600000.0	(sin par IDU claro)					sin referencia
+INSTALACIÓN PROVISIONAL DE ENERGÍA (PLANTA + COMBUSTIBLE)	6000000.0	(sin par IDU claro)					sin referencia
+SEÑALIZACIÓN PMT (VERTICAL Y HORIZONTAL)	2000000.0	(sin par IDU claro)					sin referencia
+ELABORACION PLAN MANEJO DE TRANSITO	4000000.0	(sin par IDU claro)					sin referencia
+ELABORACION PLAN MANEJO AMBIENTAL	4000000.0	(sin par IDU claro)					sin referencia
+CONSTRUCCION CARRETEABLE ACCESO Y SALIDA DEL PROYECTO - ANCHO=5.00M (INC. MEJORAMIENTO DE RAJON E=0.45M Y SELLO EN MATERIAL SELECCIONADO E=0.20M)	290000.0	(sin par IDU claro)					sin referencia
+Demolicion cabezal existente de entrada	600000.0	(sin par IDU claro)					sin referencia
+ENSAYOS DE CALIDAD	15000000.0	(sin par IDU claro)					sin referencia
+Descargue y acopio de tubería	64160.6902494402	(sin par IDU claro)					sin referencia
+Suministro de Tubería GRP 92"	8710876.02	TUBERIA GRP 300MM (INCLUYE TRANSPORTE). SUMINISTRO E INSTALACION.	APU	ML	438466.0	19.87	REVISAR: MUY POR ENCIMA de IDU
+Suministro de Tubería GRP 48"	2366186.8125	TUBERIA GRP 300MM (INCLUYE TRANSPORTE). SUMINISTRO E INSTALACION.	APU	ML	438466.0	5.40	REVISAR: MUY POR ENCIMA de IDU
+Uniones GRP para tuberia de 48"	1247108.415	(sin par IDU claro)					sin referencia
+Uniones GRP para tuberia de 92"	2810416.4025	(sin par IDU claro)					sin referencia
+CAMARA GRP 2500 * 2500 * 1200 (INCLUYE TUBERIA , CHIMENEA 2.5M Y ACCESORIOS. INCLUYE TRANSPORTE, SUMINISTRO E INSTALACION.	117421118.115	CAMARA GRP 2500 * 2500 * 1200 (INCLUYE TUBERIA , CHIMENEA 2.5M Y ACCESORIOS. INCLUYE TRANSPORTE, SUMINISTRO E INSTALACION.	APU	UN	102171257.0	1.15	ok
+SC - Excavación maquina, incluye retiro escombros	79829.3512	(sin par IDU claro)					sin referencia
+SC - Descapote de terreno	10000.0	(sin par IDU claro)					sin referencia
+SC - Mejoramiento en rajon	220000.0	(sin par IDU claro)					sin referencia
+SC-Entibado laterales taludes	118821.109957036	(sin par IDU claro)					sin referencia
+SC - Relleno con material granular	129235.042063244	(sin par IDU claro)					sin referencia
+SC - geotextil no tejido	13091.0	GEOTEXTIL NO TEJIDO CON RESISTENCIA A LA TENSION GRAB DE 1310 N. PARA SUBDRENES/FILTROS. (INCLUYE SUMINISTRO E INSTALACION).	APU	M2	31461.0	0.42	REVISAR: MUY POR DEBAJO de IDU
+SC - localizacion y replanteo	6201.6304	(sin par IDU claro)					sin referencia
+MAT - Concreto pobre 1500 psi	422463.0	(sin par IDU claro)					sin referencia
+Suministro tubería PVC flexible Ø20"	2900000.0	TUBERIA PVC U.M. EXT CORRUGADO/INT LISO U.M. NORMA NTC 3722-1 D=20" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	523908.0	5.54	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería PVC flexible Ø27"	5000000.0	TUBERIA PVC U.M. EXT/INT LISO NORMA NTC 5070 D=27" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	874450.0	5.72	REVISAR: MUY POR ENCIMA de IDU
+Instalación tubería PVC flexible Ø20"	72000.0	TUBERIA PVC U.M. EXT CORRUGADO/INT LISO U.M. NORMA NTC 3722-1 D=20" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	523908.0	0.14	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería PVC flexible Ø27"	97000.0	TUBERIA PVC U.M. EXT/INT LISO NORMA NTC 5070 D=27" (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	874450.0	0.11	REVISAR: MUY POR DEBAJO de IDU
+Suministro tubería en concreto CSR Ø12"	1220000.0	TUBERIA CONCRETO D=12" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	162873.0	7.49	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CSR Ø14"	1370000.0	TUBERIA CONCRETO D=14" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	194640.0	7.04	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CSR Ø18"	2900000.0	TUBERIA CONCRETO D=18" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	315153.0	9.20	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CSR Ø20"	3120000.0	TUBERIA CONCRETO D=20" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	403869.0	7.73	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CSR Ø24"	3700000.0	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	817846.0	4.52	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CCR Ø24"	3030000.0	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	817846.0	3.70	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CCR Ø27"	4720000.0	TUBERIA CONCRETO D=27" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	991864.0	4.76	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CCR Ø30"	4960000.0	TUBERIA CONCRETO D=30" CL. IV REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1478460.0	3.35	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CCR Ø36"	6470000.0	TUBERIA CONCRETO D=36" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1512469.0	4.28	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CCR Ø40"	7620000.0	TUBERIA CONCRETO D=40" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1874457.0	4.07	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CER Ø12"	2060000.0	TUBERIA CONCRETO D=12" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	162873.0	12.65	REVISAR: MUY POR ENCIMA de IDU
+Suministro tubería en concreto CER Ø18"	3050000.0	TUBERIA CONCRETO D=18" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	315153.0	9.68	REVISAR: MUY POR ENCIMA de IDU
+Instalación tubería en concreto CSR Ø12"	86000.0	TUBERIA CONCRETO D=12" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	162873.0	0.53	ok
+Instalación tubería en concreto CSR Ø14"	100000.0	TUBERIA CONCRETO D=14" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	194640.0	0.51	ok
+Instalación tubería en concreto CSR Ø18"	129000.0	TUBERIA CONCRETO D=18" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	315153.0	0.41	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería en concreto CSR Ø20"	143000.0	TUBERIA CONCRETO D=20" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	403869.0	0.35	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería en concreto CSR Ø24"	171000.0	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	817846.0	0.21	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería en concreto CCR Ø24"	171000.0	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	817846.0	0.21	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería en concreto CCR Ø27"	193000.0	TUBERIA CONCRETO D=27" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	991864.0	0.19	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería en concreto CCR Ø30"	214000.0	TUBERIA CONCRETO D=30" CL. IV REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1478460.0	0.14	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería en concreto CCR Ø36"	257000.0	TUBERIA CONCRETO D=36" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1512469.0	0.17	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería en concreto CCR Ø40"	285000.0	TUBERIA CONCRETO D=40" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	1874457.0	0.15	REVISAR: MUY POR DEBAJO de IDU
+Instalación tubería en concreto CER Ø12"	86000.0	TUBERIA CONCRETO D=12" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	162873.0	0.53	ok
+Instalación tubería en concreto CER Ø18"	129000.0	TUBERIA CONCRETO D=18" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	APU	ML	315153.0	0.41	REVISAR: MUY POR DEBAJO de IDU
+MAT - Concreto industrializado 4000 psi	650000.0	CONCRETO 4000 PSI IMPERMEABILIZADO (HECHO EN OBRA)	APU	M3	795461.0	0.82	ok
+MAT - Concreto tremie 4000 psi	780000.0	PILOTE D=120 CM CON CONCRETO TREMIE DE 4000 PSI. (INCL. EXCAVACIÓN, CARGUE, MOVILIZACIÓN, MONTAJE Y DESMONTAJE EQUIPO Y CONCRETO)	APU	ML	2020021.0	0.39	REVISAR: MUY POR DEBAJO de IDU
+sc-Bombeo de concreto	60000.0	(sin par IDU claro)					sin referencia
+MO - Concreto de limpieza	30000.0	(sin par IDU claro)					sin referencia
+MO - Box Culvert(Incluye formaleta y consumible)	400000.0	(sin par IDU claro)					sin referencia
+MO - Pilote Preexcavado ø50cm	380000.0	(sin par IDU claro)					sin referencia
+Movilizacion equipos pilotaje hinca y prebarrena	18000000.0	(sin par IDU claro)					sin referencia
+MAT - Hierro 60000 PSI	7500.0	(sin par IDU claro)					sin referencia
+MAT - Alambre negro	6000.0	(sin par IDU claro)					sin referencia
+MO - Manejo de hierro	2800.0	(sin par IDU claro)					sin referencia
+SC-Cinta PVC	65000.0	(sin par IDU claro)					sin referencia
+PRUEBAS HERMETICIDAD-CCTV	6000000.0	(sin par IDU claro)					sin referencia
+HSEQ	9000000.0	(sin par IDU claro)					sin referencia
+PALETEROS	5500000.0	(sin par IDU claro)					sin referencia
+POLIZAS - PARA CONTRATO DE URBANISMO CON EL ADMON DELEGADO	25000000.0	(sin par IDU claro)					sin referencia
+TRAMITE ENTREGA CAR	25000000.0	(sin par IDU claro)					sin referencia
+VIGILANCIA MIENTRAS SE ENTREGAN LAS OBRAS	8000000.0	(sin par IDU claro)					sin referencia

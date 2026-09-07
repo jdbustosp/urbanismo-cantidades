@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.72.0")
+(setq *urb-version* "4.72.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -26561,9 +26561,28 @@
               (urb:ppto-row red "Anillo cilindro prefabricado de pozo"
                 id "" "" etapa sub "ML" prof handle))))
         ;; cabezal de descole pluvial (elemento nuevo 2026-08-28)
+        ;; 2026-09-07 (pedido del usuario: DESAGREGAR los cabezales, que
+        ;; venian a la actividad GLOBAL "Cabezal de entrega" con VU de
+        ;; paquete $37,2M): ahora el concepto lleva el DIAMETRO y cruza
+        ;; con los items POR RANGO del libro ("Cabezal de descarga en
+        ;; concreto para tuberia OX-OY"); sin diametro cae al generico.
         ((= base "CABEZAL_PLUVIAL")
+          (setq r (urb:safe-string (cdr (assoc "DIAMETRO" atts)) ""))
+          ;; el concepto se emite con los DOS numeros del RANGO del item
+          ;; del libro (8-10 / 12-16 / 18-24): un O intermedio (14) no
+          ;; aparece literal en ninguna fila y empataba las tres (visto
+          ;; 2026-09-07, 71 huerfanas). El O real vive en el punto y en
+          ;; los cuadros; sin diametro queda huerfana VISIBLE a proposito.
+          (setq prof (distof r))
           (setq rows
-            (list (urb:ppto-row "ALC-PLUVIAL" "Cabezal de entrega"
+            (list (urb:ppto-row "ALC-PLUVIAL"
+              (cond
+                ((null prof) "Cabezal de descarga en concreto")
+                ((<= prof 10.0)
+                  "Cabezal de descarga en concreto para tuberia 8 10")
+                ((<= prof 16.0)
+                  "Cabezal de descarga en concreto para tuberia 12 16")
+                (T "Cabezal de descarga en concreto para tuberia 18 24"))
               id "" "" etapa sub "UN" 1.0 handle))))
         ((= base "SUMIDERO")
           (setq rows

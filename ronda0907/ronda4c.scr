@@ -1,0 +1,19 @@
+(if (not (member "C:URBANISMO" (atoms-family 1))) (load "C:/Users/jdbus/AppData/Roaming/Autodesk/ApplicationPlugins/UrbanismoCantidades.bundle/Contents/urbanismo_cantidades.lsp"))
+(load "C:/Users/jdbus/Documents/URBANISMO/work/pdf0907/fix0907.lsp")
+(load "C:/Users/jdbus/Documents/URBANISMO/work/pdf0907/fix0907c.lsp")
+REPOSACC
+REPOSACC3
+WIPETODOS
+RELABELACC
+CLEANACCATTS
+DIAGCONEX3
+CENSOCAB
+_.QSAVE
+(setq *urb-ppto-sin-dialogo* T)
+PPTOEXPORTAR
+(setq f (open "C:/Users/jdbus/Documents/URBANISMO/work/pdf0907/ronda4c_done.txt" "w"))
+(write-line (vl-princ-to-string *urb-ppto-last-summary*) f)
+(write-line (strcat "VERSION " *urb-version*) f)
+(write-line "FIN-RONDA4C" f)
+(close f)
+_.QUIT _N
