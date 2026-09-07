@@ -1,0 +1,27 @@
+TIPO	DESCRIPCION	UM	PRECIO	JUSTIFICACION (criterio ALTO)
+NUEVO	MAT - Concreto industrializado 4000 psi	M3	650000	Serie interna: 3000psi 560.000 / impermeabilizado 590.000 -> 4000psi bombeable arriba
+NUEVO	MAT - Concreto tremie 4000 psi	M3	780000	Tremie (vaciado bajo agua/pilote) prima ~20% sobre industrializado
+NUEVO	sc-Bombeo de concreto	M3	60000	Mercado 35-50k/M3, redondeado arriba
+NUEVO	MO - Concreto de limpieza	M2	30000	Analogia MO Escobillado 33.000/M2
+NUEVO	MO - Box Culvert(Incluye formaleta y consumible)	M3	400000	MO+formaleta estructura hidraulica reforzada
+NUEVO	MO - Pilote Preexcavado ø50cm	ML	380000	MO+equipo pilote 50cm (sin concreto ni acero, van aparte)
+NUEVO	Movilizacion equipos pilotaje hinca y prebarrena	UN	18000000	Movilizacion+desmovilizacion piloteadora
+NUEVO	MAT - Hierro 60000 PSI	KG	7500	Igual a "Hierro 60000 psi - losa y vigas" 7.500 (ajuste 2026)
+NUEVO	MAT - Alambre negro	KG	6000	Interno 5.348 redondeado arriba
+NUEVO	MO - Manejo de hierro	KG	2800	Figuracion+armado, mercado 1.500-2.200, alto
+NUEVO	SC-Cinta PVC	ML	65000	Cinta PVC O-22 instalada, mercado 45-55k, alto
+NUEVO	PRUEBAS HERMETICIDAD-CCTV	UN	6000000	Coherente con "Pruebas hermeticidad y CCTV norma EAAB" GB 50M / 8 puntos
+NUEVO	HSEQ	UN	9000000	Residente HSEQ mes con prestaciones
+NUEVO	PALETEROS	MES	5500000	2 paleteros x salario+prestaciones
+NUEVO	POLIZAS - PARA CONTRATO DE URBANISMO CON EL ADMON DELEGADO	GB	25000000	Interno "Polizas" GLB 23.784.362 redondeado arriba
+NUEVO	TRAMITE ENTREGA CAR	GB	25000000	Gestion documental+visitas+ajustes entrega CAR
+NUEVO	VIGILANCIA MIENTRAS SE ENTREGAN LAS OBRAS	MES	8000000	Puesto 24h mes con prestaciones
+COHERENCIA	Suministro tuberia novafor 315 mm 6"- 6 mts	UN	941853	315mm = 12"; estaba 242.962 (4x abajo de la serie oficial: NOVAFORT 12" 156.975/ML x 6 = 941.853 = PVC flexible Ø12")
+COHERENCIA	Mano de obra tuberia novafort 315 mm - 6"	ML	42702	Igualada a "Instalación tubería PVC flexible Ø12"" (estaba 26.538)
+COHERENCIA	Suministro tuberia novafor 250 mm 8"- 6 mts	UN	654547	250mm = 10"; serie: NOVAFORT 10" 109.091/ML x 6 (estaba 298.488)
+COHERENCIA	Suministro tuberia novafor 315 mm 4"- 6 mts	UN	941853	315mm = 12" (la etiqueta 4" es inconsistente; manda el mm) (estaba 181.602)
+COHERENCIA	Mano de obra tuberia novafort 315 mm - 4"	ML	42702	Idem instalación Ø12" (estaba 19.458)
+COHERENCIA	TUBERIA PVC-RDE21 4"	ML	228893	Igualada a la serie interna "Tubería PVC 4" RDE 21" sum+inst 228.893 (estaba 91.273)
+COHERENCIA	RELLENO EN ARENA DE PEÑA	M3	110000	Igualada a "Relleno en arena peña" PL3 110.000 (estaba 90.000)
+COHERENCIA	RELLENO EN RECEBO B-200	M3	110000	Igualada al recebo B-200 del MT 110.000 (estaba 80.000)
+COHERENCIA	Dren filtro 200 mm (filtro frances)	ML	110000	Estaba igual al de 100mm (80.000); el doble de diametro no puede costar lo mismo

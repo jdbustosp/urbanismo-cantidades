@@ -29,6 +29,17 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-09-07 tarde (parte 37, PC principal, v4.71.1) — barrido VU, depuración global, preliminares 3,5% real, MT completo de presión, subtotales solo-VT
+
+- **VU en blanco eliminados**: 17 precios nuevos para el paquete descoles/box culvert/cámaras (SC-/MAT-/MO-) y complementarios (HSEQ/paleteros/pólizas/CAR/vigilancia/CCTV) — 0 actividades sin precio (`diagnosticos/precios_ronda3_20260907.tsv`).
+- **9 correcciones de coherencia AL ALZA**: tuberías "novafor 315/250 mm" de parques 3-4× por debajo de la serie oficial del propio libro (315 mm = 12" → tubo 6 m 941.853); ALMA CAFÉ alineada (RDE21 4" → 228.893, arena/recebo → 110.000); dren francés 200 ≠ 100 mm.
+- **Preliminares 3,5% real** (reclamo "no puede ser VU=1 con cantidad tan alta"): celdas de subetapa = BASE por subetapa, VU = 0,035 con formato "3,5%", VT = 3,5% × base — la dinámica muestra el 3,5% de cada subetapa.
+- **MT acueducto espejo exacto** (−7: exc manual/conglomerado [resaltadas por el usuario], relleno inicial, manejo de aguas, demoliciones/reposiciones) + **motor v4.71.1**: cimentación/recebo/entibado extendidos a tramos de PRESIÓN (arena 0,10 m sobre clave; el bloque de creación solo cubría gravedad) con derivación en el export desde la geometría cuando los atributos vienen vacíos — el MT del ACU se llena SIN re-editar el master; +localización/replanteo (3 redes húmedas) y cinta de señalización (ACU).
+- **Depuración global "no van"**: pluvial queda con PVC flexible Ø12/14/20/24 (−28 tuberías: Ø18/Ø27 y toda la serie de concreto); pozos pluviales −2 (cono y tapa duplicado, cámara ≥36"); censo completo de filas en cero en `diagnosticos/censo_cant_cero_20260907.txt` (el resto se conserva: catálogo del motor, diseño por modelar, ítems contractuales). Hoja reescrita desde `diagnosticos/pe_nuevo3_20260907.tsv` (1.540 filas).
+- **Redes secas verificadas**: MT y TELECOM tienen capítulo de movimiento de tierras; AP y OBRAS ELÉCTRICAS llevan la excavación embebida en el APU de canalización.
+- **Dinámica**: subtotales N1..N4 (arriba) visibles SOLO en VALOR_TOTAL (CANTIDAD/VU ocultos con ";;;" vía PivotSelect); BD 3.009 filas, Actualizar-todo probado headless.
+- Suite **85 checks TODO-OK** (PPTO-PARAMETRICA 112→113 por la localización nueva). Backup: `BACKUPS/urbanismo maipore_backup_antes_ronda3_20260907.xlsx`.
+
 ### 2026-09-07 mañana (parte 36, PC principal, v4.71.0) — GEN reparada + refresh dinámica arreglado, pluvial desagregado como sanitario, MT unificado, puente export→hoja
 
 - **Bug GEN cazado y reparado** (reclamo del usuario: `[Expression.Error] The column 'GEN'...` al refrescar la dinámica): el paso2 de la reestructuración escribió POR EJECUTAR con 41 columnas en un layout de 42 — las fórmulas CANT/VU/VT pisaron la subetapa GEN (col 39) y `SUM(RC6:RC38)` la excluía. Hoja REESCRITA completa en 42 col (GEN=AM, CANT=AN, VU=AO, VT=AP, subtotales `INDEX(C42)`, 3,5% con VU col 41, formato L1 y outline de filas al final) en un solo script verificado; query BD_PE robusta con `Table.UnpivotOtherColumns` + `RemoveColumns MissingField.Ignore` (ya no depende de la lista de subetapas) y `PE_RANGO=A2:AP5000`. RefreshAll headless OK: BD_CONSOL 2.688→3.009 filas (los 674 aportes GEN que se perdían).

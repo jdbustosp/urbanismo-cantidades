@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.71.0")
+(setq *urb-version* "4.71.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -10903,15 +10903,23 @@
           (setq baseg-e (max 0.0 (- excavation envb-e)))
           (setq vals (mp:alist-set vals "ARENA_M3" (rtos arena-e 2 3))
                 vals (mp:alist-set vals "BASE_GRANULAR_M3" (rtos baseg-e 2 3)))))
-      ;; Cimentacion (modelo 2) y entibado: solo tramos a gravedad
-      ;; (alcantarillado sanitario/pluvial), que es donde aplica el APU.
-      (if (and (mp:gravity-tramo-p base) (> excavation 1e-9)
+      ;; Cimentacion (modelo 2) y entibado: TODOS los tramos humedos
+      ;; (2026-09-07, reclamo "falta el MT completo de tuberia ACU"):
+      ;; gravedad (san/plu) cimienta en GRAVILLA con el colchon
+      ;; *mp-triturado-sobre-clave*; presion (ACU) cimienta en ARENA DE
+      ;; PENA con 0.10 m sobre la clave (RAS 0330). El export nombra el
+      ;; APU segun la red (gravilla vs arena), aqui solo cambia la
+      ;; altura de la envolvente.
+      (if (and (mp:hydro-tramo-p base) (> excavation 1e-9)
                diameter-m (> diameter-m 0.0))
         (progn
-          ;; envolvente de triturado: cama + tubo + colchon sobre la clave,
-          ;; recortada a la excavacion real (zanjas muy someras no pueden
-          ;; contener la envolvente completa)
-          (setq env-height (+ bedding diameter-m *mp-triturado-sobre-clave*)
+          ;; envolvente de cimentacion: cama + tubo + colchon sobre la
+          ;; clave, recortada a la excavacion real (zanjas muy someras
+          ;; no pueden contener la envolvente completa)
+          (setq env-height
+                  (+ bedding diameter-m
+                     (if (mp:gravity-tramo-p base)
+                       *mp-triturado-sobre-clave* 0.10))
                 env-vol (min excavation
                           (* length-value width env-height))
                 triturado (max 0.0 (- env-vol element-volume))
@@ -26159,7 +26167,8 @@
 (defun urb:ppto-rows-tramos (/ ss i be atts red lng diam mat etapa sub handle
                              pini pfin id ent rows out r ductos-n diam-d
                              mat-d ctok exc prof anchoz vol-ductos recub
-                             env-banco arena base-gran circ mat-libro)
+                             env-banco arena base-gran circ mat-libro
+                             trit rec profm dnum cama colchon envv)
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "TRAMO_*,MP_TRAMO_*")))
         out nil i 0)
   (if ss
@@ -26178,10 +26187,44 @@
             id (strcat pini "-" pfin))
       (if (member red '("ALC-SANITARIO" "ALC-PLUVIAL" "ACUEDUCTO"))
         (progn
-          (setq ent
-            (urb:ppto-entibado-3 be lng
-              (atof (urb:safe-string
-                (cdr (assoc "PROFUNDIDAD_MEDIA" atts)) "0"))))
+          ;; MT COMPLETO DE LA ZANJA (2026-09-07, reclamo "falta el MT
+          ;; completo de tuberia del acueducto"): los tramos de PRESION
+          ;; creados antes de v4.71.1 no traen cimentacion/recebo (el
+          ;; bloque de creacion solo cubria gravedad) y a veces tampoco
+          ;; profundidad -- aqui se DERIVAN de la geometria del propio
+          ;; tramo (excavacion, ancho, diametro, cama) para que el
+          ;; capitulo de MT quede completo SIN re-editar el master.
+          (setq exc (atof (urb:safe-string
+                  (cdr (assoc "EXCAVACION_M3" atts)) "0"))
+                trit (atof (urb:safe-string
+                  (cdr (assoc "TRITURADO_M3" atts)) "0"))
+                rec (atof (urb:safe-string
+                  (cdr (assoc "RECEBO_M3" atts)) "0"))
+                anchoz (atof (urb:safe-string
+                  (cdr (assoc "ANCHO_ZANJA" atts)) "0"))
+                profm (atof (urb:safe-string
+                  (cdr (assoc "PROFUNDIDAD_MEDIA" atts)) "0"))
+                dnum (* 0.0254 (atof (urb:safe-string diam "0"))))
+          (if (<= anchoz 1e-9) (setq anchoz (+ 0.60 dnum)))
+          (if (and (<= profm 1e-9) (> exc 1e-9) (> lng 0.0)
+                   (> anchoz 1e-9))
+            (setq profm (/ exc (* lng anchoz))))
+          (if (and (<= trit 1e-9) (> exc 1e-9) (> lng 0.0)
+                   (> dnum 1e-9))
+            (progn
+              (setq cama (atof (urb:safe-string
+                (cdr (assoc "ESPESOR_CAMA" atts)) "0")))
+              (if (<= cama 1e-9) (setq cama 0.10))
+              ;; colchon sobre clave: arena 0.10 (presion) / gravilla
+              ;; *mp-triturado-sobre-clave* (gravedad)
+              (setq colchon
+                (if (= red "ACUEDUCTO") 0.10
+                  (if (boundp '*mp-triturado-sobre-clave*)
+                    *mp-triturado-sobre-clave* 0.30)))
+              (setq envv (min exc (* lng anchoz (+ cama dnum colchon)))
+                    trit (max 0.0 (- envv (* 0.7854 dnum dnum lng)))
+                    rec (max 0.0 (- exc envv)))))
+          (setq ent (urb:ppto-entibado-3 be lng profm))
           ;; 2026-09-07 (pedido del usuario: desagregar redes humedas):
           ;; el libro pluvial YA NO trae el APU combinado "Tuberia MAT
           ;; D Hex (banda)" -- quedo desagregado igual que el sanitario
@@ -26245,21 +26288,17 @@
           (setq rows
             (append rows
             (list
+              (urb:ppto-row red "Localizacion y replanteo topografico"
+                id pini pfin etapa sub "ML" lng handle)
               (urb:ppto-row red "Excavacion mecanica en material comun"
-                id pini pfin etapa sub "M3"
-                (atof (urb:safe-string
-                  (cdr (assoc "EXCAVACION_M3" atts)) "0")) handle)
+                id pini pfin etapa sub "M3" exc handle)
               (urb:ppto-row red
                 (if (= red "ACUEDUCTO")
                   "Cama y atraque en arena de pena"
                   "Cimentacion de tuberia en gravilla")
-                id pini pfin etapa sub "M3"
-                (atof (urb:safe-string
-                  (cdr (assoc "TRITURADO_M3" atts)) "0")) handle)
+                id pini pfin etapa sub "M3" trit handle)
               (urb:ppto-row red "Suministro y colocacion de recebo"
-                id pini pfin etapa sub "M3"
-                (atof (urb:safe-string
-                  (cdr (assoc "RECEBO_M3" atts)) "0")) handle)
+                id pini pfin etapa sub "M3" rec handle)
               (urb:ppto-row red "Cargue transporte y disposicion de sobrantes"
                 id pini pfin etapa sub "M3"
                 (atof (urb:safe-string
@@ -26270,6 +26309,13 @@
                 id pini pfin etapa sub "M2" (nth 1 ent) handle)
               (urb:ppto-row red "Entibado E-2"
                 id pini pfin etapa sub "M2" (nth 2 ent) handle))))
+          ;; cinta de senalizacion sobre tuberia de presion (RAS 0330)
+          (if (= red "ACUEDUCTO")
+            (setq rows
+              (append rows
+                (list
+                  (urb:ppto-row red "Cinta de senalizacion"
+                    id pini pfin etapa sub "ML" lng handle)))))
           (setq rows
             (append rows
               (urb:ppto-param-rows

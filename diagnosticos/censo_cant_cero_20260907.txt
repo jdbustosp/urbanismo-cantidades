@@ -1,0 +1,371 @@
+fila 19	ANDENES > Suministro	[KG] Transporte de prefabricados
+fila 30	ANDENES > Excavaciones y rellenos	[M3] Suministro y colocaci�n de recebo
+fila 35	ANDENES > Arborizaci�n	[UN] Suministro e instalaci�n de �rbol
+fila 37	ANDENES > Mobiliario	[UN] Suministro e instalaci�n de banca en concreto con espaldar M-30
+fila 38	ANDENES > Mobiliario	[UN] Suministro e instalaci�n de banca L=2,06m (CIO106682)
+fila 39	ANDENES > Mobiliario	[UN] Suministro e instalaci�n de dos canecas M-121
+fila 40	ANDENES > Mobiliario	[UN] Suministro e instalaci�n de protector de �rbol de dos tubos Tipo M-91
+fila 41	ANDENES > Mobiliario	[UN] Suministro y construcci�n de contenedor de ra�ces (Dimensiones: 2,0x1,2m). Incluye tierra negra
+fila 42	ANDENES > Mobiliario	[UN] Suministro y construcci�n de contenedor de ra�ces Tipo A (2,00x2,20)m
+fila 43	ANDENES > Mobiliario	[UN] Suministro y construcci�n de contenedor de ra�ces Tipo B (1,50x2,20)m
+fila 44	ANDENES > Mobiliario	[UN] Suministro y construcci�n de contenedor de ra�ces Tipo C (1,20x2,20)m
+fila 45	ANDENES > Mobiliario	[UN] Suministro y construcci�n de contenedor de ra�ces Tipo D (0,84x4,20)m
+fila 46	ANDENES > Mobiliario	[UN] Suministro y construcci�n de contenedor de ra�ces Tipo E (0,70x4,20)m
+fila 47	ANDENES > Mobiliario	[UN] Suministro y construcci�n de contenedor de ra�ces Tipo F (0,70x4,20)m
+fila 53	V�A > Acabados	[M3] Grano de caucho reciclado
+fila 54	V�A > Acabados	[VJ] Transporte de equipos para asfaltos
+fila 73	V�A > Drenaje	[ML] Suministro e instalaci�n de filtro tipo franc�s (Ancho=0,30m. Incluye tubo PVC perforado �=4", geotextil, arena lavada + gravilla 1/2" 0,60:0,40)
+fila 76	CICLORRUTA > Descapote y nivelaci�n subrasante	[M2] Compactaci�n de subrasante (Incluye nivelaci�n)
+fila 77	CICLORRUTA > Descapote y nivelaci�n subrasante	[M2] Descapote mec�nico de material vegetal (Incluye cargue y retiro externo)
+fila 79	CICLORRUTA > Acabados	[M3] Suministro, extendida y compactaci�n de Rodadura Asf�ltica MD-13
+fila 80	CICLORRUTA > Acabados	[VJ] Transporte de equipos para asfaltos
+fila 81	CICLORRUTA > Acabados	[UN] Bordillo prefabricado A-80
+fila 82	CICLORRUTA > Acabados	[KG] Transporte de prefabricados
+fila 83	CICLORRUTA > Acabados	[UN] Suministro de ca�uela prefabricada
+fila 85	CICLORRUTA > Instalaci�n	[ML] M.O. instalaci�n de bordillo prefabricado
+fila 86	CICLORRUTA > Instalaci�n	[ML] M.O. instalaci�n de ca�uela prefabricada
+fila 88	CICLORRUTA > Excavaciones y rellenos	[M3] Excavaci�n mec�nica en material com�n (Incluye cargue, transporte y disposici�n externa)
+fila 89	CICLORRUTA > Excavaciones y rellenos	[M3] Suministro y colocaci�n de recebo B-200
+fila 91	CICLORRUTA > Granulares	[M3] Subbase granular SBG
+fila 92	CICLORRUTA > Granulares	[M2] Geotextil tejido 2100
+fila 95	RAMPA VEHICULAR > Descapote y nivelaci�n subrasante	[M2] Compactaci�n de subrasante (Incluye nivelaci�n)
+fila 96	RAMPA VEHICULAR > Descapote y nivelaci�n subrasante	[M2] Descapote mec�nico de material vegetal (Incluye cargue y retiro externo)
+fila 98	RAMPA VEHICULAR > Suministro	[UN] Suministro pieza remate A-105 para rampa
+fila 99	RAMPA VEHICULAR > Suministro	[UN] Sardinel prefabricado A-10
+fila 100	RAMPA VEHICULAR > Suministro	[UN] Suministro sardinel alto A-86 para rampas
+fila 101	RAMPA VEHICULAR > Suministro	[UN] Suministro sardinel bajo A-85 para rampa
+fila 102	RAMPA VEHICULAR > Suministro	[UN] Suministro sardinel especial A-100 para rampa
+fila 104	RAMPA VEHICULAR > Suministro	[UN] Adoqu�n gris 10x20x6
+fila 105	RAMPA VEHICULAR > Suministro	[UN] Loseta lisa 20x20x6
+fila 106	RAMPA VEHICULAR > Suministro	[UN] Loseta toperol 20x20x6
+fila 107	RAMPA VEHICULAR > Suministro	[UN] Loseta gu�a 20x20x6
+fila 108	RAMPA VEHICULAR > Suministro	[KG] Transporte de prefabricados
+fila 109	RAMPA VEHICULAR > Suministro	[M3] Arena de nivelaci�n
+fila 111	RAMPA VEHICULAR > Instalaci�n	[M2] M.O. instalaci�n de adoqu�n y tabletas
+fila 112	RAMPA VEHICULAR > Instalaci�n	[ML] M.O. instalaci�n de bordillo prefabricado
+fila 113	RAMPA VEHICULAR > Instalaci�n	[ML] M.O. instalaci�n de sardinel prefabricado
+fila 114	RAMPA VEHICULAR > Instalaci�n	[ML] M.O. instalaci�n de loseta gu�a y toperol
+fila 115	RAMPA VEHICULAR > Instalaci�n	[M2] M.O. localizaci�n y replanteo
+fila 116	RAMPA VEHICULAR > Instalaci�n	[M2] M.O. nivelaci�n con arena
+fila 117	RAMPA VEHICULAR > Instalaci�n	[UN] M.O. instalaci�n pieza remate A-105
+fila 119	RAMPA VEHICULAR > Excavaciones y rellenos	[M3] Excavaci�n mec�nica en material com�n (Incluye cargue, transporte y disposici�n externa)
+fila 120	RAMPA VEHICULAR > Excavaciones y rellenos	[M3] Suministro y colocaci�n de recebo B-200
+fila 122	RAMPA VEHICULAR > Granulares	[M3] Subbase granular SBG
+fila 123	RAMPA VEHICULAR > Granulares	[M2] Geotextil tejido 2100
+fila 125	RAMPA VEHICULAR > Mobiliario	[UN] Suministro e instalaci�n de bolardo alto en hierro Tipo M-63
+fila 128	RAMPA PEATONAL > Descapote y nivelaci�n subrasante	[M2] Compactaci�n de subrasante (Incluye nivelaci�n)
+fila 129	RAMPA PEATONAL > Descapote y nivelaci�n subrasante	[M2] Descapote mec�nico de material vegetal (Incluye cargue y retiro externo)
+fila 131	RAMPA PEATONAL > Suministro	[ML] Suministro sardinel alto A-86 para rampas
+fila 132	RAMPA PEATONAL > Suministro	[UN] Suministro sardinel bajo A-85 para rampa
+fila 133	RAMPA PEATONAL > Suministro	[UN] Suministro sardinel especial A-100 para rampa
+fila 134	RAMPA PEATONAL > Suministro	[M2] Suministro y construcci�n de remate de rampa en concreto fundido en sitio
+fila 135	RAMPA PEATONAL > Suministro	[UN] Adoqu�n gris 10x20x6
+fila 136	RAMPA PEATONAL > Suministro	[UN] Loseta toperol 20x20x6
+fila 137	RAMPA PEATONAL > Suministro	[UN] Loseta gu�a 20x20x6
+fila 139	RAMPA PEATONAL > Suministro	[KG] Transporte de prefabricados
+fila 140	RAMPA PEATONAL > Suministro	[M3] Arena de nivelaci�n
+fila 141	RAMPA PEATONAL > Suministro	[UN] Loseta lisa 20x20x6
+fila 143	RAMPA PEATONAL > Instalaci�n	[M2] M.O. localizaci�n y replanteo
+fila 144	RAMPA PEATONAL > Instalaci�n	[M2] M.O. instalaci�n de adoqu�n y tabletas
+fila 145	RAMPA PEATONAL > Instalaci�n	[M2] M.O. nivelaci�n con arena
+fila 148	RAMPA PEATONAL > Instalaci�n	[ML] M.O. instalaci�n de sardinel prefabricado
+fila 150	RAMPA PEATONAL > Excavaciones y rellenos	[M3] Excavaci�n mec�nica en material com�n (Incluye cargue, transporte y disposici�n externa)
+fila 151	RAMPA PEATONAL > Excavaciones y rellenos	[M3] Suministro y colocaci�n de recebo B-200
+fila 153	RAMPA PEATONAL > Granulares	[M3] Subbase granular SBG
+fila 154	RAMPA PEATONAL > Granulares	[M2] Geotextil tejido 2100
+fila 156	RAMPA PEATONAL > Mobiliario	[UN] Suministro e instalaci�n de bolardo alto en hierro Tipo M-63
+fila 159	PASO PEATONAL SEGURO > Descapote y nivelaci�n subrasante	[M2] Compactaci�n de subrasante (Incluye nivelaci�n)
+fila 160	PASO PEATONAL SEGURO > Descapote y nivelaci�n subrasante	[M2] Descapote mec�nico de material vegetal (Incluye cargue y retiro externo)
+fila 162	PASO PEATONAL SEGURO > Suministro	[UN] Adoqu�n gris 10x20x6
+fila 163	PASO PEATONAL SEGURO > Suministro	[UN] Bordillo prefabricado A-80
+fila 164	PASO PEATONAL SEGURO > Suministro	[KG] Transporte de prefabricados
+fila 165	PASO PEATONAL SEGURO > Suministro	[M3] Arena de nivelaci�n
+fila 167	PASO PEATONAL SEGURO > Instalaci�n	[M2] M.O. localizaci�n y replanteo
+fila 168	PASO PEATONAL SEGURO > Instalaci�n	[M2] M.O. instalaci�n de adoqu�n y tabletas
+fila 169	PASO PEATONAL SEGURO > Instalaci�n	[M2] M.O. nivelaci�n con arena
+fila 170	PASO PEATONAL SEGURO > Instalaci�n	[ML] M.O. instalaci�n de bordillo prefabricado
+fila 172	PASO PEATONAL SEGURO > Excavaciones y rellenos	[M3] Excavaci�n mec�nica en material com�n (Incluye cargue, transporte y disposici�n externa)
+fila 173	PASO PEATONAL SEGURO > Excavaciones y rellenos	[M3] Relleno con material seleccionado B-200
+fila 174	PASO PEATONAL SEGURO > Excavaciones y rellenos	[M3] Suministro y colocaci�n de recebo
+fila 176	PASO PEATONAL SEGURO > Granulares	[M3] Subbase granular SBG
+fila 177	PASO PEATONAL SEGURO > Granulares	[M2] Geotextil tejido 2100
+fila 180	ZONA VERDE > Empradizaci�n	[M2] Empradizaci�n y conformaci�n
+fila 182	ZONA VERDE > Arborizaci�n	[UN] Suministro e instalaci�n de �rbol
+fila 184	ZONA VERDE > Excavaciones y rellenos	[M3] Excavaci�n mec�nica en material com�n (Incluye cargue, transporte y disposici�n externa)
+fila 185	ZONA VERDE > Excavaciones y rellenos	[M3] Suministro y colocaci�n de recebo B-200
+fila 188	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Cruce ciclorruta por calzada (0,4m x 0,4m) - Pintura de dos componentes metil metacrilato
+fila 189	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Cruce ciclorruta por calzada (Color azul) - Pintura de dos componentes metil metacrilato
+fila 190	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Demarcaci�n de letras - Pintura acr�lica
+fila 191	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Demarcaci�n de rampas de pompeyano (Color amarillo) - Pintura de dos componentes metil metacrilato
+fila 192	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Demarcaci�n m�xima velocidad permitida (20 km/h) - Pintura de dos componentes metil metacrilato
+fila 193	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Flecha a la derecha - Pintura de dos componentes metil metacrilato
+fila 194	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Flecha a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato
+fila 195	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Flecha a la izquierda - Pintura de dos componentes metil metacrilato
+fila 196	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Flecha de frente - Pintura de dos componentes metil metacrilato
+fila 197	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Flecha de frente o a la derecha - Pintura de dos componentes metil metacrilato
+fila 198	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Flecha de frente o a la izquierda - Pintura de dos componentes metil metacrilato
+fila 199	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Flecha de frente para ciclocarril - Pintura acr�lica
+fila 200	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Flecha de frente, a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato
+fila 201	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] L�nea cebreada para paso de peatones (a=0,4m) - Pintura de dos componentes metil metacrilato
+fila 202	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[ML] L�nea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,12m)
+fila 203	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[ML] L�nea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,15m)
+fila 204	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[ML] L�nea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,12m)
+fila 205	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[ML] L�nea continua de color blanco para ciclorruta - Pintura acr�lica (a=0,10m)
+fila 206	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] L�nea de Pare - Pintura acr�lica (a=0,2m)
+fila 207	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] L�nea de Pare - Pintura de dos componentes metil metacrilato (a=0,6m)
+fila 208	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[ML] L�nea discontinua de color amarillo para ciclorruta 1m x 2m - Pintura acr�lica (a=0,10m)
+fila 209	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[ML] L�nea discontinua de color blanco 1m x 1m - Pintura de dos componentes metil metacrilato (a=0,20m)
+fila 210	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[ML] L�nea discontinua de color blanco 3m x 5m - Pintura de dos componentes metil metacrilato (a=0,12m)
+fila 211	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Pictograma de bicicleta - Pintura acr�lica
+fila 212	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Pictograma de cruce peatonal - Pintura de dos componentes metil metacrilato
+fila 213	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[GL] Reproceso de pintura
+fila 214	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[M2] Sentido del tr�nsito en pompeyanos (Tri�ngulos) - Pintura de dos componentes metil metacrilato
+fila 215	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[ML] Suministro e instalaci�n de resalto en concreto
+fila 216	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[UN] Tacha reflectiva bidireccional (L�nea central)
+fila 217	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n horizontal	[UN] Tacha reflectiva bidireccional (L�nea de borde)
+fila 219	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical (0,60mx0,60m)
+fila 220	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical ciclorruta doble (0,45m x 0,45m)
+fila 221	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical ciclorruta sencilla "Fin ciclorruta"
+fila 222	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical ciclorruta sencilla "Inicio ciclorruta"
+fila 223	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical ciclorruta sencilla (0,45m x 0,45m)
+fila 224	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical SP-46A / SR-30
+fila 225	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical SPB-03
+fila 226	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical SPB-04
+fila 227	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical SPC-01 / SPC-01
+fila 228	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical SPC-01 / SRC-01
+fila 229	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical ubicaci�n de cruce ciclistas SP-59A
+fila 230	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical ubicaci�n de cruce peatonal SP-46
+fila 231	SE�ALIZACI�N Y DEMARCACI�N > Se�alizaci�n vertical	[UN] Se�al vertical ubicaci�n de cruce peatonal SP-46B
+fila 751	RED DE ACUEDUCTO > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC presi�n �1"
+fila 757	RED DE ACUEDUCTO > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC presi�n �10"
+fila 759	RED DE ACUEDUCTO > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a y piezas especiales HD �4"
+fila 762	RED DE ACUEDUCTO > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC presi�n �1"
+fila 768	RED DE ACUEDUCTO > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC presi�n �10"
+fila 770	RED DE ACUEDUCTO > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a y piezas especiales HD �4"
+fila 773	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[ML] Localizaci�n y replanteo topogr�fico
+fila 775	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Excavaci�n manual en material com�n
+fila 776	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Excavaci�n en conglomerado
+fila 778	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Geotextil NT 1600
+fila 779	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Entibado continuo E-1A, H=2,00 m
+fila 780	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Entibado continuo E-1B, 2,00<H=3,00 m
+fila 781	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Entibado E-2, H>3,00 m
+fila 782	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[ML] Cinta de se�alizaci�n
+fila 783	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[ML] C�rcamo o placa de protecci�n para tuber�a (Red de acueducto)
+fila 784	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Cama y atraque en arena de pe�a
+fila 785	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Relleno inicial alrededor de tuber�a
+fila 786	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Suministro y colocaci�n de recebo B-200
+fila 787	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Relleno con material seleccionado de excavaci�n
+fila 788	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[D�A] Manejo y agotamiento de aguas
+fila 789	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Demolici�n de pavimento flexible
+fila 790	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Reposici�n de pavimento flexible y estructura
+fila 791	RED DE ACUEDUCTO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Demolici�n y reposici�n de and�n
+fila 793	RED DE ACUEDUCTO > ACOMETIDAS	[UN] Construcci�n y conexi�n de acometida �1"
+fila 794	RED DE ACUEDUCTO > ACOMETIDAS	[UN] Construcci�n y conexi�n de acometida �2"
+fila 795	RED DE ACUEDUCTO > ACOMETIDAS	[UN] Construcci�n y conexi�n de acometida �3"
+fila 796	RED DE ACUEDUCTO > ACOMETIDAS	[UN] Construcci�n y conexi�n de acometida �4"
+fila 797	RED DE ACUEDUCTO > ACOMETIDAS	[UN] Acometida domiciliaria �1/2" con collar �4" y cajilla de medidor
+fila 839	RED DE ACUEDUCTO > ACCESORIOS Y ANCLAJES	[UN] Uni�n �12"
+fila 841	RED DE ACUEDUCTO > ACCESORIOS Y ANCLAJES	[UN] Niples, pasamuros, bridas y piezas especiales
+fila 842	RED DE ACUEDUCTO > ACCESORIOS Y ANCLAJES	[UN] Anclaje de concreto para accesorios
+fila 843	RED DE ACUEDUCTO > ACCESORIOS Y ANCLAJES	[ML] Tuber�a de acero al carb�n SCH 40 �4"
+fila 850	RED DE ACUEDUCTO > V�LVULAS Y CAJAS	[UN] V�lvula de purga
+fila 852	RED DE ACUEDUCTO > V�LVULAS Y CAJAS	[UN] Caja convencional para v�lvula
+fila 853	RED DE ACUEDUCTO > V�LVULAS Y CAJAS	[UN] Caja estructural para v�lvula �12"
+fila 857	RED DE ACUEDUCTO > HIDRANTES	[UN] Kit de nivelaci�n para hidrante de tr�fico
+fila 859	RED DE ACUEDUCTO > ESTACIONES REGULADORAS DE PRESI�N	[UN] Obra civil VRP asim�trica costado norte
+fila 860	RED DE ACUEDUCTO > ESTACIONES REGULADORAS DE PRESI�N	[UN] Equipamiento hidromec�nico VRP costado norte
+fila 861	RED DE ACUEDUCTO > ESTACIONES REGULADORAS DE PRESI�N	[UN] Obra civil VRP sim�trica costado sur
+fila 862	RED DE ACUEDUCTO > ESTACIONES REGULADORAS DE PRESI�N	[UN] Equipamiento hidromec�nico VRP costado sur
+fila 864	RED DE ACUEDUCTO > CONEXIONES Y REDES EXISTENTES	[UN] Empate a red existente �4"
+fila 865	RED DE ACUEDUCTO > CONEXIONES Y REDES EXISTENTES	[UN] Empate a red existente �6"
+fila 867	RED DE ACUEDUCTO > CONEXIONES Y REDES EXISTENTES	[UN] Empate a red existente �12"
+fila 868	RED DE ACUEDUCTO > CONEXIONES Y REDES EXISTENTES	[UN] Empate en tee �6" � �6"
+fila 869	RED DE ACUEDUCTO > CONEXIONES Y REDES EXISTENTES	[UN] Empate en tee �8" � �2"
+fila 870	RED DE ACUEDUCTO > CONEXIONES Y REDES EXISTENTES	[UN] Empate en tee �8" � �6"
+fila 871	RED DE ACUEDUCTO > CONEXIONES Y REDES EXISTENTES	[UN] Conexi�n especial �6" � �12"
+fila 872	RED DE ACUEDUCTO > CONEXIONES Y REDES EXISTENTES	[ML] Retiro de red existente
+fila 873	RED DE ACUEDUCTO > CONEXIONES Y REDES EXISTENTES	[UN] Taponamiento o abandono de red existente
+fila 875	RED DE ACUEDUCTO > PRUEBAS Y ENTREGA	[ML] Prueba hidrost�tica, lavado y desinfecci�n
+fila 876	RED DE ACUEDUCTO > PRUEBAS Y ENTREGA	[UN] Pruebas de v�lvulas, hidrantes y ventosas
+fila 877	RED DE ACUEDUCTO > PRUEBAS Y ENTREGA	[GB] Planos r�cord y levantamiento final (Red de acueducto)
+fila 878	RED DE ACUEDUCTO > PRUEBAS Y ENTREGA	[GB] Manual de operaci�n, entrega y puesta en servicio
+fila 884	RED DE ALCANTARILLADO SANITARIO > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC flexible �12"
+fila 885	RED DE ALCANTARILLADO SANITARIO > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC flexible �14"
+fila 886	RED DE ALCANTARILLADO SANITARIO > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC flexible �16"
+fila 887	RED DE ALCANTARILLADO SANITARIO > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC flexible �18"
+fila 888	RED DE ALCANTARILLADO SANITARIO > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC flexible �24"
+fila 894	RED DE ALCANTARILLADO SANITARIO > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC flexible �12"
+fila 895	RED DE ALCANTARILLADO SANITARIO > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC flexible �14"
+fila 896	RED DE ALCANTARILLADO SANITARIO > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC flexible �16"
+fila 897	RED DE ALCANTARILLADO SANITARIO > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC flexible �18"
+fila 898	RED DE ALCANTARILLADO SANITARIO > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC flexible �24"
+fila 901	RED DE ALCANTARILLADO SANITARIO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[ML] Localizaci�n y replanteo topogr�fico
+fila 904	RED DE ALCANTARILLADO SANITARIO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Geotextil NT 1600
+fila 908	RED DE ALCANTARILLADO SANITARIO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[ML] Cinta de se�alizaci�n
+fila 909	RED DE ALCANTARILLADO SANITARIO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[ML] C�rcamo o placa de protecci�n para tuber�a (Red de alcantarillado sanitario)
+fila 912	RED DE ALCANTARILLADO SANITARIO > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Relleno con material seleccionado de excavaci�n
+fila 919	RED DE ALCANTARILLADO SANITARIO > POZOS DE INSPECCI�N	[UN] Pasos o escalera de acceso
+fila 920	RED DE ALCANTARILLADO SANITARIO > POZOS DE INSPECCI�N	[UN] C�mara de ca�da
+fila 922	RED DE ALCANTARILLADO SANITARIO > CONEXIONES DOMICILIARIAS	[UN] Construcci�n de conexi�n domiciliaria sanitaria �8"
+fila 923	RED DE ALCANTARILLADO SANITARIO > CONEXIONES DOMICILIARIAS	[UN] Empate de domiciliaria a pozo o colector
+fila 924	RED DE ALCANTARILLADO SANITARIO > CONEXIONES DOMICILIARIAS	[UN] Accesorios de conexi�n domiciliaria
+fila 926	RED DE ALCANTARILLADO SANITARIO > PRUEBAS, INSPECCI�N Y ENTREGA	[ML] Prueba de hermeticidad
+fila 927	RED DE ALCANTARILLADO SANITARIO > PRUEBAS, INSPECCI�N Y ENTREGA	[ML] Limpieza interna de tuber�a y pozos
+fila 928	RED DE ALCANTARILLADO SANITARIO > PRUEBAS, INSPECCI�N Y ENTREGA	[ML] Inspecci�n CCTV
+fila 929	RED DE ALCANTARILLADO SANITARIO > PRUEBAS, INSPECCI�N Y ENTREGA	[ML] Verificaci�n de cotas y pendientes
+fila 930	RED DE ALCANTARILLADO SANITARIO > PRUEBAS, INSPECCI�N Y ENTREGA	[ML] Plan de manejo de tr�nsito y se�alizaci�n
+fila 931	RED DE ALCANTARILLADO SANITARIO > PRUEBAS, INSPECCI�N Y ENTREGA	[GB] Planos r�cord y levantamiento final (Red de alcantarillado sanitario)
+fila 932	RED DE ALCANTARILLADO SANITARIO > PRUEBAS, INSPECCI�N Y ENTREGA	[GB] Manual, entrega y puesta en servicio
+fila 937	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC flexible �18"
+fila 939	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC flexible �24"
+fila 940	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a PVC flexible �27"
+fila 941	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CSR �12"
+fila 942	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CSR �14"
+fila 943	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CSR �18"
+fila 944	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CSR �20"
+fila 945	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CSR �24"
+fila 946	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CCR �24"
+fila 947	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CCR �27"
+fila 948	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CCR �30"
+fila 949	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CCR �36"
+fila 950	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CCR �40"
+fila 951	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CER �12"
+fila 952	RED DE ALCANTARILLADO PLUVIAL > SUMINISTRO DE TUBER�AS	[UN] Suministro tuber�a en concreto CER �18"
+fila 956	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC flexible �18"
+fila 958	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC flexible �24"
+fila 959	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a PVC flexible �27"
+fila 960	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CSR �12"
+fila 961	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CSR �14"
+fila 962	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CSR �18"
+fila 963	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CSR �20"
+fila 964	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CSR �24"
+fila 965	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CCR �24"
+fila 966	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CCR �27"
+fila 967	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CCR �30"
+fila 968	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CCR �36"
+fila 969	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CCR �40"
+fila 970	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CER �12"
+fila 971	RED DE ALCANTARILLADO PLUVIAL > INSTALACI�N DE TUBER�AS	[ML] Instalaci�n tuber�a en concreto CER �18"
+fila 973	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[ML] Localizaci�n y replanteo topogr�fico
+fila 974	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Excavaci�n mec�nica en material com�n
+fila 975	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Cargue, transporte y disposici�n de sobrantes
+fila 976	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Geotextil NT 1600
+fila 977	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Entibado continuo E-1A, H=2,00 m
+fila 978	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Entibado continuo E-1B, 2,00<H=3,00 m
+fila 979	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M2] Entibado E-2, H>3,00 m
+fila 980	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[ML] Cinta de se�alizaci�n
+fila 981	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[ML] C�rcamo o placa de protecci�n para tuber�a (Red de alcantarillado pluvial)
+fila 982	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Cimentaci�n de tuber�a en gravilla (cama y atraque)
+fila 983	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Suministro y colocaci�n de recebo B-200
+fila 984	RED DE ALCANTARILLADO PLUVIAL > MOVIMIENTO DE TIERRAS, CIMENTACI�N Y PROTECCI�N	[M3] Relleno con material seleccionado de excavaci�n
+fila 987	RED DE ALCANTARILLADO PLUVIAL > POZOS DE INSPECCI�N	[ML] Anillo en concreto prefabricado
+fila 988	RED DE ALCANTARILLADO PLUVIAL > POZOS DE INSPECCI�N	[UN] C�mara en concreto (Di�m.>=36")
+fila 989	RED DE ALCANTARILLADO PLUVIAL > POZOS DE INSPECCI�N	[UN] Suministro e instalaci�n cono y tapa para pozo de inspecci�n
+fila 990	RED DE ALCANTARILLADO PLUVIAL > POZOS DE INSPECCI�N	[UN] C�mara de ca�da
+fila 994	RED DE ALCANTARILLADO PLUVIAL > BIORETENEDORES Y BIOSWALES	[M3] Excavaci�n manual para bioswale/bioretenedor
+fila 995	RED DE ALCANTARILLADO PLUVIAL > BIORETENEDORES Y BIOSWALES	[M3] Base de gravilla permeable para bioretenedor
+fila 996	RED DE ALCANTARILLADO PLUVIAL > BIORETENEDORES Y BIOSWALES	[M3] Suministro y colocaci�n de gravilla 10-15 mm (capa filtrante)
+fila 997	RED DE ALCANTARILLADO PLUVIAL > BIORETENEDORES Y BIOSWALES	[M3] Suministro y colocaci�n de gravilla 25-40 mm (capa drenante)
+fila 998	RED DE ALCANTARILLADO PLUVIAL > BIORETENEDORES Y BIOSWALES	[M3] Relleno con material org�nico para bioretenedor
+fila 999	RED DE ALCANTARILLADO PLUVIAL > BIORETENEDORES Y BIOSWALES	[ML] Tuber�a perforada PVC �6" para drenaje de bioswale
+fila 1000	RED DE ALCANTARILLADO PLUVIAL > BIORETENEDORES Y BIOSWALES	[UN] Rejilla de drenaje para bioswale
+fila 1002	RED DE ALCANTARILLADO PLUVIAL > CABEZALES DE DESCARGA	[UN] Cabezal de descarga en concreto para tuber�a �12"-�16" (incluye aletas y solado)
+fila 1003	RED DE ALCANTARILLADO PLUVIAL > CABEZALES DE DESCARGA	[UN] Cabezal de entrega
+fila 1005	RED DE ALCANTARILLADO PLUVIAL > OBRAS COMPLEMENTARIAS DE DRENAJE	[ML] Construcci�n de cuneta en concreto fundida en sitio
+fila 1006	RED DE ALCANTARILLADO PLUVIAL > OBRAS COMPLEMENTARIAS DE DRENAJE	[UN] Construcci�n de captaci�n de aguas lluvias
+fila 1007	RED DE ALCANTARILLADO PLUVIAL > OBRAS COMPLEMENTARIAS DE DRENAJE	[UN] Alcantarilla rural con cabezales (descole)
+fila 1008	RED DE ALCANTARILLADO PLUVIAL > OBRAS COMPLEMENTARIAS DE DRENAJE	[M3] Conformaci�n de dique del reservorio con material del sitio
+fila 1010	RED DE ALCANTARILLADO PLUVIAL > PRUEBAS, INSPECCI�N Y ENTREGA	[ML] Implementaci�n de Plan de manejo de tr�nsito (Incluye se�alizaci�n)
+fila 1011	RED DE ALCANTARILLADO PLUVIAL > PRUEBAS, INSPECCI�N Y ENTREGA	[ML] Prueba de hermeticidad
+fila 1014	RED DE GAS > RED DE GAS	[ML] Excavaciones, atraque en arena, rellenos e instalaci�n de cinta para red de gas
+fila 1015	RED DE GAS > RED DE GAS	[UN] Construcci�n de caja para v�lvulas de gas
+fila 1019	RED DE MEDIA TENSI�N > PRELIMINARES Y GESTI�N	[GB] Replanteo, localizaci�n y coordinaci�n de la red de media tensi�n
+fila 1020	RED DE MEDIA TENSI�N > PRELIMINARES Y GESTI�N	[GB] Se�alizaci�n y plan de manejo de tr�nsito para frentes de red MT
+fila 1025	RED DE MEDIA TENSI�N > MOVIMIENTO DE TIERRAS Y REPOSICIONES	[M3] Transporte y disposici�n final de sobrantes
+fila 1026	RED DE MEDIA TENSI�N > MOVIMIENTO DE TIERRAS Y REPOSICIONES	[M2] Reposici�n de pavimento, and�n o zona dura afectada
+fila 1030	RED DE MEDIA TENSI�N > CANALIZACIONES MT	[ML] Suministro e instalaci�n de banco de ductos PVC-TDP 12�6"
+fila 1031	RED DE MEDIA TENSI�N > CANALIZACIONES MT	[ML] Suministro e instalaci�n de banco de ductos PVC-TDP 9�6"
+fila 1032	RED DE MEDIA TENSI�N > CANALIZACIONES MT	[UN] Bajante o transici�n en tuber�a conduit IMC �6"
+fila 1038	RED DE MEDIA TENSI�N > CAJAS, C�MARAS Y C�RCAMOS	[ML] Construcci�n de c�rcamo de protecci�n para red MT en cruce
+fila 1040	RED DE MEDIA TENSI�N > CABLEADO MT	[ML] Suministro cable 3x120 mm� Al XLPE 15 kV
+fila 1041	RED DE MEDIA TENSI�N > CABLEADO MT	[ML] Tendido, conexionado e identificaci�n cable 3x120 mm� Al XLPE 15 kV
+fila 1044	RED DE MEDIA TENSI�N > CABLEADO MT	[ML] Suministro cable 3x240 mm� Al XLPE 15 kV
+fila 1045	RED DE MEDIA TENSI�N > CABLEADO MT	[ML] Tendido, conexionado e identificaci�n cable 3x240 mm� Al XLPE 15 kV
+fila 1046	RED DE MEDIA TENSI�N > CABLEADO MT	[JG] Juego de terminales premoldeados 15 kV para cable MT
+fila 1047	RED DE MEDIA TENSI�N > CABLEADO MT	[JG] Empalme premoldeado 15 kV
+fila 1049	RED DE MEDIA TENSI�N > MANIOBRA Y PROTECCI�N	[UN] Celda MT SF6 17,5 kV - 630 A norma CTS508
+fila 1050	RED DE MEDIA TENSI�N > MANIOBRA Y PROTECCI�N	[UN] Fusible limitador de corriente norma CTS507
+fila 1051	RED DE MEDIA TENSI�N > MANIOBRA Y PROTECCI�N	[UN] Caja de maniobra pedestal de 5 v�as ET512 Fig. 4
+fila 1052	RED DE MEDIA TENSI�N > MANIOBRA Y PROTECCI�N	[UN] Caja de maniobra pedestal de 3 v�as ET512 Fig. 1
+fila 1053	RED DE MEDIA TENSI�N > MANIOBRA Y PROTECCI�N	[UN] Suministro e instalaci�n CDMT-7, 1 entrada, 1 salida y 2 derivaciones
+fila 1054	RED DE MEDIA TENSI�N > MANIOBRA Y PROTECCI�N	[UN] Retiro controlado de barraje preformado B-2 existente
+fila 1056	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Suministro e instalaci�n transformador trif�sico tipo aceite 30 kVA, 11,4 kV / 208-120 V
+fila 1057	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Suministro e instalaci�n transformador trif�sico tipo aceite 45 kVA, 11,4 kV / 208-120 V
+fila 1058	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Suministro e instalaci�n transformador trif�sico tipo aceite 112,5 kVA, 11,4 kV / 208-120 V
+fila 1059	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Suministro e instalaci�n transformador trif�sico tipo aceite 150 kVA, 11,4 kV / 208-120 V
+fila 1060	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Suministro e instalaci�n transformador trif�sico tipo aceite 225 kVA, 11,4 kV / 208-120 V
+fila 1061	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Suministro e instalaci�n transformador trif�sico tipo aceite 300 kVA, 11,4 kV / 208-120 V
+fila 1062	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Suministro e instalaci�n transformador trif�sico tipo aceite 400 kVA, 11,4 kV / 208-120 V
+fila 1063	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Suministro e instalaci�n transformador trif�sico tipo aceite 500 kVA, 11,4 kV / 208-120 V
+fila 1064	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Suministro e instalaci�n transformador trif�sico tipo aceite 630 kVA, 11,4 kV / 208-120 V
+fila 1065	RED DE MEDIA TENSI�N > SUBESTACIONES Y TRANSFORMADORES	[UN] Base, foso de aceite, cerramiento y adecuaci�n civil del centro de transformaci�n
+fila 1067	RED DE MEDIA TENSI�N > PUESTA A TIERRA	[UN] Sistema de puesta a tierra completo por centro de transformaci�n
+fila 1068	RED DE MEDIA TENSI�N > PUESTA A TIERRA	[UN] Malla o puesta a tierra para CDMT y cajas de maniobra
+fila 1070	RED DE MEDIA TENSI�N > TRANSICIONES E INTERCONEXIONES	[UN] Estructura de transici�n a�rea-subterr�nea MT en punto de conexi�n
+fila 1071	RED DE MEDIA TENSI�N > TRANSICIONES E INTERCONEXIONES	[ML] Retiro de cable existente 3x120 mm� Al entre Colegio L6 y Supermercado L12
+fila 1073	RED DE MEDIA TENSI�N > PRUEBAS, ENERGIZACI�N Y ENTREGA	[UN] Prueba VLF para circuito de media tensi�n
+fila 1074	RED DE MEDIA TENSI�N > PRUEBAS, ENERGIZACI�N Y ENTREGA	[GB] Pruebas, coordinaci�n, energizaci�n y recibo por operador de red
+fila 1075	RED DE MEDIA TENSI�N > PRUEBAS, ENERGIZACI�N Y ENTREGA	[GB] Planos r�cord, rotulado e inventario final de red MT
+fila 1085	RED DE ALUMBRADO P�BLICO > TRANSFORMADORES	[UN] Suministro e instalaci�n de Barraje preformado de B.T. para fusibles limitadores de corriente de cable de 6 salidas seg�n norma AP820
+fila 1091	RED DE ALUMBRADO P�BLICO > RED DE ALUMBRADO P�BLICO	[JG] Suministro e instalaci�n de empalmes en resina (Juegox2)
+fila 1092	RED DE ALUMBRADO P�BLICO > RED DE ALUMBRADO P�BLICO	[UN] Suministro e instalaci�n de malla a tierra de iluminaci�n exterior conformada por 1 Varilla copper de 2.4 m, soldadura exot�rmica, 1 Empalme bimet�lico y 1 m de Cable de Cobre 2/0 AWG
+fila 1105	RED DE ALUMBRADO P�BLICO > RED DE ALUMBRADO P�BLICO	[JG] Suministro e instalaci�n de empalmes en resina (Juegox2)
+fila 1106	RED DE ALUMBRADO P�BLICO > RED DE ALUMBRADO P�BLICO	[UN] Suministro e instalaci�n de malla a tierra de iluminaci�n exterior conformada por 1 Varilla copper de 2.4 m, soldadura exot�rmica, 1 Empalme bimet�lico y 1 m de Cable de Cobre 2/0 AWG
+fila 1108	RED DE ALUMBRADO P�BLICO > RED DE ALUMBRADO PUBLICO	[M2] Indicador de red de alumbrado p�blico parques
+fila 1111	OBRAS ELECTRICAS > CAJAS DE PASO Y EQUIPOS DE CONEXI�N	[UN] Suministro e instalaci�n Caja de paso en mamposteria seg�n norma CS-276
+fila 1113	OBRAS ELECTRICAS > CANALIZACI�N	[ML] Suministro e instalaci�n de tuber�a 9?6" TDP (Incluye excavaci�n, retiro de escombros y relleno)
+fila 1115	OBRAS ELECTRICAS > SUBTERRANIZACI�N DE RED	[UN] Suministro e instalaci�n de estructura para poste de MT LA-220
+fila 1116	OBRAS ELECTRICAS > SUBTERRANIZACI�N DE RED	[UN] Suministro e instalacion de bajante galvanizada de 4"x6m
+fila 1117	OBRAS ELECTRICAS > SUBTERRANIZACI�N DE RED	[JG] Suministro e instalaci�n de terminales premoldeados 35 kV Tipo exterior (Juegox3)
+fila 1118	OBRAS ELECTRICAS > SUBTERRANIZACI�N DE RED	[UN] Suministro e instalaci�n de codo premoldeado de (200-600)A
+fila 1120	OBRAS ELECTRICAS > CABLEADO	[ML] Suministro e instalaci�n de cable 3x185 XLPE Al
+fila 1122	OBRAS ELECTRICAS > RETIRO DE RED EL�CTRICA A�REA	[UN] Retiro y transporte de poste de 12m 510kgF
+fila 1123	OBRAS ELECTRICAS > RETIRO DE RED EL�CTRICA A�REA	[UN] Retiro de estructura de MT seg�n norma LA-212/LA-202/LA-231/LA-206 o similar
+fila 1124	OBRAS ELECTRICAS > RETIRO DE RED EL�CTRICA A�REA	[UN] Retiro de Caja de borneras para derivaci�n de acometidas, estructuras de BT o similares
+fila 1125	OBRAS ELECTRICAS > RETIRO DE RED EL�CTRICA A�REA	[ML] Retiro de red de MT 3x2ACSR
+fila 1240	TRONCAL MU�A > HONORARIOS	[GLB] Honorarios Tramitador (Entrega obras Acueducto)
+fila 1242	TRONCAL MU�A > OTROS GASTOS (COSTOS FINANCIEROS)	[GLB] Impuesto 4x1000
+fila 1433	PGU - (ACT POR EJECUTAR ET 1 a 9) > PGU - (ACT POR EJECUTAR ET 1 a 9)	[%] PLAN DE GESTION URBANA (PGU) ETAPA 01
+fila 1434	PGU - (ACT POR EJECUTAR ET 1 a 9) > PGU - (ACT POR EJECUTAR ET 1 a 9)	[%] PLAN DE GESTION URBANA (PGU) ETAPA 02
+fila 1435	PGU - (ACT POR EJECUTAR ET 1 a 9) > PGU - (ACT POR EJECUTAR ET 1 a 9)	[%] PLAN DE GESTION URBANA (PGU) ETAPA 03
+fila 1436	PGU - (ACT POR EJECUTAR ET 1 a 9) > PGU - (ACT POR EJECUTAR ET 1 a 9)	[%] PLAN DE GESTION URBANA (PGU) ETAPA 04
+fila 1437	PGU - (ACT POR EJECUTAR ET 1 a 9) > PGU - (ACT POR EJECUTAR ET 1 a 9)	[%] PLAN DE GESTION URBANA (PGU) ETAPA 05
+fila 1438	PGU - (ACT POR EJECUTAR ET 1 a 9) > PGU - (ACT POR EJECUTAR ET 1 a 9)	[%] PLAN DE GESTION URBANA (PGU) ETAPA 07
+fila 1439	PGU - (ACT POR EJECUTAR ET 1 a 9) > PGU - (ACT POR EJECUTAR ET 1 a 9)	[%] PLAN DE GESTION URBANA (PGU) ETAPA 08
+fila 1440	PGU - (ACT POR EJECUTAR ET 1 a 9) > PGU - (ACT POR EJECUTAR ET 1 a 9)	[%] PLAN DE GESTION URBANA (PGU) ETAPA 09
+fila 1444	CAR - (ACTIVIDADES POR EJECUTAR) > CAR - (ACTIVIDADES POR EJECUTAR)	[%] COSTOS GESTION AMBIENTAL (CAR) ETAPA 01
+fila 1445	CAR - (ACTIVIDADES POR EJECUTAR) > CAR - (ACTIVIDADES POR EJECUTAR)	[%] COSTOS GESTION AMBIENTAL (CAR) ETAPA 02
+fila 1446	CAR - (ACTIVIDADES POR EJECUTAR) > CAR - (ACTIVIDADES POR EJECUTAR)	[%] COSTOS GESTION AMBIENTAL (CAR) ETAPA 03
+fila 1447	CAR - (ACTIVIDADES POR EJECUTAR) > CAR - (ACTIVIDADES POR EJECUTAR)	[%] COSTOS GESTION AMBIENTAL (CAR) ETAPA 04
+fila 1448	CAR - (ACTIVIDADES POR EJECUTAR) > CAR - (ACTIVIDADES POR EJECUTAR)	[%] COSTOS GESTION AMBIENTAL (CAR) ETAPA 05
+fila 1449	CAR - (ACTIVIDADES POR EJECUTAR) > CAR - (ACTIVIDADES POR EJECUTAR)	[%] COSTOS GESTION AMBIENTAL (CAR) ETAPA 07
+fila 1450	CAR - (ACTIVIDADES POR EJECUTAR) > CAR - (ACTIVIDADES POR EJECUTAR)	[%] COSTOS GESTION AMBIENTAL (CAR) ETAPA 08
+fila 1451	CAR - (ACTIVIDADES POR EJECUTAR) > CAR - (ACTIVIDADES POR EJECUTAR)	[%] COSTOS GESTION AMBIENTAL (CAR) ETAPA 09
+fila 1452	CAR - (ACTIVIDADES POR EJECUTAR) > CAR - (ACTIVIDADES POR EJECUTAR)	[%] COSTOS GESTION AMBIENTAL (CAR) GENERAL
+fila 1468	PMT (ACT POR EJECUTAR ET 1 a 9) > PMT (ACT POR EJECUTAR ET 1 a 9)	[%] PMT - ETAPA 01
+fila 1469	PMT (ACT POR EJECUTAR ET 1 a 9) > PMT (ACT POR EJECUTAR ET 1 a 9)	[%] PMT - ETAPA 02
+fila 1470	PMT (ACT POR EJECUTAR ET 1 a 9) > PMT (ACT POR EJECUTAR ET 1 a 9)	[%] PMT - ETAPA 03
+fila 1471	PMT (ACT POR EJECUTAR ET 1 a 9) > PMT (ACT POR EJECUTAR ET 1 a 9)	[%] PMT - ETAPA 04
+fila 1472	PMT (ACT POR EJECUTAR ET 1 a 9) > PMT (ACT POR EJECUTAR ET 1 a 9)	[%] PMT - ETAPA 05
+fila 1473	PMT (ACT POR EJECUTAR ET 1 a 9) > PMT (ACT POR EJECUTAR ET 1 a 9)	[%] PMT - ETAPA 07
+fila 1474	PMT (ACT POR EJECUTAR ET 1 a 9) > PMT (ACT POR EJECUTAR ET 1 a 9)	[%] PMT - ETAPA 08
+fila 1475	PMT (ACT POR EJECUTAR ET 1 a 9) > PMT (ACT POR EJECUTAR ET 1 a 9)	[%] PMT - ETAPA 09
+fila 1490	INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR) > INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR)	[%] INTERVENTORIA + HON + REEMB ETAPA 01
+fila 1491	INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR) > INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR)	[%] INTERVENTORIA + HON + REEMB ETAPA 02
+fila 1492	INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR) > INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR)	[%] INTERVENTORIA + HON + REEMB ETAPA 03
+fila 1493	INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR) > INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR)	[%] INTERVENTORIA + HON + REEMB ETAPA 04
+fila 1494	INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR) > INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR)	[%] INTERVENTORIA + HON + REEMB ETAPA 05
+fila 1495	INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR) > INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR)	[%] INTERVENTORIA + HON + REEMB ETAPA 07
+fila 1496	INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR) > INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR)	[%] INTERVENTORIA + HON + REEMB ETAPA 08
+fila 1497	INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR) > INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR)	[%] INTERVENTORIA + HON + REEMB ETAPA 09
+fila 1498	INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR) > INTERVENTORIA + HONORARIOS Y REEMBOLSABLES (DEL POR EJECUTAR)	[%] INTERVENTORIA + HON + REEMB GENERAL
