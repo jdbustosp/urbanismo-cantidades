@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.70.0")
+(setq *urb-version* "4.70.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -22908,6 +22908,29 @@
 ;;     8" encuentra "Instalacion tuberia PVC 8"" y selecciona todos los
 ;;     tramos que generan esa fila.
 
+;; ---------- perfilado ligero del export (2026-09-07) ----------
+;; si *urb-perf-log* apunta a un archivo, cada colector y el match
+;; escriben ahi sus milisegundos -- lo usa el harness de perf; en uso
+;; normal (variable sin setear) no cuesta nada.
+(defun urb:perf-log (msg / f)
+  (if (and (boundp '*urb-perf-log*) *urb-perf-log*)
+    (progn
+      (setq f (open *urb-perf-log* "a"))
+      (if f (progn (write-line msg f) (close f))))))
+
+(defun urb:rows-timed (nombre fn / t0 r)
+  (setq t0 (getvar "MILLISECS"))
+  (setq r (vl-catch-all-apply fn nil))
+  (if (vl-catch-all-error-p r)
+    (progn
+      (urb:perf-log (strcat nombre ": ERROR "
+        (vl-catch-all-error-message r)))
+      (setq r nil)))
+  (urb:perf-log (strcat nombre ": "
+    (itoa (- (getvar "MILLISECS") t0)) " ms, "
+    (itoa (length r)) " filas"))
+  r)
+
 (defun urb:track-collect-rows ()
   (append
     (urb:ppto-rows-vias)
@@ -23369,6 +23392,7 @@
 (setq *urb-bioswale-tipo*
   '("BIOSWALE" "Bioswale / biorretenedor" "ALC-PLUVIAL" 140 "BIORETENEDORES"
      (("Excavación manual para bioswale/bioretenedor" "M3" "AREA" 0.60)
+      ("Cargue, transporte y disposición de sobrantes" "M3" "AREA" 0.60)
       ("Base de gravilla permeable para bioretenedor" "M3" "AREA" 0.20)
       ("Suministro y colocación de gravilla 25-40 mm (capa drenante)" "M3" "AREA" 0.12)
       ("Suministro y colocación de gravilla 10-15 mm (capa filtrante)" "M3" "AREA" 0.15)
@@ -26894,7 +26918,8 @@
 
 ;; pasada completa de match sobre las filas crudas; reinicia los
 ;; acumuladores globales y devuelve la lista final de filas de 12 columnas.
-(defun urb:ppto-match-all (raw vocab dwg / item m final)
+(defun urb:ppto-match-all (raw vocab dwg / item m final t0)
+  (setq t0 (getvar "MILLISECS"))
   (setq *urb-ppto-huerfanas* nil *urb-ppto-total* 0.0
         *urb-ppto-por-red* nil *urb-ppto-item-errs* nil
         *urb-ppto-matches* nil final nil
@@ -26911,6 +26936,9 @@
           (list (nth 0 item) (nth 1 item) (vl-catch-all-error-message m))
           *urb-ppto-item-errs*))
       (setq final (cons m final))))
+  (urb:perf-log (strcat "match-all: "
+    (itoa (- (getvar "MILLISECS") t0)) " ms, "
+    (itoa (length raw)) " items"))
   (reverse final))
 
 ;; ---------- dialogo pre-exportacion de equivalencias ----------
@@ -28013,16 +28041,16 @@
                     *urb-ppto-param-dirty* nil)
               (setq raw
                 (append
-                  (urb:ppto-rows-vias)
-                  (urb:ppto-rows-andenes)
-                  (urb:ppto-rows-prefabs)
-                  (urb:ppto-rows-rampas)
-                  (urb:ppto-rows-tramos)
-                  (urb:ppto-rows-puntos)
-                  (urb:ppto-rows-mobiliario)
-                  (urb:ppto-rows-senderos)
-                  (urb:ppto-rows-bioswale)
-    (urb:ppto-rows-senalizacion)))
+                  (urb:rows-timed "vias" 'urb:ppto-rows-vias)
+                  (urb:rows-timed "andenes" 'urb:ppto-rows-andenes)
+                  (urb:rows-timed "prefabs" 'urb:ppto-rows-prefabs)
+                  (urb:rows-timed "rampas" 'urb:ppto-rows-rampas)
+                  (urb:rows-timed "tramos" 'urb:ppto-rows-tramos)
+                  (urb:rows-timed "puntos" 'urb:ppto-rows-puntos)
+                  (urb:rows-timed "mobiliario" 'urb:ppto-rows-mobiliario)
+                  (urb:rows-timed "senderos" 'urb:ppto-rows-senderos)
+                  (urb:rows-timed "bioswale" 'urb:ppto-rows-bioswale)
+                  (urb:rows-timed "senalizacion" 'urb:ppto-rows-senalizacion)))
               ;; 2) match contra el vocabulario vivo (equivalencias del
               ;; LIBRO primero, cascada automatica despues)
               (setq *urb-ppto-stage* "match contra vocabulario")
