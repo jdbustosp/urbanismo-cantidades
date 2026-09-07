@@ -1,0 +1,29 @@
+DESCRIPCION	UM	PRECIO	JUSTIFICACION (criterio ALTO)
+Suministro tubería PVC flexible Ø20"	UN	2900000	Interpolado serie sanitaria Ø18 (2.229.654) - Ø24 (3.983.205): 2.814.171, redondeado arriba
+Suministro tubería PVC flexible Ø27"	UN	5000000	Interpolado serie sanitaria Ø24 (3.983.205) - Ø30 (5.951.739): 4.967.472, redondeado arriba
+Instalación tubería PVC flexible Ø20"	ML	72000	Serie lineal sanitaria 3.558/pulg x 20 = 71.170, redondeado arriba
+Instalación tubería PVC flexible Ø27"	ML	97000	Serie lineal 3.558/pulg x 27 = 96.077, redondeado arriba
+Suministro tubería en concreto CSR Ø12"	UN	1220000	(65% APU Hex CSR12 0-1,5m 444.526 - instalacion) x 6 m/tubo; 65% > 46% real del desglose sanitario = alto
+Suministro tubería en concreto CSR Ø14"	UN	1370000	Idem desde Hex CSR14 0-1,5m 504.202
+Suministro tubería en concreto CSR Ø18"	UN	2900000	Idem desde Hex CSR18 1,5-2,5m 939.822 (banda mas superficial disponible)
+Suministro tubería en concreto CSR Ø20"	UN	3120000	Idem desde Hex CSR20 1,5-2,5m 1.017.768
+Suministro tubería en concreto CSR Ø24"	UN	3700000	Idem desde Hex CSR24 1,5-2,5m 1.211.364
+Suministro tubería en concreto CCR Ø24"	UN	3030000	Idem desde Hex CCR24 0-1,5m 1.039.466
+Suministro tubería en concreto CCR Ø27"	UN	4720000	Idem desde Hex CCR27 1,5-2,5m 1.505.352
+Suministro tubería en concreto CCR Ø30"	UN	4960000	Idem desde Hex CCR30 0-1,5m 1.529.302, suavizado monotono (>= Ø27 +5%)
+Suministro tubería en concreto CCR Ø36"	UN	6470000	Idem desde Hex CCR36 1,5-2,5m 2.052.222
+Suministro tubería en concreto CCR Ø40"	UN	7620000	Idem desde Hex CCR40 1,5-2,5m 2.391.251
+Suministro tubería en concreto CER Ø12"	UN	2060000	Idem desde Hex CER12 0-1,5m 657.982
+Suministro tubería en concreto CER Ø18"	UN	3050000	Idem desde Hex CER18 0-1,5m 978.705
+Instalación tubería en concreto CSR Ø12"	ML	86000	2x instalacion PVC flexible mismo diametro (equipo pesado para concreto)
+Instalación tubería en concreto CSR Ø14"	ML	100000	2x instalacion PVC flexible Ø14 49.819
+Instalación tubería en concreto CSR Ø18"	ML	129000	2x instalacion PVC flexible Ø18 64.052
+Instalación tubería en concreto CSR Ø20"	ML	143000	2x serie 3.558/pulg x 20
+Instalación tubería en concreto CSR Ø24"	ML	171000	2x instalacion PVC flexible Ø24 85.403
+Instalación tubería en concreto CCR Ø24"	ML	171000	2x instalacion PVC flexible Ø24 85.403
+Instalación tubería en concreto CCR Ø27"	ML	193000	2x serie 3.558/pulg x 27
+Instalación tubería en concreto CCR Ø30"	ML	214000	2x instalacion PVC flexible Ø30 106.754
+Instalación tubería en concreto CCR Ø36"	ML	257000	2x serie 3.558/pulg x 36
+Instalación tubería en concreto CCR Ø40"	ML	285000	2x serie 3.558/pulg x 40
+Instalación tubería en concreto CER Ø12"	ML	86000	2x instalacion PVC flexible Ø12 42.702
+Instalación tubería en concreto CER Ø18"	ML	129000	2x instalacion PVC flexible Ø18 64.052

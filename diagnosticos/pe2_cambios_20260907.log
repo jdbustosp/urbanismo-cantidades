@@ -1,0 +1,7 @@
+PLUVIAL sumideros: eliminada 'Tubería NOVAFORT 12" Hex (0-1,5)m' (duplicado exacto del capitulo de tramos = doble conteo)
+PLUVIAL sumideros: eliminada 'Tubería CSR 12" Hex (0-1,5)m' (duplicado exacto del capitulo de tramos = doble conteo)
+PLUVIAL: 22 refs Hex + 2 de sumideros -> 18 suministros (UN) + 18 instalaciones (ML); ML control in=6361.79 out=6361.79
+PLUVIAL: 'CONSTRUCCIONES EN MAMPOSTERIA Y CONCRETO (TRAMOS ALL)' -> 'POZOS DE INSPECCION' (espejo sanitario)
+PLUVIAL: eliminada 'Construccion de biofiltros' (cantidad 0; superada por el capitulo BIORETENEDORES Y BIOSWALES)
+PLUVIAL: capitulos reordenados como sanitario (SUM/INST/MT/POZOS/SUMIDEROS/BIORET/CABEZALES/OBRAS COMPL/PRUEBAS); 'OBRAS VARIAS' -> 'PRUEBAS, INSPECCION Y ENTREGA'
+ACUEDUCTO: MT sube al 3er capitulo (tras INSTALACION, como sanitario) y sus 19 actividades quedan en el orden del sanitario (comunes primero; manejo de aguas/demoliciones/reposiciones al final)

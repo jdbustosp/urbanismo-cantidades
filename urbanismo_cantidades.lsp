@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.70.2")
+(setq *urb-version* "4.71.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -10776,8 +10776,9 @@
       ;; 2017 art. 89): recubrimiento minimo 1.0 m sobre la clave en zonas
       ;; vehiculares. Zanja = 1.0 + diametro + cama.
       ;; 2026-09-01 (2a ronda): tambien PLUVIAL sin cotas -- recubrimiento
-      ;; normativo 1.2 m a clave (RAS 0330 alcantarillados bajo calzada);
-      ;; la PROFUNDIDAD_MEDIA resultante elige sola la banda Hex del APU.
+      ;; normativo 1.2 m a clave (RAS 0330 alcantarillados bajo calzada).
+      ;; (Desde v4.71 el libro pluvial ya NO usa bandas Hex: la
+      ;; PROFUNDIDAD_MEDIA alimenta la zanja/entibados como en sanitario.)
       (if (<= depth-mean 1e-9)
         (cond
           ((= base "TRAMO_ACUEDUCTO")
@@ -25469,6 +25470,9 @@
           (caar candidatas) ").")))
       (setq entry (car candidatas))
       (setq *urb-ppto-vocab-hoja* (car entry))
+      ;; formato-B no tiene columnas de subetapa: el puente a la hoja
+      ;; (urb:ppto-write-pe) se desactiva solo con header nil
+      (setq *urb-ppto-vocab-header* nil)
       (setq ws (urb:ppto-obj
         (vlax-get-property (vlax-get-property wb 'Worksheets) 'Item
           (car entry))))
@@ -25491,6 +25495,9 @@
       ;; nombre de la hoja para mostrarlo en los dialogos (trazabilidad
       ;; pedida por el usuario 2026-08-18: que se VEA de donde sale todo)
       (setq *urb-ppto-vocab-hoja* target-name)
+      ;; fila del encabezado (v4.71): el puente urb:ppto-write-pe lee la
+      ;; fila de CODIGOS de subetapa (header+1) para mapear columnas
+      (setq *urb-ppto-vocab-header* header-row)
       (setq vocab
         (urb:ppto-vocab-extraer
           (urb:ppto-obj
@@ -26152,8 +26159,7 @@
 (defun urb:ppto-rows-tramos (/ ss i be atts red lng diam mat etapa sub handle
                              pini pfin id ent rows out r ductos-n diam-d
                              mat-d ctok exc prof anchoz vol-ductos recub
-                             env-banco arena base-gran circ prof-med banda
-                             banded-plu)
+                             env-banco arena base-gran circ mat-libro)
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "TRAMO_*,MP_TRAMO_*")))
         out nil i 0)
   (if ss
@@ -26176,39 +26182,18 @@
             (urb:ppto-entibado-3 be lng
               (atof (urb:safe-string
                 (cdr (assoc "PROFUNDIDAD_MEDIA" atts)) "0"))))
-          ;; 2026-08-30 (barrido de cruce con el ppto): la nomenclatura
-          ;; de tuberia depende del capitulo del libro --
-          ;; * ACUEDUCTO: el libro trae "Suministro tuberia PVC presion
-          ;;   ØN" e "Instalacion ..." SEPARADAS y AMBAS EN ML (el
-          ;;   suministro en UN=tubos jamas cruzaba por unidad).
-          ;; * PLUVIAL con NOVAFORT/CSR: el libro trae UNA sola
-          ;;   actividad combinada por DIAMETRO y FRANJA DE EXCAVACION
-          ;;   ("Tuberia NOVAFORT 12 Hex (0-1,5)m") -- se emite una
-          ;;   fila unica con la franja segun PROFUNDIDAD_MEDIA.
-          (setq prof-med
-            (atof (urb:safe-string
-              (cdr (assoc "PROFUNDIDAD_MEDIA" atts)) "0")))
-          (setq banda
-            (cond
-              ;; sin dato de profundidad: banda tipica (1,5-2,5)
-              ((<= prof-med 0.01) "Hex (1,5-2,5)m")
-              ((<= prof-med 1.5) "Hex (0-1,5)m")
-              ((<= prof-med 2.5) "Hex (1,5-2,5)m")
-              ((<= prof-med 3.5) "Hex (2,5-3,5)m")
-              (T "Hex (3,5-4,5)m")))
-          (setq banded-plu
-            (and (= red "ALC-PLUVIAL")
-                 (member (strcase mat) '("NOVAFORT" "CSR" "NOVALOC"))))
+          ;; 2026-09-07 (pedido del usuario: desagregar redes humedas):
+          ;; el libro pluvial YA NO trae el APU combinado "Tuberia MAT
+          ;; D Hex (banda)" -- quedo desagregado igual que el sanitario
+          ;; en SUMINISTRO (UN = tubos de 6 m) + INSTALACION (ML) por
+          ;; material y diametro, y la zanja sale por su capitulo de
+          ;; MOVIMIENTO DE TIERRAS propio. Nomenclatura por capitulo:
+          ;; * ACUEDUCTO: "PVC presion ØN" / "y piezas especiales HD ØN".
+          ;; * SANITARIO/PLUVIAL: NOVAFORT/NOVALOC/PVC -> "PVC flexible"
+          ;;   (texto del libro; ademas asi el pluvial hereda el precio
+          ;;   del sanitario por SUMIF); CSR/CCR/CER -> "en concreto MAT".
           (setq rows
             (cond
-              (banded-plu
-                ;; el APU "Hex (banda)" del libro pluvial INCLUYE la
-                ;; zanja completa (excavacion, cimentacion, relleno,
-                ;; entibado, retiro) -- una sola fila y NADA de zanja
-                (list
-                  (urb:ppto-row red
-                    (strcat "Tuberia " mat " " diam " " banda)
-                    id pini pfin etapa sub "ML" lng handle)))
               ((= red "ACUEDUCTO")
                 ;; PVC va como "PVC presion ØN" en el libro; HD va como
                 ;; "tuberia y piezas especiales HD ØN".
@@ -26228,12 +26213,19 @@
                       (strcat "Suministro tuberia y piezas especiales " mat " " diam))
                     id pini pfin etapa sub "UN" (/ lng 6.0) handle)))
               (T
+                (setq mat-libro
+                  (cond
+                    ((member (strcase mat) '("NOVAFORT" "NOVALOC" "PVC"))
+                      "PVC flexible")
+                    ((member (strcase mat) '("CSR" "CCR" "CER"))
+                      (strcat "en concreto " (strcase mat)))
+                    (T mat)))
                 (list
                   (urb:ppto-row red
-                    (strcat "Instalacion tuberia " mat " " diam)
+                    (strcat "Instalacion tuberia " mat-libro " " diam)
                     id pini pfin etapa sub "ML" lng handle)
                   (urb:ppto-row red
-                    (strcat "Suministro tuberia " mat " " diam)
+                    (strcat "Suministro tuberia " mat-libro " " diam)
                     id pini pfin etapa sub "UN"
                     (float (fix (+ 0.999999 (/ lng 6.0)))) handle)))))
           ;; 2026-09-02: carcamo de proteccion (RAS 0330: cruces o
@@ -26246,7 +26238,10 @@
                 (list
                   (urb:ppto-row red "Carcamo"
                     id pini pfin etapa sub "ML" lng handle)))))
-          (if (not banded-plu)
+          ;; zanja de las TRES redes humedas (2026-09-07: pluvial ya no
+          ;; queda embebida en el APU Hex). La cimentacion segun el
+          ;; libro: presion (ACU) = arena de pena; alcantarillado =
+          ;; gravilla (cama y atraque).
           (setq rows
             (append rows
             (list
@@ -26254,7 +26249,10 @@
                 id pini pfin etapa sub "M3"
                 (atof (urb:safe-string
                   (cdr (assoc "EXCAVACION_M3" atts)) "0")) handle)
-              (urb:ppto-row red "Cimentacion de tuberia en gravilla"
+              (urb:ppto-row red
+                (if (= red "ACUEDUCTO")
+                  "Cama y atraque en arena de pena"
+                  "Cimentacion de tuberia en gravilla")
                 id pini pfin etapa sub "M3"
                 (atof (urb:safe-string
                   (cdr (assoc "TRITURADO_M3" atts)) "0")) handle)
@@ -26271,7 +26269,7 @@
               (urb:ppto-row red "Entibado E-1B"
                 id pini pfin etapa sub "M2" (nth 1 ent) handle)
               (urb:ppto-row red "Entibado E-2"
-                id pini pfin etapa sub "M2" (nth 2 ent) handle)))))
+                id pini pfin etapa sub "M2" (nth 2 ent) handle))))
           (setq rows
             (append rows
               (urb:ppto-param-rows
@@ -26622,6 +26620,246 @@
           n)
         nil))
     nil))
+
+;; ============================================================
+;; PUENTE EXPORT -> HOJA POR EJECUTAR (2026-09-07, v4.71)
+;; El ppto reestructurado guarda las cantidades como VALORES en las
+;; columnas de subetapa de POR EJECUTAR (ya no existen los SUMIFS/
+;; LOOKUP del libro viejo), asi que despues de escribir TablaMemorias
+;; hay que VOLCAR la agregacion en las celdas de cada actividad:
+;;   - agrega TODA TablaMemorias (todos los DWG) por espec+red+id+sub;
+;;   - la fila destino se resuelve con el MISMO vocabulario del match
+;;     (desc exacta; desempate por zona del ID, capitulo de la red, UM);
+;;   - pone en blanco las filas tocadas por el export ANTERIOR de este
+;;     DWG (urb:ppto-pe-old-rows, capturadas antes del reemplazo) y las
+;;     tocadas ahora: una actividad que salio del modelo queda en 0 y
+;;     las filas MANUALES (nunca exportadas) no se tocan;
+;;   - una fila cuyas celdas de subetapa llevan FORMULA (el 3,5% de
+;;     preliminares) se salta con aviso, jamas se pisa.
+;; ============================================================
+
+;; "1.00000000" (rtos de un codigo numerico) -> "1"; "3A"/"GEN" intactos
+(defun urb:ppto-pe-code (txt)
+  (setq txt (urb:safe-string txt ""))
+  (if (vl-string-search "." txt)
+    (vl-string-right-trim "." (vl-string-right-trim "0" txt))
+    txt))
+
+;; valor de un elemento del safearray de TablaMemorias como TEXTO plano
+(defun urb:ppto-pe-sa-txt (sa i c / v)
+  (setq v (vl-catch-all-apply
+    '(lambda () (urb:ppto-variant (vlax-safearray-get-element sa i c)))))
+  (cond
+    ((vl-catch-all-error-p v) "")
+    ((= (type v) 'STR) v)
+    ((numberp v) (urb:ppto-pe-code (rtos v 2 8)))
+    (T "")))
+
+(defun urb:ppto-pe-sa-num (sa i c / v)
+  (setq v (vl-catch-all-apply
+    '(lambda () (urb:ppto-variant (vlax-safearray-get-element sa i c)))))
+  (cond
+    ((vl-catch-all-error-p v) 0.0)
+    ((numberp v) v)
+    ((= (type v) 'STR) (atof v))
+    (T 0.0)))
+
+;; (espec red id) de las memorias de ESTE dwg ANTES del reemplazo: son
+;; las filas del ppto que el export anterior alimento y que hay que
+;; poner en cero si el modelo ya no las trae
+(defun urb:ppto-pe-old-rows (lo dwg / dbr n sa out i esp)
+  (setq out nil dwg (strcase dwg))
+  (setq dbr (vl-catch-all-apply
+    '(lambda () (urb:ppto-obj (vlax-get-property lo 'DataBodyRange)))))
+  (if (not (vl-catch-all-error-p dbr))
+    (progn
+      (setq n (vl-catch-all-apply
+        '(lambda () (vlax-get-property
+          (urb:ppto-obj (vlax-get-property dbr 'Rows)) 'Count))))
+      (setq sa (vl-catch-all-apply
+        '(lambda () (vlax-variant-value (vlax-get-property dbr 'Value2)))))
+      (if (and (not (vl-catch-all-error-p n)) (numberp n) (> n 0)
+               (not (vl-catch-all-error-p sa)))
+        (progn
+          (setq i 1)
+          (while (<= i n)
+            (if (= (strcase (urb:ppto-pe-sa-txt sa i 11)) dwg)
+              (progn
+                (setq esp (urb:ppto-pe-sa-txt sa i 3))
+                (if (and (/= esp "") (/= (substr esp 1 4) "[SIN"))
+                  (setq out (cons (list esp
+                    (urb:ppto-pe-sa-txt sa i 1)
+                    (urb:ppto-pe-sa-txt sa i 4)) out)))))
+            (setq i (1+ i)))))))
+  out)
+
+;; resuelve la FILA de POR EJECUTAR de una espec: candidatas por desc
+;; exacta y desempate por zona (ID) -> capitulo de la red -> UM.
+;; dindex: alist (desc . entradas-del-vocab). Devuelve fila o nil.
+(defun urb:ppto-pe-resolve (dindex esp red id um / cands f zn caps)
+  (setq cands (cdr (assoc esp dindex)))
+  (if (and cands (cdr cands))
+    (progn
+      ;; 1) zona: el ID de las filas de area lleva el parque
+      (setq zn (urb:ppto-normalize id))
+      (if (/= zn "")
+        (progn
+          (setq f (vl-remove-if-not
+            '(lambda (e) (urb:ppto-zona-aplica-p e zn)) cands))
+          (if f (setq cands f))))
+      ;; 2) capitulo de la red
+      (if (cdr cands)
+        (progn
+          (setq caps (urb:ppto-caps-de red))
+          (setq f (vl-remove-if-not
+            '(lambda (e) (urb:ppto-cap-match-p (nth 0 e) caps)) cands))
+          (if f (setq cands f))))
+      ;; 3) unidad
+      (if (cdr cands)
+        (progn
+          (setq f (vl-remove-if-not
+            '(lambda (e) (= (nth 1 e) (strcase um))) cands))
+          (if f (setq cands f))))))
+  (if cands (nth 4 (car cands)) nil))
+
+(defun urb:ppto-write-pe (wb lo vocab old-rows / t0 hoja hrow ws coderow
+   codes cmap colini colfin dindex pair entry dbr n sa i esp red id sub um
+   q ckey rrow cache flat rmap srow rowset item vec letini letfin rng
+   escritas ceros saltadas dstart)
+  (setq t0 (getvar "MILLISECS"))
+  (setq hoja (if (boundp '*urb-ppto-vocab-hoja*) *urb-ppto-vocab-hoja* nil)
+        hrow (if (boundp '*urb-ppto-vocab-header*) *urb-ppto-vocab-header* nil))
+  (if (and vocab hoja hrow)
+    (progn
+      (setq ws (urb:ppto-find-sheet wb hoja))
+      (if (null ws)
+        (prompt "\nOJO puente PE: no encontre la hoja del presupuesto.")
+        (progn
+          ;; --- mapa de columnas: fila de codigos (header+1) hasta CANTIDAD ---
+          (setq coderow (1+ hrow) dstart (+ hrow 2))
+          (setq codes (urb:ppto-read-block
+            (urb:ppto-obj (vlax-get-property ws 'Range
+              (strcat "F" (itoa coderow) ":CB" (itoa coderow)))) 1 75))
+          (setq cmap nil colini 6 colfin nil i 0)
+          (if codes
+            (foreach item (car codes)
+              (setq item (urb:ppto-pe-code item))
+              (if (and (null colfin) (= (strcase item) "CANTIDAD"))
+                (setq colfin (+ 6 i -1)))
+              (if (and (null colfin) (/= item ""))
+                (setq cmap (cons (cons (+ 6 i) item) cmap)))
+              (setq i (1+ i))))
+          (setq cmap (reverse cmap))
+          (if (or (null cmap) (null colfin))
+            (prompt "\nOJO puente PE: no encontre las columnas de subetapa (fila de codigos + CANTIDAD).")
+            (progn
+              ;; --- indice del vocabulario por descripcion exacta ---
+              (setq dindex nil)
+              (foreach entry vocab
+                (setq pair (assoc (nth 2 entry) dindex))
+                (if pair
+                  (setq dindex (subst (append pair (list entry)) pair dindex))
+                  (setq dindex (cons (list (nth 2 entry) entry) dindex))))
+              ;; --- leer TablaMemorias completa y acumular (fila sub q)
+              ;; en lista PLANA (cons O(1); nada de subst anidado que se
+              ;; vuelve cuadratico con las ~5.400 memorias del master) ---
+              (setq flat nil rowset nil cache nil)
+              (setq dbr (vl-catch-all-apply
+                '(lambda () (urb:ppto-obj (vlax-get-property lo 'DataBodyRange)))))
+              (setq n (if (vl-catch-all-error-p dbr) 0
+                (vlax-get-property
+                  (urb:ppto-obj (vlax-get-property dbr 'Rows)) 'Count)))
+              (setq sa (if (> n 0)
+                (vl-catch-all-apply
+                  '(lambda () (vlax-variant-value
+                    (vlax-get-property dbr 'Value2)))) nil))
+              (if (vl-catch-all-error-p sa) (setq sa nil n 0))
+              (setq i 1)
+              (while (<= i n)
+                (setq esp (urb:ppto-pe-sa-txt sa i 3))
+                (if (and (/= esp "") (/= (substr esp 1 4) "[SIN"))
+                  (progn
+                    (setq red (urb:ppto-pe-sa-txt sa i 1)
+                          id (urb:ppto-pe-sa-txt sa i 4)
+                          sub (urb:ppto-pe-code (urb:ppto-pe-sa-txt sa i 8))
+                          um (urb:ppto-pe-sa-txt sa i 9)
+                          q (urb:ppto-pe-sa-num sa i 10))
+                    (if (= sub "") (setq sub "GEN"))
+                    (setq ckey (strcat esp "|" red "|" id))
+                    (setq pair (assoc ckey cache))
+                    (if pair
+                      (setq rrow (cdr pair))
+                      (progn
+                        (setq rrow (urb:ppto-pe-resolve dindex esp red id um))
+                        (setq cache (cons (cons ckey rrow) cache))))
+                    (if rrow
+                      (progn
+                        (setq flat (cons (list rrow sub q) flat))
+                        (if (not (member rrow rowset))
+                          (setq rowset (cons rrow rowset)))))))
+                (setq i (1+ i)))
+              ;; --- filas a cero: las del export anterior de este dwg ---
+              (foreach item old-rows
+                (setq ckey (strcat (nth 0 item) "|" (nth 1 item) "|"
+                  (nth 2 item)))
+                (setq pair (assoc ckey cache))
+                (if pair
+                  (setq rrow (cdr pair))
+                  (progn
+                    (setq rrow (urb:ppto-pe-resolve dindex
+                      (nth 0 item) (nth 1 item) (nth 2 item) ""))
+                    (setq cache (cons (cons ckey rrow) cache))))
+                (if (and rrow (not (member rrow rowset)))
+                  (setq rowset (cons rrow rowset))))
+              ;; --- escribir cada fila afectada (una llamada por fila) ---
+              (setq letini (urb:excel-column-name colini)
+                    letfin (urb:excel-column-name colfin)
+                    escritas 0 ceros 0 saltadas 0)
+              (foreach srow rowset
+                (if (>= srow dstart)
+                  (progn
+                    (setq rng (urb:ppto-obj (vlax-get-property ws 'Range
+                      (strcat letini (itoa srow) ":" letfin (itoa srow)))))
+                    (if (equal (vl-catch-all-apply
+                          '(lambda () (vlax-variant-value
+                            (vlax-get-property rng 'HasFormula))) )
+                          :vlax-true)
+                      (progn
+                        (setq saltadas (1+ saltadas))
+                        (prompt (strcat "\n  puente PE: fila "
+                          (itoa srow) " tiene formulas (no se toca).")))
+                      (progn
+                        ;; triples de ESTA fila y suma por codigo
+                        (setq rmap (vl-remove-if-not
+                          '(lambda (x) (= (car x) srow)) flat))
+                        (setq vec nil)
+                        (foreach pair cmap
+                          (setq q 0.0)
+                          (foreach item rmap
+                            (if (= (nth 1 item) (cdr pair))
+                              (setq q (+ q (nth 2 item)))))
+                          (setq vec (cons
+                            (if (> q 0.0005) (atof (rtos q 2 2)) "")
+                            vec)))
+                        (vlax-put-property rng 'Value2
+                          (urb:excel-matrix-variant (list (reverse vec))))
+                        (if rmap
+                          (setq escritas (1+ escritas))
+                          (setq ceros (1+ ceros))))))))
+              (prompt (strcat "\nCantidades volcadas en la hoja: "
+                (itoa escritas) " actividad(es) escritas"
+                (if (> ceros 0)
+                  (strcat ", " (itoa ceros) " puestas en cero (ya no estan en el modelo)")
+                  "")
+                (if (> saltadas 0)
+                  (strcat ", " (itoa saltadas) " saltadas por formula")
+                  "")
+                "."))
+              (urb:perf-log (strcat "write-pe: "
+                (itoa (- (getvar "MILLISECS") t0)) " ms, "
+                (itoa (length rowset)) " filas"))
+              (length rowset))))))
+    (prompt "\n(puente PE inactivo: presupuesto sin formato NIVEL/subetapas.)")))
 
 ;; 2026-09-03 OPTIMIZACION MASIVA (reporte del usuario "actualizar se
 ;; demora mucho"; export medido en 21 min): la version vieja borraba e
@@ -28037,7 +28275,7 @@
 ;; ---------- nucleo de la exportacion (lo envuelve c:PPTOEXPORTAR) ----------
 (defun urb:ppto-run (wb / lo vocab raw rows item m final huerfanas dwg total
                      borradas por-red red-count espec result resdlg
-                     decisiones d app calc-prev)
+                     decisiones d app calc-prev pe-old res-pe)
   (setq lo (urb:ppto-memorias-table wb))
   (setq vocab (if lo (urb:ppto-read-vocab wb) nil))
   (if (and lo vocab)
@@ -28216,11 +28454,32 @@
                   ;; (no intentar Guardar sobre una escritura a medias). El
                   ;; modo de calculo queda restaurado por la red de
                   ;; seguridad en c:PPTOEXPORTAR aunque esto falle aqui.
+                  ;; v4.71: snapshot de que filas del ppto alimentaba el
+                  ;; export ANTERIOR de este DWG (para ponerlas en cero
+                  ;; si el modelo ya no las trae) -- ANTES del reemplazo
+                  (setq pe-old
+                    (vl-catch-all-apply 'urb:ppto-pe-old-rows
+                      (list lo dwg)))
+                  (if (vl-catch-all-error-p pe-old) (setq pe-old nil))
                   (setq borradas (urb:ppto-write-rows lo final dwg))
                   ;; 2026-09-04: tabla agregada para el libro optimizado
                   ;; (LOOKUP binario) -- no-op si el libro no la tiene
                   (setq *urb-ppto-stage* "tabla agregada URB_AGG")
                   (vl-catch-all-apply 'urb:ppto-write-agg (list wb final))
+                  ;; v4.71: volcar las cantidades agregadas en las celdas
+                  ;; de POR EJECUTAR (el ppto reestructurado guarda
+                  ;; valores, no formulas). Blindado: si falla, la
+                  ;; TablaMemorias ya quedo bien escrita.
+                  (setq *urb-ppto-stage* "cantidades en POR EJECUTAR")
+                  (setq res-pe
+                    (vl-catch-all-apply 'urb:ppto-write-pe
+                      (list wb lo vocab pe-old)))
+                  (if (vl-catch-all-error-p res-pe)
+                    (prompt (strcat
+                      "\nOJO: no se pudieron volcar las cantidades en la"
+                      " hoja POR EJECUTAR: "
+                      (vl-catch-all-error-message res-pe)
+                      " (TablaMemorias SI quedo escrita).")))
                   (setq *urb-ppto-stage* "recalculo final")
                   (if app
                     (progn
