@@ -29,6 +29,16 @@ AutoLISP/Visual LISP para AutoCAD + Civil 3D. Cuantifica obras de urbanismo (and
 
 ## Historial de cambios (más reciente primero)
 
+### 2026-09-06 (parte 34, PC principal, commits `27d795f`..`e50feaa`+) — v4.70.0: todo lo faltante modelable + reestructuración completa del libro
+
+Jornada doble (Excel + motor), pedido "ejecuta todo de corrido":
+- **Libro vigente reestructurado**: EJECUTADO nuevo desde la BD de actas de Lugel (734 filas, 3 categorías, totales exactos $158.612.001.569); POR EJECUTAR reescrita (1.565 filas, 55 cambios: cañuela, rampas completadas, cárcamos→MT como ML, tuberías ACU a UN, pluvial sin duplicados + capítulos nuevos MT/bioretenedores/cabezales, zona verde con exc/rellenos) con **numeración automática por fórmula** (niveles 3-5), V/U 100% por SUMIF, 3,5% de preliminares por subetapa vía SUMPRODUCT; PRECIOS_UNITARIOS 1.290 filas (216 sembradas) y **0 en $0** (25 completados con criterio alto + justificación por analogía interna, `diagnosticos\precios_completados_20260906.tsv`); barrido de coherencia VU: 0 duplicados inconsistentes, 12 outliers explicables (`vu_barrido_20260906.txt`).
+- **Motor v4.70.0**: catálogo de áreas 5→14 tipos (canchas sintética/múltiple, skatepark, escaleras, gradería, pista caucho, parque de niños, zona gym, biciparqueo — mismo diálogo del Andén, recetas exactas del ppto por parque, MT heredado, redirect por zona+hint); bioswale con receta de la cartilla (8 actividades 2.5.3.7); mobiliario +11 tipos de parque; suministro ACU en UN=ML/6; **comando SENALIZACION aparte** (42 tipos: líneas ML con factor de ocupación, símbolos M2, señales UN) con botón en cinta — **ambas DLL recompiladas en este PC** (2023 v4700 FW4.8 + net8 2025/2026); suite 84 checks TODO-OK (checks nuevos + 2 del harness actualizados a diseños vigentes).
+- **Multi-versión**: manifiesto cubre 2019-2024 (R23-R24.2, DLL FW4.8) y 2025-2026 (R25.0-R25.1, DLL net8); 2027 (net10) requerirá DLL nueva — documentado en el propio XML. El motor LISP carga por acaddoc en cualquier versión.
+- Lecciones PowerShell/COM del día (en el handoff): índices 2D `(5+$k)` con paréntesis, fórmulas por bloques + Retry ante RPC_E_CALL_REJECTED, no llamar `$b` al parámetro de un helper que invoca scriptblocks, anclas de texto con NumberFormat "@" (locale es-CO), AutoSave de OneDrive.
+
+
+
 ### 2026-09-02 tarde (parte 33, PC principal, commit `478b700`) — traslado a SharePoint completo + carga de comandos en 2023 + retrim tramos húmedos
 
 - **Traslado a SharePoint (pedido del usuario)**: libro y master vigentes ahora en `colsubsidio.com\...\260915_ACTUALIZACION GENERAL PPTO\` (libro raíz; master en `Memorias\` con xrefs en `Memorias\XREF\`). Config del plugin re-apuntada. Los **8 xrefs guardaban rutas relativas del esquema viejo de Drive y salían rotos** → re-apuntados a `.\XREF\<resto>` (relativas, válidas en ambos PCs), verificado con doble censo headless. Backups: NUEVA carpeta única `...\PROYECTO_URBANISMO_GENERAL\BACKUPS\` (29 existentes movidos + los de hoy). Lo viejo de Drive queda congelado como histórico.
