@@ -25,6 +25,9 @@ El LSP legado `MAIPORE_BLOQUES_REDES_ELECT_...lsp` sigue en `VARIOS\BLOQUES PPTO
 - Integrar funciones nuevas en comandos existentes, no crear comandos nuevos.
 - No bloquear Civil 3D en primer plano al verificar.
 - Versionar: bump de `*urb-version*` en cada entrega + commit con mensaje `vX.Y.Z: descripción`.
+- Trazabilidad multiagente/multi-PC: cada entrada nueva de `PROGRESS.md` y del handoff debe
+  incluir `Agente: Codex|Claude`, `Equipo: <COMPUTERNAME>`, fecha/hora local y el commit
+  cuando exista. No atribuir cambios ajenos ni declarar coautoría sin participación real.
 
 ## Flujos de trabajo del proyecto
 1. **LSP / Civil 3D**: el desarrollo del plugin (este repo).

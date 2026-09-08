@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.73.1")
+(setq *urb-version* "4.74.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -69,6 +69,7 @@
 ;; quita alrededor de cada llamada a mp:insert-tramo-forced, nunca queda
 ;; encendido entre comandos.
 (setq *mp-tramo-road-ref* nil)
+(setq *mp-suppress-regen* nil)
 (setq *urb-pattern-scale* 1.0)
 (setq *urb-etapa-list* '("1" "2" "3" "4" "5" "6" "7" "8" "9"))
 (setq *urb-material-list* '("Loseta"))
@@ -77,6 +78,34 @@
 (setq *urb-anden-grade-source-list*
   '("Via creada" "Cotas seleccionadas" "Alineamiento + cotas"))
 (setq *urb-prefab-list* '("Bordillo" "Sardinel" "Canuela"))
+(setq *urb-prefab-destinos* '("Anden" "Via"))
+
+(defun urb:prefab-destino-default (prefab)
+  ;; Compatibilidad con bloques anteriores a 4.74.0: conserva la regla
+  ;; historica solo cuando el elemento aun no trae destino explicito.
+  (if (wcmatch (strcase (urb:safe-string prefab "")) "*SARDINEL*")
+    "Via" "Anden"))
+
+(defun urb:prefab-destino-red (destino prefab / value)
+  (setq value (strcase (urb:safe-string destino "")))
+  (cond
+    ((member value '("VIA")) "VIA")
+    ((member value '("ANDEN" "ANDENES")) "ANDEN")
+    (T (strcase (urb:prefab-destino-default prefab)))))
+
+(defun urb:prefab-conceptos (prefab / tipo)
+  ;; Textos contractuales verificados contra urbanismo maipore.xlsx.
+  (setq tipo (strcase (urb:safe-string prefab "")))
+  (cond
+    ((wcmatch tipo "*SARDINEL*")
+      (list "Sardinel prefabricado A-10"
+            "M.O. instalación de sardinel prefabricado" "SARDINEL"))
+    ((wcmatch tipo "*CANUELA*")
+      (list "Suministro de cañuela prefabricada"
+            "M.O. instalación de cañuela prefabricada" "BORDILLO"))
+    (T
+      (list "Bordillo prefabricado A-80"
+            "M.O. instalación de bordillo prefabricado" "BORDILLO"))))
 ;; anillo perimetral de anden/sendero (v4.50)
 (setq *urb-anillo-prefab-list* '("Ninguno" "Bordillo" "Sardinel" "Canuela"))
 (setq *urb-anillo-pos-list* '("Externo" "Interno"))
@@ -800,6 +829,7 @@
       ;; en URBANISMO > Configuracion, claves URB_PREFAB_ANCHO_*).
       "urbanismo_prefabricado : dialog { label = \"Datos del prefabricado\";"
       ": popup_list { label = \"Tipo\"; key = \"tipo\"; }"
+      ": popup_list { label = \"Capitulo destino del presupuesto\"; key = \"destino\"; }"
       ": text { label = \"Espesor predeterminado por tipo (Configuracion).\"; }"
       (if (urb:etapas-enabled-p)
         ": popup_list { label = \"Etapa\"; key = \"etapa\"; }" "")
@@ -810,7 +840,7 @@
 )
 
 (defun urb:dialog-prefab
-  (current-type current-width current-etapa current-subetapa current-mode
+  (current-type current-width current-etapa current-subetapa current-mode current-destino
    / filename dcl-id accepted subetapas result width-value)
   (setq current-type (urb:safe-string current-type "Bordillo"))
   (setq current-width
@@ -823,6 +853,9 @@
   (setq current-subetapa
     (urb:safe-string current-subetapa current-etapa))
   (setq current-mode (urb:safe-string current-mode "Interior"))
+  (setq current-destino
+    (urb:safe-string current-destino
+      (urb:prefab-destino-default current-type)))
   (setq filename (urb:write-prefab-dcl))
   (if (and filename
            (> (setq dcl-id (load_dialog filename)) 0)
@@ -831,6 +864,9 @@
       (urb:fill-popup
         "tipo" *urb-prefab-list*
         (urb:index-of current-type *urb-prefab-list*))
+      (urb:fill-popup
+        "destino" *urb-prefab-destinos*
+        (urb:index-of current-destino *urb-prefab-destinos*))
       (if (urb:etapas-enabled-p)
         (progn
           (urb:fill-popup
@@ -855,7 +891,8 @@
               " *urb-dialog-etapa-index* (atoi (get_tile \"etapa\"))"
               " *urb-dialog-subetapa-index* (atoi (get_tile \"subetapa\"))")
             "")
-          " *urb-dialog-prefab-mode-index* (atoi (get_tile \"modo\")))"
+          " *urb-dialog-prefab-mode-index* (atoi (get_tile \"modo\"))"
+          " *urb-dialog-prefab-destino-index* (atoi (get_tile \"destino\")))"
           "(done_dialog 1)"))
       (setq accepted (= 1 (start_dialog)))
       (unload_dialog dcl-id)
@@ -873,12 +910,15 @@
           (setq current-mode
             (nth *urb-dialog-prefab-mode-index*
               *urb-prefab-mode-list*))
+          (setq current-destino
+            (nth *urb-dialog-prefab-destino-index*
+              *urb-prefab-destinos*))
           ;; espesor SIEMPRE el predeterminado del tipo elegido
           ;; (URB_PREFAB_ANCHO_<TIPO> en Configuracion; 0.20 por defecto)
           (setq width-value (urb:prefab-default-ancho current-type))
           (setq result
             (list current-type width-value current-etapa
-                  current-subetapa current-mode))))))
+                  current-subetapa current-mode current-destino))))))
   result
 )
 
@@ -6067,7 +6107,7 @@
           (setq costados-res
             (vl-catch-all-apply 'urb:poly-costados-build
               (list ename (nth 11 data) (nth 12 data) (nth 13 data)
-                etapa subetapa)))
+                etapa subetapa "Anden")))
           (if (vl-catch-all-error-p costados-res) (setq costados-res nil))
           (setq anillo-refs (cadr costados-res))))
       (if result
@@ -6278,7 +6318,7 @@
 )
 
 (defun urb:update-prefab-block-data
-  (ename prefab width etapa subetapa mode / obj data length-value area-value)
+  (ename prefab width etapa subetapa mode destino / obj data length-value area-value)
   (setq obj (vlax-ename->vla-object ename))
   (setq data (urb:prefab-data ename))
   (setq length-value (urb:safe-string (nth 4 data) "0"))
@@ -6286,18 +6326,19 @@
   (urb:set-xdata-strings
     ename "URB_PREFAB_BLOCK"
     (list prefab etapa subetapa (rtos width 2 8)
-          length-value mode *urb-prefab-schema-version*))
+          length-value mode *urb-prefab-schema-version* destino))
   (urb:set-block-attribute obj "TIPO" (strcase prefab))
   (urb:set-block-attribute obj "ANCHO_M" (rtos width 2 3))
   (urb:set-block-attribute obj "AREA_M2" (rtos area-value 2 2))
   (urb:set-block-attribute obj "ETAPA" etapa)
   (urb:set-block-attribute obj "SUBETAPA" subetapa)
   (urb:set-block-attribute obj "MODELADO" mode)
+  (urb:set-block-attribute obj "DESTINO_PPTO" destino)
   T
 )
 
 (defun urb:edit-prefabs
-  (prefabs / first-data dialog-data prefab width etapa subetapa mode
+  (prefabs / first-data dialog-data prefab width etapa subetapa mode destino
    ename data old-prefab old-width old-mode extracted reference side-point
    new-block new-ename obj copy-obj copy-ename updated failed deleted)
   (setq first-data (urb:prefab-data (car prefabs)))
@@ -6306,8 +6347,11 @@
   (setq etapa (urb:safe-string (nth 1 first-data) "1"))
   (setq subetapa (urb:safe-string (nth 2 first-data) etapa))
   (setq mode (urb:safe-string (nth 5 first-data) "Interior"))
+  (setq destino
+    (urb:safe-string (nth 7 first-data)
+      (urb:prefab-destino-default prefab)))
   (setq dialog-data
-    (urb:dialog-prefab prefab width etapa subetapa mode))
+    (urb:dialog-prefab prefab width etapa subetapa mode destino))
   (if dialog-data
     (progn
       (setq prefab (nth 0 dialog-data))
@@ -6315,6 +6359,7 @@
       (setq etapa (nth 2 dialog-data))
       (setq subetapa (nth 3 dialog-data))
       (setq mode (nth 4 dialog-data))
+      (setq destino (nth 5 dialog-data))
       (setq updated 0 failed 0 deleted 0)
       (foreach ename prefabs
         (setq new-block nil extracted nil reference nil side-point nil)
@@ -6328,7 +6373,7 @@
                    (urb:string-equal-p old-mode mode))
             (progn
               (urb:update-prefab-block-data
-                ename prefab width etapa subetapa mode)
+                ename prefab width etapa subetapa mode destino)
               (setq updated (1+ updated)))
             (progn
               (setq extracted
@@ -6347,8 +6392,8 @@
                     (urb:call-edit-stage
                       "reconstruir prefabricado"
                       'urb:build-prefab-from-reference
-                      (list reference side-point prefab width
-                            etapa subetapa mode)))
+                       (list reference side-point prefab width
+                            etapa subetapa mode destino)))
                   (if new-block
                     (progn
                       (urb:copy-quantity-scope ename new-block)
@@ -6380,7 +6425,7 @@
               (setq new-block
                 (urb:build-prefab-from-reference
                   copy-ename side-point prefab width
-                  etapa subetapa mode)))
+                  etapa subetapa mode destino)))
             (if new-block
               (progn
                 (urb:copy-quantity-scope ename new-block)
@@ -7594,7 +7639,7 @@
 )
 
 (defun urb:package-prefab-block
-  (objects source prefab width etapa subetapa mode length-value
+  (objects source prefab width etapa subetapa mode length-value destino
    / handle block-name blocks block-definition copy-result point
    block-ref area-value obj block-layer insert-result block-ename xdata-result)
   (setq handle (vla-get-Handle source))
@@ -7639,6 +7684,8 @@
         block-definition point "SUBETAPA" "Subetapa" subetapa)
       (urb:add-invisible-attribute
         block-definition point "MODELADO" "Modelado" mode)
+      (urb:add-invisible-attribute
+        block-definition point "DESTINO_PPTO" "Destino presupuesto" destino)
       (setq insert-result
         (vl-catch-all-apply
           'vla-InsertBlock
@@ -7669,10 +7716,10 @@
                 (urb:set-xdata-strings
                   block-ename
                   "URB_PREFAB_BLOCK"
-                  (list prefab etapa subetapa
-                        (rtos width 2 8)
-                        (rtos length-value 2 8)
-                        mode *urb-prefab-schema-version*)))
+                   (list prefab etapa subetapa
+                         (rtos width 2 8)
+                         (rtos length-value 2 8)
+                         mode *urb-prefab-schema-version* destino)))
               (if xdata-result
                 (progn
                   (foreach obj objects (urb:safe-delete obj))
@@ -7696,12 +7743,14 @@
 )
 
 (defun urb:build-prefab-from-reference
-  (ename side-point prefab width etapa subetapa mode
+  (ename side-point prefab width etapa subetapa mode destino
    / source offset piece-layer source-role offset-role
    source-start source-end offset-start offset-end temp connector-start
    connector-end hatch objects length-value block-ref color parent-handle)
   (setq prefab (urb:safe-string prefab "Bordillo"))
   (setq mode (urb:safe-string mode "Interior"))
+  (setq destino
+    (urb:safe-string destino (urb:prefab-destino-default prefab)))
   (urb:prepare-prefab-layers prefab)
   (setq color (urb:prefab-color prefab))
   (setq source (vlax-ename->vla-object ename))
@@ -7758,7 +7807,7 @@
       (setq length-value (urb:poly-perimeter source))
       (setq block-ref
         (urb:package-prefab-block
-          objects source prefab width etapa subetapa mode length-value))
+          objects source prefab width etapa subetapa mode length-value destino))
       (if (not block-ref)
         (foreach temp objects (urb:safe-delete temp))))
     (urb:safe-delete source))
@@ -7795,7 +7844,7 @@
 ;; construye el anillo como bloque prefabricado estandar (mismas capas,
 ;; roles xdata y atributos que un prefabricado normal: cuenta solo al
 ;; presupuesto como ML por su longitud). contour NO se consume.
-(defun urb:build-prefab-anillo (contour prefab width etapa subetapa posicion
+(defun urb:build-prefab-anillo (contour prefab width etapa subetapa posicion destino
                                 / src base ring inner outer externo layer
                                 color hatch objects per block-ref)
   (setq externo (urb:string-equal-p posicion "Externo"))
@@ -7842,15 +7891,15 @@
             (append (list inner outer) (if hatch (list hatch))))
           (setq block-ref
             (urb:package-prefab-block objects base prefab width etapa
-              subetapa (if externo "Exterior" "Interior") per))
+              subetapa (if externo "Exterior" "Interior") per destino))
           (if (not block-ref)
             (foreach src objects (urb:safe-delete src)))
           block-ref)))))
 
 (defun urb:create-prefabricado
-  (/ data prefab width etapa subetapa mode ename side-point block-ref)
+  (/ data prefab width etapa subetapa mode destino ename side-point block-ref)
   (setq data
-    (urb:dialog-prefab "Bordillo" 0.20 "1" "1" "Interior"))
+    (urb:dialog-prefab "Bordillo" 0.20 "1" "1" "Interior" "Anden"))
   (if data
     (progn
       (setq prefab (nth 0 data))
@@ -7858,6 +7907,7 @@
       (setq etapa (nth 2 data))
       (setq subetapa (nth 3 data))
       (setq mode (nth 4 data))
+      (setq destino (nth 5 data))
       (setq ename
         (urb:draw-open-polyline
           (strcat (strcase prefab) " - arista de referencia")))
@@ -7872,12 +7922,13 @@
             (progn
               (setq block-ref
                 (urb:build-prefab-from-reference
-                  ename side-point prefab width etapa subetapa mode))
+                  ename side-point prefab width etapa subetapa mode destino))
               (if block-ref
                 (prompt
                   (strcat
                     "\n" (strcase prefab) " creado como bloque."
-                    " Use la arista verde como limite del ANDEN."))
+                    " Destino del presupuesto: " destino "."
+                    " Use la arista verde como limite del elemento."))
                 (prompt "\nNo fue posible crear el bloque prefabricado.")))
             (progn
               (urb:safe-delete (vlax-ename->vla-object ename))
@@ -8270,10 +8321,10 @@
 (setq c:EDIT_CANTIDAD nil)
 (setq c:EDITAR_CANTIDAD nil)
 
-(setq *mp-vis-width* 2.00) ; ancho visual del tramo
+(setq *mp-vis-width* 0.20) ; ancho visual unificado de todos los tramos
 (setq *mp-vis-radius* 1.50) ; radio de circulos de inicio/fin
 (setq *mp-vis-text-height* 1.50) ; altura de datos de elementos puntuales
-(setq *mp-vis-tramo-text-height* 1.50) ; altura de etiqueta y pendiente del tramo
+(setq *mp-vis-tramo-text-height* 0.60) ; altura unificada de datos del tramo
 
 ;; Separador del CSV: ";" abre en columnas en Excel con configuracion
 ;; regional de Colombia/Espana. Cambie a "," si su sistema usa la coma.
@@ -8552,26 +8603,12 @@
         r   *mp-vis-radius*
         th  *mp-vis-tramo-text-height*)
   (if (< w 0.01) (setq w 0.01))
-  ;; 2026-08-28 (revision general del usuario "que se vea claro todas
-  ;; las disciplinas"): TODOS los tramos delgados 0.20 -- la franja de
-  ;; 2.00 se leia como barras y tapaba simbolos/pozos.
-  (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP"
-                      "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
-    (setq w 0.20))
-  ;; ACU: linea FINA (hairline, como el plano original que el usuario
-  ;; pidio calcar: "asi como la foto, limpio y bien conectado")
-  (if (= baseb "TRAMO_ACUEDUCTO") (setq w 0.0))
+  ;; 4.74.0: una sola regla visual para redes humedas y secas.
   (if (< r 2.00) (setq r 2.00))
   (if (< th 0.10) (setq th 0.10))
-  ;; MT/BT-AP: texto del tramo acotado para que no tape cajas ni otros
-  ;; rotulos (revision del usuario 2026-08-26)
-  (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP")) (setq th (min th 0.90)))
-  ;; redes hidro: etiqueta compacta 0.60 (redes densas)
-  (if (member baseb '("TRAMO_ACUEDUCTO" "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
-    (setq th (min th 0.60)))
   ;; 2026-09-01: overrides de Ajustes (URB_MP_TEXTO_TRAMO/URB_MP_ANCHO_TRAMO)
   (setq th (mp:cfg-tramo-text th))
-  (if (/= baseb "TRAMO_ACUEDUCTO") (setq w (mp:cfg-tramo-width w)))
+  (setq w (mp:cfg-tramo-width w))
   (setq lab (mp:label-tramo baseb vals))
   (setq blk (vla-Add blks (mp:3d '(0 0 0)) blkname))
 
@@ -12332,8 +12369,10 @@
       (vla-Update obj)
       (entupd en)
       (redraw en 1)
-      (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
-      (vla-Regen doc 1)
+      (if (not *mp-suppress-regen*)
+        (progn
+          (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
+          (vla-Regen doc 1)))
       (vl-catch-all-apply 'vla-Update (list obj))
       (entupd en)))
   (if (null saved) (setq saved (mp:setatts en vals)))
@@ -12498,14 +12537,7 @@
   ;; esta copia usaba *mp-vis-width* (2.0) a secas y deshacia el trazo
   ;; delgado cada vez que se creaba/editaba un tramo (el mismo patron
   ;; del bug del gap MT del 26/08: logica duplicada sin sincronizar).
-  (setq width
-    (cond
-      ((= base "TRAMO_ACUEDUCTO") 0.0) ;; hairline como el plano
-      ((member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"
-                      "TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
-        ;; mismo override de Ajustes que mp:make-cant-tramo-block
-        (mp:cfg-tramo-width 0.20))
-      (T (max 0.01 *mp-vis-width*))))
+  (setq width (max 0.01 (mp:cfg-tramo-width *mp-vis-width*)))
   ;; Los circulos de extremos de un tramo hidrosanitario/MT/BT-AP no son
   ;; pozos: eran geometria duplicada. El nodo real es su INSERT puntual
   ;; enlazado (pozo/caja/poste).
@@ -15845,7 +15877,7 @@
                               (+ (cadr mid-pt) (cadr normal))))
                       (if (urb:build-prefab-from-reference
                             ename side-point "Sardinel" 0.20 etapa subetapa
-                            "Exterior")
+                            "Exterior" "Via")
                         (setq count (1+ count))))))))
             (urb:set-chain-highlight chain nil)
             (redraw))
@@ -19114,6 +19146,16 @@
 ;; ---------- ventana previa de RAMPA (2026-08-21, pedido del usuario:
 ;; "no me sale ninguna ventana ni siquiera para elegir etapa o
 ;; subetapa") -- etapa, subetapa, ancho de banda central y fondo ----------
+(setq *urb-rampa-tipos*
+  '(("RAMPA-PEATONAL" "Rampa peatonal" "RAMPA-PEATONAL")
+    ("RAMPA-VEHICULAR" "Rampa vehicular" "RAMPA-VEHICULAR")
+    ("PASO-PEATONAL" "Paso peatonal seguro" "PASO-PEATONAL")))
+
+(defun urb:rampa-red (tipo / entry)
+  (setq entry (assoc (strcase (urb:safe-string tipo "RAMPA-PEATONAL"))
+                     *urb-rampa-tipos*))
+  (if entry (nth 2 entry) "RAMPA-PEATONAL"))
+
 (defun urb:rampa-write-dcl ()
   (urb:write-dialog-dcl
     "urb_rampa"
@@ -19123,7 +19165,8 @@
       ;; digitan aqui -- el ancho se define dibujando (clic HASTA DONDE va
       ;; la rampa sobre el borde, o digitando la longitud) y el fondo lo
       ;; define el clic final sobre el bordillo.
-      "urb_rampa : dialog { label = \"Rampa peatonal\";"
+      "urb_rampa : dialog { label = \"Rampas y pasos peatonales\";"
+      ": popup_list { label = \"Tipologia\"; key = \"tipo\"; }"
       ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
       ": text { label = \"Despues: 1) punto inicial, 2) clic HASTA DONDE va la rampa\"; }"
@@ -19137,8 +19180,8 @@
   (end_list)
   (set_tile "subetapa" "0"))
 
-;; devuelve (etapa subetapa ancho fondo) o nil si cancela
-(defun urb:rampa-dialog (/ dclfile dcl done etapa subs fondo width)
+;; devuelve (tipo etapa subetapa ancho fondo) o nil si cancela
+(defun urb:rampa-dialog (/ dclfile dcl done tipo etapa subs fondo width entry)
   (setq dclfile (urb:rampa-write-dcl))
   (if (null dclfile)
     (progn
@@ -19148,6 +19191,10 @@
       (setq dcl (load_dialog dclfile))
       (if (and dcl (> dcl 0) (new_dialog "urb_rampa" dcl))
         (progn
+          (start_list "tipo")
+          (foreach entry *urb-rampa-tipos* (add_list (nth 1 entry)))
+          (end_list)
+          (set_tile "tipo" "0")
           (start_list "etapa")
           (foreach e *urb-etapa-list* (add_list e))
           (end_list)
@@ -19157,24 +19204,27 @@
           ;; seleccion capturada DENTRO del accept (regla de oro DCL v4.41)
           (action_tile "accept"
             (strcat
-              "(setq *urb-rampa-sel* (list (get_tile \"etapa\")"
+              "(setq *urb-rampa-sel* (list (get_tile \"tipo\")"
+              " (get_tile \"etapa\")"
               " (get_tile \"subetapa\")))"
               " (done_dialog 1)"))
           (setq done (start_dialog))))
       (if (and dcl (> dcl 0)) (unload_dialog dcl))
       (if (= done 1)
         (progn
+          (setq tipo
+            (nth 0 (nth (atoi (nth 0 *urb-rampa-sel*)) *urb-rampa-tipos*)))
           (setq etapa
             (urb:safe-string
-              (nth (atoi (nth 0 *urb-rampa-sel*)) *urb-etapa-list*) "1"))
+              (nth (atoi (nth 1 *urb-rampa-sel*)) *urb-etapa-list*) "1"))
           (setq subs (urb:subetapas-for etapa))
           ;; ancho: placeholder -- se define dibujando (clic hasta donde va
           ;; o longitud digitada); fondo: default, el clic final lo redefine
           (setq width 2.00)
           (setq fondo *urb-anden-default-width*)
-          (list etapa
+          (list tipo etapa
             (urb:safe-string
-              (nth (atoi (nth 1 *urb-rampa-sel*)) subs) "1")
+              (nth (atoi (nth 2 *urb-rampa-sel*)) subs) "1")
             width fondo))
         nil))))
 
@@ -19187,7 +19237,7 @@
 ;; nuevos; el original se borra. Devuelve cuantos prefabricados corto.
 (defun urb:trim-prefabs-for-ramp (base-pt axis-angle span
    / p2 ss i en data prefab pwidth mode etapa sub extd ref sp len d pt
-   dmin dmax cnt piece res bb1 bb2 minx miny maxx maxy tol)
+   destino dmin dmax cnt piece res bb1 bb2 minx miny maxx maxy tol)
   (setq p2 (list (+ (car base-pt) (* span (cos axis-angle)))
                  (+ (cadr base-pt) (* span (sin axis-angle)))))
   (setq minx (- (min (car base-pt) (car p2)) 1.5)
@@ -19214,7 +19264,9 @@
                 etapa (urb:safe-string (nth 1 data) "1")
                 sub (urb:safe-string (nth 2 data) "1")
                 pwidth (atof (urb:safe-string (nth 3 data) "0.20"))
-                mode (urb:safe-string (nth 5 data) "Interior"))
+                mode (urb:safe-string (nth 5 data) "Interior")
+                destino (urb:safe-string (nth 7 data)
+                  (urb:prefab-destino-default prefab)))
           (setq extd (urb:extract-prefab-reference en prefab mode))
           (if extd
             (progn
@@ -19260,7 +19312,7 @@
                           (urb:chain-subpoly ref (car seg) (cadr seg)))
                         (if piece
                           (urb:build-prefab-from-reference
-                            piece sp prefab pwidth etapa sub mode)))))
+                            piece sp prefab pwidth etapa sub mode destino)))))
                   (if (entget ref) (entdel ref))
                   (entdel en)
                   (setq cnt (1+ cnt))))))))
@@ -19282,7 +19334,7 @@
 
 (defun urb:create-ramp-command
   (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
-   depth etapa subetapa axis-angle side-sign block-ref center-pt total-half done
+   depth tipo etapa subetapa axis-angle side-sign block-ref center-pt total-half done
    ext ext-pt ext-sel ext-cp vproj dlg ncut picks mov pe u v pts)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
   ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
@@ -19305,15 +19357,16 @@
   ;; El fondo (3.50 default) es opcion del mismo prompt del ancho.
   ;; Etapa/subetapa arrancan en 1/1 (cambiables en lote).
   (setq depth *urb-anden-default-width*
-        side-sign 1.0 width 2.00 etapa "1" subetapa "1" ext 0.0)
+        side-sign 1.0 width 2.00 tipo "RAMPA-PEATONAL"
+        etapa "1" subetapa "1" ext 0.0)
   ;; 2026-08-21 v4.48.1 (pedido del usuario): VENTANA previa con etapa,
   ;; subetapa, ancho de banda y fondo -- el ancho por getkword de la
   ;; linea de comandos desaparece; el resto del flujo (punto inicial,
   ;; direccion, clic al bordillo) queda igual.
   (setq dlg (urb:rampa-dialog))
   (if dlg
-    (setq etapa (nth 0 dlg) subetapa (nth 1 dlg)
-          width (nth 2 dlg) depth (nth 3 dlg)))
+    (setq tipo (nth 0 dlg) etapa (nth 1 dlg) subetapa (nth 2 dlg)
+          width (nth 3 dlg) depth (nth 4 dlg)))
   (setq base-pt
     (if dlg
       (getpoint "\nPunto INICIAL de la rampa sobre el borde de la via: ")))
@@ -19386,7 +19439,7 @@
       ;; base-pt es el INICIO del modulo (u=0) SOBRE EL BORDILLO; el
       ;; modulo mide W+1.20 a lo largo del bordillo y crece hacia el anden
       (setq block-ref
-        (urb:build-ramp base-pt axis-angle side-sign width depth etapa subetapa ext))
+        (urb:build-ramp base-pt axis-angle side-sign width depth etapa subetapa ext tipo))
       (if block-ref
         (progn
           ;; 2026-09-01: cortar el sardinel/bordillo existente bajo la rampa
@@ -19441,7 +19494,8 @@
                       (prompt (strcat "\nCorte: " (rtos (car mov) 2 2)
                         " m3 | Relleno: " (rtos (cadr mov) 2 2) " m3"))))))))
           (prompt
-            (strcat "\nRampa creada: superficie " (rtos (+ width 0.6) 2 2)
+           (strcat "\n" (nth 1 (assoc tipo *urb-rampa-tipos*))
+                    " creada: superficie " (rtos (+ width 0.6) 2 2)
                     "m en la via (central " (rtos width 2 2)
                     "m), modulo total " (rtos (+ width 1.2) 2 2)
                     "m x " (rtos depth 2 2) "m | Etapa " etapa
@@ -19477,7 +19531,7 @@
 )
 
 (defun urb:build-ramp
-  (base-pt axis-angle side-sign width depth etapa subetapa ext
+  (base-pt axis-angle side-sign width depth etapa subetapa ext tipo
    / doc objects obj hatch boundary area total v0 u1 ent trap treg breg forigin
    rorigin pair piece s e bw gray bp vlo vhi lu lv uvh corners
    block-name blocks block-definition copy-result insert-result block-ref
@@ -19683,7 +19737,7 @@
                       (vl-catch-all-error-message copy-result)))
       nil)
     (progn
-      (urb:add-invisible-attribute block-definition base-pt "TIPO" "Tipo" "RAMPA")
+      (urb:add-invisible-attribute block-definition base-pt "TIPO" "Tipo" tipo)
       (urb:add-invisible-attribute block-definition base-pt "ANCHO_RAMPA" "Ancho rampa m" (rtos width 2 2))
       (urb:add-invisible-attribute block-definition base-pt "FONDO_M" "Fondo m" (rtos depth 2 2))
       (urb:add-invisible-attribute block-definition base-pt "AREA_M2" "Area m2" (rtos area 2 2))
@@ -19710,7 +19764,7 @@
           (setq block-ename (urb:as-ename block-ref))
           (if block-ename
             (urb:set-xdata-strings block-ename "URB_RAMPA_BLOCK"
-              (list "RAMPA" etapa subetapa
+              (list tipo etapa subetapa
                     (rtos width 2 8) (rtos depth 2 8) (rtos area 2 8))))
           (foreach obj objects (urb:safe-delete obj))
           block-ref))))
@@ -19766,48 +19820,94 @@
   result
 )
 
-(defun urb:apply-etapa-subetapa (ename etapa subetapa / obj data category)
+(defun urb:apply-etapa-subetapa
+  (ename etapa subetapa / obj data category app new-data before atts
+   old-etapa old-subetapa has-etapa has-subetapa result restore-result)
   ;; Cambia SOLO etapa/subetapa de un elemento ya creado, sin reconstruir
   ;; geometria ni recalcular cantidades: la xdata del tipo correspondiente
   ;; (lo que leen las cantidades/Excel) + los atributos ETAPA/SUBETAPA si
   ;; el bloque los tiene (las redes mp: los llevan SOLO como atributos).
   ;; Devuelve el nombre del tipo reconocido, o nil si el objeto no es del
   ;; programa.
-  (setq obj (urb:as-vla-object ename))
+  (setq obj (urb:as-vla-object ename)
+        before (entget ename '("*"))
+        atts (if obj (urb:block-attribute-values obj) nil)
+        old-etapa (cdr (assoc "ETAPA" atts))
+        old-subetapa (cdr (assoc "SUBETAPA" atts))
+        has-etapa (if (assoc "ETAPA" atts) T nil)
+        has-subetapa (if (assoc "SUBETAPA" atts) T nil))
   (cond
     ((setq data (urb:get-xdata-strings ename "URB_ANDEN_BLOCK"))
-      (urb:set-xdata-strings ename "URB_ANDEN_BLOCK"
-        (urb:replace-nth 3 subetapa (urb:replace-nth 2 etapa data)))
-      (setq category "Andenes"))
+      (setq app "URB_ANDEN_BLOCK"
+            new-data (urb:replace-nth 3 subetapa (urb:replace-nth 2 etapa data))
+            category "Andenes"))
     ((setq data (urb:get-xdata-strings ename "URB_VIA"))
-      (urb:set-xdata-strings ename "URB_VIA"
-        (urb:replace-nth 3 subetapa (urb:replace-nth 2 etapa data)))
-      (setq category "Vias"))
+      (setq app "URB_VIA"
+            new-data (urb:replace-nth 3 subetapa (urb:replace-nth 2 etapa data))
+            category "Vias"))
     ((setq data (urb:get-xdata-strings ename "URB_PREFAB_BLOCK"))
-      (urb:set-xdata-strings ename "URB_PREFAB_BLOCK"
-        (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data)))
-      (setq category "Prefabricados"))
+      (setq app "URB_PREFAB_BLOCK"
+            new-data (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data))
+            category "Prefabricados"))
     ((setq data (urb:get-xdata-strings ename "URB_GREEN_BLOCK"))
-      (urb:set-xdata-strings ename "URB_GREEN_BLOCK"
-        (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data)))
-      (setq category "Zonas verdes"))
+      (setq app "URB_GREEN_BLOCK"
+            new-data (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data))
+            category "Zonas verdes"))
     ((setq data (urb:get-xdata-strings ename "URB_RAMPA_BLOCK"))
-      (urb:set-xdata-strings ename "URB_RAMPA_BLOCK"
-        (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data)))
-      (setq category "Rampas"))
+      (setq app "URB_RAMPA_BLOCK"
+            new-data (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data))
+            category "Rampas"))
     ;; senderos/ciclorrutas/bioswales (v4.49): etapa y subetapa viven en
     ;; la xdata URB_SENDERO (posiciones 1 y 2)
     ((setq data (urb:get-xdata-strings ename "URB_SENDERO"))
-      (urb:set-xdata-strings ename "URB_SENDERO"
-        (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data)))
-      (setq category "Senderos"))
+      (setq app "URB_SENDERO"
+            new-data (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data))
+            category "Senderos"))
     ((and obj (assoc "ETAPA" (urb:block-attribute-values obj)))
       (setq category "Redes / otros bloques")))
-  (if (and category obj)
+  (if category
     (progn
-      (urb:set-block-attribute obj "ETAPA" etapa)
-      (urb:set-block-attribute obj "SUBETAPA" subetapa)))
-  category
+      (setq result
+        (vl-catch-all-apply
+          '(lambda ()
+            (if app
+              (if (not (and (urb:set-xdata-strings ename app new-data)
+                            (equal new-data (urb:get-xdata-strings ename app))))
+                (exit)))
+            (if has-etapa
+              (progn
+                (urb:set-block-attribute obj "ETAPA" etapa)
+                (if (/= etapa
+                       (urb:safe-string
+                         (cdr (assoc "ETAPA" (urb:block-attribute-values obj))) ""))
+                  (exit))))
+            (if has-subetapa
+              (progn
+                (urb:set-block-attribute obj "SUBETAPA" subetapa)
+                (if (/= subetapa
+                       (urb:safe-string
+                         (cdr (assoc "SUBETAPA" (urb:block-attribute-values obj))) ""))
+                  (exit))))
+            ;; Un bloque de red reconocido por atributos debe tener ambos.
+            (if (and (null app) (not (and has-etapa has-subetapa))) (exit))
+            T)))
+      (if (vl-catch-all-error-p result)
+        (progn
+          (setq restore-result
+            (vl-catch-all-apply
+              '(lambda ()
+                (if before (entmod before))
+                (if has-etapa
+                  (urb:set-block-attribute obj "ETAPA" old-etapa))
+                (if has-subetapa
+                  (urb:set-block-attribute obj "SUBETAPA" old-subetapa))
+                (entupd ename))))
+          (list "__ERROR__"
+            (if (vl-catch-all-error-p restore-result)
+              "fallo y no se pudo restaurar completamente"
+              "fallo de verificacion; se restauraron los datos anteriores")))
+        category))
+    nil)
 )
 
 (defun urb:batch-stage-command
@@ -19852,6 +19952,12 @@
                 (prompt (strcat "\nFallo en " (urb:q-handle ename) ": "
                   (vl-catch-all-error-message category)))
                 (setq category nil)))
+            (if (and (listp category) (= (car category) "__ERROR__"))
+              (progn
+                (setq failed (1+ failed))
+                (prompt (strcat "\nFallo en " (urb:q-handle ename) ": "
+                  (cadr category)))
+                (setq category nil)))
             (if category
               (progn
                 (setq total (1+ total))
@@ -19893,7 +19999,7 @@
         ": boxed_column { label = \"Tipo de elemento\";"
         ": button { label = \"Via\"; key = \"road\"; height = 2; width = 32; }"
         ": button { label = \"Anden\"; key = \"sidewalk\"; height = 2; width = 32; }"
-        ": button { label = \"Rampa peatonal\"; key = \"ramp\"; height = 2; width = 32; }"
+        ": button { label = \"Rampas y paso peatonal\"; key = \"ramp\"; height = 2; width = 32; }"
         ": button { label = \"Zona verde\"; key = \"green\"; height = 2; width = 32; }"
         ": button { label = \"Prefabricado\"; key = \"precast\"; height = 2; width = 32; }"
         ": button { label = \"Red\"; key = \"network\"; height = 2; width = 32; } }"
@@ -20240,6 +20346,18 @@
   (list severity category handle element finding action)
 )
 
+(setq *urb-q-only-ename* nil)
+
+(defun urb:q-candidate-set (filter / ss)
+  ;; CONSULTAR usa solo el bloque seleccionado; el diagnostico general
+  ;; conserva los filtros globales. Evita recorrer miles de entidades cinco
+  ;; veces para localizar un unico handle.
+  (if (and *urb-q-only-ename* (entget *urb-q-only-ename*))
+    (progn
+      (setq ss (ssadd))
+      (ssadd *urb-q-only-ename* ss))
+    (ssget "_X" filter)))
+
 (defun urb:q-collect-andenes
   (/ ss index ename data mov handle material stage substage area perimeter
    format guide toperol surface grade calculate smooth-area smooth-units
@@ -20247,7 +20365,7 @@
    coverage via-id via-name status quantity-status finish-status finish-area
    tactile-p records details controls layer layer-type
    thickness overlap quantity unit specification)
-  (setq ss (ssget "_X" '((-3 ("URB_ANDEN_BLOCK")))))
+  (setq ss (urb:q-candidate-set '((-3 ("URB_ANDEN_BLOCK")))))
   (if ss
     (progn
       (setq index 0)
@@ -20456,7 +20574,7 @@
    skipped width depth records details controls road-profile layers layer
    layer-name layer-type layer-scope thickness overlap left right left-area
    right-area base-area layer-area quantity unit specification quantity-status)
-  (setq ss (ssget "_X" '((-3 ("URB_VIA")))))
+  (setq ss (urb:q-candidate-set '((-3 ("URB_VIA")))))
   (if ss
     (progn
       (setq index 0)
@@ -20596,8 +20714,8 @@
 
 (defun urb:q-collect-prefabricados
   (/ ss index ename data handle prefab stage substage width length-value
-   mode budget-name records details controls quantity-status)
-  (setq ss (ssget "_X" '((-3 ("URB_PREFAB_BLOCK")))))
+   mode destino red conceptos budget-name records details controls quantity-status)
+  (setq ss (urb:q-candidate-set '((-3 ("URB_PREFAB_BLOCK")))))
   (if ss
     (progn
       (setq index 0)
@@ -20613,15 +20731,11 @@
                   width (urb:q-number (urb:q-safe-nth 3 data "0"))
                   length-value (urb:q-number (urb:q-safe-nth 4 data "0"))
                   mode (urb:safe-string (urb:q-safe-nth 5 data "") "")
-                  budget-name
-                    (cond
-                      ((= prefab "BORDILLO")
-                        "Suministro e instalacion de bordillo A-80")
-                      ((= prefab "SARDINEL")
-                        "Suministro e instalacion de sardinel A-10")
-                      ((= prefab "CANUELA")
-                        "Suministro e instalacion de canuela")
-                      (T prefab)))
+                  destino (urb:safe-string (urb:q-safe-nth 7 data "")
+                    (urb:prefab-destino-default prefab))
+                  red (urb:prefab-destino-red destino prefab)
+                  conceptos (urb:prefab-conceptos prefab)
+                  budget-name (car conceptos))
             (setq quantity-status
               (urb:q-basic-status stage substage
                 (and (> width 1e-9) (> length-value 1e-9)
@@ -20630,7 +20744,7 @@
             (setq details
               (cons
                 (list handle prefab stage substage width length-value mode
-                  quantity-status)
+                  destino red quantity-status)
                 details))
             (setq records
               (cons
@@ -20654,7 +20768,7 @@
 (defun urb:q-collect-green-zones
   (/ ss index ename data handle stage substage area perimeter thickness
    volume quantity-status records details controls)
-  (setq ss (ssget "_X" '((-3 ("URB_GREEN_BLOCK")))))
+  (setq ss (urb:q-candidate-set '((-3 ("URB_GREEN_BLOCK")))))
   (if ss
     (progn
       (setq index 0)
@@ -21091,7 +21205,7 @@
 (defun urb:q-collect-networks
   (/ ss index ename package records hydro electric lighting controls audit
    duplicate-handles adjusted result record)
-  (setq ss (ssget "_X" '((0 . "INSERT"))))
+  (setq ss (urb:q-candidate-set '((0 . "INSERT"))))
   (if ss
     (progn
       (setq index 0)
@@ -21367,9 +21481,27 @@
   (list (reverse result) (reverse controls))
 )
 
+(defun urb:q-refresh-network-one (ename / obj bname atts base)
+  (if (urb:q-modelspace-p ename)
+    (progn
+      (setq obj (urb:as-vla-object ename))
+      (if obj
+        (progn
+          (setq bname
+            (urb:safe-string
+              (vl-catch-all-apply 'vla-get-EffectiveName (list obj)) ""))
+          (if (and (/= bname "") (mp:is-cant-blockname bname))
+            (progn
+              (setq atts (mp:att-alist ename)
+                    base (mp:infer-base bname atts))
+              (if (mp:base-is-tramo base)
+                (progn (mp:update-block-after-edit ename nil) T)))))))))
+
 (defun urb:q-refresh-network-segments
-  (/ ss index ename obj bname atts base result updated failed doc undo-open)
-  (setq ss (ssget "_X" '((0 . "INSERT")))
+  (/ ss index ename result updated failed doc undo-open old-suppress)
+  (setq ss (ssget "_X"
+             '((0 . "INSERT")
+               (2 . "MP_TRAMO_*,TRAMO_*,CANT_TRAMO_*")))
         doc (urb:doc))
   (if ss
     (progn
@@ -21377,33 +21509,23 @@
             (vl-catch-all-error-p
               (vl-catch-all-apply 'vla-StartUndoMark (list doc))))
         (setq undo-open T))
+      (setq old-suppress *mp-suppress-regen*
+            *mp-suppress-regen* T)
       (setq index 0)
       (repeat (sslength ss)
         (setq ename (ssname ss index))
-        (if (urb:q-modelspace-p ename)
-          (progn
-            (setq obj (urb:as-vla-object ename))
-            (if obj
-              (progn
-                (setq bname
-                  (urb:safe-string
-                    (vl-catch-all-apply 'vla-get-EffectiveName (list obj)) ""))
-                (if (and (/= bname "") (mp:is-cant-blockname bname))
-                  (progn
-                    (setq atts (mp:att-alist ename)
-                          base (mp:infer-base bname atts))
-                    (if (mp:base-is-tramo base)
-                      (progn
-                        (setq result
-                          (vl-catch-all-apply
-                            'mp:update-block-after-edit
-                            (list ename nil)))
-                        (if (vl-catch-all-error-p result)
-                          (setq failed (1+ (if failed failed 0)))
-                          (setq updated (1+ (if updated updated 0))))))))))))
+        (setq result
+          (vl-catch-all-apply 'urb:q-refresh-network-one (list ename)))
+        (cond
+          ((vl-catch-all-error-p result)
+            (setq failed (1+ (if failed failed 0))))
+          (result
+            (setq updated (1+ (if updated updated 0)))))
         (setq index (1+ index)))
       (if undo-open
-        (vl-catch-all-apply 'vla-EndUndoMark (list doc)))))
+        (vl-catch-all-apply 'vla-EndUndoMark (list doc)))
+      (setq *mp-suppress-regen* old-suppress)
+      (vl-catch-all-apply 'vla-Regen (list doc 1))))
   (if (or updated failed)
     (prompt
       (strcat "\nPreactualizacion de redes: "
@@ -21413,7 +21535,7 @@
 )
 
 (defun urb:q-scope-controls (/ ss index ename data entity-data layout handle layer result)
-  (setq ss (ssget "_X" '((-3 ("URB_Q_SCOPE"))))
+  (setq ss (urb:q-candidate-set '((-3 ("URB_Q_SCOPE"))))
         index 0)
   (if ss
     (repeat (sslength ss)
@@ -22769,7 +22891,7 @@
   (vla-put-Closed poly :vlax-true)
   poly)
 
-(defun urb:mob-ensure-block (entry / nombre bdef a l a2 l2 marco interior
+(defun urb:mob-ensure-block (entry side-sign / nombre bdef a l a2 l2 y0 y1 marco interior
                              hatch mtx etiqueta th)
   ;; los contenedores llevan sufijo de version (2026-08-20 _C2: la forma
   ;; paso de rectangulo simple a marco doble + relleno verde + texto;
@@ -22778,7 +22900,8 @@
   ;; la vieja, que salia rotada 90 grados respecto al sendero/anden)
   (setq nombre
     (strcat "URB_MOB_" (nth 0 entry)
-      (if (= (nth 3 entry) "CONTEN") "_C3" "")))
+      (if (= (nth 3 entry) "CONTEN")
+        (if (< side-sign 0.0) "_C4N" "_C4P") "")))
   (if (not (tblsearch "BLOCK" nombre))
     (progn
       (setq bdef
@@ -22798,10 +22921,13 @@
         ;; a la direccion pedida, y por eso el contenedor salia rotado
         ;; 90 grados respecto al sendero/anden.
         ((= (nth 3 entry) "CONTEN")
-          (setq marco (urb:mob-rect-poly bdef 0.0 0.0 l a))
+          (setq y0 (if (< side-sign 0.0) (- a) 0.0)
+                y1 (if (< side-sign 0.0) 0.0 a))
+          (setq marco (urb:mob-rect-poly bdef 0.0 y0 l y1))
           (vla-put-Color marco 5)
           (setq interior
-            (urb:mob-rect-poly bdef 0.06 0.06 (- l 0.06) (- a 0.06)))
+            (urb:mob-rect-poly bdef 0.06 (+ y0 0.06)
+              (- l 0.06) (- y1 0.06)))
           (vla-put-Color interior 5)
           (setq hatch
             (vl-catch-all-apply
@@ -22818,11 +22944,13 @@
                    (substr (nth 0 entry) 6)))))
           (setq th (min 0.25 (* (min a l) 0.22)))
           (setq mtx
-            (vla-AddMText bdef (vlax-3d-point (list l2 a2 0.0))
+            (vla-AddMText bdef
+              (vlax-3d-point (list l2 (* side-sign a2) 0.0))
               (* (max a l) 0.9) etiqueta))
           (vla-put-Height mtx th)
           (vla-put-AttachmentPoint mtx 5)   ; centro
-          (vla-put-InsertionPoint mtx (vlax-3d-point (list l2 a2 0.0))))
+          (vla-put-InsertionPoint mtx
+            (vlax-3d-point (list l2 (* side-sign a2) 0.0))))
         ((= (nth 3 entry) "CIRC")
           (vla-AddCircle bdef (vlax-3d-point '(0.0 0.0 0.0)) a2)
           (vla-AddCircle bdef (vlax-3d-point '(0.0 0.0 0.0)) (* a2 0.6)))
@@ -23311,7 +23439,8 @@
       (setq i (1+ i))))
   (reverse out))
 
-(defun urb:mobiliario-command (/ dclfile dcl done entry nombre pt ref n ang)
+(defun urb:mobiliario-command
+  (/ dclfile dcl done entry nombre pt ref n ang side-pt vproj side-sign)
   (vl-load-com)
   (setq dclfile (urb:mob-write-dcl))
   (if (null dclfile)
@@ -23336,7 +23465,8 @@
           (setq entry
             (nth (atoi (urb:safe-string *urb-mob-sel* "0")) *urb-mob-tipos*))
           (urb:ensure-layer "URB-MOBILIARIO" 92 T)
-          (setq nombre (urb:mob-ensure-block entry))
+          (if (/= (nth 3 entry) "CONTEN")
+            (setq nombre (urb:mob-ensure-block entry 1.0)))
           (setq n 0)
           (while (setq pt
                    (getpoint (strcat "\nPunto para " (nth 1 entry)
@@ -23347,18 +23477,42 @@
             (setq ang (getangle pt
               "\nDireccion sobre el eje (clic segundo punto, Enter=0): "))
             (if (null ang) (setq ang 0.0))
+            ;; Contenedores: el tercer punto elige el costado del eje. Se
+            ;; genera una definicion local positiva/negativa (sin escala
+            ;; espejo), para conservar el texto legible.
+            (setq side-sign 1.0)
+            (if (= (nth 3 entry) "CONTEN")
+              (progn
+                (setq side-pt
+                  (getpoint pt
+                    "\nPunto al lado del eje hacia donde se dibuja el contenedor: "))
+                (if side-pt
+                  (progn
+                    (setq vproj
+                      (+ (* (- (car side-pt) (car pt)) (- (sin ang)))
+                         (* (- (cadr side-pt) (cadr pt)) (cos ang))))
+                    (setq side-sign (if (< vproj 0.0) -1.0 1.0)))
+                  (setq side-sign nil))
+                (if side-sign
+                  (setq nombre (urb:mob-ensure-block entry side-sign)))))
             (setq ref
-              (vl-catch-all-apply
+              (if side-sign (vl-catch-all-apply
                 '(lambda ()
                   (vla-InsertBlock (urb:space)
-                    (vlax-3d-point (trans pt 1 0)) nombre 1.0 1.0 1.0 ang))))
-            (if (vl-catch-all-error-p ref)
-              (prompt (strcat "\nNo se pudo insertar: "
-                (vl-catch-all-error-message ref)))
+                    (vlax-3d-point (trans pt 1 0)) nombre 1.0 1.0 1.0 ang)))))
+            (if (or (null ref) (vl-catch-all-error-p ref))
+              (prompt
+                (if (vl-catch-all-error-p ref)
+                  (strcat "\nNo se pudo insertar: "
+                    (vl-catch-all-error-message ref))
+                  "\nInsercion cancelada: no se definio el lado del eje."))
               (progn
                 (vla-put-Layer ref "URB-MOBILIARIO")
                 (urb:set-xdata-strings (vlax-vla-object->ename ref)
-                  "URB_MOBILIARIO" (list (nth 0 entry)))
+                  "URB_MOBILIARIO"
+                  (list (nth 0 entry)
+                    (if (< side-sign 0.0) "IZQUIERDA" "DERECHA")
+                    (rtos ang 2 8)))
                 ;; contenedores: al FRENTE para que su relleno tape el
                 ;; patron del anden (corte visual, sin editar el anden)
                 (if (= (nth 3 entry) "CONTEN")
@@ -23775,7 +23929,7 @@
 ;; medio de la cadena). Devuelve (longitud referencia-del-bloque) si se
 ;; creo, nil si no (2026-08-24 v2: la referencia la necesita el anden
 ;; para el vinculo de descuento URB_PREFAB_ANILLO).
-(defun urb:poly-costado-build (pts tipo posicion etapa sub centroid
+(defun urb:poly-costado-build (pts tipo posicion etapa sub centroid destino
                                / en mid side ancho ref len)
   (setq en (urb:poly-chain-polyline pts))
   (if (null en)
@@ -23793,7 +23947,7 @@
         (vl-catch-all-apply 'urb:build-prefab-from-reference
           (list en side tipo ancho etapa sub
             (if (urb:string-equal-p posicion "Interno")
-              "Interior" "Exterior"))))
+              "Interior" "Exterior") destino)))
       (if (or (vl-catch-all-error-p ref) (null ref))
         (progn
           (if (and en (entget en))
@@ -23806,7 +23960,7 @@
 ;; costados INTERNOS (0.0 si Externo), refs = lista de referencias de
 ;; bloque creadas. Derecha/Izquierda se asignan por el lado geometrico
 ;; respecto a la direccion de la primera cadena.
-(defun urb:poly-costados-build (ename lado-der lado-izq posicion etapa sub
+(defun urb:poly-costados-build (ename lado-der lado-izq posicion etapa sub destino
                                 / chains ed pts n cx cy centroid ca cb
                                 d ma va cruz chain-der chain-izq
                                 descuento r len refs)
@@ -23839,7 +23993,7 @@
         (progn
           (setq r
             (urb:poly-costado-build chain-der lado-der posicion etapa sub
-              centroid))
+              centroid destino))
           (if r
             (progn
               (setq len (car r) refs (cons (cadr r) refs))
@@ -23855,7 +24009,7 @@
         (progn
           (setq r
             (urb:poly-costado-build chain-izq lado-izq posicion etapa sub
-              centroid))
+              centroid destino))
           (if r
             (progn
               (setq len (car r) refs (cons (cadr r) refs))
@@ -23945,7 +24099,7 @@
     (if con-cost
       (setq descuento
         (car (urb:poly-costados-build ename lado-der lado-izq posicion
-          etapa sub))))
+          etapa sub "Anden"))))
     (urb:set-xdata-strings ename appid
       (if con-cost
         (list (nth 0 entry) etapa sub lado-der lado-izq posicion
@@ -26126,34 +26280,38 @@
             (setq out (cons fila out)))))))
   (reverse out))
 
-(defun urb:ppto-rows-prefabs (/ ss i be atts tipo lng etapa sub handle red
-                              rows out r)
+(defun urb:ppto-rows-prefabs (/ ss i be atts data tipo lng etapa sub handle red
+                              destino conceptos rows out r)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_PREFAB_BLOCK")))) out nil i 0)
   (if ss
     (repeat (sslength ss)
       (setq be (ssname ss i)
             atts (urb:block-attribute-values (vlax-ename->vla-object be))
+            data (urb:prefab-data be)
             tipo (strcase (urb:safe-string (cdr (assoc "TIPO" atts)) ""))
             lng (atof (urb:safe-string (cdr (assoc "LONGITUD_M" atts)) "0"))
             etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) "")
             sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) "")
             handle (cdr (assoc 5 (entget be)))
-            red (if (wcmatch tipo "*SARDINEL*") "VIA" "ANDEN"))
+            destino (urb:safe-string
+              (cdr (assoc "DESTINO_PPTO" atts))
+              (urb:safe-string (nth 7 data)
+                (urb:prefab-destino-default tipo)))
+            red (urb:prefab-destino-red destino tipo)
+            conceptos (urb:prefab-conceptos tipo))
       (setq rows
         (list
           (urb:ppto-row red
-            (strcat (urb:safe-string (cdr (assoc "TIPO" atts)) "")
-              " prefabricado")
+            (nth 0 conceptos)
             "" "" "" etapa sub "UN"
             (float (fix (+ 0.999999 (/ lng 0.8)))) handle)
           (urb:ppto-row red
-            (strcat "M.O. instalacion de "
-              (urb:safe-string (cdr (assoc "TIPO" atts)) "") " prefabricado")
+            (nth 1 conceptos)
             "" "" "" etapa sub "ML" lng handle)))
       (setq rows
         (append rows
           (urb:ppto-param-rows
-            (if (wcmatch tipo "*SARDINEL*") "SARDINEL" "BORDILLO") red
+            (nth 2 conceptos) red
             (list (cons "LONGITUD" lng) (cons "UNIDAD" 1.0))
             "" "" "" etapa sub handle)))
       (setq rows (urb:ppto-rows+zona rows (urb:ppto-zona-de be)))
@@ -26161,29 +26319,33 @@
       (setq i (1+ i))))
   out)
 
-(defun urb:ppto-rows-rampas (/ ss i be atts etapa sub handle rows out r)
+(defun urb:ppto-rows-rampas (/ ss i be atts data tipo red etapa sub handle rows out r)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_RAMPA_BLOCK")))) out nil i 0)
   (if ss
     (repeat (sslength ss)
       (setq be (ssname ss i)
             atts (urb:block-attribute-values (vlax-ename->vla-object be))
+            data (urb:get-xdata-strings be "URB_RAMPA_BLOCK")
+            tipo (urb:safe-string (cdr (assoc "TIPO" atts))
+              (urb:safe-string (nth 0 data) "RAMPA-PEATONAL"))
+            red (urb:rampa-red tipo)
             etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) "")
             sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) "")
             handle (cdr (assoc 5 (entget be))))
       (setq rows
         (list
-          (urb:ppto-row "RAMPA-PEATONAL" "Prefabricado A-81"
+          (urb:ppto-row red "Prefabricado A-81"
             "" "" "" etapa sub "UN"
             (atof (urb:safe-string (cdr (assoc "A81_UND" atts)) "0")) handle)
-          (urb:ppto-row "RAMPA-PEATONAL" "Loseta toperol"
+          (urb:ppto-row red "Loseta toperol"
             "" "" "" etapa sub "ML"
             (atof (urb:safe-string (cdr (assoc "TOPEROL_ML" atts)) "0")) handle)
-          (urb:ppto-row "RAMPA-PEATONAL" "Bordillo prefabricado"
+          (urb:ppto-row red "Bordillo prefabricado"
             "" "" "" etapa sub "ML"
             (atof (urb:safe-string (cdr (assoc "BORDILLO_ML" atts)) "0")) handle)))
       (setq rows
         (append rows
-          (urb:ppto-param-rows "RAMPA" "RAMPA-PEATONAL"
+          (urb:ppto-param-rows "RAMPA" red
             (list
               (cons "AREA"
                 (atof (urb:safe-string (cdr (assoc "AREA_M2" atts)) "0")))
@@ -29598,11 +29760,15 @@
         controls)))
   (princ))
 
-(defun urb:q-trace-command (/ picked en handle result rows record pair audit data)
+(defun urb:q-trace-command
+  (/ picked en handle result rows record pair audit data previous-filter)
   (if (setq picked (entsel "\nSeleccione el bloque del elemento para consultar sus cantidades: "))
     (progn
       (setq en (car picked) handle (urb:q-handle en)
-            result (vl-catch-all-apply 'urb:q-collect-readonly nil))
+            previous-filter *urb-q-only-ename*
+            *urb-q-only-ename* en
+            result (vl-catch-all-apply 'urb:q-collect-readonly nil)
+            *urb-q-only-ename* previous-filter)
       (if (vl-catch-all-error-p result)
         (alert (strcat "Consulta incompleta: " (vl-catch-all-error-message result)))
         (progn
@@ -29648,7 +29814,17 @@
     (list "Cama: espesor intermedio" (equal 0.125 (mp:pipe-bedding-thickness 0.5) 1e-9))
     (list "Cama: espesor maximo" (equal 0.15 (mp:pipe-bedding-thickness 1.0) 1e-9))
     (list "Volumen de zanja constante" (equal 20.0 (mp:integrate-trench-volume '(2.0 2.0 2.0) 10.0 1.0) 1e-9))
-    (list "Volumen de zanja variable" (equal 25.0 (mp:integrate-trench-volume '(1.0 3.0 3.0) 10.0 1.0) 1e-9))))
+    (list "Volumen de zanja variable" (equal 25.0 (mp:integrate-trench-volume '(1.0 3.0 3.0) 10.0 1.0) 1e-9))
+    (list "Prefab legado sardinel conserva VIA"
+      (= (urb:prefab-destino-red "" "Sardinel") "VIA"))
+    (list "Prefab bordillo puede ir a VIA"
+      (= (urb:prefab-destino-red "Via" "Bordillo") "VIA"))
+    (list "Prefab bordillo puede ir a ANDEN"
+      (= (urb:prefab-destino-red "Anden" "Bordillo") "ANDEN"))
+    (list "Rampa vehicular va a su capitulo"
+      (= (urb:rampa-red "RAMPA-VEHICULAR") "RAMPA-VEHICULAR"))
+    (list "Paso peatonal va a su capitulo"
+      (= (urb:rampa-red "PASO-PEATONAL") "PASO-PEATONAL"))))
 
 (defun urb:version-info-command (/ installed file line disk-version checks ok item)
   (setq installed (strcat (getenv "APPDATA")

@@ -4,6 +4,11 @@ Antes de trabajar, leer `CLAUDE.md`, `TESTING_CIVIL3D.md` y
 `../../handoffs/urbanismo-externo.md`. Este ultimo es el unico resumen de
 continuidad entre agentes y computadores; actualizarlo con avances verificables.
 
+Toda entrada nueva en `PROGRESS.md` y en el handoff debe identificar de forma
+explicita `Agente` (Codex o Claude), `Equipo` (nombre de Windows), fecha/hora
+local y commit cuando exista. No atribuir a un agente cambios de otro ni usar
+`Co-authored-by` si no hubo coautoria real.
+
 El usuario pide mantener el motor en `urbanismo_cantidades.lsp` y los cambios
 en este repositorio. Revisar Git y releer el archivo antes de editar. No modificar
 DWG/Excel vigentes como parte de una prueba. Usar fixtures locales en work/.
