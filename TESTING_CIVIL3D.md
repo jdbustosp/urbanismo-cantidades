@@ -114,6 +114,58 @@ Diseñado a pedido del usuario tras comparar resultados: con el ciclo viejo (hip
 - `Documents\URBANISMO\work\...` es RUTA CONFIABLE (la agrega `urb:ensure-trusted-path` en cada carga del plugin desde v4.23.5) — los harnesses corren desde su carpeta sin diálogo de seguridad y sin copiar nada al bundle.
 - Una sola corrida headless por ronda con TODOS los checks batcheados; releer archivos grandes solo por rangos/grep dirigido; si un problema REAPARECE una segunda vez, detener el ciclo de parches y leer el subsistema completo — la reincidencia significa que el modelo de la causa está mal, no el parche.
 
+## 3e. Protocolo ágil v4 (2026-09-08) — precisión con límite de tiempo
+
+Este protocolo sustituye los reintentos largos durante una respuesta al usuario.
+La validación se decide por el impacto del cambio y avanza por capas. Una capa
+solo se ejecuta si la anterior pasó y el cambio realmente la necesita.
+
+| Nivel | Qué valida | Cuándo se usa | Presupuesto |
+|---|---|---|---:|
+| 0 — Estado | `git diff`, versión, manifiesto, XML, hash instalado y cargador | Siempre | 15 s |
+| 1 — Focal | Funciones puras modificadas, caso del usuario y peor caso | Siempre que cambie lógica | 30 s |
+| 2 — Regresión | Un único harness batcheado en Core Console | Antes de cada entrega | 60 s |
+| 3 — Civil real | ActiveX, superficie, bloques o geometría en copia | Solo si el cambio depende de Civil/COM | 90 s, un intento |
+| 4 — Manual | DCL, clics, ribbon y apariencia visual | Solo lo que no puede afirmar el nivel 0–3 | 3 pasos para el usuario |
+
+### Matriz mínima por tipo de cambio
+
+- DCL, ribbon o iconos: niveles 0–2 + lista manual corta; no abrir el maestro.
+- Cálculos, capítulos o Excel: niveles 0–2 con valores esperados calculados por
+  fuera; Civil real solo si interviene superficie o COM.
+- Geometría, XDATA o actualización de bloques existentes: niveles 0–3 sobre
+  una copia local del DWG.
+- Instalador/autocarga: nivel 0 + arranque vacío; no hace falta abrir el maestro.
+- Solo documentación: `git diff --check`; no ejecutar Civil 3D.
+
+### Reglas de corte obligatorias
+
+1. Nunca repetir el mismo arranque de Civil 3D sin cambiar la hipótesis o el
+   harness. Un segundo intento idéntico no agrega evidencia.
+2. Si aparece un modal, no hay archivo de progreso o el PID propio supera 90 s,
+   cerrar solo ese PID y marcar **pendiente manual**. No tomar la pantalla salvo
+   petición expresa del usuario.
+3. Tiempo máximo durante una respuesta: 10 minutos para cambios normales y 15
+   para geometría/Excel. Una validación mayor se propone como trabajo separado.
+4. No volver a ejecutar una prueba cuyo código, fixture y dependencias conservan
+   los mismos hashes. Reutilizar el último resultado documentado.
+5. Un error de infraestructura (`COM nil`, modal, licencia, XREF ausente) se
+   reporta como límite del método, no como fallo funcional ni como éxito.
+
+### Evidencia compacta de cada entrega
+
+Registrar solamente: versión/commit/equipo/agente; pruebas ejecutadas y tiempo;
+resultado `OK/FALLOS`; hash repo=instalado; originales no modificados; y una
+lista separada de lo pendiente manual. La respuesta al usuario debe distinguir:
+
+- **Verificado:** existe un assert o medición reproducible.
+- **Instalado:** hash y cargador coinciden, pero puede requerir reinicio.
+- **Pendiente visual:** necesita DCL/ribbon/clic o un modal impidió automatizar.
+
+Para reducir tokens: buscar con `rg`, leer solo rangos relevantes, agrupar
+comandos independientes en una llamada, limitar la salida de los harnesses al
+resumen y no volver a copiar logs completos ya documentados.
+
 ## 4. Lanzar y esperar el resultado
 
 **ADVERTENCIA (2026-08-11): lanzar SIEMPRE desde PowerShell, jamás desde Git Bash.** Bash/MSYS convierte el argumento `/b` en una ruta (`C:/Program Files/Git/b`); AutoCAD lo toma como un dibujo a abrir, muestra un diálogo modal "Cannot find the specified drawing file" (que Claude no puede ver ni cerrar) y la instancia queda eterna en la pantalla [Start]. Este fue el verdadero origen de los "cuelgues" del 2026-08-04 y 2026-08-11 — no era contención de licencia con la sesión abierta del usuario, como se creyó al principio.
