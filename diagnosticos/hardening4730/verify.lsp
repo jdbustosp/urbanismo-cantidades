@@ -48,7 +48,7 @@
     (vt:check "BASELINE reproduce cantidad negativa aprobada" (= (nth 9 old-rec) "OK"))
     (load (strcat (getenv "URB_TEST_LAB") "/current.lsp"))
     (vt:bridge)
-    (vt:check "LOAD motor 4.73.0" (= *urb-version* "4.73.0"))
+    (vt:check "LOAD motor 4.73.1" (= *urb-version* "4.73.1"))
     (setq en (vt:fixture))
     (vt:check "Parche cambia un atributo" (= 1 (mp:setatts en '(("ID" . "B")))))
     (vt:check "Parche preserva campo oculto" (= "123" (cdr (assoc "KEEP" (mp:read-cant-data en)))))

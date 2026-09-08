@@ -948,3 +948,6 @@ Un análisis previo (sin commit, solo lectura) identificó como próximas mejora
 
 ### Revalidacion 2026-09-07 (Codex)
 Motor 4.73.0 sin cambios: suite 50/50, instalador 4/4, estructura LSP y hash instalado correctos. Evidencia y prioridades en diagnosticos/hardening4730/REVALIDACION_20260907.md. ActiveX/Civil/Excel reales siguen pendientes; verify_real.lsp experimental.
+
+### v4.73.1 — optimizacion y validacion nativa Maipore
+Agrupacion ordenada con igualdad exacta (5000 filas: 2828 -> 94 ms), handles DXF, relleno lineal TablaAgg y aborto ante fallo de colector. Suite 50/50. Civil 3D/Excel reales en copias: 7658 filas exportadas; cantidad inyectada en J2 repuesta desde DWG; 1658 claves agregadas conciliadas. Pendiente una equivalencia Cabezal de descarga. Informe y limites: diagnosticos/optimizacion4731/README.md. Motor instalado 4.73.1.

@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.73.0")
+(setq *urb-version* "4.73.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20179,14 +20179,11 @@
     (T 0.0))
 )
 
-(defun urb:q-handle (ename / obj result)
-  (setq obj (urb:as-vla-object ename))
-  (if obj
-    (progn
-      (setq result (vl-catch-all-apply 'vla-get-Handle (list obj)))
-      (if (vl-catch-all-error-p result) "" result))
-    "")
-)
+(defun urb:q-handle (value / ename)
+  ;; El handle ya esta en DXF: evita una conversion y una llamada COM por fila.
+  (if (setq ename (urb:as-ename value))
+    (urb:safe-string (cdr (assoc 5 (entget ename))) "")
+    ""))
 
 (defun urb:q-record
   (chapter system element specification stage substage unit quantity
@@ -20213,30 +20210,31 @@
     (nth 6 record) "\t" (nth 9 record))
 )
 
-(defun urb:q-aggregate (records / result record key found)
-  ;; Resultado:
-  ;; (clave capitulo sistema elemento especificacion etapa subetapa
-  ;;  unidad cantidad objetos estado)
+(defun urb:q-aggregate (records / indexed index record item key current result first-index)
+  ;; Ordenar por clave e indice conserva orden de suma y primera aparicion.
+  ;; El indice unico evita que vl-sort descarte registros iguales.
+  (setq index 0)
   (foreach record records
-    (setq key (urb:q-record-key record))
-    (if (setq found (assoc key result))
-      (setq result
-        (subst
-          (list key
-            (nth 1 found) (nth 2 found) (nth 3 found) (nth 4 found)
-            (nth 5 found) (nth 6 found) (nth 7 found)
-            (+ (nth 8 found) (nth 7 record))
-            (1+ (nth 9 found)) (nth 10 found))
-          found result))
-      (setq result
-        (cons
-          (list key
-            (nth 0 record) (nth 1 record) (nth 2 record) (nth 3 record)
-            (nth 4 record) (nth 5 record) (nth 6 record)
-            (nth 7 record) 1 (nth 9 record))
-          result))))
-  (reverse result)
-)
+    (setq indexed (cons (list (urb:q-record-key record) index record) indexed)
+          index (1+ index)))
+  (setq indexed (vl-sort indexed
+    '(lambda (a b) (if (= (car a) (car b)) (< (cadr a) (cadr b))
+                    (< (car a) (car b))))))
+  (foreach item indexed
+    (setq record (caddr item))
+    (if (and current (= key (car item)))
+      (setq current (list key (nth 1 current) (nth 2 current)
+        (nth 3 current) (nth 4 current) (nth 5 current) (nth 6 current)
+        (nth 7 current) (+ (nth 8 current) (nth 7 record))
+        (1+ (nth 9 current)) (nth 10 current)))
+      (progn
+        (if current (setq result (cons (cons first-index current) result)))
+        (setq key (car item) first-index (cadr item)
+          current (list key (nth 0 record) (nth 1 record) (nth 2 record)
+            (nth 3 record) (nth 4 record) (nth 5 record) (nth 6 record)
+            (nth 7 record) 1 (nth 9 record))))))
+  (if current (setq result (cons (cons first-index current) result)))
+  (mapcar 'cdr (vl-sort result '(lambda (a b) (< (car a) (car b))))))
 
 (defun urb:q-control-row (severity category handle element finding action)
   (list severity category handle element finding action)
@@ -23115,7 +23113,11 @@
     (progn
       (urb:perf-log (strcat nombre ": ERROR "
         (vl-catch-all-error-message r)))
-      (setq r nil)))
+      ;; Un colector fallido no equivale a una disciplina vacia: abortar
+      ;; antes de reemplazar las memorias del DWG por un conjunto parcial.
+      (prompt (strcat "\nExportacion detenida en " nombre ": "
+        (vl-catch-all-error-message r)))
+      (exit)))
   (urb:perf-log (strcat nombre ": "
     (itoa (- (getvar "MILLISECS") t0)) " ms, "
     (itoa (length r)) " filas"))
@@ -26742,7 +26744,7 @@
               ;; (chr 255) = U+00FF via codepage 1252 al pasar por COM
               (setq cent (strcat (chr 255) (chr 255) (chr 255)
                                  (chr 255) (chr 255) (chr 255)))
-              (while (< (length rows) nfix)
+              (repeat (- nfix n)
                 (setq rows (cons (list cent 0.0) rows)))
               ;; el centinela va al final por el SORT de abajo; el orden
               ;; de la lista aqui no importa
