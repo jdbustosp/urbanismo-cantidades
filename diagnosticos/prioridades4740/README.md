@@ -1,4 +1,4 @@
-# Verificación v4.74.0 — prioridades del 2026-09-08
+# Verificación v4.74.0–v4.75.0 — prioridades del 2026-09-08
 
 Trazabilidad: **Agente: Codex | Equipo: BOG085CD119BDQN | Fecha local:
 2026-09-08**.
@@ -10,6 +10,15 @@ Trazabilidad: **Agente: Codex | Equipo: BOG085CD119BDQN | Fecha local:
 - Los archivos vigentes del proyecto no se modificaron durante las pruebas.
 
 ## Resultados verificables
+
+- v4.75.0: **64 OK / 0 fallos** con Core Console 2023 sobre una copia del
+  maestro; tiempo total 33,99 s. Se añadieron checks de las tres tipologías de
+  áreas y de recorte de caja/pozo.
+- Instalación v4.75.0: manifiesto XML válido, hash del LSP instalado idéntico
+  al repositorio y cargador `acaddoc.lsp` presente en Civil 3D 2023.
+- La validación con Civil 3D completo oculto no llegó al harness por avisos
+  modales del DWG. Se abandonó sin tocar originales; no equivale a fallo del
+  motor ni permite declarar validación visual.
 
 - Suite Core Console: **61 OK / 0 fallos**. Incluye carga del motor,
   regresiones anteriores, destino de prefabricados, tipologías de rampa y

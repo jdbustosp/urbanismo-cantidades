@@ -1,5 +1,26 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 14:05, v4.75.0 (Codex, BOG085CD119BDQN)
+
+Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local:
+`juanbusper`. Commit funcional: `8877a1e`.
+
+- Corregida la clasificación del diálogo de áreas: tipologías `Andenes`,
+  `Senderos` y `Equipamientos`; el segundo selector contiene el material o
+  acabado correspondiente. La cinta compilada no contiene el botón Sendero.
+- Rampas: la ventana contiene Tipología y conserva capítulos separados para
+  peatonal, vehicular y paso peatonal. El contenedor de raíces usa punto
+  inicial, eje y lado/sentido.
+- Redes: una sola configuración gobierna ancho y altura de texto para húmedas
+  y secas; la migración aplica 0,20/0,60 y recalcula la longitud hasta la cara
+  de pozos/cajas. Andenes y prefabricados normalizan su orden de dibujo.
+- Instalado localmente en el bundle de Autodesk y cargador `acaddoc.lsp` de
+  Civil 3D 2023. Hash SHA-256 del LSP instalado idéntico al repositorio.
+- Validación reproducible: **64 OK / 0 fallos** en Core Console 2023 sobre una
+  copia del maestro, 33,99 s. Límite: Civil 3D completo oculto quedó detenido
+  por avisos modales; no se declara validación visual. Protocolo futuro: una
+  sola corrida rápida (máximo 10–15 min); no repetir aperturas bloqueadas.
+
 ## Estado guardado — 2026-09-08, v4.74.0 (Codex, BOG085CD119BDQN)
 
 Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local:
