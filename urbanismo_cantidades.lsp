@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.75.0")
+(setq *urb-version* "4.76.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -666,6 +666,7 @@
       ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
       ": popup_list { label = \"Posicion\"; key = \"costpos\"; }"
       "}"
+      ": text { label = \"Contenedores existentes se omiten solos: dibuje el contorno exterior sin rodearlos.\"; }"
       ": text { label = \"Al dibujar: superficie SUP_TN automatica + cotas de implantacion.\"; }"
       " ok_cancel; }"))
 )
@@ -2668,6 +2669,27 @@
   (* 0.5 area)
 )
 
+(defun urb:polygon-concave-p (points / clean n orientation i a b c cross found)
+  ;; Un entrante alrededor de un contenedor NO es un segundo brazo del
+  ;; anden. Detectarlo impide que el modulador de andenes en L cambie de
+  ;; eje para "rodear" el vacio y deja una sola reticula continua.
+  (setq clean (urb:clean-polygon-points points)
+        n (length clean))
+  (if (< n 4)
+    nil
+    (progn
+      (setq orientation (if (< (urb:polygon-signed-area clean) 0.0) -1.0 1.0)
+            i 0 found nil)
+      (while (and (< i n) (not found))
+        (setq a (nth (rem (+ i n -1) n) clean)
+              b (nth i clean)
+              c (nth (rem (1+ i) n) clean)
+              cross (urb:triangle-cross a b c))
+        (if (< (* orientation cross) -1e-9) (setq found T))
+        (setq i (1+ i)))
+      found))
+)
+
 (defun urb:triangle-cross (a b c)
   (- (* (- (car b) (car a)) (- (cadr c) (cadr a)))
      (* (- (cadr b) (cadr a)) (- (car c) (car a))))
@@ -3594,6 +3616,8 @@
       (if forced-angle
         (setq forced-angle (+ forced-angle (* 0.5 pi))))))
   (urb:safe-delete copy)
+  (if (not (vl-catch-all-error-p base-region))
+    (setq base-region (urb:apply-anden-cutouts base-region)))
   (if (vl-catch-all-error-p base-region)
     nil
     (progn
@@ -3614,7 +3638,11 @@
           ;; arcos, UN solo eje y la curva solo recorta.
           (if (and (null forced-angle)
                    (> (length clusters) 1)
-                   (not (urb:lwpoly-has-arcs-p ename)))
+                   (not (urb:lwpoly-has-arcs-p ename))
+                   ;; Un entrante junto a un contenedor es un vacio, no
+                   ;; una esquina en L que deba cambiar el eje del patron.
+                   (not (and (urb:polygon-concave-p points)
+                             (urb:anden-near-root-container-p ename))))
             (setq split-data
               (urb:two-axis-split-data
                 points (car clusters) (cadr clusters))))
@@ -4457,6 +4485,8 @@
       (setq copy (vla-Copy obj))
       (setq base-region (urb:add-region-from-object copy))
       (urb:safe-delete copy)
+      (if (not (vl-catch-all-error-p base-region))
+        (setq base-region (urb:apply-anden-cutouts base-region)))
       (if (vl-catch-all-error-p base-region)
         nil
         (progn
@@ -6092,15 +6122,14 @@
       (urb:set-anden-data
         ename material etapa subetapa guia toperol format calculate surface grade-source)
       (urb:set-anden-pattern-mode ename pattern-mode)
-      (setq result
-        (urb:build-anden-finish ename material guia toperol format))
       ;; 2026-08-24 (pedido del usuario): prefabricado por COSTADOS igual
       ;; que el sendero -- se construyen solos sobre los dos lados largos
       ;; del contorno (data 11 = tipo derecha, 12 = tipo izquierda,
       ;; 13 = posicion), cada uno como bloque independiente. Se construye
-      ;; ANTES de empaquetar el anden para usar el contorno real.
+      ;; ANTES del acabado y del empaquetado: v4.76 resta su huella fisica
+      ;; de las losetas/tactiles, en vez de limitarse a ponerlo al frente.
       (setq anillo-refs nil)
-      (if (and result (> (length data) 13)
+      (if (and (> (length data) 13)
                (or (not (urb:string-equal-p (nth 11 data) "Ninguno"))
                    (not (urb:string-equal-p (nth 12 data) "Ninguno"))))
         (progn
@@ -6110,6 +6139,19 @@
                 etapa subetapa "Anden")))
           (if (vl-catch-all-error-p costados-res) (setq costados-res nil))
           (setq anillo-refs (cadr costados-res))))
+      ;; Vinculo temporal al contorno: permite que el generador de acabado
+      ;; encuentre los costados recién creados. Tras empaquetar se sustituye
+      ;; por el handle definitivo del bloque de anden.
+      (if anillo-refs
+        (foreach aref anillo-refs
+          (vl-catch-all-apply
+            '(lambda ()
+              (urb:set-xdata-strings
+                (vlax-vla-object->ename aref) "URB_PREFAB_ANILLO"
+                (list (vla-get-Handle (urb:as-vla-object ename))
+                      (nth 13 data)))))))
+      (setq result
+        (urb:build-anden-finish ename material guia toperol format))
       (if result
         (setq block-ref (urb:package-anden ename)))
       ;; vinculo costado->anden para el descuento de area cuando es
@@ -6461,6 +6503,117 @@
     ((= (type value) 'SAFEARRAY)
       (vlax-safearray->list value))
     (T nil))
+)
+
+(defun urb:objects-bbox-overlap-p (first second tolerance / a1 a2 b1 b2 r1 r2)
+  (setq tolerance (if (numberp tolerance) tolerance 0.0)
+        r1 (vl-catch-all-apply 'vla-GetBoundingBox (list first 'a1 'a2))
+        r2 (vl-catch-all-apply 'vla-GetBoundingBox (list second 'b1 'b2)))
+  (if (and (not (vl-catch-all-error-p r1))
+           (not (vl-catch-all-error-p r2)))
+    (progn
+      (setq a1 (vlax-safearray->list a1) a2 (vlax-safearray->list a2)
+            b1 (vlax-safearray->list b1) b2 (vlax-safearray->list b2))
+      (and (<= (- (car a1) tolerance) (+ (car b2) tolerance))
+           (>= (+ (car a2) tolerance) (- (car b1) tolerance))
+           (<= (- (cadr a1) tolerance) (+ (cadr b2) tolerance))
+           (>= (+ (cadr a2) tolerance) (- (cadr b1) tolerance))))
+    nil)
+)
+
+(defun urb:block-footprint-region (block-ref / obj exploded items curves result
+                                    regions candidate area best best-area)
+  ;; Explota una COPIA logica de la referencia y reconstruye la huella
+  ;; cerrada mayor. Funciona para prefabricados (2 polilineas abiertas +
+  ;; remates) y para contenedores (marcos rectangulares cerrados).
+  (setq obj (urb:as-vla-object block-ref)
+        exploded
+          (if obj (vl-catch-all-apply 'vla-Explode (list obj))))
+  (if (and exploded (not (vl-catch-all-error-p exploded)))
+    (progn
+      (setq items (urb:variant-object-list exploded))
+      (foreach candidate items
+        (if (member (vla-get-ObjectName candidate)
+              '("AcDbLine" "AcDbPolyline" "AcDb2dPolyline" "AcDbArc"))
+          (setq curves (cons candidate curves))))
+      (if curves
+        (setq result
+          (vl-catch-all-apply 'vla-AddRegion
+            (list (urb:space) (urb:object-array-variant curves)))))
+      (if (and result (not (vl-catch-all-error-p result)))
+        (setq regions (urb:variant-object-list result)))
+      (foreach candidate regions
+        (setq area (vl-catch-all-apply 'vla-get-Area (list candidate)))
+        (if (and (numberp area) (> area (if best-area best-area 0.0)))
+          (setq best candidate best-area area)))
+      (foreach candidate regions
+        (if (not (eq candidate best)) (urb:safe-delete candidate)))
+      (foreach candidate items (urb:safe-delete candidate))))
+  best
+)
+
+(defun urb:anden-cutout-blocks (/ filter ss i en result)
+  (foreach filter
+    '(((0 . "INSERT") (-3 ("URB_PREFAB_BLOCK")))
+      ((0 . "INSERT") (2 . "URB_MOB_CONT*")))
+    (if (setq ss (ssget "_X" filter))
+      (progn
+        (setq i 0)
+        (repeat (sslength ss)
+          (setq en (ssname ss i))
+          (if (not (member en result)) (setq result (cons en result)))
+          (setq i (1+ i))))))
+  result
+)
+
+(defun urb:apply-anden-cutouts (base-region / en obj cutter candidate operation
+                                old-area new-area removed)
+  ;; Resta fisicamente prefabricados y contenedores ANTES de crear losetas,
+  ;; juntas, guia o toperol. El patron conserva su origen y orientacion: el
+  ;; obstaculo es un vacio, no una frontera que haga "rodear" las piezas.
+  (foreach en (urb:anden-cutout-blocks)
+    (setq obj (urb:as-vla-object en))
+    (if (and obj (urb:objects-bbox-overlap-p base-region obj 0.02))
+      (progn
+        (setq cutter (urb:block-footprint-region obj))
+        (if cutter
+          (progn
+            (setq old-area (vl-catch-all-apply 'vla-get-Area (list base-region))
+                  candidate (vl-catch-all-apply 'vla-Copy (list base-region)))
+            (if (and (numberp old-area)
+                     (not (vl-catch-all-error-p candidate)))
+              (progn
+                (setq operation
+                  (vl-catch-all-apply 'vla-Boolean
+                    (list candidate 2 cutter))) ; acSubtraction
+                (setq new-area
+                  (if (not (vl-catch-all-error-p operation))
+                    (vl-catch-all-apply 'vla-get-Area (list candidate))))
+                (if (and (numberp new-area)
+                         (> new-area 1e-10)
+                         (< new-area (- old-area 1e-8)))
+                  (progn
+                    (urb:safe-delete base-region)
+                    (setq base-region candidate
+                          removed (1+ (if removed removed 0))))
+                  (urb:safe-delete candidate))))
+            (urb:safe-delete cutter))))))
+  (if removed
+    (prompt (strcat "\nAnden: " (itoa removed)
+      " prefabricado(s)/contenedor(es) omitidos fisicamente del acabado.")))
+  base-region
+)
+
+(defun urb:anden-near-root-container-p (ename / obj ss i ce found)
+  (setq obj (urb:as-vla-object ename)
+        ss (ssget "_X" '((0 . "INSERT") (2 . "URB_MOB_CONT*")))
+        i 0)
+  (if (and obj ss)
+    (while (and (< i (sslength ss)) (not found))
+      (setq ce (urb:as-vla-object (ssname ss i)))
+      (if (and ce (urb:objects-bbox-overlap-p obj ce 0.10)) (setq found T))
+      (setq i (1+ i))))
+  found
 )
 
 (defun urb:update-anden-block-data
@@ -26023,8 +26176,9 @@
 ;; suficiente para franjas de anden; si dos andenes se traslapan, el
 ;; contenedor solo descuenta en el primero que lo contiene.
 (defun urb:anden-area-contenedores (be usados / ss j ce nom atts tipo entry
-                                    minpt maxpt lo hi p total)
+                                    minpt maxpt lo hi p poly total)
   (setq total 0.0)
+  (setq poly (urb:anden-boundary-samples be))
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "URB_MOB_CONT*"))))
   (if ss
     (progn
@@ -26043,7 +26197,13 @@
             (if (and p
                      (not (member ce (eval usados)))
                      (>= (car p) (car lo)) (<= (car p) (car hi))
-                     (>= (cadr p) (cadr lo)) (<= (cadr p) (cadr hi)))
+                     (>= (cadr p) (cadr lo)) (<= (cadr p) (cadr hi))
+                     ;; Si el usuario dibujo un entrante alrededor del
+                     ;; contenedor, su centro ya esta FUERA del poligono y
+                     ;; no se vuelve a descontar por segunda vez.
+                     (or (null poly)
+                         (urb:point-in-poly-2d
+                           (list (car p) (cadr p)) poly)))
               (progn
                 (setq atts (urb:block-attribute-values ce))
                 (setq tipo (urb:safe-string (cdr (assoc "TIPO" atts)) ""))
@@ -29879,6 +30039,13 @@
     (list "Tipologias de areas son las tres solicitadas"
       (equal *urb-elem-categorias*
         '("Andenes" "Senderos" "Equipamientos")))
+    (list "Entrante de contenedor se reconoce como vacio concavo"
+      (and
+        (urb:polygon-concave-p
+          '((0.0 0.0) (4.0 0.0) (4.0 4.0)
+            (2.0 4.0) (2.0 2.0) (0.0 2.0)))
+        (not (urb:polygon-concave-p
+          '((0.0 0.0) (4.0 0.0) (4.0 2.0) (0.0 2.0))))))
     (list "Caja CS276 recorta un metro por extremo"
       (equal 1.0 (mp:point-base-gap "CAMARA_CS276") 1e-9))
     (list "Pozo humedo recorta hasta radio real"
