@@ -1,5 +1,30 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08, v4.74.0 (Codex, BOG085CD119BDQN)
+
+Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local:
+`juanbusper`. Commit funcional: `8277ed1`.
+
+- Prefabricados: cada elemento conserva destino de presupuesto `Anden` o
+  `Via`; las rutinas automaticas asignan el destino segun el origen y las
+  manuales permiten escogerlo. Se conservaron los conceptos exactos del libro.
+- Rampas: `RAMPA-PEATONAL`, `RAMPA-VEHICULAR` y `PASO-PEATONAL` quedan bajo
+  Rampas y se exportan a capitulos distintos.
+- Contenedor de raices: solicita punto inicial, eje y punto lateral para fijar
+  el sentido de dibujo, sin invertir textos por escala negativa.
+- Redes humedas y secas: objetivo comun de ancho 0,20 m y texto 0,60 m.
+- Consulta por objeto limitada a la entidad seleccionada; en la copia del
+  master bajo de 610–640 ms a 16–32 ms. Cambio de etapa/subetapa ahora verifica
+  escritura completa y restaura si ocurre un fallo parcial.
+- Verificacion final: `61 OK / 0 FALLOS`. Evidencia y scripts en
+  `diagnosticos/prioridades4740/README.md`.
+- No se modificaron el Excel ni el DWG vigentes. Quedan pendientes una prueba
+  visual en Civil 3D completo, decidir la ampliacion contractual aproximada de
+  $783.253.493, resolver el cabezal 90908 sin diametro y modelar/conectar los
+  313 accesorios ACU historicamente sin tramo.
+- Estado de instalacion: esta version queda guardada en Git; no se instalo el
+  bundle local porque el usuario pidio detener y documentar antes de continuar.
+
 ## Estado actual — 2026-09-07, v4.73.0 (Codex)
 
 Repositorio: esta carpeta `URBANISMO EXTERNO`, con `.git` dentro y remoto
