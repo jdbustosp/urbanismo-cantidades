@@ -77,6 +77,8 @@
   (close f)
   (princ))
 
+(setq *urb-suppress-auto-migration* T)
 (load (getenv "URB_TEST_LSP"))
+(setq *urb-suppress-auto-migration* nil)
 (p474:run)
 (princ)

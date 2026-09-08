@@ -139,7 +139,7 @@ try {
   }
 } catch {}
 
-# CARGADOR acaddoc.lsp para TODAS las versiones de Civil 3D instaladas.
+# CARGADOR acaddoc.lsp para TODAS las versiones de Civil 3D y AutoCAD instaladas.
 # 2026-08-28 (C3D 2026): el Autoloader de bundles de 2026 es ERRATICO --
 # en varios arranques reales no ejecuta los ComponentEntry sin error
 # visible. 2026-09-02 (C3D 2023, reporte del usuario "no me reconoce los
@@ -147,7 +147,7 @@ try {
 # documento del arranque -- al abrir el dwg de trabajo ese documento
 # queda sin motor (AutoLISP es por-documento); antes no se notaba porque
 # el Startup Suite viejo de BLOQUES PPTOS lo cargaba en cada dibujo.
-# Este acaddoc.lsp vive en el Support de CADA perfil C3D (ruta de
+# Este acaddoc.lsp vive en el Support de CADA perfil C3D/AutoCAD (ruta de
 # busqueda + confiable), lo ejecuta el nucleo de AutoCAD en CADA apertura
 # de dibujo, y desde S::STARTUP netloadea el DLL de la cinta y carga el
 # motor. Con guardas: si el bundle ya cargo, no hace nada.
@@ -184,12 +184,18 @@ $marker
 ;;; === FIN URBCANT AUTOLOAD ===
 "@
 $lspForLisp = ($contents + "\urbanismo_cantidades.lsp").Replace('\', '/')
-Get-ChildItem (Join-Path $env:APPDATA "Autodesk") -Directory -Filter "C3D *" -ErrorAction SilentlyContinue | ForEach-Object {
-  $supp = Join-Path $_.FullName "enu\Support"
-  if (Test-Path $supp) {
+$autodeskProfiles = Get-ChildItem (Join-Path $env:APPDATA "Autodesk") -Directory -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -like "C3D *" -or $_.Name -like "AutoCAD *" }
+foreach ($profile in $autodeskProfiles) {
+  # Civil 3D suele usar ...\C3D 2023\enu\Support; AutoCAD,
+  # ...\AutoCAD 2024\R24.3\enu\Support. Se cubren ambas estructuras.
+  $supportDirs = Get-ChildItem $profile.FullName -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -eq "Support" }
+  foreach ($supportDir in $supportDirs) {
+    $supp = $supportDir.FullName
     # 2023/2024 (.NET FW 4.8, DLL con nombre versionado del manifiesto);
     # 2025/2026 (.NET 8)
-    $dllName = if ($_.Name -match '(2019|202[0-4])$') { $dll2023Name } else { "UrbCantRibbon2025.dll" }
+    $dllName = if ($profile.Name -match '(2019|202[0-4])$') { $dll2023Name } else { "UrbCantRibbon2025.dll" }
     $dllForLisp = ($contents + "\net\" + $dllName).Replace('\', '\\')
     $bloque = $plantilla.Replace('__DLL__', $dllForLisp).Replace('__LSP__', $lspForLisp)
     $acaddoc = Join-Path $supp "acaddoc.lsp"

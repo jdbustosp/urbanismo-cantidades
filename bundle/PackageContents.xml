@@ -5,8 +5,8 @@
   - 2019-2024 (R23.0-R24.2): lsp + UrbCantRibbon2023.dll (.NET Framework 4.8)
   - 2025-2026 (R25.0-R25.1): lsp + UrbCantRibbon2025.dll (.NET 8)
   2026-08-28: Civil 3D 2026 corre sobre .NET 8 IGUAL que 2025 (verificado
-  en vivo: coreclr 8.0.30 en acad.exe 2026); R25.0 y R25.1 son binario-
-  compatibles y COMPARTEN el DLL net8. NO crear un DLL "2026" con los
+  en vivo: coreclr 8.0.30 en acad.exe 2026); R25.0 y R25.1 son
+  binariamente compatibles y COMPARTEN el DLL net8. NO crear un DLL "2026" con los
   paquetes NuGet AutoCAD.NET 25.1.x/26.0.0: son net10-only (AutoCAD 2027)
   y un DLL net10 falla EN SILENCIO en 2026 (se perdio medio dia asi).
   La pestana que "no aparecia" en 2026 eran otros dos bugs, ya resueltos
@@ -20,7 +20,7 @@
 <ApplicationPackage
     SchemaVersion="1.0"
     AutodeskProduct="AutoCAD"
-    AppVersion="4.74.0"
+    AppVersion="4.75.0"
     ProductType="Application"
     Name="Urbanismo Cantidades"
     Description="Cuantificacion de obras de urbanismo: andenes, vias, rampas, prefabricados, redes y movimiento de tierras. Pestana CANTIDADES."

@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.74.0")
+(setq *urb-version* "4.75.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -586,26 +586,26 @@
 )
 
 ;; 2026-09-07 (rediseño pedido por el usuario): el dialogo va por DOS
-;; niveles -- Tipo = CATEGORIA (Anden / Sendero / Cancha / Ciclorruta /
-;; Equipamiento de parque) y Material = la VARIANTE de esa categoria.
+;; niveles -- Tipologia = CATEGORIA (Andenes / Senderos / Equipamientos)
+;; y Material/acabado = la VARIANTE de esa categoria.
 ;; La rampa salio de aqui (tiene su boton propio). El bloque de
 ;; movimiento de tierras desaparecio: la superficie se reconoce sola
 ;; (SUP_TN) y tras dibujar solo se piden las COTAS DE IMPLANTACION (una
 ;; o varias) con el picker universal. Guia/toperol/formato solo aplican
 ;; a Anden en Loseta (se deshabilitan en vivo para el resto).
 (setq *urb-elem-categorias*
-  '("Anden" "Sendero" "Cancha" "Ciclorruta" "Equipamiento de parque"))
+  '("Andenes" "Senderos" "Equipamientos"))
 ;; variantes por categoria: (etiqueta . codigo de *urb-send-tipos*);
 ;; codigo "" = anden nativo en loseta (todo el motor de losetas)
 (setq *urb-elem-variantes*
-  '(("Anden" ("Loseta" . "") ("Concreto" . "ANDEN-CONC"))
-    ("Sendero" ("Sendero de trote" . "SEND-TROTE")
-               ("Sendero ecologico" . "SEND-ECO"))
-    ("Cancha" ("Cancha sintetica" . "CANCHA-SINT")
-              ("Cancha multiple" . "CANCHA-MULT"))
-    ("Ciclorruta" ("Ciclorruta" . "CICLORRUTA"))
-    ("Equipamiento de parque"
-      ("Plazoleta en concreto" . "PLAZOLETA")
+  '(("Andenes" ("Loseta" . "") ("Concreto" . "ANDEN-CONC"))
+    ("Senderos" ("Concreto - sendero de trote" . "SEND-TROTE")
+                 ("Concreto - sendero ecologico" . "SEND-ECO")
+                 ("Asfalto - ciclorruta" . "CICLORRUTA"))
+    ("Equipamientos"
+      ("Concreto - plazoleta" . "PLAZOLETA")
+      ("Sintetico - cancha" . "CANCHA-SINT")
+      ("Asfalto - cancha multiple" . "CANCHA-MULT")
       ("Skatepark" . "SKATEPARK")
       ("Escaleras en concreto" . "ESCALERA")
       ("Graderia en concreto" . "GRADERIA")
@@ -629,7 +629,7 @@
   (setq cat (nth cat-idx *urb-elem-categorias*))
   (setq vars (urb:elem-variantes-de cat))
   (setq es-loseta
-    (and (= cat "Anden")
+    (and (= cat "Andenes")
          (= (urb:safe-string (cdr (nth mat-idx vars)) "") "")))
   (setq modo (if es-loseta 0 1))
   (mode_tile "formato" modo)
@@ -643,8 +643,8 @@
     (list
       "urbanismo_anden : dialog { label = \"Datos del elemento de urbanismo\";"
       ": boxed_column { label = \"Clasificacion\";"
-      ": popup_list { label = \"Tipo\"; key = \"tipoelem\"; }"
-      ": popup_list { label = \"Material\"; key = \"material\"; }"
+      ": popup_list { label = \"Tipologia\"; key = \"tipoelem\"; }"
+      ": popup_list { label = \"Material / acabado\"; key = \"material\"; }"
       ": popup_list { label = \"Formato de loseta\"; key = \"formato\"; }"
       ;; 2026-08-12: si las etapas estan deshabilitadas los tiles NO se
       ;; emiten (pedido del usuario: ocultar, no engrisar). El gestor de
@@ -8606,7 +8606,8 @@
   ;; 4.74.0: una sola regla visual para redes humedas y secas.
   (if (< r 2.00) (setq r 2.00))
   (if (< th 0.10) (setq th 0.10))
-  ;; 2026-09-01: overrides de Ajustes (URB_MP_TEXTO_TRAMO/URB_MP_ANCHO_TRAMO)
+  ;; 2026-09-08: una sola fuente de configuracion. Las claves MP_TRAMO_*
+  ;; son canonicas; las URB_MP_* solo se leen como compatibilidad.
   (setq th (mp:cfg-tramo-text th))
   (setq w (mp:cfg-tramo-width w))
   (setq lab (mp:label-tramo baseb vals))
@@ -10919,7 +10920,8 @@
 
 (defun mp:derive-tramo-values
   (base p1 p2 vals
-   / length-2d length-3d length-value mode diameter-m diameter-in ducts width
+   / length-2d length-3d length-center-2d length-center-3d length-value
+   gaps mode diameter-m diameter-in ducts width
    bedding bedding-raw replacement-raw replacement-width tn-ini tn-fin key-ini key-fin
    cover-ini cover-fin depth-ini depth-fin depth-mean slope-calculated
    entered-slope excavation bedding-volume element-volume fill surplus
@@ -10928,14 +10930,21 @@
    ent-le3 ent-gt3 seg-len seg-index d1 d2 dmid
    recub-e envb-e arena-e baseg-e)
   (setq *mp-last-tramo-memory-samples* nil)
-  (setq length-2d (if (and p1 p2) (mp:distance-2d p1 p2)
+  (setq length-center-2d (if (and p1 p2) (mp:distance-2d p1 p2)
                     (mp:number-or (mp:getval "LONGITUD_2D" vals
                       (mp:getval "LONGITUD" vals "0")) 0.0))
-        length-3d (if (and p1 p2) (distance p1 p2)
+        length-center-3d (if (and p1 p2) (distance p1 p2)
                     (mp:number-or (mp:getval "LONGITUD_3D" vals
                       (mp:getval "LONGITUD" vals "0")) 0.0))
+        gaps (mp:tramo-end-gaps base vals length-center-2d)
+        length-value
+          (max 0.0 (- length-center-2d (car gaps) (cadr gaps)))
+        length-2d length-value
+        length-3d
+          (if (> length-center-2d 1e-9)
+            (* length-center-3d (/ length-value length-center-2d))
+            length-value)
         mode "PLANTA"
-        length-value length-2d
         width (mp:number-or (mp:getval "ANCHO_ZANJA" vals "") 0.0))
   ;; diametro adelantado (se vuelve a leer mas abajo dentro de la rama
   ;; hidraulica, sin costo, para no reordenar el resto de la funcion) --
@@ -11058,6 +11067,10 @@
   (setq vals (mp:alist-set vals "LONGITUD" (rtos length-value 2 2))
         vals (mp:alist-set vals "LONGITUD_2D" (rtos length-2d 2 2))
         vals (mp:alist-set vals "LONGITUD_3D" (rtos length-3d 2 2))
+        vals (mp:alist-set vals "LONGITUD_CENTROS_2D"
+               (rtos length-center-2d 2 2))
+        vals (mp:alist-set vals "LONGITUD_CENTROS_3D"
+               (rtos length-center-3d 2 2))
         vals (mp:alist-set vals "MODO_LONGITUD" mode)
         vals (mp:alist-set vals "ANCHO_ZANJA" (rtos width 2 2))
         vals (mp:alist-set vals "ESPESOR_CAMA" (rtos bedding 2 2))
@@ -11166,37 +11179,55 @@
               "PENDIENTE_PARAMETROS")))
   (mp:validate-tramo-values base vals))
 
-;; Recorte VISUAL del tramo hasta el borde del circulo del pozo (pedido
-;; del usuario 2026-08-21: que se vea el numero del pozo). Solo aplica
-;; cuando AMBOS extremos estan vinculados a un pozo/caja: los flujos de
-;; edicion reconstruyen la geometria desde esos bloques (no desde el
-;; dibujo), asi que el recorte nunca toca las CANTIDADES -- la longitud
-;; real p1-p2 sigue siendo la de presupuesto.
-(defun mp:tramo-visual-gap (vals dist / r base g)
-  ;; 2026-09-02: pozos ahora en tamano real (r 0.60) -> el recorte visual
-  ;; baja igual. ACU sin recorte (la linea fina llega al centro del
-  ;; accesorio; el wipeout del simbolo la tapa donde toca).
-  (setq r 0.60)
-  (setq base (mp:getval "BLOQUE_BASE" vals ""))
-  (if (= base "TRAMO_ACUEDUCTO") (setq r 0.0))
-  (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
-    ;; 2026-08-26 (revision del usuario sobre la muestra): la linea llega
-    ;; hasta el BORDE de la caja, no al centro -- recorte = media caja
-    ;; (CS276/280 del plano miden 2.00 de ancho -> 1.00; la caja AP 274
-    ;; mide 1.08 -> 0.54). Las CANTIDADES no cambian: la longitud real
-    ;; sigue siendo centro a centro (p1-p2).
+;; Recorte por CADA extremo hasta la cara del pozo/caja. Desde 4.75.0 la
+;; longitud de presupuesto es tambien cara-a-cara; se conservan aparte las
+;; longitudes centro-a-centro para trazabilidad.
+(defun mp:point-base-gap (point-base)
+  (cond
+    ((member point-base '("POZO_SANITARIO" "POZO_PLUVIAL")) 0.60)
+    ((= point-base "SUMIDERO") 0.35)
+    ((= point-base "CAMARA_CS280") 1.00)
+    ((= point-base "CAMARA_CS276") 1.00)
+    ((member point-base '("CAMARA_CS274" "CAMARA_CS275")) 0.54)
+    ((= point-base "CAJA_BARRAJE_CS281") 2.00)
+    ;; En accesorios de acueducto la linea llega al eje y el simbolo
+    ;; abierto la cubre; no se descuenta longitud.
+    (T 0.0)))
+
+(defun mp:tramo-end-gap (tramo vals is-final / handle en point-base tipo)
+  (setq handle
+    (mp:getval
+      (if is-final "HANDLE_EXTREMO_FIN" "HANDLE_EXTREMO_INI") vals ""))
+  (if (= handle "")
+    0.0
     (progn
-      (setq g (if (= base "TRAMO_E_MT") 1.00 0.54))
-      (if (> dist (+ (* 2.0 g) 0.5)) g 0.0))
-    (if (and (/= (mp:getval "HANDLE_EXTREMO_INI" vals "") "")
-             (/= (mp:getval "HANDLE_EXTREMO_FIN" vals "") "")
-             (> dist (+ (* 2.0 r) 1.0)))
-      r
-      0.0)))
+      (setq en (handent handle))
+      (setq point-base
+        (if (and en (entget en)) (mp:point-reference-base en) nil))
+      (if (or (null point-base) (= point-base ""))
+        (progn
+          (setq tipo
+            (mp:getval
+              (if is-final "TIPO_EXTREMO_FIN" "TIPO_EXTREMO_INI")
+              vals "NINGUNO"))
+          (setq point-base (mp:endpoint-base tramo tipo))))
+      (mp:point-base-gap point-base))))
+
+(defun mp:tramo-end-gaps (tramo vals dist / g1 g2 total factor)
+  (setq g1 (mp:tramo-end-gap tramo vals nil)
+        g2 (mp:tramo-end-gap tramo vals T)
+        total (+ g1 g2))
+  ;; Tramos muy cortos: conserva al menos 1 cm visible y reparte el recorte
+  ;; proporcionalmente, sin producir escalas negativas.
+  (if (and (> total 0.0) (> total (- dist 0.01)))
+    (progn
+      (setq factor (/ (max 0.0 (- dist 0.01)) total))
+      (setq g1 (* g1 factor) g2 (* g2 factor))))
+  (list g1 g2))
 
 (defun mp:insert-cant-tramo
   (baseb p1 p2 vals / doc ms dist ang blk br vals2 en lay added sync-result
-   gap p1v distv)
+   gaps gap-ini gap-fin p1v distv)
   (vl-load-com)
   ;; La referencia grafica siempre se dibuja en planta. La longitud 3D se
   ;; conserva por separado para trazabilidad, evitando que un desnivel Z
@@ -11217,15 +11248,17 @@
       (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
         (setq vals2
           (mp:alist-set vals2 "LONG_VIS" (mp:long-label vals2))))
-      ;; recorte visual: el bloque arranca en el borde del pozo, no en su
-      ;; centro (las cantidades ya quedaron derivadas con p1-p2 reales)
-      (setq gap (mp:tramo-visual-gap vals2 dist))
+      ;; recorte cara-a-cara: el bloque y las cantidades excluyen el area
+      ;; ocupada por el pozo/caja; p1-p2 se conserva en LONGITUD_CENTROS_*.
+      (setq gaps (mp:tramo-end-gaps baseb vals2 dist)
+            gap-ini (car gaps)
+            gap-fin (cadr gaps))
       (setq p1v
-        (if (> gap 0.0)
-          (list (+ (car p1) (* gap (cos ang)))
-                (+ (cadr p1) (* gap (sin ang))))
+        (if (> gap-ini 0.0)
+          (list (+ (car p1) (* gap-ini (cos ang)))
+                (+ (cadr p1) (* gap-ini (sin ang))))
           p1))
-      (setq distv (if (> gap 0.0) (- dist (* 2.0 gap)) dist))
+      (setq distv (- dist gap-ini gap-fin))
       (setq blk (mp:tramo-block-name baseb distv))
       (if (not (tblsearch "BLOCK" blk))
         (mp:make-cant-tramo-block blk baseb distv vals2))
@@ -12255,7 +12288,7 @@
 (defun mp:sync-tramo-values
   (ename obj base vals
    / reference p1 p2 span handle-ini handle-fin endpoint-ini endpoint-fin
-   linked-p1 linked-p2 length-2d scale derived gap p1v)
+   linked-p1 linked-p2 length-2d scale derived gaps gap-ini gap-fin p1v)
   (setq reference (mp:reference-plan-points obj))
   (if reference
     (progn
@@ -12283,18 +12316,18 @@
                 length-2d (mp:distance-2d p1 p2))
           (if (and (> span 1e-9) (> length-2d 1e-9))
             (progn
-              ;; recorte visual hasta el borde del pozo tambien al
-              ;; re-sincronizar (EDITAR): la insercion arranca en el
-              ;; borde y la escala usa la longitud visual, pero p1/p2
-              ;; reales siguen mandando en derive (cantidades intactas)
-              (setq gap (mp:tramo-visual-gap vals length-2d))
+              ;; recorte hasta el borde tambien al re-sincronizar (EDITAR):
+              ;; insercion, escala y cantidades usan la longitud cara-a-cara.
+              (setq gaps (mp:tramo-end-gaps base vals length-2d)
+                    gap-ini (car gaps)
+                    gap-fin (cadr gaps))
               (setq p1v
-                (if (> gap 0.0)
+                (if (> gap-ini 0.0)
                   (list
-                    (+ (car p1) (* gap (cos (angle p1 p2))))
-                    (+ (cadr p1) (* gap (sin (angle p1 p2)))))
+                    (+ (car p1) (* gap-ini (cos (angle p1 p2))))
+                    (+ (cadr p1) (* gap-ini (sin (angle p1 p2)))))
                   p1))
-              (setq scale (/ (- length-2d (* 2.0 gap)) span))
+              (setq scale (/ (- length-2d gap-ini gap-fin) span))
               (vla-put-InsertionPoint obj (mp:3d p1v))
               (vla-put-Rotation obj (angle p1 p2))
               (vla-put-XScaleFactor obj (float scale))))))
@@ -13202,8 +13235,8 @@
     ("URB_SEND_ESP_RAMPA-CONC" "e_rampa" 0.05 3.0)
     ("URB_SEND_ESP_BIOSWALE" "e_bio" 0.05 3.0)
     ("URB_GREEN_ESP_TIERRA" "e_tierra" 0.05 1.0)
-    ("URB_MP_TEXTO_TRAMO" "t_texto" 0.1 3.0)
-    ("URB_MP_ANCHO_TRAMO" "t_ancho" 0.01 2.0)
+    ("MP_TRAMO_TEXT_HEIGHT" "t_texto" 0.1 3.0)
+    ("MP_TRAMO_LINE_WIDTH" "t_ancho" 0.01 2.0)
     ("URB_PREFAB_ANCHO_BORDILLO" "a_bordillo" 0.05 2.0)
     ("URB_PREFAB_ANCHO_SARDINEL" "a_sardinel" 0.05 2.0)
     ("URB_PREFAB_ANCHO_CANUELA" "a_canuela" 0.05 2.0)))
@@ -13273,7 +13306,12 @@
   (if (> dcl 0) (unload_dialog dcl))
   (if filename (vl-catch-all-apply 'vl-file-delete (list filename)))
   (if ok
-    (prompt "\nEspesores y anchos guardados para este dibujo."))
+    (progn
+      (mp:load-tramo-appearance-settings)
+      (mp:store-tramo-appearance-settings
+        *mp-vis-width* *mp-vis-tramo-text-height*)
+      (mp:apply-tramo-appearance-to-drawing)
+      (prompt "\nEspesores y anchos guardados y aplicados al dibujo.")))
   (princ))
 
 ;; 2026-08-24 (pedido del usuario): hub "Movimiento de tierras" -- una
@@ -13448,19 +13486,35 @@
   (prompt "\nDepuracion terminada: bloques, capas, estilos, grupos y regapps sin uso eliminados. Guarde el dibujo para que el archivo baje de peso.")
   (princ))
 
+(defun mp:configured-tramo-value (canonical legacy default lo hi / value)
+  (setq value
+    (urb:parse-real
+      (urb:safe-string (urb:config-read canonical) "")))
+  (if (not (and value (>= value lo) (<= value hi)))
+    (setq value
+      (urb:parse-real
+        (urb:safe-string (urb:config-read legacy) ""))))
+  (if (and value (>= value lo) (<= value hi)) value default))
+
+(defun mp:store-tramo-appearance-settings (line-width text-height)
+  ;; Escribe ambas claves durante la transicion para que una instalacion
+  ;; anterior no vuelva a mostrar un valor distinto en el mismo DWG.
+  (urb:config-write "MP_TRAMO_LINE_WIDTH" (rtos line-width 2 6))
+  (urb:config-write "MP_TRAMO_TEXT_HEIGHT" (rtos text-height 2 6))
+  (urb:config-write "URB_MP_ANCHO_TRAMO" (rtos line-width 2 6))
+  (urb:config-write "URB_MP_TEXTO_TRAMO" (rtos text-height 2 6))
+  (list line-width text-height))
+
 (defun mp:load-tramo-appearance-settings (/ value)
   ;; Ajustes por DWG: al abrir otro proyecto se respetan sus escalas y el
   ;; valor predeterminado sigue disponible en dibujos nuevos.
-  (setq value
-    (urb:parse-real
-      (urb:safe-string (urb:config-read "MP_TRAMO_LINE_WIDTH") "")))
-  (if (and value (>= value 0.01) (<= value 20.0))
-    (setq *mp-vis-width* value))
-  (setq value
-    (urb:parse-real
-      (urb:safe-string (urb:config-read "MP_TRAMO_TEXT_HEIGHT") "")))
-  (if (and value (>= value 0.10) (<= value 50.0))
-    (setq *mp-vis-tramo-text-height* value))
+  (setq *mp-vis-width*
+    (mp:configured-tramo-value
+      "MP_TRAMO_LINE_WIDTH" "URB_MP_ANCHO_TRAMO" *mp-vis-width* 0.01 20.0))
+  (setq *mp-vis-tramo-text-height*
+    (mp:configured-tramo-value
+      "MP_TRAMO_TEXT_HEIGHT" "URB_MP_TEXTO_TRAMO"
+      *mp-vis-tramo-text-height* 0.10 50.0))
   (list *mp-vis-width* *mp-vis-tramo-text-height*)
 )
 
@@ -13527,8 +13581,7 @@
     (T
       (setq *mp-vis-width* line-width
             *mp-vis-tramo-text-height* text-height)
-      (urb:config-write "MP_TRAMO_LINE_WIDTH" (rtos line-width 2 6))
-      (urb:config-write "MP_TRAMO_TEXT_HEIGHT" (rtos text-height 2 6))
+      (mp:store-tramo-appearance-settings line-width text-height)
       (setq *mp-tramo-appearance-result*
         (mp:apply-tramo-appearance-to-drawing))
       T))
@@ -23791,15 +23844,13 @@
 ;; tramo que se creen/renormalicen de ahi en adelante (la definicion es
 ;; compartida por longitud). ACU conserva su hairline aunque haya ancho
 ;; configurado (calco fiel del plano).
-(defun mp:cfg-tramo-text (default / v)
-  (setq v (urb:parse-real
-    (urb:safe-string (urb:config-read "URB_MP_TEXTO_TRAMO") "")))
-  (if (and v (> v 0.0)) v default))
+(defun mp:cfg-tramo-text (default)
+  (mp:configured-tramo-value
+    "MP_TRAMO_TEXT_HEIGHT" "URB_MP_TEXTO_TRAMO" default 0.10 50.0))
 
-(defun mp:cfg-tramo-width (default / v)
-  (setq v (urb:parse-real
-    (urb:safe-string (urb:config-read "URB_MP_ANCHO_TRAMO") "")))
-  (if (and v (> v 0.0)) v default))
+(defun mp:cfg-tramo-width (default)
+  (mp:configured-tramo-value
+    "MP_TRAMO_LINE_WIDTH" "URB_MP_ANCHO_TRAMO" default 0.01 20.0))
 
 ;; 2026-08-24 (pedido del usuario): prefabricado por COSTADOS -- distinto
 ;; de urb:build-prefab-anillo (que envuelve TODO el contorno incluidas
@@ -29824,7 +29875,14 @@
     (list "Rampa vehicular va a su capitulo"
       (= (urb:rampa-red "RAMPA-VEHICULAR") "RAMPA-VEHICULAR"))
     (list "Paso peatonal va a su capitulo"
-      (= (urb:rampa-red "PASO-PEATONAL") "PASO-PEATONAL"))))
+      (= (urb:rampa-red "PASO-PEATONAL") "PASO-PEATONAL"))
+    (list "Tipologias de areas son las tres solicitadas"
+      (equal *urb-elem-categorias*
+        '("Andenes" "Senderos" "Equipamientos")))
+    (list "Caja CS276 recorta un metro por extremo"
+      (equal 1.0 (mp:point-base-gap "CAMARA_CS276") 1e-9))
+    (list "Pozo humedo recorta hasta radio real"
+      (equal 0.60 (mp:point-base-gap "POZO_PLUVIAL") 1e-9))))
 
 (defun urb:version-info-command (/ installed file line disk-version checks ok item)
   (setq installed (strcat (getenv "APPDATA")
@@ -30023,7 +30081,27 @@
       (setq i (1+ i))))
   (if changed changed 0))
 
-(defun urb:migrate-current-drawing (/ ss i count hydro-rings road-properties road-upgrade pruned)
+(defun urb:normalize-anden-prefab-draworder (/ andenes prefabs result)
+  ;; El achurado del anden debe quedar detras y el prefabricado vinculado
+  ;; delante. Corrige dibujos donde el orden se perdio al empaquetar o editar.
+  (setq andenes
+    (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))))
+  (setq prefabs
+    (ssget "_X" '((0 . "INSERT") (-3 ("URB_PREFAB_ANILLO")))))
+  (if andenes
+    (vl-catch-all-apply 'vl-cmdf
+      (list "_.DRAWORDER" andenes "" "_Back")))
+  (if prefabs
+    (setq result
+      (vl-catch-all-apply 'vl-cmdf
+        (list "_.DRAWORDER" prefabs "" "_Front"))))
+  (if (vl-catch-all-error-p result) nil
+    (list (if andenes (sslength andenes) 0)
+          (if prefabs (sslength prefabs) 0))))
+
+(defun urb:migrate-current-drawing
+  (/ ss i count hydro-rings road-properties road-upgrade pruned
+     appearance-refresh tramo-refresh draworder-refresh)
   ;; MIGRACIONES AUTOMATICAS de dibujos hechos con versiones anteriores.
   ;; Corre al cargar el .lsp y al abrir el menu URBANISMO, y es idempotente
   ;; (si no hay nada que migrar, no toca nada). Patron establecido a
@@ -30120,6 +30198,32 @@
             (prompt
               (strcat "\nMigracion automatica: " (itoa pruned)
                 " propiedad(es) tecnica(s) ocultada(s); datos respaldados.")))))))
+  ;; 6) v4.75.0: corrige la doble fuente de configuracion visual, fuerza
+  ;; 0.20/0.60 una sola vez y reconstruye las referencias para que la linea
+  ;; y la LONGITUD terminen en la cara del pozo/caja, no en su centro.
+  (if (/= (urb:safe-string
+            (urb:config-read "URB_MIGRATE_4750_TRAMOS") "") "OK")
+    (progn
+      (setq *mp-vis-width* 0.20
+            *mp-vis-tramo-text-height* 0.60)
+      (mp:store-tramo-appearance-settings 0.20 0.60)
+      (setq tramo-refresh
+        (vl-catch-all-apply 'urb:q-refresh-network-segments nil))
+      (setq appearance-refresh
+        (vl-catch-all-apply 'mp:apply-tramo-appearance-to-drawing nil))
+      (setq draworder-refresh
+        (vl-catch-all-apply 'urb:normalize-anden-prefab-draworder nil))
+      (if (and (not (vl-catch-all-error-p tramo-refresh))
+               (= (cadr tramo-refresh) 0)
+               (not (vl-catch-all-error-p appearance-refresh)))
+        (progn
+          (urb:config-write "URB_MIGRATE_4750_TRAMOS" "OK")
+          (prompt
+            (strcat "\nMigracion v4.75.0: redes unificadas a 0.20/0.60; "
+              (itoa (car tramo-refresh))
+              " tramo(s) ajustados hasta la cara de sus cajas.")))
+        (prompt
+          "\nMigracion v4.75.0 pendiente: use AJUSTES > Apariencia de tramos en Civil 3D completo."))))
   (princ))
 
 (defun urb:remove-legacy-commands (/ command-symbol)
@@ -30288,7 +30392,9 @@
 (vl-catch-all-apply 'urb:refresh-etapas-catalog nil)
 (vl-catch-all-apply 'mp:load-tramo-appearance-settings nil)
 (vl-catch-all-apply 'urb:load-geometric-settings nil)
-(vl-catch-all-apply 'urb:migrate-current-drawing nil)
+(if (and (not *urb-suppress-auto-migration*)
+         (/= (getenv "URB_TEST_SUPPRESS_AUTO_MIGRATION") "1"))
+  (vl-catch-all-apply 'urb:migrate-current-drawing nil))
 (vl-catch-all-apply 'urb:install-memory-property-reactors nil)
 ;; OJO (2026-08-11 v3): urb:ensure-ribbon YA NO se llama automaticamente.
 ;; Si el lsp carga el cuix por COM ANTES que el Autoloader, el Autoloader
