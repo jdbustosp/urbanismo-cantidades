@@ -1,5 +1,22 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 14:35, v4.76.0 (Codex, BOG085CD119BDQN)
+
+Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local:
+`juanbusper`. Commit funcional: `29d3b66`.
+
+- El acabado del andén ahora resta físicamente las huellas de bordillos,
+  sardineles, cañuelas y contenedores de raíces antes de crear rellenos,
+  juntas, guía o toperol; ya no depende solo de `DRAWORDER`.
+- Un entrante junto a un contenedor se interpreta como vacío y no como un
+  segundo brazo del andén: el patrón conserva un solo eje y no intenta rodearlo.
+- El diálogo indica dibujar el contorno exterior sin rodear contenedores; estos
+  se omiten automáticamente. Se evita además el doble descuento de cantidades
+  cuando el usuario ya dibujó un entrante alrededor del contenedor.
+- Verificación: **65 OK / 0 fallos**, Core Console 2023, 40,21 s. Instalado
+  4.76.0; hash repo=instalado. Validación visual pendiente del usuario en Civil
+  3D; los andenes antiguos deben recrearse para regenerar su geometría interna.
+
 ## Protocolo ágil de validación — 2026-09-08 14:11 (Codex, BOG085CD119BDQN)
 
 Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local:

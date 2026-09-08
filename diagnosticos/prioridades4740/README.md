@@ -1,4 +1,14 @@
-# Verificación v4.74.0–v4.75.0 — prioridades del 2026-09-08
+# Verificación v4.74.0–v4.76.0 — prioridades del 2026-09-08
+
+## Adición v4.76.0 — recorte físico de andenes
+
+- **65 OK / 0 fallos** en Core Console 2023; duración total 40,21 s.
+- Caso puro agregado: reconoce un entrante de contenedor como polígono cóncavo
+  y conserva el rectángulo normal como convexo.
+- El acabado resta regiones de prefabricados/contenedores antes de generar
+  material y accesibilidad. Esta parte usa ActiveX real: queda pendiente la
+  confirmación visual del usuario; no se simula como si fuera prueba gráfica.
+- Instalación 4.76.0 y hash del LSP instalado idéntico al repositorio.
 
 Trazabilidad: **Agente: Codex | Equipo: BOG085CD119BDQN | Fecha local:
 2026-09-08**.
