@@ -1,5 +1,45 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 15:4x, v4.76.1 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+- **Causa raíz del reporte con foto** (prefabricados sueltos junto al contenedor
+  de raíces y andén que se extendía más allá de lo debido): al dibujar el
+  contorno con un ENTRANTE para rodear el contenedor,
+  `urb:poly-costado-chains` elegía las "puntas" del andén por **longitud**
+  (los 2 segmentos más cortos no adyacentes). Las dos aristas del entrante
+  (1,0 m) son más cortas que las puntas reales (2,0 m de ancho), así que el
+  contorno se partía en una cadena basura —el fondo del entrante, 1,5 m, que
+  salía como prefabricado suelto— y otra de 42,5 m que mezclaba los dos
+  costados, las dos puntas y el zigzag del entrante.
+- **Corrección**: las puntas se eligen ahora por **posición sobre el eje
+  dominante** (`urb:anden-straight-edges-angle`): son los segmentos cuyo punto
+  medio cae en los extremos del eje largo; un entrante siempre queda en el
+  medio. Sin eje dominante (contorno todo en arcos) se conserva la heurística
+  anterior como respaldo. La lógica se extrajo a `urb:costado-tip-segments`,
+  función pura y probable sin crear entidades.
+- **Medido antes/después** en el mismo caso (rectángulo 20×2 con entrante de
+  1,5×1,0 y contenedor CONT-C): antes cadenas de 1,5 m y 42,5 m; después
+  22,0 m (lado con entrante, recorriendo el hueco) y 20,0 m (lado limpio).
+- **E2E con ActiveX real** (AutoCAD 2023 + perfil C3D, DWG de prueba propio):
+  2 prefabricados —uno por costado, sin pieza suelta—, `build-anden-finish` y
+  `package-anden` OK, y el recorte físico de v4.76.0 confirmado por primera vez
+  con geometría real: la región del acabado baja de **38,500 a 37,360 m²**,
+  descontando exactamente los 1,140 m² del contenedor. 0 fallos.
+- **Suite**: 66 OK / 0 fallos (Core Console 2023), incluida la regresión nueva
+  "Puntas del andén se eligen por extremo, no por longitud". Instalado 4.76.1;
+  hash repo = instalado.
+- **Pendiente reportado, no tocado**: el atributo `AREA_M2` del andén guarda el
+  área cruda del contorno (38,50) mientras lo dibujado es 37,36; el descuento
+  al presupuesto lo hace `urb:anden-area-contenedores`, que desde v4.76.0 exige
+  que el punto de inserción del contenedor caiga DENTRO del polígono. Con
+  entrante ese punto queda sobre el borde, así que el excedente que el
+  contenedor invade fuera del entrante (~1,14 m²) no se descuenta en el
+  presupuesto aunque sí se excluye del dibujo. Decisión del usuario/Codex.
+- Validación visual en Civil 3D pendiente del usuario: **los andenes ya creados
+  conservan su geometría empacada y deben recrearse** para tomar el arreglo.
+
 ## Estado guardado — 2026-09-08 14:35, v4.76.0 (Codex, BOG085CD119BDQN)
 
 Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local:

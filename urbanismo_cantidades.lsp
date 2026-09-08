@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.76.0")
+(setq *urb-version* "4.76.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -24022,17 +24022,84 @@
   (setq v (urb:config-read "URB_SEND_COSTPOS"))
   (if (and v (member v *urb-anillo-pos-list*)) v "Externo"))
 
-;; divide el contorno CERRADO en sus dos costados: los dos segmentos mas
-;; cortos y no adyacentes del anillo son las PUNTAS; al quitarlos quedan
-;; dos cadenas de vertices (los lados largos). Devuelve (cadena-a
-;; cadena-b) -- cada una lista de puntos 2D -- o nil si el poligono no
-;; da para separar dos cadenas (triangulo, forma muy irregular).
+;; Puntas (los dos segmentos que separan los costados largos) de un
+;; contorno ya leido como lista de puntos (x y bulge). Funcion PURA para
+;; poder probarla sin crear entidades.
+;; 2026-09-08 (reporte del usuario con foto: prefabricados sueltos junto
+;; al contenedor de raices): las puntas se eligen por POSICION sobre el
+;; eje dominante, no por longitud. Cuando el usuario dibuja un ENTRANTE
+;; para rodear un contenedor, ese entrante aporta aristas MAS CORTAS que
+;; las puntas reales del anden; la heuristica vieja las tomaba por
+;; puntas y partia el contorno en una cadena basura (el fondo del
+;; entrante, que salia como prefabricado suelto) y otra que mezclaba los
+;; dos costados. Las puntas REALES caen en los extremos del eje largo;
+;; el entrante siempre queda en el medio. Sin eje dominante (contorno
+;; todo en arcos) se conserva la heuristica anterior.
+(defun urb:costado-tip-segments (pts axis-angle / n i ux uy proj minproj
+                                 maxproj p1p p2p midp dist best-min
+                                 best-max s1 s2 segs)
+  (setq n (length pts))
+  (if (< n 4)
+    nil
+    (progn
+      (if axis-angle
+        (progn
+          (setq ux (cos axis-angle) uy (sin axis-angle))
+          (setq proj
+            (mapcar
+              '(lambda (p) (+ (* (car p) ux) (* (cadr p) uy)))
+              pts))
+          (setq minproj (apply 'min proj) maxproj (apply 'max proj))
+          (setq i 0)
+          (repeat n
+            (setq p1p (nth i proj)
+                  p2p (nth (rem (1+ i) n) proj)
+                  midp (* 0.5 (+ p1p p2p)))
+            (setq dist (abs (- midp minproj)))
+            (if (or (null best-min) (< dist best-min))
+              (setq best-min dist s1 i))
+            (setq dist (abs (- midp maxproj)))
+            (if (or (null best-max) (< dist best-max))
+              (setq best-max dist s2 i))
+            (setq i (1+ i)))))
+      ;; respaldo: sin eje dominante o si los extremos colapsan en el
+      ;; mismo segmento (o en dos adyacentes, que no separan cadenas)
+      (if (or (null s1) (null s2) (= s1 s2)
+              (= (rem (1+ s1) n) s2) (= (rem (1+ s2) n) s1))
+        (progn
+          (setq segs nil i 0)
+          (repeat n
+            (setq segs
+              (cons (cons i (distance
+                              (list (car (nth i pts)) (cadr (nth i pts)))
+                              (list (car (nth (rem (1+ i) n) pts))
+                                    (cadr (nth (rem (1+ i) n) pts)))))
+                segs))
+            (setq i (1+ i)))
+          (setq segs (vl-sort segs '(lambda (x y) (< (cdr x) (cdr y)))))
+          (setq s1 (car (nth 0 segs)) s2 (car (nth 1 segs)))
+          ;; si las dos mas cortas son adyacentes no separan dos cadenas:
+          ;; probar con la siguiente mas corta
+          (setq i 2)
+          (while (and (< i n)
+                      (or (= (rem (1+ s1) n) s2) (= (rem (1+ s2) n) s1)))
+            (setq s2 (car (nth i segs)) i (1+ i)))))
+      (if (or (= s1 s2) (= (rem (1+ s1) n) s2) (= (rem (1+ s2) n) s1))
+        nil
+        (list s1 s2))))
+)
+
+;; divide el contorno CERRADO en sus dos costados: quitando las dos
+;; PUNTAS (urb:costado-tip-segments) quedan dos cadenas de vertices (los
+;; lados largos). Devuelve (cadena-a cadena-b) -- cada una lista de
+;; puntos 2D -- o nil si el poligono no da para separar dos cadenas
+;; (triangulo, forma muy irregular).
 ;; 2026-08-26 (reporte del usuario con pantallazo: en contornos CURVOS
-;; el costado salia RECTO cruzando el area): las cadenas ahora conservan
-;; el BULGE de cada segmento -- cada vertice es (x y bulge), donde bulge
-;; es el del segmento que SALE de ese vertice. Antes solo se leian los
+;; el costado salia RECTO cruzando el area): las cadenas conservan el
+;; BULGE de cada segmento -- cada vertice es (x y bulge), donde bulge es
+;; el del segmento que SALE de ese vertice. Antes solo se leian los
 ;; codigos 10 y el prefabricado se construia con segmentos rectos.
-(defun urb:poly-costado-chains (ename / ed pts cur n i segs s1 s2 tmp a b
+(defun urb:poly-costado-chains (ename / ed pts cur n i tips s1 s2 tmp a b
                                 idx last-a last-b)
   (setq ed (entget ename) pts nil cur nil)
   (foreach itm ed
@@ -24048,26 +24115,12 @@
   (if (< n 4)
     nil
     (progn
-      (setq segs nil i 0)
-      (repeat n
-        (setq segs
-          (cons (cons i (distance
-                          (list (car (nth i pts)) (cadr (nth i pts)))
-                          (list (car (nth (rem (1+ i) n) pts))
-                                (cadr (nth (rem (1+ i) n) pts)))))
-            segs))
-        (setq i (1+ i)))
-      (setq segs (vl-sort segs '(lambda (x y) (< (cdr x) (cdr y)))))
-      (setq s1 (car (nth 0 segs)) s2 (car (nth 1 segs)))
-      ;; si las dos mas cortas son adyacentes no separan dos cadenas:
-      ;; probar con la siguiente mas corta
-      (setq i 2)
-      (while (and (< i n)
-                  (or (= (rem (1+ s1) n) s2) (= (rem (1+ s2) n) s1)))
-        (setq s2 (car (nth i segs)) i (1+ i)))
-      (if (or (= s1 s2) (= (rem (1+ s1) n) s2) (= (rem (1+ s2) n) s1))
+      (setq tips
+        (urb:costado-tip-segments pts (urb:anden-straight-edges-angle ename)))
+      (if (null tips)
         nil
         (progn
+          (setq s1 (car tips) s2 (cadr tips))
           (if (> s1 s2) (setq tmp s1 s1 s2 s2 tmp))
           (setq a nil idx (1+ s1))
           (while (<= idx s2)
@@ -30046,6 +30099,28 @@
             (2.0 4.0) (2.0 2.0) (0.0 2.0)))
         (not (urb:polygon-concave-p
           '((0.0 0.0) (4.0 0.0) (4.0 2.0) (0.0 2.0))))))
+    ;; 2026-09-08: con un ENTRANTE alrededor de un contenedor, las dos
+    ;; aristas del entrante (1,0 m) son mas cortas que las puntas reales
+    ;; del anden (2,0 m). La heuristica vieja las tomaba por puntas y
+    ;; dejaba el fondo del entrante como prefabricado suelto (segmentos
+    ;; 4 y 5); las puntas correctas son la 1 (x=20) y la 7 (x=0).
+    (list "Puntas del anden se eligen por extremo, no por longitud"
+      (and
+        (equal '(7 1)
+          (urb:costado-tip-segments
+            '((0.0 0.0 0.0) (20.0 0.0 0.0) (20.0 2.0 0.0)
+              (11.5 2.0 0.0) (11.5 1.0 0.0) (10.0 1.0 0.0)
+              (10.0 2.0 0.0) (0.0 2.0 0.0))
+            0.0))
+        ;; rectangulo simple: mismo resultado que la heuristica anterior
+        (equal '(3 1)
+          (urb:costado-tip-segments
+            '((0.0 0.0 0.0) (20.0 0.0 0.0) (20.0 2.0 0.0) (0.0 2.0 0.0))
+            0.0))
+        ;; sin eje dominante cae al respaldo por longitud y sigue vivo
+        (urb:costado-tip-segments
+          '((0.0 0.0 0.0) (20.0 0.0 0.0) (20.0 2.0 0.0) (0.0 2.0 0.0))
+          nil)))
     (list "Caja CS276 recorta un metro por extremo"
       (equal 1.0 (mp:point-base-gap "CAMARA_CS276") 1e-9))
     (list "Pozo humedo recorta hasta radio real"
