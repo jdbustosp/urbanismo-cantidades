@@ -1,5 +1,15 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Protocolo ágil de validación — 2026-09-08 14:11 (Codex, BOG085CD119BDQN)
+
+Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local:
+`juanbusper`. Commit: `9f1032c`.
+
+Se incorporó a `TESTING_CIVIL3D.md` un protocolo por impacto con cinco niveles,
+presupuestos de 15 s a 90 s, un solo intento de Civil 3D real, corte obligatorio
+ante modales y máximo total de 10–15 minutos. También define reutilización por
+hash, matriz mínima por tipo de cambio y evidencia compacta para reducir tokens.
+
 ## Estado guardado — 2026-09-08 14:05, v4.75.0 (Codex, BOG085CD119BDQN)
 
 Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local:
