@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.76.1")
+(setq *urb-version* "4.77.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -24180,37 +24180,183 @@
     (setq i (1+ i)))
   (entmakex data))
 
-;; construye el prefabricado de UN costado como bloque. El lado de
-;; crecimiento se decide solo: Interno = hacia el centroide del poligono,
-;; Externo = alejandose de el (punto espejo del centroide respecto al
-;; medio de la cadena). Devuelve (longitud referencia-del-bloque) si se
-;; creo, nil si no (2026-08-24 v2: la referencia la necesita el anden
-;; para el vinculo de descuento URB_PREFAB_ANILLO).
-(defun urb:poly-costado-build (pts tipo posicion etapa sub centroid destino
-                               / en mid side ancho ref len)
-  (setq en (urb:poly-chain-polyline pts))
-  (if (null en)
-    nil
+;; ---------- 2026-09-08 (pedido del usuario: "alrededor del contenedor
+;; de raices no va ningun prefabricado"): el costado se INTERRUMPE donde
+;; se cruza con un contenedor. Sirve igual si el usuario dibujo un
+;; entrante para rodearlo (la cadena entra al hueco) que si dibujo el
+;; contorno derecho (la cadena pasa por encima del contenedor): en los
+;; dos casos el tramo cubierto por el contenedor se quita y el
+;; prefabricado queda partido en los tramos utiles.
+
+;; esquinas en MUNDO de un contenedor insertado. El bloque se define con
+;; la esquina de insercion en (0,0), el LARGO sobre el eje X local y el
+;; ANCHO hacia +Y o -Y segun el lado elegido (xdata URB_MOBILIARIO:
+;; codigo lado angulo). Sin xdata o sin catalogo devuelve nil y el
+;; contenedor simplemente no recorta (comportamiento anterior).
+(defun urb:contenedor-corners (be / d entry obj ins ang a l y0 y1 c s)
+  (setq d (urb:get-xdata-strings be "URB_MOBILIARIO"))
+  (setq entry (if d (assoc (car d) *urb-mob-tipos*) nil))
+  (setq obj (urb:as-vla-object be))
+  (if (and entry obj (= (nth 3 entry) "CONTEN"))
     (progn
-      (setq len (urb:poly-chain-length pts))
-      (setq mid (urb:poly-chain-mid pts))
-      (setq side
-        (if (urb:string-equal-p posicion "Interno")
-          (list (car centroid) (cadr centroid) 0.0)
-          (list (- (* 2.0 (car mid)) (car centroid))
-                (- (* 2.0 (cadr mid)) (cadr centroid)) 0.0)))
-      (setq ancho (urb:prefab-default-ancho tipo))
-      (setq ref
-        (vl-catch-all-apply 'urb:build-prefab-from-reference
-          (list en side tipo ancho etapa sub
-            (if (urb:string-equal-p posicion "Interno")
-              "Interior" "Exterior") destino)))
-      (if (or (vl-catch-all-error-p ref) (null ref))
+      (setq ins
+        (vl-catch-all-apply
+          '(lambda ()
+            (vlax-safearray->list
+              (vlax-variant-value (vla-get-InsertionPoint obj))))))
+      (setq ang (vl-catch-all-apply '(lambda () (vla-get-Rotation obj))))
+      (if (or (vl-catch-all-error-p ins) (vl-catch-all-error-p ang))
+        nil
         (progn
+          (setq a (nth 4 entry) l (nth 5 entry))
+          (setq y0 (if (and (> (length d) 1)
+                            (urb:string-equal-p (nth 1 d) "IZQUIERDA"))
+                     (- a) 0.0))
+          (setq y1 (if (and (> (length d) 1)
+                            (urb:string-equal-p (nth 1 d) "IZQUIERDA"))
+                     0.0 a))
+          (setq c (cos ang) s (sin ang))
+          (mapcar
+            '(lambda (p)
+              (list (+ (car ins) (- (* c (car p)) (* s (cadr p))))
+                    (+ (cadr ins) (+ (* s (car p)) (* c (cadr p))))))
+            (list (list 0.0 y0) (list l y0) (list l y1) (list 0.0 y1))))))
+    nil))
+
+(defun urb:contenedor-polys (/ ss i poly out)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "URB_MOB_CONT*"))) i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq poly (urb:contenedor-corners (ssname ss i)))
+      (if poly (setq out (cons poly out)))
+      (setq i (1+ i))))
+  out)
+
+;; parametros t (0..1) donde el segmento p1->p2 cruza las aristas del
+;; poligono. Funcion PURA.
+(defun urb:segment-poly-cuts (p1 p2 poly / n i q1 q2 rx ry sx sy den t1 t2 out)
+  (setq n (length poly) i 0
+        rx (- (car p2) (car p1)) ry (- (cadr p2) (cadr p1)))
+  (repeat n
+    (setq q1 (nth i poly) q2 (nth (rem (1+ i) n) poly))
+    (setq sx (- (car q2) (car q1)) sy (- (cadr q2) (cadr q1)))
+    (setq den (- (* rx sy) (* ry sx)))
+    (if (> (abs den) 1e-12)
+      (progn
+        (setq t1 (/ (- (* (- (car q1) (car p1)) sy)
+                       (* (- (cadr q1) (cadr p1)) sx)) den))
+        (setq t2 (/ (- (* (- (car q1) (car p1)) ry)
+                       (* (- (cadr q1) (cadr p1)) rx)) den))
+        (if (and (> t1 1e-9) (< t1 (- 1.0 1e-9))
+                 (> t2 -1e-9) (< t2 (+ 1.0 1e-9)))
+          (setq out (cons t1 out)))))
+    (setq i (1+ i)))
+  (vl-sort out '<))
+
+;; T si el punto cae DENTRO del poligono o a menos de tol de su borde.
+;; La tolerancia es la que hace que un costado que corre TANGENTE al
+;; contenedor (su borde coincide con el del anden) tambien se recorte:
+;; sin ella el punto medio queda justo sobre la arista y el test de
+;; interior lo da por afuera. Funcion PURA.
+(defun urb:point-near-poly-p (pt poly tol / n i q1 q2 cerca)
+  (if (urb:point-in-poly-2d pt poly)
+    T
+    (progn
+      (setq n (length poly) i 0)
+      (while (and (< i n) (null cerca))
+        (setq q1 (nth i poly) q2 (nth (rem (1+ i) n) poly))
+        (if (<= (urb:dist-point-seg pt q1 q2) tol) (setq cerca T))
+        (setq i (1+ i)))
+      cerca)))
+
+;; corta una cadena (lista de (x y bulge)) quitando los tramos cubiertos
+;; por alguno de los poligonos. Devuelve una LISTA de cadenas. Funcion
+;; PURA (no toca el dibujo) para poder probarla sin crear entidades.
+;; Los segmentos en ARCO (bulge) no se cortan: se conservan enteros.
+(defun urb:chain-split-por-poligonos (pts polys / out cur i p1 p2 b cuts
+                                      prev tt mid pa pb dentro)
+  (defun urb:--pt-at (p1 p2 tt)
+    (list (+ (car p1) (* tt (- (car p2) (car p1))))
+          (+ (cadr p1) (* tt (- (cadr p2) (cadr p1))))
+          0.0))
+  (defun urb:--push (p)
+    (if (or (null cur)
+            (not (urb:point-near-2d-p p (car cur) 1e-8)))
+      (setq cur (cons p cur))))
+  (defun urb:--close ()
+    (if (and cur (>= (length cur) 2)) (setq out (cons (reverse cur) out)))
+    (setq cur nil))
+  (setq i 0)
+  (while (< i (1- (length pts)))
+    (setq p1 (nth i pts) p2 (nth (1+ i) pts)
+          b (if (caddr p1) (caddr p1) 0.0))
+    (if (or (null polys) (> (abs b) 1e-8))
+      ;; arco o sin contenedores: el segmento va completo
+      (progn (urb:--push p1) (urb:--push p2))
+      (progn
+        (setq cuts nil)
+        (foreach poly polys
+          (setq cuts (append cuts (urb:segment-poly-cuts p1 p2 poly))))
+        (setq cuts (vl-sort (append '(0.0) cuts '(1.0)) '<))
+        (setq prev nil)
+        (foreach tt cuts
+          (if prev
+            (progn
+              (setq mid (* 0.5 (+ prev tt)))
+              (setq pa (urb:--pt-at p1 p2 prev)
+                    pb (urb:--pt-at p1 p2 tt))
+              (setq dentro
+                (vl-some
+                  '(lambda (poly)
+                    (urb:point-near-poly-p
+                      (list (car (urb:--pt-at p1 p2 mid))
+                            (cadr (urb:--pt-at p1 p2 mid)))
+                      poly 0.02))
+                  polys))
+              (if dentro
+                (urb:--close)
+                (progn (urb:--push pa) (urb:--push pb)))))
+          (setq prev tt))))
+    (setq i (1+ i)))
+  (urb:--close)
+  (reverse out))
+
+;; construye el prefabricado de UN costado como bloque (uno por cada
+;; tramo util si un contenedor lo parte). El lado de crecimiento se
+;; decide solo: Interno = hacia el centroide del poligono, Externo =
+;; alejandose de el (punto espejo del centroide respecto al medio de la
+;; cadena). Devuelve (longitud-total lista-de-referencias) o nil
+;; (2026-08-24 v2: la referencia la necesita el anden para el vinculo de
+;; descuento URB_PREFAB_ANILLO).
+(defun urb:poly-costado-build (pts tipo posicion etapa sub centroid destino
+                               / tramos en mid side ancho ref len total refs)
+  (setq tramos
+    (vl-catch-all-apply
+      '(lambda () (urb:chain-split-por-poligonos pts (urb:contenedor-polys)))))
+  (if (or (vl-catch-all-error-p tramos) (null tramos))
+    (setq tramos (list pts)))
+  (setq total 0.0 refs nil ancho (urb:prefab-default-ancho tipo))
+  (foreach pts tramos
+    (setq en (urb:poly-chain-polyline pts))
+    (if en
+      (progn
+        (setq len (urb:poly-chain-length pts))
+        (setq mid (urb:poly-chain-mid pts))
+        (setq side
+          (if (urb:string-equal-p posicion "Interno")
+            (list (car centroid) (cadr centroid) 0.0)
+            (list (- (* 2.0 (car mid)) (car centroid))
+                  (- (* 2.0 (cadr mid)) (cadr centroid)) 0.0)))
+        (setq ref
+          (vl-catch-all-apply 'urb:build-prefab-from-reference
+            (list en side tipo ancho etapa sub
+              (if (urb:string-equal-p posicion "Interno")
+                "Interior" "Exterior") destino)))
+        (if (or (vl-catch-all-error-p ref) (null ref))
           (if (and en (entget en))
             (urb:safe-delete (vlax-ename->vla-object en)))
-          nil)
-        (list len ref)))))
+          (setq total (+ total len) refs (cons ref refs))))))
+  (if refs (list total (reverse refs)) nil))
 
 ;; construye los costados configurados de un poligono recien dibujado.
 ;; Devuelve (descuento refs): descuento = suma longitud x ancho de los
@@ -24253,9 +24399,10 @@
               centroid destino))
           (if r
             (progn
-              (setq len (car r) refs (cons (cadr r) refs))
+              (setq len (car r) refs (append (cadr r) refs))
               (prompt (strcat "\nCostado derecho: " lado-der " ("
-                (rtos len 2 2) " ML) como bloque."))
+                (rtos len 2 2) " ML) en " (itoa (length (cadr r)))
+                " tramo(s); los contenedores no llevan prefabricado."))
               (if (urb:string-equal-p posicion "Interno")
                 (setq descuento
                   (+ descuento
@@ -24269,9 +24416,10 @@
               centroid destino))
           (if r
             (progn
-              (setq len (car r) refs (cons (cadr r) refs))
+              (setq len (car r) refs (append (cadr r) refs))
               (prompt (strcat "\nCostado izquierdo: " lado-izq " ("
-                (rtos len 2 2) " ML) como bloque."))
+                (rtos len 2 2) " ML) en " (itoa (length (cadr r)))
+                " tramo(s); los contenedores no llevan prefabricado."))
               (if (urb:string-equal-p posicion "Interno")
                 (setq descuento
                   (+ descuento
@@ -30120,6 +30268,27 @@
         ;; sin eje dominante cae al respaldo por longitud y sigue vivo
         (urb:costado-tip-segments
           '((0.0 0.0 0.0) (20.0 0.0 0.0) (20.0 2.0 0.0) (0.0 2.0 0.0))
+          nil)))
+    ;; 2026-09-08: alrededor del contenedor no va prefabricado. El
+    ;; costado del lado con entrante (22 m) se parte en 10,0 m + 7,8 m:
+    ;; se quitan los 2,2 m que ocupa el contenedor sobre el borde, tanto
+    ;; el tramo que entra al hueco como el que corre TANGENTE a su cara.
+    (list "El costado se interrumpe en el contenedor"
+      ((lambda (tramos)
+        (and (= (length tramos) 2)
+             (equal 7.8 (urb:poly-chain-length (car tramos)) 0.01)
+             (equal 10.0 (urb:poly-chain-length (cadr tramos)) 0.01)))
+        (urb:chain-split-por-poligonos
+          '((20.0 2.0 0.0) (11.5 2.0 0.0) (11.5 1.0 0.0)
+            (10.0 1.0 0.0) (10.0 2.0 0.0) (0.0 2.0 0.0))
+          '(((10.0 0.8) (12.2 0.8) (12.2 2.0) (10.0 2.0))))))
+    (list "Sin contenedores el costado queda entero"
+      ((lambda (tramos)
+        (and (= (length tramos) 1)
+             (equal 22.0 (urb:poly-chain-length (car tramos)) 0.01)))
+        (urb:chain-split-por-poligonos
+          '((20.0 2.0 0.0) (11.5 2.0 0.0) (11.5 1.0 0.0)
+            (10.0 1.0 0.0) (10.0 2.0 0.0) (0.0 2.0 0.0))
           nil)))
     (list "Caja CS276 recorta un metro por extremo"
       (equal 1.0 (mp:point-base-gap "CAMARA_CS276") 1e-9))

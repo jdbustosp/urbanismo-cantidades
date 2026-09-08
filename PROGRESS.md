@@ -1,5 +1,44 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 tarde, v4.77.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+Segunda foto del usuario sobre el mismo andén: ya no salía la pieza suelta de
+v4.76.1, pero el costado **seguía el entrante y envolvía el contenedor** (marco
+de prefabricado alrededor de la caja). Regla del usuario: *"alrededor del
+contenedor de raíces no va ningún prefabricado"*.
+
+- **`urb:chain-split-por-poligonos`** (pura): parte la cadena de un costado y
+  quita los tramos cubiertos por un contenedor, cortando el segmento justo en
+  el borde de su huella. Sirve igual si el usuario dibujó el entrante (la
+  cadena entra al hueco) que si dibujó el contorno derecho (la cadena pasa por
+  encima del contenedor). Los segmentos en arco no se cortan.
+- **`urb:point-near-poly-p`**: el test de interior con tolerancia (2 cm) es lo
+  que hace que también se recorte el tramo que corre TANGENTE a la cara del
+  contenedor — sin él, el punto medio cae exactamente sobre la arista y el
+  ray-casting lo da por afuera (medido: sobraban 0,7 m de bordillo pegados a
+  la caja).
+- **`urb:contenedor-corners` / `urb:contenedor-polys`**: huella real en mundo
+  del contenedor desde su bloque (punto de inserción + rotación + ancho/largo
+  del catálogo + lado guardado en `URB_MOBILIARIO`). Sin xdata o sin catálogo
+  el contenedor no recorta: se conserva el comportamiento anterior.
+- **`urb:poly-costado-build`** ahora construye **un bloque por tramo útil** y
+  devuelve `(longitud-total lista-de-referencias)`; los dos llamados en
+  `urb:poly-costados-build` acumulan las referencias con `append`.
+- **Medido E2E con ActiveX real** (mismo caso: rectángulo 20×2, entrante
+  1,5×1,0, contenedor CONT-C de 2,20 m sobre el borde): el costado de ese lado
+  pasa de **una pieza de 22,0 m que envolvía la caja** a **10,0 m + 7,8 m**
+  (faltan justo los 2,2 m que ocupa el contenedor); el lado limpio sigue en
+  20,0 m; ningún prefabricado queda dentro de la huella. 0 fallos.
+- **Suite**: 68 OK / 0 fallos, con dos regresiones nuevas ("El costado se
+  interrumpe en el contenedor", "Sin contenedores el costado queda entero").
+  Instalado 4.77.0; hash repo = instalado.
+- Sigue pendiente de decisión (sin tocar) lo reportado en v4.76.1: `AREA_M2`
+  guarda el área cruda del contorno y el excedente que el contenedor invade
+  fuera del entrante (~1,14 m²) no se descuenta al presupuesto aunque sí se
+  excluye del dibujo.
+
 ## Estado guardado — 2026-09-08 15:4x, v4.76.1 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
