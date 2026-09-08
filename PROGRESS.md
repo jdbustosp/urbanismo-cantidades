@@ -1,5 +1,31 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 noche, v4.77.1 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+Tres observaciones del usuario sobre el andén recién dibujado:
+
+1. **Área del andén incluía los prefabricados** (properties: contorno 17,514 vs
+   `AREA_M2` 19,71). Ahora `urb:package-anden` guarda en `AREA_M2` el **área
+   NETA** — la región del contorno después de restar prefabricados y
+   contenedores (`urb:anden-area-neta`, medida sobre la región real) —, deja el
+   contorno en `AREA_BRUTA_M2` y marca el bloque con `AREA_NETA=Si`. El
+   colector `urb:ppto-rows-andenes` **salta sus tres descuentos** (contenedores,
+   anillos internos y prefabricados solapados) cuando ve esa marca, para no
+   descontar dos veces; los bloques anteriores no la traen y siguen por el
+   camino de siempre. Medido E2E: `AREA_M2 37,360 | AREA_BRUTA_M2 38,500 |
+   AREA_NETA Si`, con el contenedor quitando exactamente 1,140 m².
+2. **Botón "Sendero" seguía en la cinta**: el código C# ya no lo tenía desde
+   v4.72.2, pero Civil 3D 2023 cargaba `UrbCantRibbon2023_v4700.dll`, compilada
+   antes de esa limpieza (la de 2025 sí se había recompilado). Se recompiló como
+   `UrbCantRibbon2023_v4770.dll` (nombre nuevo: la DLL vieja queda bloqueada
+   mientras Civil 3D corre) y `PackageContents.xml` apunta a ella.
+3. **Prefabricados mal dibujados** (imagen 1 vs imagen 2): pendiente de
+   reproducir — ver nota abajo.
+
+Suite **68 OK / 0 fallos**; instalado 4.77.1, hash repo = instalado.
+
 ## Estado guardado — 2026-09-08 tarde, v4.77.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

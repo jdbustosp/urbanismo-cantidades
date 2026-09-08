@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.77.0")
+(setq *urb-version* "4.77.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -4997,9 +4997,29 @@
   deleted
 )
 
+;; area REAL del anden: el contorno menos las huellas de prefabricados y
+;; contenedores (lo que de verdad queda dibujado). Si las regiones no se
+;; pueden construir devuelve el area bruta, sin castigar la creacion.
+(defun urb:anden-area-neta (ename bruta / copy region neta)
+  (setq copy
+    (vl-catch-all-apply '(lambda () (vla-Copy (urb:as-vla-object ename)))))
+  (setq region
+    (if (not (vl-catch-all-error-p copy))
+      (vl-catch-all-apply '(lambda () (urb:add-region-from-object copy)))))
+  (if (and copy (not (vl-catch-all-error-p copy))) (urb:safe-delete copy))
+  (if (or (null region) (vl-catch-all-error-p region))
+    bruta
+    (progn
+      (setq region (urb:apply-anden-cutouts region))
+      (setq neta (vl-catch-all-apply '(lambda () (vla-get-Area region))))
+      (urb:safe-delete region)
+      (if (and (numberp neta) (> neta 1e-6)) neta bruta)))
+)
+
 (defun urb:package-anden
   (ename / boundary metadata material etapa subetapa guia toperol format
-   calculate surface grade-source elevation pattern-mode area perimeter points finish-qty
+   calculate surface grade-source elevation pattern-mode area area-bruta
+   perimeter points finish-qty
    quantity-pattern-angle
    handle objects filtered obj block-name blocks block-definition
    copy-result point block-ref insert-result block-ename xdata-result
@@ -5041,7 +5061,15 @@
         (vla-get-Elevation boundary)
         0.0)))
   (setq pattern-mode (urb:anden-pattern-mode ename))
-  (setq area (vla-get-Area boundary))
+  ;; 2026-09-08 (pedido del usuario: "el area del anden me esta cogiendo
+  ;; las areas incluyendo los prefabricados"): AREA_M2 guarda el area
+  ;; NETA -- el contorno menos las huellas de prefabricados y
+  ;; contenedores, que es exactamente lo que queda dibujado. El area del
+  ;; contorno se conserva en AREA_BRUTA_M2 y el atributo AREA_NETA le
+  ;; avisa al colector del presupuesto que ya no debe volver a descontar
+  ;; (los bloques viejos no lo traen y se siguen descontando como antes).
+  (setq area-bruta (vla-get-Area boundary))
+  (setq area (urb:anden-area-neta ename area-bruta))
   (setq perimeter (urb:poly-perimeter boundary))
   ;; Con arcos reales (PLINE opcion Arc) hay que usar la version que sigue
   ;; el arco, no la cuerda recta: corridor-length (y por lo tanto los
@@ -5141,6 +5169,13 @@
       (urb:add-invisible-attribute
         block-definition point "AREA_M2" "Area m2"
         (rtos area 2 2))
+      (urb:add-invisible-attribute
+        block-definition point "AREA_BRUTA_M2" "Area del contorno m2"
+        (rtos area-bruta 2 2))
+      ;; marca de esquema: el colector NO vuelve a descontar en estos
+      ;; bloques (los anteriores a 2026-09-08 no la traen)
+      (urb:add-invisible-attribute
+        block-definition point "AREA_NETA" "Area ya descontada" "Si")
       (urb:add-invisible-attribute
         block-definition point "ETAPA" "Etapa" etapa)
       (urb:add-invisible-attribute
@@ -26518,7 +26553,7 @@
 
 (defun urb:ppto-rows-andenes (/ ss i be d atts area material etapa sub handle
                               corte relleno loseta-und adoq-und rows out r
-                              cont-usados area-cont poly)
+                              cont-usados area-cont poly area-neta-p)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) out nil i 0)
   (setq cont-usados nil)
   (if ss
@@ -26535,6 +26570,13 @@
               (cdr (assoc "ANDEN_CORTE_M3" atts)) "0"))
             relleno (atof (urb:safe-string
               (cdr (assoc "ANDEN_RELLENO_M3" atts)) "0")))
+      ;; 2026-09-08: los andenes creados desde v4.77.1 guardan el AREA_M2
+      ;; ya NETA (el contorno menos prefabricados y contenedores, medido
+      ;; sobre la region real) y lo marcan con AREA_NETA=Si. En esos NO
+      ;; se vuelve a descontar; los bloques anteriores conservan el
+      ;; camino de siempre.
+      (setq area-neta-p
+        (urb:yes-p (urb:safe-string (cdr (assoc "AREA_NETA" atts)) "No")))
       ;; CORTE por contenedores de raices: su area (dimensiones reales
       ;; del catalogo) se DESCUENTA del area del anden y de todo lo
       ;; derivado de ella (descapote, subbase, geotextil, arena, M.O.,
@@ -26543,6 +26585,8 @@
       ;; adoquines) y las franjas toperol/guia en ML no se recalculan --
       ;; si el contenedor se agrega despues de crear el anden, re-EDITE
       ;; el anden para regenerar esos conteos sobre la geometria real.
+      (if (not area-neta-p)
+        (progn
       (setq area-cont (urb:anden-area-contenedores be 'cont-usados))
       (if (> area-cont 0.0)
         (setq area (max 0.0 (- area area-cont))))
@@ -26556,7 +26600,7 @@
       (setq poly (urb:anden-boundary-samples be))
       (setq area-cont (urb:anden-area-prefabs-solapados be poly))
       (if (> area-cont 0.0)
-        (setq area (max 0.0 (- area area-cont))))
+        (setq area (max 0.0 (- area area-cont))))))
       (if (<= corte 0.0) (setq corte (* area *urb-anden-depth*)))
       (setq rows
         (list
