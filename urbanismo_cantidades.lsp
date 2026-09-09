@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.78.0")
+(setq *urb-version* "4.79.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -6995,7 +6995,7 @@
 
 (defun urb:rebuild-working-boundary
   (boundary material etapa subetapa guia toperol format calculate surface grade-source
-   / saved result block-ref pattern-mode pts)
+   / saved result block-ref pattern-mode pts clip-result)
   (setq pattern-mode (urb:anden-pattern-mode boundary))
   ;; Las versiones 4.17.3 preliminares guardaban el sentido en otra APPID.
   ;; Se retira antes de escribir URB_ANDEN para evitar dos XDATA separadas.
@@ -7016,6 +7016,14 @@
     (setq saved nil))
   (if saved
     (urb:set-anden-pattern-mode boundary pattern-mode))
+  ;; 2026-09-08: este camino tambien se usa al insertar un contenedor
+  ;; DESPUES de haber modelado el anden. Se recorta la polilinea antes de
+  ;; regenerar el acabado; si el obstaculo queda completamente interior y
+  ;; el contorno simple no puede representar un hueco, build-anden-finish
+  ;; conserva el borde exterior y resta igualmente la huella de las piezas.
+  (if saved
+    (setq clip-result
+      (vl-catch-all-apply 'urb:anden-clip-contour (list boundary))))
   (if saved
     (setq result
       (urb:call-edit-stage
@@ -23879,7 +23887,8 @@
   (reverse out))
 
 (defun urb:mobiliario-command
-  (/ dclfile dcl done entry nombre pt ref n ang side-pt vproj side-sign)
+  (/ dclfile dcl done entry nombre pt ref ref-ename n ang side-pt vproj
+     side-sign recut-result)
   (vl-load-com)
   (setq dclfile (urb:mob-write-dcl))
   (if (null dclfile)
@@ -23947,18 +23956,38 @@
                   "\nInsercion cancelada: no se definio el lado del eje."))
               (progn
                 (vla-put-Layer ref "URB-MOBILIARIO")
-                (urb:set-xdata-strings (vlax-vla-object->ename ref)
+                (setq ref-ename (vlax-vla-object->ename ref))
+                (urb:set-xdata-strings ref-ename
                   "URB_MOBILIARIO"
                   (list (nth 0 entry)
                     (if (< side-sign 0.0) "IZQUIERDA" "DERECHA")
                     (rtos ang 2 8)))
-                ;; contenedores: al FRENTE para que su relleno tape el
-                ;; patron del anden (corte visual, sin editar el anden)
+                ;; 2026-09-08: si el contenedor se inserta DESPUES del
+                ;; anden, se reconstruyen automaticamente solo los andenes
+                ;; que su huella toca. El bloque anterior se conserva si
+                ;; alguna etapa falla.
                 (if (= (nth 3 entry) "CONTEN")
-                  (vl-catch-all-apply
-                    '(lambda ()
-                      (command "_.DRAWORDER"
-                        (vlax-vla-object->ename ref) "" "_Front"))))
+                  (progn
+                    (setq recut-result
+                      (vl-catch-all-apply
+                        'urb:recut-andenes-for-container (list ref-ename)))
+                    (if (vl-catch-all-error-p recut-result)
+                      (prompt (strcat
+                        "\nEl contenedor se inserto, pero no fue posible actualizar los andenes: "
+                        (vl-catch-all-error-message recut-result)))
+                      (if (> (car recut-result) 0)
+                        (prompt (strcat "\n" (itoa (car recut-result))
+                          " anden(es) recortado(s) por el contenedor."
+                          (if (> (cadr recut-result) 0)
+                            (strcat " Movimiento de tierras pendiente de recalculo en "
+                              (itoa (cadr recut-result)) " anden(es).") ""))))
+                      (if (> (caddr recut-result) 0)
+                        (prompt (strcat "\nNo se pudieron actualizar "
+                          (itoa (caddr recut-result))
+                          " anden(es); se conservaron sus bloques anteriores."))))
+                    (vl-catch-all-apply
+                      '(lambda ()
+                        (command "_.DRAWORDER" ref-ename "" "_Front")))))
                 (setq n (1+ n)))))
           (prompt (strcat "\n" (itoa n) " pieza(s) de " (nth 1 entry)
             " insertada(s). Cuentan solas al exportar el presupuesto."))))))
@@ -24348,8 +24377,13 @@
   (if (< n 4)
     nil
     (progn
+      ;; 2026-09-08 (foto del usuario: bordillos recorriendo las puntas):
+      ;; un entrante profundo suma dos caras transversales y puede hacer que
+      ;; la familia de aristas transversales pese mas que los dos costados.
+      ;; El eje de la envolvente orientada conserva la direccion LONGITUDINAL
+      ;; del anden aunque el contorno rodee un contenedor.
       (setq tips
-        (urb:costado-tip-segments pts (urb:anden-straight-edges-angle ename)))
+        (urb:costado-tip-segments pts (urb:anden-axis-angle pts)))
       (if (null tips)
         nil
         (progn
@@ -24485,6 +24519,113 @@
           (setq out (cons t1 out)))))
     (setq i (1+ i)))
   (vl-sort out '<))
+
+;; T si dos poligonos 2D tienen area comun. Se prueban vertices contenidos
+;; y cruces de aristas; el contacto tangencial aislado no obliga a regenerar.
+;; Funcion pura, usada como filtro preciso antes de explotar un anden.
+(defun urb:polygons-overlap-2d-p (first second / n i p1 p2 found)
+  (setq found
+    (or
+      (vl-some '(lambda (p) (urb:point-in-poly-2d p second)) first)
+      (vl-some '(lambda (p) (urb:point-in-poly-2d p first)) second)))
+  (if (not found)
+    (progn
+      (setq n (length first) i 0)
+      (while (and (< i n) (not found))
+        (setq p1 (nth i first)
+              p2 (nth (rem (1+ i) n) first))
+        (if (urb:segment-poly-cuts p1 p2 second) (setq found T))
+        (setq i (1+ i)))))
+  found)
+
+;; Andenes empaquetados del dibujo, incluidos los antiguos que solo se
+;; reconocen por nombre de bloque. La lista se deduplica por ename.
+(defun urb:all-anden-blocks (/ filter ss i en out)
+  (foreach filter
+    '(((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))
+      ((0 . "INSERT") (2 . "URB_ANDEN_*")))
+    (if (setq ss (ssget "_X" filter))
+      (progn
+        (setq i 0)
+        (repeat (sslength ss)
+          (setq en (ssname ss i))
+          (if (and (not (member en out)) (urb:anden-block-p en))
+            (setq out (cons en out)))
+          (setq i (1+ i))))))
+  (reverse out))
+
+(defun urb:container-overlaps-anden-p (container anden / co ao footprint boundary)
+  (setq co (urb:as-vla-object container)
+        ao (urb:as-vla-object anden))
+  (and co ao
+       (urb:objects-bbox-overlap-p co ao 0.02)
+       (setq footprint (urb:contenedor-corners container))
+       (setq boundary (urb:anden-boundary-samples anden))
+       (urb:polygons-overlap-2d-p footprint boundary)))
+
+;; Reconstruccion transaccional de un anden ya empaquetado. Solo se borra
+;; el original cuando el bloque nuevo quedo completo. El movimiento de
+;; tierras previo NO se copia: el recorte cambia el area y conservar esos
+;; volumenes seria presentar cantidades obsoletas como validas.
+(defun urb:recut-one-anden-for-container
+  (ename / data material etapa sub guia toperol format calculate surface
+   grade-source pattern old-h old-mov boundary block-ref new-ename deleted)
+  (setq data (urb:anden-block-data ename)
+        material (urb:safe-string (nth 1 data) "LOSETA")
+        etapa (urb:safe-string (nth 2 data) "1")
+        sub (urb:safe-string (nth 3 data) etapa)
+        guia (urb:safe-string (nth 7 data) "No")
+        toperol (urb:safe-string (nth 8 data) "No")
+        format (urb:safe-string (nth 9 data) "40 x 40 cm")
+        calculate (urb:safe-string (nth 10 data) "Si")
+        surface (urb:safe-string (nth 11 data) "SUP_TN")
+        grade-source (urb:safe-string (nth 12 data) "Via creada")
+        pattern (urb:anden-pattern-mode ename)
+        old-h (cdr (assoc 5 (entget ename)))
+        old-mov (urb:get-xdata-strings ename "URB_ANDEN_MOV"))
+  (setq boundary
+    (urb:call-edit-stage "extraer contorno para contenedor"
+      'urb:explode-anden-block-boundary (list ename)))
+  (if boundary
+    (progn
+      (urb:set-anden-pattern-mode boundary pattern)
+      (setq block-ref
+        (urb:rebuild-working-boundary boundary material etapa sub guia
+          toperol format calculate surface grade-source))))
+  (if block-ref
+    (progn
+      (urb:copy-quantity-scope ename block-ref)
+      (setq new-ename (urb:as-ename block-ref)
+            deleted
+              (urb:call-edit-stage "reemplazar anden recortado"
+                'urb:delete-anden-block (list ename)))
+      (if deleted
+        (progn
+          (if (and old-h new-ename)
+            (urb:relink-anden-anillos old-h
+              (cdr (assoc 5 (entget new-ename)))))
+          (list new-ename (if (urb:valid-anden-earthworks-data-p old-mov) T nil)))
+        (progn
+          (if new-ename (urb:delete-anden-block new-ename))
+          nil)))
+    nil))
+
+;; Devuelve (actualizados movimiento-pendiente fallidos). El filtro
+;; geometrico evita tocar andenes cuya caja envolvente coincide pero cuya
+;; superficie no es atravesada por el contenedor.
+(defun urb:recut-andenes-for-container (container / en result updated pending failed)
+  (setq updated 0 pending 0 failed 0)
+  (foreach en (urb:all-anden-blocks)
+    (if (urb:container-overlaps-anden-p container en)
+      (progn
+        (setq result
+          (vl-catch-all-apply 'urb:recut-one-anden-for-container (list en)))
+        (if (or (vl-catch-all-error-p result) (null result))
+          (setq failed (1+ failed))
+          (progn
+            (setq updated (1+ updated))
+            (if (cadr result) (setq pending (1+ pending))))))))
+  (list updated pending failed))
 
 ;; T si el punto cae DENTRO del poligono o a menos de tol de su borde.
 ;; La tolerancia es la que hace que un costado que corre TANGENTE al

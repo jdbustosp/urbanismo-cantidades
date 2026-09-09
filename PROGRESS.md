@@ -1,5 +1,48 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 20:00, v4.79.0 (Codex, BOG085CD119BDQN)
+
+Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+Commit: ver `git log` (mensaje `v4.79.0: costados longitudinales y recorte post-contenedor`).
+
+Atendidas las dos precisiones nuevas del usuario sobre andenes y contenedores
+de raíces:
+
+- **Costados longitudinales estables.** `urb:poly-costado-chains` ya no toma
+  el eje de la familia de aristas con mayor longitud acumulada. Un entrante
+  profundo agrega dos caras transversales y podía hacer ganar al eje corto,
+  por lo que los bordillos/sardineles recorrían las puntas del andén. Ahora
+  usa `urb:anden-axis-angle`, basado en la envolvente orientada: el entrante
+  no voltea el eje y los prefabricados quedan en los dos lados longitudinales,
+  interrumpidos en la huella del contenedor por la lógica de v4.77.
+- **Contenedor posterior al andén.** Después de insertar un elemento `CONTEN`,
+  `urb:recut-andenes-for-container` filtra por caja y solape poligonal real,
+  reconstruye únicamente los andenes afectados y solo elimina el bloque
+  anterior cuando el nuevo quedó completo. Conserva `URB_Q_SCOPE` y vuelve a
+  enlazar los prefabricados automáticos. Si había movimiento de tierras válido,
+  no lo copia porque el área cambió: queda pendiente de recalcular mediante
+  `EDITAR`, evitando exportar volúmenes obsoletos.
+- `urb:rebuild-working-boundary` ejecuta ahora el recorte físico antes de
+  regenerar el acabado. Un contenedor completamente interior se omite del
+  acabado aunque una polilínea simple no pueda representar el hueco interior.
+
+Verificación en segundo plano, sin tocar DWG/Excel del usuario:
+
+- Caso focal que hacía fallar la versión anterior: eje por aristas = 90°;
+  eje nuevo = 0°; cadenas longitudinales **7,0 m y 14,6 m**, correctas.
+- Regresión Core Console 2023: **71 OK / 0 FALLOS**.
+- E2E con AutoCAD 2023 y perfil Civil 3D: **0 FALLOS**. El flujo andén primero
+  → contenedor después sustituyó exactamente **1** andén, área **40,000 →
+  37,360 m²**, conservó `URB_Q_SCOPE` y retiró `URB_ANDEN_MOV` obsoleto. El
+  harness escribió `DONE`; Civil no cerró por sí solo dentro de 180 s y el
+  lanzador terminó únicamente el PID de prueba, sin repetir la corrida.
+
+Instalado en el bundle local: motor **4.79.0**, manifiesto **4.79.0** y SHA-256
+del LSP instalado idéntico al repositorio. Para verlo en la sesión del usuario:
+reiniciar Civil 3D y probar tanto un andén nuevo con entrante como un contenedor
+añadido sobre un andén existente. El segundo caso ya no obliga a recrear el
+andén manualmente.
+
 ## Estado guardado — 2026-09-08 noche (2), v4.78.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
