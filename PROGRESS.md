@@ -1,5 +1,36 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-08 21:37 — v4.82.0 — Codex / BOG085CD119BDQN
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit: entrega v4.82.0.
+Paso peatonal y acceso vehicular: eliminada seleccion obligatoria de contorno.
+RAMPA ofrece Tres (inicio, eje/ancho, sentido/fondo) o Dibujar (PLINE con
+arcos y cierre, luego dos remates). Fuente temporal consumida al completar;
+no se borra ninguna geometria preexistente. UNDO agrupa creacion completa;
+PLINEWID se restaura, puntos WCS, rechaza eje/fondo nulos.
+
+Toperol NO diagnosticado definitivamente: ahora se cuentan circulos reales
+generados de capa TOPEROL antes de empaquetar; con opcion Si y cero domos
+se rechaza acabado y se muestra mensaje, no se acepta exito parcial de guia.
+No afirmar que este control repara el caso de la foto.
+
+Pruebas finales: Core2023 79 OK/0 FALLOS. Incluye geometria pura de tres
+puntos y 240 circulos DXF; interfaz y constructor real de rampas pendientes.
+Ensayo Civil3D propio PID38700: 480 circulos antes y 480 despues de empaquetar
+en anden recto rotado6x2 sin contenedor. LOAD del candidato fallo por un
+parentesis en helper RAMPA, corregido antes de prueba final. Las funciones
+del anden habian cargado; resultado util solo para ese subsistema/fixture,
+NO para certificar entrega completa. Se cerro PID propio al tope90s.
+
+Lectura de copia del DWG guardado: dos andenes, 4597 y 3652 circulos TOPEROL
+dentro de bloques; opcion Si. Archivo fuente real:
+260915_ACTUALIZACION GENERAL PPTO/Memorias/URB_MASTER_GENERAL.dwg,
+fecha 2026-09-08 20:31:06, 32217766 bytes. No representa necesariamente la
+captura reciente. COM de sesion activa no proporciono acceso util; no hubo
+escritura ni control de pantalla. Para cerrar toperol: guardar DWG actual
+y revisar bloque concreto + mensaje TOPEROL:n domos. No volver a parchar
+causas supuestas ni afirmar resuelto por pruebas sinteticas.
+
 ## 2026-09-08 21:17 — v4.81.0 — Codex / BOG085CD119BDQN
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Commit: entrega v4.81.0.

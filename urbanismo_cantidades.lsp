@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.81.0")
+(setq *urb-version* "4.82.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -4729,9 +4729,17 @@
   (urb:ensure-layer "URB-ANDEN" 7 T)
 )
 
+(defun urb:count-toperol-symbols (objects / n item)
+  (setq n 0)
+  (foreach item objects
+    (if (and (= (vla-get-ObjectName item) "AcDbCircle")
+             (wcmatch (strcase (vla-get-Layer item)) "*TOPEROL*"))
+      (setq n (1+ n))))
+  n)
+
 (defun urb:build-anden-finish
   (ename material guia toperol format
-   / obj result accessibility-result elevation flattened)
+   / obj result accessibility-result elevation flattened top-count)
   (setq material (urb:safe-string material "Loseta"))
   (setq guia (urb:safe-string guia "No"))
   (setq toperol (urb:safe-string toperol "No"))
@@ -4763,6 +4771,17 @@
            (or (urb:yes-p guia)
                (urb:yes-p toperol)))
     (setq result accessibility-result))
+  ;; La guia no puede ocultar el fallo del toperol con un count > 0.
+  ;; Verificar entidades reales antes del empaquetado, no solo un T del generador.
+  (if (urb:yes-p toperol)
+    (progn
+      (setq top-count (urb:count-toperol-symbols
+        (urb:generated-objects (vla-get-Handle obj))))
+      (prompt (strcat "\nTOPEROL: " (itoa top-count) " domos generados."))
+      (if (= top-count 0)
+        (progn
+          (setq result nil)
+          (prompt "\nNo se acepta el acabado: falta el toperol solicitado. Conserve este mensaje para diagnostico.")))))
   ;; Si el acabado no pudo construirse, el contorno de trabajo se devuelve
   ;; a su elevacion original para que el usuario pueda repararlo o reintentar.
   (if (and flattened (not result)
@@ -19666,8 +19685,8 @@
       ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
       ": text { label = \"Peatonal: inicio, fin sobre el borde y fondo.\"; }"
-      ": text { label = \"Vehicular / paso: contorno cerrado y dos remates.\"; }"
-      ": text { label = \"Admite longitud libre y arcos.\"; }"
+      ": text { label = \"Vehicular / paso: Tres puntos o Dibujar contorno.\"; }"
+      ": text { label = \"Sin contorno previo. Admite longitud libre y arcos.\"; }"
       "ok_cancel; }")))
 
 (defun urb:rampa-fill-sub (idx)
@@ -19922,19 +19941,67 @@
   (foreach obj objects (urb:safe-delete obj))
   ref)
 
+(defun urb:ramp-three-point-data (p1 p2 p3 / a width v depth sign)
+  ;; Puntos WCS. El segundo fija eje y ancho; el tercero sentido y fondo.
+  (setq width (distance (list (car p1) (cadr p1)) (list (car p2) (cadr p2))))
+  (if (> width 0.01)
+    (progn
+      (setq a (angle p1 p2)
+            v (+ (* (- (car p3) (car p1)) (- (sin a)))
+                 (* (- (cadr p3) (cadr p1)) (cos a)))
+            depth (abs v) sign (if (< v 0.0) -1.0 1.0))
+      (if (> depth 0.01) (list p1 a sign width depth)))))
+
 (defun urb:create-contour-ramp-command
-  (selection / *error* doc sel source p1 p2 f1 f2 material result undo-open)
+  (selection / *error* doc source p1 p2 p3 f1 f2 material result undo-open
+   mode previous oldwidth spec axis sign width depth endp)
   (setq doc (urb:doc))
   (defun *error* (msg)
+    (if oldwidth (setvar "PLINEWID" oldwidth))
+    (if (and source (entget source) (not result)) (entdel source))
     (if undo-open (vla-EndUndoMark doc))
     (if msg (prompt (strcat "\nRAMPA: " msg))) (princ))
-  (setq sel (entsel "\nSeleccione CONTORNO CERRADO del paso/acceso (puede tener arcos): ")
-        source (car sel))
+  (initget "Tres Dibujar")
+  (setq mode (getkword "\nModelar con [Tres puntos/Dibujar contorno] <Tres>: "))
+  (vla-StartUndoMark doc) (setq undo-open T)
+  (urb:ensure-layer "URB-RAMPA" 4 T)
+  (if (= mode "Dibujar")
+    (progn
+      (prompt "\nDibuje el contorno; use Arco si necesita curva y Cerrar para terminar.")
+      (setq previous (entlast) oldwidth (getvar "PLINEWID"))
+      (setvar "PLINEWID" 0.0)
+      (urb:draw-polyline-interactive oldwidth)
+      (setvar "PLINEWID" oldwidth) (setq oldwidth nil)
+      (if (and (not (eq previous (entlast)))
+               (= (cdr (assoc 0 (entget (entlast)))) "LWPOLYLINE")
+               (>= (cdr (assoc 90 (entget (entlast)))) 3))
+        (progn
+          (setq source (entlast))
+          (vla-put-Closed (urb:as-vla-object source) :vlax-true))))
+    (progn
+      (setq p1 (getpoint "\n1. Punto INICIAL: "))
+      (if p1 (setq p2 (getpoint p1 "\n2. EJE y ancho: marque hasta donde llega el frente: ")))
+      (if p2 (setq p3 (getpoint p1 "\n3. SENTIDO y FONDO: marque hacia donde llega: ")))
+      (if p3
+        (progn
+          (setq spec (urb:ramp-three-point-data (trans p1 1 0) (trans p2 1 0) (trans p3 1 0)))
+          (if spec
+            (progn
+              (setq axis (cadr spec) sign (caddr spec) width (nth 3 spec) depth (nth 4 spec))
+              (if (> depth (if (= (car selection) "RAMPA-VEHICULAR") 1.20 0.40))
+                (progn
+                  (setq source (urb:ramp-quad-poly (car spec) axis sign 0.0 0.0 width depth "URB-RAMPA"))
+                  (vla-put-Elevation (urb:as-vla-object source) (caddr (car spec)))
+                  (setq p1 (trans (urb:ramp-local-point (car spec) axis sign (/ width 2.0) 0.0) 0 1)
+                        p2 (trans (urb:ramp-local-point (car spec) axis sign (/ width 2.0) depth) 0 1)))
+                (prompt "\nFondo insuficiente para los remates; no se ha creado el modulo."))))))))
   (if (and source (= (cdr (assoc 0 (entget source))) "LWPOLYLINE")
            (= 1 (logand 1 (cdr (assoc 70 (entget source))))))
     (progn
-      (setq p1 (getpoint "\nMarque el PRIMER remate transversal del contorno: "))
-      (if p1 (setq p2 (getpoint "\nMarque el SEGUNDO remate transversal: ")))
+      (if (= mode "Dibujar")
+        (progn
+          (setq p1 (getpoint "\nMarque el PRIMER remate transversal del contorno: "))
+          (if p1 (setq p2 (getpoint "\nMarque el SEGUNDO remate transversal: ")))))
       (if (and p1 p2)
         (progn
           (setq f1 (urb:ramp-end-frame source p1) f2 (urb:ramp-end-frame source p2))
@@ -19948,13 +20015,13 @@
               (prompt (if (= (car selection) "PASO-PEATONAL")
                 "\nConfinamientos transversales de 0.20 m; longitud libre segun contorno."
                 "\nAcceso liso con remates de 0.60 m en los extremos."))
-              (vla-StartUndoMark doc) (setq undo-open T)
               (setq result (urb:build-contour-ramp source (list f1 f2)
                 (car selection) (cadr selection) (caddr selection) material))
-              (vla-EndUndoMark doc) (setq undo-open nil)
-              (if result (prompt "\nModulo creado. Contorno original conservado; no se recortan objetos vecinos.")))
+              (if result (prompt "\nModulo creado; no se recortan objetos vecinos.")))
             (prompt "\nSeleccione dos remates distintos del contorno.")))))
-    (prompt "\nSe requiere una polilinea ligera cerrada; dibujela primero con PLINE."))
+    (prompt "\nNo se ha completado una geometria valida."))
+  (if (and source (entget source)) (entdel source))
+  (if undo-open (vla-EndUndoMark doc))
   (princ))
 
 (defun urb:create-ramp-command (/ selection)

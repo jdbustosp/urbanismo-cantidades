@@ -53,7 +53,7 @@
     (vt:check "BASELINE reproduce cantidad negativa aprobada" (= (nth 9 old-rec) "OK"))
     (load (strcat (getenv "URB_TEST_LAB") "/current.lsp"))
     (vt:bridge)
-    (vt:check "LOAD motor 4.81.0" (= *urb-version* "4.81.0"))
+    (vt:check "LOAD motor 4.82.0" (= *urb-version* "4.82.0"))
     (setq en (vt:fixture))
     (vt:check "Parche cambia un atributo" (= 1 (mp:setatts en '(("ID" . "B")))))
     (vt:check "Parche preserva campo oculto" (= "123" (cdr (assoc "KEEP" (mp:read-cant-data en)))))
@@ -174,6 +174,14 @@
     (vt:check "Comando RAMPA y constructores registrados"
       (and (= (type c:RAMPA) 'SUBR) (= (type urb:build-contour-ramp) 'SUBR)
            (= (type urb:create-pedestrian-ramp-command) 'SUBR)))
+    (setq vt-ramp (urb:ramp-three-point-data '(10 10 100) '(13 10 100) '(11 6 100)))
+    (vt:check "Rampa 3 puntos ancho3 fondo4 lado negativo"
+      (and (equal (nth 3 vt-ramp) 3.0 1e-8) (equal (nth 4 vt-ramp) 4.0 1e-8)
+           (= (nth 2 vt-ramp) -1.0)))
+    (vt:check "Rampa rechaza puntos colineales"
+      (null (urb:ramp-three-point-data '(0 0 0) '(3 0 0) '(2 0 0))))
+    (vt:check "Rampa rechaza eje nulo"
+      (null (urb:ramp-three-point-data '(0 0 0) '(0 0 0) '(2 3 0))))
     ;; Solo el contorno de REGION se adapta: circulos y DXF son reales.
     (defun urb:region-polygons (region) '(((0 0) (3 0) (3 0.2) (0 0.2))))
     (if (not (tblsearch "LAYER" "TEST-TOP4810"))
