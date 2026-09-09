@@ -1,5 +1,50 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 noche (4), v4.84.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+El usuario confirmó el supuesto que quedó abierto en v4.83.0: en los extremos
+del paso peatonal quiere el **desarrollo completo de la rampa con las aletas
+laterales**, no solo la cuña A81.
+
+- **`urb:ramp-end-objects`** (nueva): dibuja en cada extremo el módulo real de
+  U-201, con las medidas del módulo paramétrico que el usuario ya da por bueno:
+  - **aleta lateral de 0,60 m a cada lado** = toperol 0,20 (gris con domos
+    blancos) + bordillo 0,10 + prefabricado **A81 0,30 con su diagonal**,
+    espejada como en el paramétrico;
+  - **banda central de rampa** entre las dos aletas, con la textura del material
+    del paso (adoquín o concreto);
+  - **bordillo transversal de 0,20** que cierra el desarrollo contra el cuerpo.
+  Constantes: `*urb-rampa-aleta*` 0,60 · `*urb-rampa-desarrollo*` 1,30 ·
+  `*urb-rampa-cierre*` 0,20.
+- **`urb:ramp-ends-fit-p`** decide si el paso da la medida — la condición
+  *"cuando son tramos largos"*: tapa ≥ 1,70 m (dos aletas + 0,50 de banda) y
+  ≥ 3,50 m entre los **puntos medios** de las dos tapas. Se mide por punto medio
+  (`urb:ramp-frame-mid`) y no por los vértices de arranque, que son esquinas
+  opuestas y en un paso corto y ancho darían una diagonal engañosamente larga —
+  con lo que el desarrollo se habría comido todo el cuerpo y el comando habría
+  abortado con "los remates cubren todo el módulo".
+- Si no da la medida (o en el acceso vehicular) se conserva la cuña simple de
+  v4.83: rectángulo con diagonal.
+- **Cantidades**: `A81_UND` = 4 (2 aletas × 2 extremos), `TOPEROL_ML` y
+  `BORDILLO_ML` suman lo del desarrollo, y `AREA_M2` = cuerpo **más** las dos
+  bandas centrales de rampa — mismo criterio del módulo paramétrico, donde las
+  aletas se cobran por ML/UND y no por área.
+
+Validación: suite Core Console **82 OK / 0 FALLOS**, autopruebas **32/32**.
+E2E real con ActiveX **0 FALLOS** sobre un paso de 6 × 3 m girado 30°:
+`AREA_M2 13,680` (= 9,00 del cuerpo + 2 × 1,80 × 1,30 de rampa),
+`A81_UND 4`, `TOPEROL_ML 5,200`, `BORDILLO_ML 16,000`; en el bloque, 4
+diagonales, 400 domos en 8 piezas de toperol y 12 objetos de bordillo.
+Instalado 4.84.0, hash repo = instalado.
+
+**Nota**: el desarrollo con aletas se aplicó al **paso peatonal**, que es lo que
+el usuario señaló en la foto 4. El **acceso vehicular** conserva su remate de
+0,60 m con diagonal (ya visible desde v4.83). Si también debe llevar aletas, es
+un cambio análogo y está aislado en `urb:ramp-end-objects`.
+
+
 ## Estado guardado — 2026-09-08 noche (3), v4.83.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

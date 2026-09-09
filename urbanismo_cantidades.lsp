@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.83.0")
+(setq *urb-version* "4.84.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -19924,11 +19924,153 @@
   (if (and (not (vl-catch-all-error-p result)) (urb:region-usable-p piece))
     piece (progn (urb:safe-delete piece) nil)))
 
+;; Desarrollo del extremo de rampa (2026-09-08, pedido del usuario:
+;; "quiero el desarrollo completo de la rampa con las aletas laterales").
+;; En cada extremo de un paso peatonal LARGO se dibuja el desarrollo real
+;; del modulo U-201 -- no solo la cuna A81 de v4.83:
+;;   ALETA LATERAL de 0.60 m a cada lado = toperol 0.20 (gris con domos)
+;;     + bordillo 0.10 + prefabricado A81 0.30 con su diagonal,
+;;   BANDA CENTRAL de rampa entre las dos aletas, con la textura del
+;;     material del paso,
+;;   BORDILLO TRANSVERSAL de 0.20 que cierra el desarrollo contra el
+;;     cuerpo del paso.
+;; Las medidas son las del modulo parametrico que el usuario ya da por
+;; bueno (urb:build-ramp): aleta 0.60, desarrollo de rampa 1.30, cierre
+;; 0.20. Devuelve (objetos a81-und toperol-ml bordillo-ml area-rampa-m2).
+(setq *urb-rampa-aleta* 0.60)
+(setq *urb-rampa-desarrollo* 1.30)
+(setq *urb-rampa-cierre* 0.20)
+
+;; ancho minimo de extremo para que quepan las dos aletas y algo de banda
+(defun urb:ramp-end-min-width ()
+  (+ (* 2.0 *urb-rampa-aleta*) 0.50))
+
+;; largo minimo del modulo para que quepan los dos desarrollos
+(defun urb:ramp-end-min-length ()
+  (+ (* 2.0 (+ *urb-rampa-desarrollo* *urb-rampa-cierre*)) 0.50))
+
+(defun urb:ramp-end-objects
+  (frame material / base axis sign L dev total objects obj hatch ent
+   tramos tu1 tu2 bu1 bu2 au1 au2 du1 du2 lu lv uvh a81 top-ml bor-ml origin)
+  (setq base (car frame) axis (cadr frame) sign (caddr frame) L (nth 3 frame))
+  (setq dev *urb-rampa-desarrollo*
+        total (+ *urb-rampa-desarrollo* *urb-rampa-cierre*))
+  (setq objects nil a81 0 top-ml 0.0 bor-ml 0.0)
+  (urb:ensure-layer "URB-RAMPA-A81" 8 T)
+  (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
+  (urb:ensure-layer "URB-BORDILLO" 9 T)
+  (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
+  ;; ---- las dos aletas laterales ----
+  (setq tramos
+    (list
+      (list 0.0 0.20 0.20 0.30 0.30 *urb-rampa-aleta* 0.30 *urb-rampa-aleta*)
+      (list (- L 0.20) L (- L 0.30) (- L 0.20)
+            (- L *urb-rampa-aleta*) (- L 0.30)
+            (- L 0.30) (- L *urb-rampa-aleta*))))
+  (foreach tr tramos
+    (setq tu1 (nth 0 tr) tu2 (nth 1 tr)
+          bu1 (nth 2 tr) bu2 (nth 3 tr)
+          au1 (nth 4 tr) au2 (nth 5 tr)
+          du1 (nth 6 tr) du2 (nth 7 tr))
+    ;; toperol de la aleta: gris con sus domos blancos
+    (setq obj
+      (urb:as-vla-object
+        (urb:ramp-quad-poly base axis sign tu1 0.0 tu2 dev
+          "URB-ANDEN-LOSETA-TOPEROL-20X20")))
+    (setq objects (cons obj objects))
+    (setq hatch
+      (vl-catch-all-apply 'urb:add-solid-hatch
+        (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20" 8)))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+    (setq lu (+ (min tu1 tu2) 0.025))
+    (while (<= lu (- (max tu1 tu2) 0.025 (- 1e-6)))
+      (setq lv 0.025)
+      (while (<= lv (- dev 0.025))
+        (setq uvh (urb:ramp-frame-uv base axis sign lu lv))
+        (setq ent
+          (urb:add-circle-symbol (car uvh) (cadr uvh) *urb-toperol-radio*
+            axis "URB-ANDEN-LOSETA-TOPEROL-20X20" "" 7))
+        (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
+        (setq lv (+ lv 0.05)))
+      (setq lu (+ lu 0.05)))
+    (setq top-ml (+ top-ml dev))
+    ;; bordillo de confinamiento de la aleta
+    (setq obj
+      (urb:as-vla-object
+        (urb:ramp-quad-poly base axis sign bu1 0.0 bu2 dev "URB-BORDILLO")))
+    (setq objects (cons obj objects))
+    (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-BORDILLO" 9)))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+    (setq bor-ml (+ bor-ml dev))
+    ;; prefabricado A81: rectangulo CON DIAGONAL (la cuna inclinada)
+    (setq obj
+      (urb:as-vla-object
+        (urb:ramp-quad-poly base axis sign au1 0.0 au2 dev "URB-RAMPA-A81")))
+    (setq objects (cons obj objects))
+    (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA-A81" 8)))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+    (setq ent
+      (urb:ramp-line base axis sign du1 0.0 du2 dev "URB-RAMPA-A81" 7))
+    (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
+    (setq a81 (1+ a81)))
+  ;; ---- banda central de la rampa, entre las dos aletas ----
+  (setq obj
+    (urb:as-vla-object
+      (urb:ramp-quad-poly base axis sign
+        *urb-rampa-aleta* 0.0 (- L *urb-rampa-aleta*) dev "URB-RAMPA")))
+  (setq objects (cons obj objects))
+  (setq origin (urb:ramp-local-point base axis sign *urb-rampa-aleta* 0.0))
+  (setq hatch
+    (vl-catch-all-apply 'urb:add-solid-hatch
+      (list obj "URB-RAMPA" (if (= material "Adoquin") 7 9))))
+  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+  (if (= material "Adoquin")
+    (foreach h
+      (list
+        (vl-catch-all-apply 'urb:add-user-hatch
+          (list obj "URB-RAMPA" 0.10 axis nil 8 origin))
+        (vl-catch-all-apply 'urb:add-user-hatch
+          (list obj "URB-RAMPA" 0.20 (+ axis (/ pi 2.0)) nil 8 origin)))
+      (if (not (vl-catch-all-error-p h)) (setq objects (cons h objects)))))
+  ;; ---- bordillo transversal que cierra el desarrollo ----
+  (setq obj
+    (urb:as-vla-object
+      (urb:ramp-quad-poly base axis sign 0.30 dev (- L 0.30) total
+        "URB-BORDILLO")))
+  (setq objects (cons obj objects))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-BORDILLO" 9)))
+  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+  (setq bor-ml (+ bor-ml (- L 0.60)))
+  ;; el area util de rampa es la banda central entre las dos aletas, con
+  ;; el mismo criterio del modulo parametrico (las aletas se cobran por
+  ;; su ML/UND, no por area)
+  (list (reverse objects) a81 top-ml bor-ml
+    (* (- L (* 2.0 *urb-rampa-aleta*)) dev))
+)
+
+;; T si el paso da para llevar el desarrollo completo en los dos extremos
+;; ("cuando son tramos largos", condicion del usuario).
+;; punto medio de la tapa de un remate: es el que mide de verdad el largo
+;; del modulo (los vertices de arranque son esquinas opuestas y en un paso
+;; corto y ancho darian una diagonal enganosamente larga).
+(defun urb:ramp-frame-mid (frame / p a L)
+  (setq p (car frame) a (cadr frame) L (nth 3 frame))
+  (list (+ (car p) (* 0.5 L (cos a))) (+ (cadr p) (* 0.5 L (sin a)))))
+
+(defun urb:ramp-ends-fit-p (frames)
+  (and frames (= (length frames) 2)
+       (>= (nth 3 (car frames)) (urb:ramp-end-min-width))
+       (>= (nth 3 (cadr frames)) (urb:ramp-end-min-width))
+       (>= (distance (urb:ramp-frame-mid (car frames))
+                     (urb:ramp-frame-mid (cadr frames)))
+           (urb:ramp-end-min-length)))
+)
+
 (defun urb:build-contour-ramp
   (source frames tipo etapa sub material / doc copy region body terminals frame term
    objects hatch area total-area edge-length attrs name definition result ref obj
    depth origin axis boundary-en elevation wedge-depth wedge-layer wedge-en
-   a81-count)
+   a81-count ramp-ends endres extra-top extra-bor extra-area)
   ;; Nuevo modulo 2D: contorno exacto (incluye arcos), remates elegidos,
   ;; paso adoquinado/liso o acceso vehicular liso. No inventa pendientes 3D.
   (setq doc (urb:doc) objects nil terminals nil edge-length 0.0)
@@ -19939,7 +20081,11 @@
   (setq region (urb:add-region-from-object copy) body (vla-Copy region)
         total-area (vla-get-Area region) objects (list copy)
         axis (cadr (car frames)) origin (car (car frames))
-        depth (if (= tipo "RAMPA-VEHICULAR") 0.60 0.20))
+        depth (cond ((= tipo "RAMPA-VEHICULAR") 0.60)
+                    ((and (= tipo "PASO-PEATONAL") (urb:ramp-ends-fit-p frames))
+                      (setq ramp-ends T)
+                      (+ *urb-rampa-desarrollo* *urb-rampa-cierre*))
+                    (T 0.20)))
   (foreach frame frames
     (setq term (urb:ramp-terminal-region region frame depth))
     (if (null term) (progn (foreach obj objects (urb:safe-delete obj))
@@ -19957,10 +20103,14 @@
   ;; cuerpo tambien claro, asi que el modulo quedaba como un poligono liso.
   ;; Ahora el remate va en gris, que es el tono con el que el usuario ya
   ;; lee las piezas inclinadas del modulo parametrico.
+  ;; Con desarrollo de rampa el remate NO se rellena: lo ocupa el modulo
+  ;; (aletas + banda de rampa + bordillo de cierre), que se dibuja abajo.
   (foreach term terminals
     (vla-put-Layer term "URB-RAMPA-REMATE")
-    (setq hatch (urb:add-solid-hatch term "URB-RAMPA-REMATE" 8)
-          objects (append objects (list term hatch))))
+    (if ramp-ends
+      (setq objects (append objects (list term)))
+      (setq hatch (urb:add-solid-hatch term "URB-RAMPA-REMATE" 8)
+            objects (append objects (list term hatch)))))
   (vla-put-Layer body "URB-RAMPA")
   (setq hatch (urb:add-solid-hatch body "URB-RAMPA"
                 (if (= material "Adoquin") 7 9))
@@ -19972,46 +20122,62 @@
         (urb:add-user-hatch body "URB-RAMPA" 0.20 (+ axis (/ pi 2.0)) nil 8 origin))))))
   ;; 2026-09-08 (pedido del usuario, foto 4: "en los extremos del paso
   ;; peatonal, cuando son tramos largos, me aparezca esa parte de la
-  ;; rampa"). Se dibuja en cada extremo la misma pieza que ya lleva el
-  ;; modulo parametrico U-201 y que el usuario da por buena: un rectangulo
-  ;; CON DIAGONAL (la cuna inclinada). En el acceso vehicular el
-  ;; rectangulo es el propio remate de 0.60 m; en el paso peatonal es la
-  ;; pieza A81 de 0.30 m, y solo se pone si el tramo es LARGO (>= 2.00 m
-  ;; entre remates), que es la condicion que puso el usuario.
-  (setq wedge-depth
-    (cond
-      ((= tipo "RAMPA-VEHICULAR") depth)
-      ((and (= (length frames) 2)
-            (>= (distance (car (car frames)) (car (cadr frames))) 2.0))
-        0.30)
-      (T nil)))
-  (setq a81-count 0)
-  (if wedge-depth
+  ;; rampa" -> confirmado despues: "quiero el DESARROLLO COMPLETO de la
+  ;; rampa con las aletas laterales"). En un paso peatonal que da la
+  ;; medida, cada extremo lleva el modulo real de U-201
+  ;; (urb:ramp-end-objects): aleta lateral de 0.60 m a cada lado --
+  ;; toperol 0.20 + bordillo 0.10 + A81 0.30 con su diagonal --, banda
+  ;; central de rampa y bordillo transversal de cierre. Si no da la
+  ;; medida, o en el acceso vehicular, se conserva la cuna simple:
+  ;; rectangulo con diagonal.
+  (setq a81-count 0 extra-top 0.0 extra-bor 0.0 extra-area 0.0)
+  (if ramp-ends
+    (foreach frame frames
+      (setq endres (vl-catch-all-apply 'urb:ramp-end-objects
+                     (list frame material)))
+      (if (vl-catch-all-error-p endres)
+        (prompt (strcat "\nAVISO: no se pudo dibujar el desarrollo de rampa: "
+                  (vl-catch-all-error-message endres)))
+        (setq objects (append objects (car endres))
+              a81-count (+ a81-count (nth 1 endres))
+              extra-top (+ extra-top (nth 2 endres))
+              extra-bor (+ extra-bor (nth 3 endres))
+              extra-area (+ extra-area (nth 4 endres)))))
     (progn
-      (if (/= tipo "RAMPA-VEHICULAR") (urb:ensure-layer "URB-RAMPA-A81" 8 T))
-      (setq wedge-layer
-        (if (= tipo "RAMPA-VEHICULAR") "URB-RAMPA-REMATE" "URB-RAMPA-A81"))
-      (foreach frame frames
-        ;; contorno de la cuna (solo en el paso: en el vehicular el remate
-        ;; ya esta dibujado como region)
-        (if (/= tipo "RAMPA-VEHICULAR")
-          (progn
-            (setq wedge-en
-              (urb:ramp-quad-poly (car frame) (cadr frame) (caddr frame)
-                0.0 0.0 (nth 3 frame) wedge-depth wedge-layer))
-            (setq obj (urb:as-vla-object wedge-en))
-            (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
-                          (list obj wedge-layer 8)))
-            (setq objects (append objects (list obj)))
-            (if (not (vl-catch-all-error-p hatch))
-              (setq objects (append objects (list hatch))))
-            (setq a81-count (1+ a81-count))))
-        ;; la DIAGONAL: es lo que hace que se lea como rampa y no como un
-        ;; poligono liso
-        (setq boundary-en
-          (urb:ramp-line (car frame) (cadr frame) (caddr frame)
-            0.0 0.0 (nth 3 frame) wedge-depth wedge-layer 8))
-        (setq objects (append objects (list (urb:as-vla-object boundary-en)))))))
+      (setq wedge-depth
+        (cond
+          ((= tipo "RAMPA-VEHICULAR") depth)
+          ((and (= (length frames) 2)
+                (>= (distance (car (car frames)) (car (cadr frames))) 2.0))
+            0.30)
+          (T nil)))
+      (if wedge-depth
+        (progn
+          (if (/= tipo "RAMPA-VEHICULAR") (urb:ensure-layer "URB-RAMPA-A81" 8 T))
+          (setq wedge-layer
+            (if (= tipo "RAMPA-VEHICULAR") "URB-RAMPA-REMATE" "URB-RAMPA-A81"))
+          (foreach frame frames
+            ;; contorno de la cuna (solo en el paso: en el vehicular el
+            ;; remate ya esta dibujado como region)
+            (if (/= tipo "RAMPA-VEHICULAR")
+              (progn
+                (setq wedge-en
+                  (urb:ramp-quad-poly (car frame) (cadr frame) (caddr frame)
+                    0.0 0.0 (nth 3 frame) wedge-depth wedge-layer))
+                (setq obj (urb:as-vla-object wedge-en))
+                (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
+                              (list obj wedge-layer 8)))
+                (setq objects (append objects (list obj)))
+                (if (not (vl-catch-all-error-p hatch))
+                  (setq objects (append objects (list hatch))))
+                (setq a81-count (1+ a81-count))))
+            ;; la DIAGONAL: es lo que hace que se lea como rampa y no como
+            ;; un poligono liso
+            (setq boundary-en
+              (urb:ramp-line (car frame) (cadr frame) (caddr frame)
+                0.0 0.0 (nth 3 frame) wedge-depth wedge-layer 8))
+            (setq objects
+              (append objects (list (urb:as-vla-object boundary-en)))))))))
   (urb:safe-delete region)
   (setq name (strcat "URB_RAMPA_" (vla-get-Handle copy))
         definition (vla-Add (vla-get-Blocks doc) (vlax-3d-point '(0 0 0)) name)
@@ -20022,9 +20188,10 @@
       (vl-exit-with-error (vl-catch-all-error-message result))))
   (setq attrs (list (cons "TIPO" tipo) (cons "ETAPA" etapa) (cons "SUBETAPA" sub)
     (cons "ANCHO_RAMPA" (rtos (/ edge-length 2.0) 2 3))
-    (cons "FONDO_M" "0") (cons "AREA_M2" (rtos area 2 6))
-    (cons "TOPEROL_ML" "0") (cons "A81_UND" (itoa a81-count))
-    (cons "BORDILLO_ML" (if (= tipo "PASO-PEATONAL") (rtos edge-length 2 6) "0"))
+    (cons "FONDO_M" "0") (cons "AREA_M2" (rtos (+ area extra-area) 2 6))
+    (cons "TOPEROL_ML" (rtos extra-top 2 3)) (cons "A81_UND" (itoa a81-count))
+    (cons "BORDILLO_ML"
+      (if (= tipo "PASO-PEATONAL") (rtos (+ edge-length extra-bor) 2 6) "0"))
     (cons "MATERIAL" material)))
   (foreach obj attrs (urb:add-invisible-attribute definition origin (car obj) (car obj) (cdr obj)))
   (setq ref (vla-InsertBlock (urb:space) (vlax-3d-point (list 0.0 0.0 elevation)) name 1.0 1.0 1.0 0.0))
@@ -31168,6 +31335,25 @@
            (= 8 (urb:tactile-symbol-color "GUIA" nil))))
     (list "El domo de toperol tiene su tamano real"
       (equal 0.0125 *urb-toperol-radio* 1e-9))
+    ;; 2026-09-08: el desarrollo completo de rampa (aletas laterales) solo
+    ;; cabe si el extremo tiene ancho para las dos aletas y el paso es
+    ;; largo -- la condicion "cuando son tramos largos" del usuario.
+    (list "El desarrollo de rampa solo entra en pasos largos y anchos"
+      (and
+        ;; tapas de 3,00 m separadas 5,00 m entre puntos medios: cabe
+        (urb:ramp-ends-fit-p
+          (list (list '(0.0 0.0) 0.0 1.0 3.0 0)
+                (list '(8.0 0.0) pi 1.0 3.0 2)))
+        ;; mismo ancho pero 1,00 m entre puntos medios: no cabe
+        (not (urb:ramp-ends-fit-p
+          (list (list '(0.0 0.0) 0.0 1.0 3.0 0)
+                (list '(2.0 0.0) pi 1.0 3.0 2))))
+        ;; largo suficiente pero tapa de 1,00 m: no caben las dos aletas
+        (not (urb:ramp-ends-fit-p
+          (list (list '(0.0 0.0) 0.0 1.0 1.0 0)
+                (list '(8.0 0.0) pi 1.0 1.0 2))))
+        (equal 1.70 (urb:ramp-end-min-width) 1e-9)
+        (equal 3.50 (urb:ramp-end-min-length) 1e-9)))
     (list "Caja CS276 recorta un metro por extremo"
       (equal 1.0 (mp:point-base-gap "CAMARA_CS276") 1e-9))
     (list "Pozo humedo recorta hasta radio real"
