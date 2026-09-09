@@ -1,5 +1,35 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Corrección inmediata — 2026-09-08 20:20, v4.79.1 (Codex, BOG085CD119BDQN)
+
+Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+Commit funcional: `04f7f95`.
+
+El usuario abrió Civil 3D 2023 e informó `Unknown command "ANDEN"`. No era un
+fallo de modelación: la entrega 4.79.0 iniciaba la lectura del LSP pero se
+detenía antes de registrar los comandos. Hubo dos causas corregidas:
+
+- En el mensaje de estado agregado al final de 4.79.0 quedó un `if` con dos
+  expresiones de alternativa sin `progn`, error de sintaxis de AutoLISP. La
+  E2E geométrica había terminado antes de ese último ajuste textual; desde
+  ahora la carga final se repite después de cualquier edición posterior.
+- `acaddoc.lsp` dependía exclusivamente de `S::STARTUP`. Si el arranque de otro
+  complemento fallaba primero, Urbanismo no se alcanzaba a cargar. El instalador
+  ejecuta ahora `urbcant:bootstrap` inmediatamente al leer `acaddoc.lsp` y deja
+  `S::STARTUP` como respaldo; además protege el startup previo con
+  `vl-catch-all-apply`.
+
+Verificación corta y específica, en segundo plano:
+
+- Inicio limpio con instalación 4.79.1: `ANDEN=SI`, `URBANISMO=SI`, ambos
+  `TYPE=SUBR`, `VERSION=4.79.1`, `DONE`.
+- Regresión Core Console 2023: **71 OK / 0 FALLOS**.
+- Motor instalado y repositorio con SHA-256 idéntico. No se modificó el DWG.
+
+La corrección geométrica de costados y recorte posterior de 4.79.0 permanece
+en 4.79.1. El usuario debe abrir/reiniciar Civil 3D una vez para cargar el nuevo
+`acaddoc.lsp`; no necesita reinstalar manualmente.
+
 ## Estado guardado — 2026-09-08 20:00, v4.79.0 (Codex, BOG085CD119BDQN)
 
 Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
