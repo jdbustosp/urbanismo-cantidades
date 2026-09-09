@@ -1,5 +1,66 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 noche (2), v4.78.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+Commit: ver `git log` (mensaje `v4.78.0: el contorno del anden se recorta...`).
+
+Foto nueva del andén recién modelado + petición literal del usuario: *"solo el
+bloque del andén tiene que estar entre los prefabricados"*. Es la tercera vez
+que lo pide, y hasta v4.77 se había atendido **a medias**: se recortaba el
+ACABADO (losetas, juntas, táctiles) y el ÁREA, pero **la polilínea del contorno
+seguía pasando por debajo del bordillo y del contenedor**. Por eso al
+seleccionar el bloque sus límites no coincidían con lo dibujado.
+
+- **`urb:anden-clip-contour`** (nueva): sustituye la propia polilínea del
+  contorno por el borde de la región ya recortada (contorno − prefabricados −
+  contenedores). Se ejecuta en `urb:create-sidewalk-command` **entre los
+  costados y el acabado**, así que el acabado, el área y el perímetro se
+  calculan ya sobre el contorno neto. Usa `entmod`, no `entmake`, para
+  **conservar el HANDLE** — de él cuelgan la xdata del andén, las piezas
+  generadas y el vínculo con los costados.
+- Piezas puras nuevas y autoprobadas: `urb:curve-as-segment` (recta/arco
+  explotado → `(p1 p2 bulge)`, con `bulge = tan(Δ/4)` calculado como
+  `sin/cos` porque AutoLISP no tiene `tan`), `urb:chain-take-next`,
+  `urb:chain-loops-from-segments` (reencadena los trozos sueltos de
+  `vla-Explode` en bucles cerrados, en cualquier sentido),
+  `urb:loop-signed-area`, `urb:loop-reverse` (al invertir, el bulge cambia de
+  signo **y** se corre un vértice) y `urb:region-loops`.
+- **Degradación segura**: si la región no se puede construir, si aparece una
+  curva que no sabemos volcar a polilínea (elipse, spline) o si el `entmod`
+  falla, el contorno queda **intacto** y sigue funcionando el recorte del
+  acabado de v4.76. Si no hay nada que recortar tampoco toca nada.
+- Efecto colateral esperado: `AREA_BRUTA_M2` ahora coincide con `AREA_M2`
+  porque el contorno ya es el neto. La marca `AREA_NETA=Si` sigue evitando el
+  doble descuento en `urb:ppto-rows-andenes`.
+
+Verificación:
+
+- Suite completa (Core Console, `verify.lsp` del protocolo de Codex):
+  **71 OK / 0 FALLOS**. Autopruebas del motor **29/29** (3 nuevas: reencadenado
+  de un bucle, elección del bucle mayor, inversión sin voltear el arco).
+- E2E real con ActiveX (AutoCAD 2023 + perfil C3D), **0 FALLOS**:
+  - Parte 1 (contenedor + bordillos externos): contorno 38,500 → **37,360 m²**
+    tras el recorte, cerrado (flag 70 = 1); prefabricados 7,8 / 10,0 / 20,0 m,
+    ninguno dentro de la huella del contenedor; `AREA_M2 37,360 |
+    AREA_BRUTA_M2 37,360 | AREA_NETA Si`.
+  - Parte 2 (bordillos **internos** de 0,20 m en los dos lados): contorno
+    20 × 2 m = 40 m² → **32,000 m²** exactos = 20 × 1,60, y el bloque
+    empaquetado reporta ese mismo 32,000. Es la comprobación literal de
+    *"el andén queda entre los prefabricados"*.
+- Instalado 4.78.0; hash del repo = hash del bundle instalado.
+
+**Pendiente del mismo mensaje**: el usuario dice que el andén *"salió mal"* y
+adjunta la foto. Además del contorno (ya resuelto arriba) se ve una **zona
+moteada en el vértice inferior derecho**, con textura mucho más fina que la
+retícula de loseta del resto y que parece desbordar el contorno. No se pudo
+reproducir sin el DWG: hace falta el contorno real (un WBLOCK de ese andén
+basta) para montarlo en el laboratorio. Sospechas ordenadas: (a) partición en
+dos ejes `urb:two-axis-split-data` sobre un contorno irregular, que da a esa
+punta un eje propio; (b) franja táctil (toperol) que en vez de una banda de
+40 cm cubre la punta.
+
+
 ## Estado guardado — 2026-09-08 noche, v4.77.1 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

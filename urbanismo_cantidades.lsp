@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.77.1")
+(setq *urb-version* "4.78.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -5016,6 +5016,190 @@
       (if (and (numberp neta) (> neta 1e-6)) neta bruta)))
 )
 
+;;; ---------------------------------------------------------------------
+;;; Recorte fisico del CONTORNO del anden. 2026-09-08, pedido del usuario:
+;;; "solo el bloque del anden tiene que estar entre los prefabricados".
+;;; Hasta v4.77 solo se recortaba el ACABADO (losetas, juntas, tactiles) y
+;;; el area; la polilinea del contorno seguia pasando por DEBAJO del
+;;; bordillo y del contenedor, asi que al seleccionar el bloque sus
+;;; limites no coincidian con lo que se ve. Ahora la propia polilinea se
+;;; sustituye por el borde real. Se hace con entmod y no con entmake para
+;;; conservar el HANDLE: de el cuelgan la xdata del anden, las piezas ya
+;;; generadas y el vinculo con los costados.
+;;; ---------------------------------------------------------------------
+
+;; (p-inicio p-fin bulge) de una recta o un arco ya explotados. Devuelve
+;; nil para cualquier otra curva (elipse, spline) o si el arco es un
+;; circulo completo: ante lo que no sabe reconstruir prefiere no tocar el
+;; contorno antes que deformarlo.
+(defun urb:curve-as-segment (obj / name p1 p2 a1 a2 delta)
+  (setq name (vl-catch-all-apply 'vla-get-ObjectName (list obj)))
+  (if (not (member name '("AcDbLine" "AcDbArc")))
+    nil
+    (progn
+      (setq p1 (vl-catch-all-apply
+                 '(lambda ()
+                    (vlax-safearray->list
+                      (vlax-variant-value (vla-get-StartPoint obj))))))
+      (setq p2 (vl-catch-all-apply
+                 '(lambda ()
+                    (vlax-safearray->list
+                      (vlax-variant-value (vla-get-EndPoint obj))))))
+      (cond
+        ((or (vl-catch-all-error-p p1) (vl-catch-all-error-p p2)) nil)
+        ((= name "AcDbLine") (list p1 p2 0.0))
+        (T
+          (setq a1 (vl-catch-all-apply 'vla-get-StartAngle (list obj))
+                a2 (vl-catch-all-apply 'vla-get-EndAngle (list obj)))
+          (if (or (not (numberp a1)) (not (numberp a2)))
+            nil
+            (progn
+              (setq delta (- a2 a1))
+              (while (<= delta 1e-12) (setq delta (+ delta (* 2.0 pi))))
+              (if (> delta (- (* 2.0 pi) 1e-9))
+                nil
+                (list p1 p2
+                  (/ (sin (/ delta 4.0)) (cos (/ delta 4.0))))))))))))
+
+;; saca del grupo el primer segmento que continua en "cur". Devuelve
+;; (hit . resto) donde hit = (punto-siguiente bulge-en-ese-sentido) o nil.
+(defun urb:chain-take-next (pool cur tol / rest hit)
+  (setq rest nil hit nil)
+  (foreach s pool
+    (cond
+      (hit (setq rest (cons s rest)))
+      ((<= (distance (car s) cur) tol)
+        (setq hit (list (cadr s) (caddr s))))
+      ((<= (distance (cadr s) cur) tol)
+        (setq hit (list (car s) (- (caddr s)))))
+      (T (setq rest (cons s rest)))))
+  (cons hit (reverse rest)))
+
+;; encadena segmentos (p1 p2 bulge) sueltos en bucles cerrados. Cada
+;; bucle sale como lista de (punto . bulge) lista para volcarse en una
+;; LWPOLYLINE (grupo 10 + grupo 42). Funcion pura: se autoprueba sin
+;; dibujo abierto.
+(defun urb:chain-loops-from-segments
+  (segs tol / pool seg loop start cur take hit loops guard)
+  (setq pool segs loops nil)
+  (while pool
+    (setq seg (car pool) pool (cdr pool))
+    (setq loop (list (cons (car seg) (caddr seg)))
+          start (car seg)
+          cur (cadr seg)
+          guard (1+ (length pool))
+          hit T)
+    (while (and hit (> (distance cur start) tol) (> guard 0))
+      (setq guard (1- guard))
+      (setq take (urb:chain-take-next pool cur tol))
+      (setq hit (car take) pool (cdr take))
+      (if hit
+        (setq loop (cons (cons cur (cadr hit)) loop)
+              cur (car hit))))
+    (if (and (<= (distance cur start) tol) (>= (length loop) 3))
+      (setq loops (cons (reverse loop) loops))))
+  (reverse loops))
+
+;; area con signo (formula del zapatero) ignorando los bulges: sirve para
+;; escoger el bucle mayor y el sentido, no para medir.
+(defun urb:loop-signed-area (loop / pts n i a p q)
+  (setq pts (mapcar 'car loop) n (length pts) i 0 a 0.0)
+  (while (< i n)
+    (setq p (nth i pts) q (nth (rem (1+ i) n) pts))
+    (setq a (+ a (- (* (car p) (cadr q)) (* (car q) (cadr p)))))
+    (setq i (1+ i)))
+  (* 0.5 a))
+
+;; invierte un bucle conservando los arcos: al recorrer al reves, el
+;; bulge de cada tramo cambia de signo y se corre un vertice.
+(defun urb:loop-reverse (loop / pts bs n i out)
+  (setq pts (mapcar 'car loop) bs (mapcar 'cdr loop)
+        n (length loop) i 0 out nil)
+  (while (< i n)
+    (setq out
+      (cons
+        (cons (nth (- n 1 i) pts)
+              (- (nth (rem (+ (- n 2 i) n) n) bs)))
+        out))
+    (setq i (1+ i)))
+  (reverse out))
+
+;; bucles cerrados de una REGION ya construida. nil si aparece una curva
+;; que no sabemos volcar a polilinea.
+(defun urb:region-loops (region / exploded items segs seg falla)
+  (setq exploded (vl-catch-all-apply 'vla-Explode (list region)))
+  (if (vl-catch-all-error-p exploded)
+    nil
+    (progn
+      (setq items (urb:variant-object-list exploded) segs nil falla nil)
+      (foreach o items
+        (setq seg (urb:curve-as-segment o))
+        (if seg (setq segs (cons seg segs)) (setq falla T)))
+      (foreach o items (urb:safe-delete o))
+      (if falla nil (urb:chain-loops-from-segments (reverse segs) 1e-6)))))
+
+;; sustituye el contorno del anden por su borde NETO (contorno menos
+;; prefabricados y contenedores). Devuelve el area neta si recorto, nil si
+;; no habia nada que recortar o si no pudo reconstruir el borde con
+;; garantias -- en ese caso el contorno queda intacto y el recorte del
+;; acabado (v4.76) sigue haciendo su trabajo.
+(defun urb:anden-clip-contour
+  (ename / obj copy region area0 area1 loops best best-a a
+   verts ed head xd flag n res)
+  (setq obj (urb:as-vla-object ename))
+  (setq copy (vl-catch-all-apply '(lambda () (vla-Copy obj))))
+  (setq region
+    (if (not (vl-catch-all-error-p copy))
+      (vl-catch-all-apply '(lambda () (urb:add-region-from-object copy)))))
+  (if (and copy (not (vl-catch-all-error-p copy))) (urb:safe-delete copy))
+  (if (or (null region) (vl-catch-all-error-p region))
+    nil
+    (progn
+      (setq area0 (vl-catch-all-apply 'vla-get-Area (list region)))
+      (setq region (urb:apply-anden-cutouts region))
+      (setq area1 (vl-catch-all-apply 'vla-get-Area (list region)))
+      (if (or (not (numberp area0)) (not (numberp area1))
+              (>= area1 (- area0 1e-6)))
+        (progn (urb:safe-delete region) nil)
+        (progn
+          (setq loops (urb:region-loops region))
+          (urb:safe-delete region)
+          (setq best nil best-a 0.0)
+          (foreach l loops
+            (setq a (abs (urb:loop-signed-area l)))
+            (if (> a best-a) (setq best l best-a a)))
+          (if (or (null best) (< (length best) 3) (< best-a 1e-6))
+            nil
+            (progn
+              (if (< (urb:loop-signed-area best) 0.0)
+                (setq best (urb:loop-reverse best)))
+              (setq verts nil)
+              (foreach v best
+                (setq verts
+                  (cons (cons 42 (cdr v))
+                    (cons (cons 10 (list (car (car v)) (cadr (car v))))
+                      verts))))
+              (setq verts (reverse verts))
+              (setq ed (entget ename))
+              (setq xd (assoc -3 ed))
+              (setq flag (cdr (assoc 70 ed)))
+              (setq flag (if flag (boole 7 flag 1) 1))
+              (setq head
+                (vl-remove-if
+                  '(lambda (x) (member (car x) '(10 40 41 42 70 90 -3)))
+                  ed))
+              (setq n (length best))
+              (setq res
+                (vl-catch-all-apply 'entmod
+                  (list
+                    (append head
+                      (list (cons 90 n) (cons 70 flag))
+                      verts
+                      (if xd (list xd))))))
+              (if (vl-catch-all-error-p res)
+                nil
+                (progn (entupd ename) best-a)))))))))
+
 (defun urb:package-anden
   (ename / boundary metadata material etapa subetapa guia toperol format
    calculate surface grade-source elevation pattern-mode area area-bruta
@@ -6057,7 +6241,7 @@
    grade-source ename result block-ref anden-points anden-area
    earthworks-ok orientation-choice start-choice pattern-mode
    old-fillmode doc undo-open undo-result *error* mod-p1 mod-p2 mod-angle
-   costados-res anillo-refs)
+   costados-res anillo-refs clip-area)
   (setq doc (urb:doc) old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
     (setq *urb-current-tactile-side-point* nil
@@ -6185,6 +6369,20 @@
                 (vlax-vla-object->ename aref) "URB_PREFAB_ANILLO"
                 (list (vla-get-Handle (urb:as-vla-object ename))
                       (nth 13 data)))))))
+      ;; 2026-09-08 (pedido del usuario: "solo el bloque del anden tiene
+      ;; que estar entre los prefabricados"): el CONTORNO se recorta
+      ;; fisicamente contra los prefabricados recien creados y contra los
+      ;; contenedores, de modo que el bloque del anden TERMINE donde
+      ;; empieza el bordillo, no por debajo. El acabado, el area y el
+      ;; perimetro se calculan ya sobre ese contorno neto; si el recorte
+      ;; no es posible el contorno queda intacto y todo sigue como en
+      ;; v4.77 (el acabado se recorta igual).
+      (setq clip-area
+        (vl-catch-all-apply (function urb:anden-clip-contour) (list ename)))
+      (if (and (not (vl-catch-all-error-p clip-area)) (numberp clip-area))
+        (prompt
+          (strcat "\nContorno del anden recortado a " (rtos clip-area 2 2)
+                  " m2: queda entre los prefabricados.")))
       (setq result
         (urb:build-anden-finish ename material guia toperol format))
       (if result
@@ -30334,6 +30532,47 @@
           '((20.0 2.0 0.0) (11.5 2.0 0.0) (11.5 1.0 0.0)
             (10.0 1.0 0.0) (10.0 2.0 0.0) (0.0 2.0 0.0))
           nil)))
+    ;; 2026-09-08: el contorno del anden se sustituye por el borde de la
+    ;; region ya recortada. Los trozos salen de vla-Explode sueltos y en
+    ;; cualquier sentido; hay que volver a encadenarlos en un bucle unico.
+    (list "Los trozos sueltos de la region vuelven a ser un bucle"
+      ((lambda (loops)
+        (and (= 1 (length loops))
+             (= 4 (length (car loops)))
+             (equal 8.0 (abs (urb:loop-signed-area (car loops))) 1e-9)))
+        (urb:chain-loops-from-segments
+          '(((0.0 0.0 0.0) (4.0 0.0 0.0) 0.0)
+            ((4.0 2.0 0.0) (4.0 0.0 0.0) 0.0)
+            ((4.0 2.0 0.0) (0.0 2.0 0.0) 0.0)
+            ((0.0 0.0 0.0) (0.0 2.0 0.0) 0.0))
+          1e-6)))
+    (list "Con dos bucles se queda el mayor"
+      ((lambda (loops)
+        (and (= 2 (length loops))
+             (equal 8.0
+               (apply 'max
+                 (mapcar '(lambda (l) (abs (urb:loop-signed-area l))) loops))
+               1e-9)))
+        (urb:chain-loops-from-segments
+          '(((0.0 0.0 0.0) (4.0 0.0 0.0) 0.0)
+            ((4.0 0.0 0.0) (4.0 2.0 0.0) 0.0)
+            ((4.0 2.0 0.0) (0.0 2.0 0.0) 0.0)
+            ((0.0 2.0 0.0) (0.0 0.0 0.0) 0.0)
+            ((9.0 0.0 0.0) (10.0 0.0 0.0) 0.0)
+            ((10.0 0.0 0.0) (10.0 1.0 0.0) 0.0)
+            ((10.0 1.0 0.0) (9.0 0.0 0.0) 0.0))
+          1e-6)))
+    ;; al invertir el sentido, el arco tiene que seguir curvando igual:
+    ;; el bulge cambia de signo Y se corre un vertice.
+    (list "Al invertir el bucle el arco no se voltea"
+      ((lambda (rev)
+        (and (equal -1.0 (cdr (car rev)) 1e-9)
+             (equal '(4.0 3.0) (car (car rev)) 1e-9)
+             (equal (- (urb:loop-signed-area
+                         '(((0.0 0.0) . 0.0) ((4.0 0.0) . 1.0) ((4.0 3.0) . 0.0))))
+                    (urb:loop-signed-area rev) 1e-9)))
+        (urb:loop-reverse
+          '(((0.0 0.0) . 0.0) ((4.0 0.0) . 1.0) ((4.0 3.0) . 0.0)))))
     (list "Caja CS276 recorta un metro por extremo"
       (equal 1.0 (mp:point-base-gap "CAMARA_CS276") 1e-9))
     (list "Pozo humedo recorta hasta radio real"
