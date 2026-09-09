@@ -170,6 +170,10 @@ $marker
   (if (not (member "C:URBANISMO" (atoms-family 1)))
     (load "__LSP__" "urbcant: no se pudo cargar el motor"))
   (princ))
+;;; Cargar el motor inmediatamente. Antes se confiaba solo en S::STARTUP;
+;;; si otro complemento tenia un S::STARTUP que fallaba, nunca se alcanzaba
+;;; URBCANT y los botones enviaban comandos desconocidos.
+(urbcant:bootstrap)
 (cond
   ((= (type s::startup) 'LIST)
     (setq s::startup (append s::startup '((urbcant:bootstrap)))))
@@ -178,8 +182,8 @@ $marker
   (T
     (setq urbcant:startup-previo s::startup)
     (defun s::startup ()
-      (apply urbcant:startup-previo nil)
-      (urbcant:bootstrap))))
+      (urbcant:bootstrap)
+      (vl-catch-all-apply urbcant:startup-previo nil))))
 (princ)
 ;;; === FIN URBCANT AUTOLOAD ===
 "@

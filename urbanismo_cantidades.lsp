@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.79.0")
+(setq *urb-version* "4.79.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -23975,16 +23975,17 @@
                       (prompt (strcat
                         "\nEl contenedor se inserto, pero no fue posible actualizar los andenes: "
                         (vl-catch-all-error-message recut-result)))
-                      (if (> (car recut-result) 0)
-                        (prompt (strcat "\n" (itoa (car recut-result))
-                          " anden(es) recortado(s) por el contenedor."
-                          (if (> (cadr recut-result) 0)
-                            (strcat " Movimiento de tierras pendiente de recalculo en "
-                              (itoa (cadr recut-result)) " anden(es).") ""))))
-                      (if (> (caddr recut-result) 0)
-                        (prompt (strcat "\nNo se pudieron actualizar "
-                          (itoa (caddr recut-result))
-                          " anden(es); se conservaron sus bloques anteriores."))))
+                      (progn
+                        (if (> (car recut-result) 0)
+                          (prompt (strcat "\n" (itoa (car recut-result))
+                            " anden(es) recortado(s) por el contenedor."
+                            (if (> (cadr recut-result) 0)
+                              (strcat " Movimiento de tierras pendiente de recalculo en "
+                                (itoa (cadr recut-result)) " anden(es).") ""))))
+                        (if (> (caddr recut-result) 0)
+                          (prompt (strcat "\nNo se pudieron actualizar "
+                            (itoa (caddr recut-result))
+                            " anden(es); se conservaron sus bloques anteriores.")))))
                     (vl-catch-all-apply
                       '(lambda ()
                         (command "_.DRAWORDER" ref-ename "" "_Front")))))
