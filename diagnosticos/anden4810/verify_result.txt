@@ -1,0 +1,87 @@
+FIXTURE BLOCK ((0 . BLOCK) (2 . URB_HARDEN_TEST) (70 . 2) (4 . ) (10 0.0 0.0 0.0) (-2 . <Entity name: 20f6d83fce0>))
+FIXTURE INSERT ((0 . INSERT) (2 . URB_HARDEN_TEST) (66 . 1) (10 0 0 0))
+FIXTURE EN <Entity name: 20f6d83fd20>
+OK BASELINE reproduce perdida de campo oculto
+OK BASELINE reproduce cantidad negativa aprobada
+OK LOAD motor 4.81.0
+FIXTURE BLOCK ((0 . BLOCK) (2 . URB_HARDEN_TEST) (70 . 2) (4 . ) (10 0.0 0.0 0.0) (-2 . <Entity name: 20f6d83fce0>))
+FIXTURE INSERT ((0 . INSERT) (2 . URB_HARDEN_TEST) (66 . 1) (10 0 0 0))
+FIXTURE EN <Entity name: 20f6d83fd90>
+OK Parche cambia un atributo
+OK Parche preserva campo oculto
+OK Parche actualiza visible
+OK Preserva XDATA ajena
+OK Idempotente cuenta cero
+OK Idempotente no reescribe XDATA
+OK Claves normalizadas ultimo prevalece
+OK Permite vaciar explicitamente
+OK Vaciado no pierde otros campos
+OK Rechaza lista mal formada
+OK Datos invalidos no modifican entidad
+OK Rechaza lista punteada
+OK Acepta parche vacio
+OK Fallo escritura aborta
+OK Fallo escritura restaura atributo
+OK Fallo escritura conserva registro
+OK Cantidad negativa queda REVISAR
+OK Cantidad negativa no aprobada
+OK Diagnostico detecta cantidad negativa
+OK Cantidad cero valida conserva estado
+STAGE BEFORE ((SUBETAPA . 1) (ETAPA . 1) (ID . ))
+STAGE AFTER ((SUBETAPA . 2) (ETAPA . 6) (ID . ))
+OK Etapa lote confirma categoria
+OK Etapa lote confirma XDATA
+OK Etapa lote confirma atributos
+OK Etapa lote detecta escritura parcial
+OK Etapa lote restaura XDATA tras fallo
+OK Etapa lote restaura atributos tras fallo
+OK Cama tuberia piso
+OK Cama tuberia intermedio
+OK Cama tuberia techo
+OK Volumen constante
+OK Volumen variable trapezoidal
+OK Generacion DCL menus
+OK Autoprueba integrada: Parche conserva campos ocultos
+OK Autoprueba integrada: Parche normaliza claves
+OK Autoprueba integrada: Parche permite vaciado explicito
+OK Autoprueba integrada: Rechaza datos mal formados
+OK Autoprueba integrada: Rechaza lista punteada
+OK Autoprueba integrada: Acepta parche vacio
+OK Autoprueba integrada: Cantidad negativa bloqueada
+OK Autoprueba integrada: Cantidad cero permitida
+OK Autoprueba integrada: Diagnostico detecta negativo
+OK Autoprueba integrada: Cama: espesor minimo
+OK Autoprueba integrada: Cama: espesor intermedio
+OK Autoprueba integrada: Cama: espesor maximo
+OK Autoprueba integrada: Volumen de zanja constante
+OK Autoprueba integrada: Volumen de zanja variable
+OK Autoprueba integrada: Prefab legado sardinel conserva VIA
+OK Autoprueba integrada: Prefab bordillo puede ir a VIA
+OK Autoprueba integrada: Prefab bordillo puede ir a ANDEN
+OK Autoprueba integrada: Rampa vehicular va a su capitulo
+OK Autoprueba integrada: Paso peatonal va a su capitulo
+OK Autoprueba integrada: Tipologias de areas son las tres solicitadas
+OK Autoprueba integrada: Entrante de contenedor se reconoce como vacio concavo
+OK Autoprueba integrada: Puntas del anden se eligen por extremo, no por longitud
+OK Autoprueba integrada: El costado se interrumpe en el contenedor
+OK Autoprueba integrada: Sin contenedores el costado queda entero
+OK Autoprueba integrada: Los trozos sueltos de la region vuelven a ser un bucle
+OK Autoprueba integrada: Con dos bucles se queda el mayor
+OK Autoprueba integrada: Al invertir el bucle el arco no se voltea
+OK Autoprueba integrada: Caja CS276 recorta un metro por extremo
+OK Autoprueba integrada: Pozo humedo recorta hasta radio real
+OK Exportacion aborta tras fallo de recalculo
+OK No recoge datos obsoletos tras fallo
+OK Dialogo abre detalle
+OK Dialogo selecciona entidad correcta
+OK Dialogo elimina temporal
+OK Dialogo vacio cierra sin error
+OK Version muestra autopruebas
+OK Fase blanca 1.0 deja 0.8m (4.80 devolvia 1.6)
+OK Fase blanca 1.7 deja 0.1m
+OK Fase periodica 2.8 deja 0.8m
+OK Comando RAMPA y constructores registrados
+OK Toperol 3x0.2 genera 240 circulos DXF
+Las pruebas ActiveX usan un adaptador de prueba; no validan la interfaz de Civil 3D completo.
+RESULTADO 76 OK / 0 FALLOS
+DONE

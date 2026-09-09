@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.80.0")
+(setq *urb-version* "4.81.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -3190,7 +3190,7 @@
   (if (< phase-mod 0.0) (setq phase-mod (+ phase-mod period)))
   (if (< phase-mod gray-w)
     (cons T (- gray-w phase-mod))
-    (cons nil (- period (- phase-mod gray-w)))))
+    (cons nil (- period phase-mod))))
 
 (defun urb:decorate-composite-region
   (base-region angle-value format parent-handle reverse-pattern phase-offset
@@ -3862,6 +3862,10 @@
     nil)
 )
 
+(defun urb:strip-phase-offset (region axis start-u / pts)
+  (setq pts (urb:region-outline-points region))
+  (if pts (- (car (urb:project-bounds pts axis)) start-u) 0.0))
+
 (defun urb:decorate-accessibility-strip
   (region layer feature module angle-value origin parent-handle phase-offset
    / fill grid symbols-ok points bounds umin umax vmin vmax phase-state
@@ -3923,7 +3927,14 @@
     (vl-catch-all-apply
       'urb:fill-tactile-symbols
       (list region feature angle-value layer (if phase-offset phase-offset 0.0) parent-handle module)))
-  T
+  (if (or (vl-catch-all-error-p symbols-ok) (null symbols-ok))
+    (progn
+      (prompt (strcat "\nAVISO: no se generaron simbolos " feature
+        (if (vl-catch-all-error-p symbols-ok)
+          (strcat ": " (vl-catch-all-error-message symbols-ok))
+          "; revisar ancho/contorno de la franja.")))
+      nil)
+    T)
 )
 
 (defun urb:point-v-coordinate (point angle-value)
@@ -4549,7 +4560,8 @@
                           "URB-ANDEN-LOSETA-GUIA-40X40"
                           "URB-ANDEN-LOSETA-GUIA-20X20"))
                       (urb:decorate-accessibility-strip
-                        region layer "GUIA" module angle-value origin parent-handle 0.0)
+                        region layer "GUIA" module angle-value origin parent-handle
+                        (urb:strip-phase-offset region angle-value umin))
                       (setq count (1+ (if count count 0)))))))
               (if (urb:yes-p toperol)
                 (progn
@@ -4568,7 +4580,8 @@
                           "URB-ANDEN-LOSETA-TOPEROL-40X40"
                           "URB-ANDEN-LOSETA-TOPEROL-20X20"))
                       (urb:decorate-accessibility-strip
-                        region layer "TOPEROL" module angle-value origin parent-handle 0.0)
+                        region layer "TOPEROL" module angle-value origin parent-handle
+                        (urb:strip-phase-offset region angle-value umin))
                       (setq count (1+ (if count count 0)))))))
               (urb:safe-delete base-region)
               (> (if count count 0) 0)))))))
@@ -19652,9 +19665,9 @@
       ": popup_list { label = \"Tipologia\"; key = \"tipo\"; }"
       ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
-      ": text { label = \"Despues: 1) punto inicial, 2) clic HASTA DONDE va la rampa\"; }"
-      ": text { label = \"sobre el borde (o digite la longitud con la opcion Longitud),\"; }"
-      ": text { label = \"3) clic al bordillo donde termina el fondo.\"; }"
+      ": text { label = \"Peatonal: inicio, fin sobre el borde y fondo.\"; }"
+      ": text { label = \"Vehicular / paso: contorno cerrado y dos remates.\"; }"
+      ": text { label = \"Admite longitud libre y arcos.\"; }"
       "ok_cancel; }")))
 
 (defun urb:rampa-fill-sub (idx)
@@ -19815,8 +19828,145 @@
       (setq cx (+ x1 (* t0 dx)) cy (+ y1 (* t0 dy)))
       (list (distance (list px py) (list cx cy))))))
 
-(defun urb:create-ramp-command
-  (/ *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
+(defun urb:ramp-end-frame (boundary picked / cp par i p q a mid points sign probe)
+  ;; El usuario marca cada remate transversal; no inferirlo del lado mayor.
+  (setq cp (vlax-curve-getClosestPointTo boundary (trans picked 1 0))
+        par (vlax-curve-getParamAtPoint boundary cp) i (fix par)
+        p (vlax-curve-getPointAtParam boundary i)
+        q (vlax-curve-getPointAtParam boundary (1+ i)))
+  (if (and p q (> (distance p q) 0.01))
+    (progn
+      (setq a (angle p q) mid (mapcar '(lambda(x y) (/ (+ x y) 2.0)) p q)
+            points (urb:lwpoly-points-with-arcs-fine boundary)
+            probe (polar mid (+ a (/ pi 2.0)) 0.01)
+            sign (if (urb:point-in-poly-2d probe points) 1.0 -1.0))
+      (list p a sign (distance p q) i))))
+
+(defun urb:ramp-terminal-region (region frame depth / en cutter piece result)
+  (setq en (urb:ramp-quad-poly (car frame) (cadr frame) (caddr frame)
+             0.0 0.0 (nth 3 frame) depth "URB-RAMPA")
+        cutter (urb:add-region-from-object (urb:as-vla-object en)))
+  (entdel en)
+  (setq piece (vla-Copy region)
+        result (vl-catch-all-apply 'vla-Boolean (list piece 1 cutter)))
+  (urb:safe-delete cutter)
+  (if (and (not (vl-catch-all-error-p result)) (urb:region-usable-p piece))
+    piece (progn (urb:safe-delete piece) nil)))
+
+(defun urb:build-contour-ramp
+  (source frames tipo etapa sub material / doc copy region body terminals frame term
+   objects hatch area total-area edge-length attrs name definition result ref obj
+   depth origin axis boundary-en elevation)
+  ;; Nuevo modulo 2D: contorno exacto (incluye arcos), remates elegidos,
+  ;; paso adoquinado/liso o acceso vehicular liso. No inventa pendientes 3D.
+  (setq doc (urb:doc) objects nil terminals nil edge-length 0.0)
+  (urb:ensure-layer "URB-RAMPA" 4 T)
+  (urb:ensure-layer "URB-RAMPA-REMATE" 4 T)
+  (setq copy (vla-Copy (urb:as-vla-object source)) elevation (vla-get-Elevation copy))
+  (vla-put-Elevation copy 0.0)
+  (setq region (urb:add-region-from-object copy) body (vla-Copy region)
+        total-area (vla-get-Area region) objects (list copy)
+        axis (cadr (car frames)) origin (car (car frames))
+        depth (if (= tipo "RAMPA-VEHICULAR") 0.60 0.20))
+  (foreach frame frames
+    (setq term (urb:ramp-terminal-region region frame depth))
+    (if (null term) (progn (foreach obj objects (urb:safe-delete obj))
+      (urb:safe-delete region) (urb:safe-delete body)
+      (vl-exit-with-error "No se pudo construir un remate dentro del contorno.")))
+    (setq edge-length (+ edge-length (nth 3 frame)) terminals (cons term terminals))
+    (vla-Boolean body 2 (vla-Copy term)))
+  (if (not (urb:region-usable-p body))
+    (progn (foreach obj (append objects terminals) (urb:safe-delete obj))
+      (urb:safe-delete region) (urb:safe-delete body)
+      (vl-exit-with-error "Los remates cubren todo el modulo; marque extremos separados.")))
+  (setq area (if (= tipo "RAMPA-VEHICULAR") total-area (vla-get-Area body)))
+  (foreach term terminals
+    (vla-put-Layer term "URB-RAMPA-REMATE")
+    (setq hatch (urb:add-solid-hatch term "URB-RAMPA-REMATE"
+                  (if (= tipo "RAMPA-VEHICULAR") 7 9))
+          objects (append objects (list term hatch))))
+  (vla-put-Layer body "URB-RAMPA")
+  (setq hatch (urb:add-solid-hatch body "URB-RAMPA"
+                (if (= material "Adoquin") 7 9))
+        objects (append objects (list body hatch)))
+  (if (= material "Adoquin")
+    (progn
+      (setq objects (append objects (list
+        (urb:add-user-hatch body "URB-RAMPA" 0.10 axis nil 8 origin)
+        (urb:add-user-hatch body "URB-RAMPA" 0.20 (+ axis (/ pi 2.0)) nil 8 origin))))))
+  ;; Acceso vehicular: remates inclinados delimitados en los dos extremos.
+  (if (= tipo "RAMPA-VEHICULAR")
+    (foreach frame frames
+      (setq boundary-en (urb:ramp-line (car frame) (cadr frame) (caddr frame)
+                         0.0 0.0 (nth 3 frame) depth "URB-RAMPA-REMATE" 8))
+      (setq objects (append objects (list (urb:as-vla-object boundary-en))))))
+  (urb:safe-delete region)
+  (setq name (strcat "URB_RAMPA_" (vla-get-Handle copy))
+        definition (vla-Add (vla-get-Blocks doc) (vlax-3d-point '(0 0 0)) name)
+        result (vl-catch-all-apply 'vla-CopyObjects
+          (list doc (urb:object-array-variant objects) definition)))
+  (if (vl-catch-all-error-p result)
+    (progn (foreach obj objects (urb:safe-delete obj)) (urb:safe-delete definition)
+      (vl-exit-with-error (vl-catch-all-error-message result))))
+  (setq attrs (list (cons "TIPO" tipo) (cons "ETAPA" etapa) (cons "SUBETAPA" sub)
+    (cons "ANCHO_RAMPA" (rtos (/ edge-length 2.0) 2 3))
+    (cons "FONDO_M" "0") (cons "AREA_M2" (rtos area 2 6))
+    (cons "TOPEROL_ML" "0") (cons "A81_UND" "0")
+    (cons "BORDILLO_ML" (if (= tipo "PASO-PEATONAL") (rtos edge-length 2 6) "0"))
+    (cons "MATERIAL" material)))
+  (foreach obj attrs (urb:add-invisible-attribute definition origin (car obj) (car obj) (cdr obj)))
+  (setq ref (vla-InsertBlock (urb:space) (vlax-3d-point (list 0.0 0.0 elevation)) name 1.0 1.0 1.0 0.0))
+  (vla-put-Layer ref "URB-RAMPA")
+  (urb:set-xdata-strings (urb:as-ename ref) "URB_RAMPA_BLOCK"
+    (list tipo etapa sub (rtos (/ edge-length 2.0) 2 6) "0" (rtos area 2 6)))
+  (foreach obj objects (urb:safe-delete obj))
+  ref)
+
+(defun urb:create-contour-ramp-command
+  (selection / *error* doc sel source p1 p2 f1 f2 material result undo-open)
+  (setq doc (urb:doc))
+  (defun *error* (msg)
+    (if undo-open (vla-EndUndoMark doc))
+    (if msg (prompt (strcat "\nRAMPA: " msg))) (princ))
+  (setq sel (entsel "\nSeleccione CONTORNO CERRADO del paso/acceso (puede tener arcos): ")
+        source (car sel))
+  (if (and source (= (cdr (assoc 0 (entget source))) "LWPOLYLINE")
+           (= 1 (logand 1 (cdr (assoc 70 (entget source))))))
+    (progn
+      (setq p1 (getpoint "\nMarque el PRIMER remate transversal del contorno: "))
+      (if p1 (setq p2 (getpoint "\nMarque el SEGUNDO remate transversal: ")))
+      (if (and p1 p2)
+        (progn
+          (setq f1 (urb:ramp-end-frame source p1) f2 (urb:ramp-end-frame source p2))
+          (if (and f1 f2 (/= (nth 4 f1) (nth 4 f2)))
+            (progn
+              (setq material "Concreto")
+              (if (= (car selection) "PASO-PEATONAL")
+                (progn (initget "Adoquin Concreto")
+                  (setq material (getkword "\nAcabado del paso [Adoquin/Concreto] <Adoquin>: "))
+                  (if (null material) (setq material "Adoquin"))))
+              (prompt (if (= (car selection) "PASO-PEATONAL")
+                "\nConfinamientos transversales de 0.20 m; longitud libre segun contorno."
+                "\nAcceso liso con remates de 0.60 m en los extremos."))
+              (vla-StartUndoMark doc) (setq undo-open T)
+              (setq result (urb:build-contour-ramp source (list f1 f2)
+                (car selection) (cadr selection) (caddr selection) material))
+              (vla-EndUndoMark doc) (setq undo-open nil)
+              (if result (prompt "\nModulo creado. Contorno original conservado; no se recortan objetos vecinos.")))
+            (prompt "\nSeleccione dos remates distintos del contorno.")))))
+    (prompt "\nSe requiere una polilinea ligera cerrada; dibujela primero con PLINE."))
+  (princ))
+
+(defun urb:create-ramp-command (/ selection)
+  (setq selection (urb:rampa-dialog))
+  (if selection
+    (if (= (car selection) "RAMPA-PEATONAL")
+      (urb:create-pedestrian-ramp-command selection)
+      (urb:create-contour-ramp-command selection)))
+  (princ))
+
+(defun urb:create-pedestrian-ramp-command
+  (selection / *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
    depth tipo etapa subetapa axis-angle side-sign block-ref center-pt total-half done
    ext ext-pt ext-sel ext-cp vproj dlg ncut picks mov pe u v pts)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
@@ -19846,7 +19996,7 @@
   ;; subetapa, ancho de banda y fondo -- el ancho por getkword de la
   ;; linea de comandos desaparece; el resto del flujo (punto inicial,
   ;; direccion, clic al bordillo) queda igual.
-  (setq dlg (urb:rampa-dialog))
+  (setq dlg selection)
   (if dlg
     (setq tipo (nth 0 dlg) etapa (nth 1 dlg) subetapa (nth 2 dlg)
           width (nth 3 dlg) depth (nth 4 dlg)))

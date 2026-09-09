@@ -53,7 +53,7 @@
     (vt:check "BASELINE reproduce cantidad negativa aprobada" (= (nth 9 old-rec) "OK"))
     (load (strcat (getenv "URB_TEST_LAB") "/current.lsp"))
     (vt:bridge)
-    (vt:check "LOAD motor 4.80.0" (= *urb-version* "4.80.0"))
+    (vt:check "LOAD motor 4.81.0" (= *urb-version* "4.81.0"))
     (setq en (vt:fixture))
     (vt:check "Parche cambia un atributo" (= 1 (mp:setatts en '(("ID" . "B")))))
     (vt:check "Parche preserva campo oculto" (= "123" (cdr (assoc "KEEP" (mp:read-cant-data en)))))
@@ -165,6 +165,26 @@
     (setq vt-alerts nil)
     (urb:version-info-command)
     (vt:check "Version muestra autopruebas" (vl-string-search "29/29" (car vt-alerts)))
+    (vt:check "Fase blanca 1.0 deja 0.8m (4.80 devolvia 1.6)"
+      (equal (cdr (urb:composite-phase-state 1.0)) 0.8 1e-8))
+    (vt:check "Fase blanca 1.7 deja 0.1m"
+      (equal (cdr (urb:composite-phase-state 1.7)) 0.1 1e-8))
+    (vt:check "Fase periodica 2.8 deja 0.8m"
+      (equal (cdr (urb:composite-phase-state 2.8)) 0.8 1e-8))
+    (vt:check "Comando RAMPA y constructores registrados"
+      (and (= (type c:RAMPA) 'SUBR) (= (type urb:build-contour-ramp) 'SUBR)
+           (= (type urb:create-pedestrian-ramp-command) 'SUBR)))
+    ;; Solo el contorno de REGION se adapta: circulos y DXF son reales.
+    (defun urb:region-polygons (region) '(((0 0) (3 0) (3 0.2) (0 0.2))))
+    (if (not (tblsearch "LAYER" "TEST-TOP4810"))
+      (entmake '((0 . "LAYER") (100 . "AcDbSymbolTableRecord")
+        (100 . "AcDbLayerTableRecord") (2 . "TEST-TOP4810") (70 . 0) (62 . 8) (6 . "Continuous"))))
+    (setq result (vl-catch-all-apply 'urb:fill-tactile-symbols
+      (list nil "TOPEROL" 0.0 "TEST-TOP4810" 0.0 "TEST" 0.2)))
+    (if (vl-catch-all-error-p result) (vt:log (vl-catch-all-error-message result)))
+    (setq vt-topss (ssget "_X" '((0 . "CIRCLE") (8 . "TEST-TOP4810"))))
+    (vt:check "Toperol 3x0.2 genera 240 circulos DXF"
+      (and vt-topss (= (sslength vt-topss) 240)))
     (vt:log "Las pruebas ActiveX usan un adaptador de prueba; no validan la interfaz de Civil 3D completo.")) nil))
 (if (vl-catch-all-error-p caught)
   (progn (setq failed (1+ failed)) (vt:log (strcat "EXCEPCION " (vl-catch-all-error-message caught)))))

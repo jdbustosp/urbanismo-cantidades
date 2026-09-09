@@ -1,5 +1,35 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-08 21:17 — v4.81.0 — Codex / BOG085CD119BDQN
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit: entrega v4.81.0.
+Usuario confirma mejora del recorte; quedan toperol invisible, ultima banda
+corrida y geometria diferenciada de pasos/accesos segun cuatro imagenes.
+
+- Corregida fase blanca: con desplazamiento 1.0m faltan 0.8m, no 1.6m.
+  Franjas tactiles rectas recortadas heredan fase desde el inicio del anden,
+  no reinician el patron en el extremo de cada region resultante.
+- El fallo de simbolos deja aviso con causa, no devuelve exito silencioso.
+  NO se afirma solucion del toperol de la foto: el generador puro pasa,
+  pero falta reproducir recorte/orden de dibujo del bloque real.
+- RAMPA diferencia flujo: peatonal conserva inicio/fin/fondo; paso peatonal
+  y vehicular usan polilinea cerrada existente + dos remates elegidos.
+  Conserva arcos y longitud libre, original y cota. Paso: adoquin o concreto,
+  confinamientos 0.20m; vehicular: liso, remates 0.60m con diagonales.
+  Son valores de representacion declarados en prompt, no dimensiones de
+  diseno inferidas de fotos. No genera pendientes/solidos 3D ni recorta
+  automaticamente vecinos. Tipos mantienen sus capitulos separados.
+  Cantidades area neta medida; A81/toperol=0 en nuevos modulos; borde solo
+  remates de paso. FONDO_M=0 indica geometria libre, no fondo rectangular.
+
+Pruebas: lote final Core Console 76 OK/0, carga RAMPA/ANDEN y 240 circulos
+DXF en franja 3x0.2m (region adaptada, NO ActiveX). Primeros lotes detectaron
+parentesis en harness y constructor; corregidos antes del lote final.
+Civil 3D: unico intento Hidden PID24984, 90s; harness mal formado y carga
+fallida antes de correccion. Su FALLO parcial no es evidencia geometrica;
+harness corregido pero NO reejecutado. Pendiente validacion visual/E2E.
+Sin modificacion de DWG/Excel originales ni control de pantalla.
+
 ## 2026-09-08 20:50 — v4.80.0 — Codex / BOG085CD119BDQN
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Commit: ver entrega v4.80.0.
