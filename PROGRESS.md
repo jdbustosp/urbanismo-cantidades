@@ -1,5 +1,72 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 noche (3), v4.83.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+Cuatro observaciones del usuario sobre la sesión de prueba (fotos 1–4).
+Confirma que **el paso peatonal por tres puntos ya quedó bien**.
+
+1. ✔ **"Lo del toperol sigue sin aparecer."** Se reprodujo en Civil real
+   (andén recto de 24 × 2,4 m rotado 30°, guía y toperol en Sí) y **el toperol
+   sí se generaba**: 3.840 domos, todos dentro del contorno y todos dentro del
+   bloque empaquetado. Lo que fallaba era que **no se ve**:
+   - la franja táctil se pintaba con la **misma alternancia gris/blanca del
+     andén** — decisión antigua documentada en el propio código: *"la franja
+     queda integrada al patrón y se distingue solo por la textura"* — así que a
+     escala de plano es idéntica al resto del andén;
+   - la textura que debía distinguirla eran domos de **radio 0,008 m** (16 mm de
+     diámetro): a la escala a la que el usuario mira el plano no llegan a un
+     píxel.
+
+   Corrección: helpers puros `urb:tactile-fill-color` / `urb:tactile-symbol-color`.
+   El **TOPEROL** pasa a tono propio uniforme (gris 8) con los domos en blanco —
+   el mismo criterio del módulo paramétrico U-201, que el usuario ya da por
+   bueno —, y el domo toma su tamaño real: `*urb-toperol-radio*` = 0,0125 m
+   (25 mm). La **GUÍA** conserva su alternancia gris/blanca, que así se aprobó.
+   Se corrigieron los dos caminos (offset y segmentado) y el módulo de rampa.
+2. ✔ **"No entiendo por qué me pide remates transversales"** (modo *Dibujar
+   contorno* de RAMPA). Los remates son las dos **tapas** del contorno, y el
+   motor ya sabía encontrarlas: `urb:ramp-auto-frames` reutiliza
+   `urb:costado-tip-segments` (el mismo criterio de los costados del andén)
+   sobre el eje largo. El comando ya **no pregunta**; informa los anchos
+   detectados y solo pregunta si el contorno no permite decidirlo.
+   Se separó `urb:ramp-frame-at` (por índice de segmento) de
+   `urb:ramp-end-frame` (por punto marcado), que queda como respaldo.
+3. ✔ **"De la rampa vehicular no se ve el dibujo de la rampa"** (foto 3): el
+   remate se rellenaba en **blanco** sobre un cuerpo también claro, así que el
+   módulo quedaba como un polígono liso. Ahora el remate va en gris, el tono con
+   el que el usuario ya lee las piezas inclinadas.
+4. ✔ **"En los extremos del paso peatonal, cuando son tramos largos, que
+   aparezca esa parte de la rampa"** (foto 4, señalado en rojo). Se dibuja en
+   cada extremo la misma pieza del módulo paramétrico U-201: un **rectángulo con
+   DIAGONAL** (la cuña inclinada). En el paso peatonal es la pieza A81 de 0,30 m
+   y solo se pone si el tramo es largo (**≥ 2,00 m entre remates**, la condición
+   que puso el usuario); queda contada en `A81_UND`. En el acceso vehicular el
+   rectángulo es el propio remate de 0,60 m.
+
+Validación:
+
+- Suite completa (Core Console 2023, `verify.lsp`): **81 OK / 0 FALLOS**.
+  Autopruebas del motor **31/31** (2 nuevas sobre los tonos táctiles y el radio).
+- E2E real con ActiveX (AutoCAD 2023 + perfil C3D), **0 FALLOS**:
+  - toperol: 3.840 domos de radio 0,0125, todos blancos, sobre 55 piezas de
+    relleno **todas grises** (0 blancas) + la retícula de junta en color 9;
+  - guía: conserva 29 grises / 29 blancas;
+  - remates detectados solos en un paso de 6 × 3 m: **3,00 y 3,00 m** (las
+    tapas, no los lados de 6 m);
+  - paso peatonal por contorno: `A81_UND = 2`, con sus 2 diagonales dibujadas;
+  - acceso vehicular: 2 diagonales y remates en gris.
+- Instalado 4.83.0; hash del repo = hash del bundle instalado. La DLL de la
+  cinta no se pudo reemplazar porque Civil 3D estaba abierto — no se tocó en
+  esta entrega, así que no hace falta.
+
+**Supuesto que conviene confirmar con el usuario**: la "parte de la rampa" de la
+foto 4 se interpretó como la pieza A81 (rectángulo con diagonal) del módulo
+paramétrico. Si lo que quería era el desarrollo completo de rampa (aletas
+laterales con su superficie), es un cambio mayor y hay que precisarlo.
+
+
 ## 2026-09-08 21:37 — v4.82.0 — Codex / BOG085CD119BDQN
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Commit: entrega v4.82.0.

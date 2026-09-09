@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.82.0")
+(setq *urb-version* "4.83.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -3707,6 +3707,29 @@
           (cons 1000 (urb:safe-string role ""))))
 )
 
+;;; 2026-09-08 (reporte del usuario, tercera vez: "lo del toperol sigue sin
+;;; aparecer"). La franja SI se generaba -- medido en Civil real sobre un
+;;; anden recto rotado: 3.840 domos, todos dentro del contorno y dentro del
+;;; bloque. Lo que fallaba era que NO SE VE:
+;;;   1) la franja tactil se pintaba con la MISMA alternancia gris/blanca
+;;;      del anden ("la franja queda integrada al patron y se distingue
+;;;      solo por la textura"), asi que a escala de plano es identica al
+;;;      resto del anden;
+;;;   2) la textura que debia distinguirla eran domos de radio 0,008 m
+;;;      (16 mm de diametro): a la escala a la que el usuario mira el
+;;;      plano no llegan ni a un pixel.
+;;; La GUIA conserva el tono por banda (asi se aprobo, y su barra de 15 cm
+;;; si se lee). El TOPEROL pasa a tono propio uniforme con los domos en
+;;; blanco -- exactamente el criterio del modulo de rampa peatonal, que el
+;;; usuario ya da por bueno -- y el domo toma su tamano real (25 mm).
+(setq *urb-toperol-radio* 0.0125)
+
+(defun urb:tactile-fill-color (feature gray)
+  (if (= feature "TOPEROL") 8 (if gray 8 7)))
+
+(defun urb:tactile-symbol-color (feature gray)
+  (if (= feature "TOPEROL") 7 (if gray 7 8)))
+
 (defun urb:add-circle-symbol (u v radius angle-value layer parent-handle color / world-pt)
   ;; Punto tactil real (toperol): un circulo dibujado, no una marca de hatch
   ;; de longitud cero. Coincide visualmente con la loseta toperol real
@@ -3810,7 +3833,7 @@
       (if (= feature "GUIA")
         (setq half-length (/ (- module (* 2.0 margin)) 2.0)
               half-width 0.012)
-        (setq radius 0.008))
+        (setq radius *urb-toperol-radio*))
       (setq tile-k (fix (/ (+ phase-offset 1e-9) module)))
       (setq tile-g (* tile-k module))
       (while (< tile-g (+ phase-offset seg-len (- 1e-6)))
@@ -3818,7 +3841,8 @@
         ;; banda gris, gris sobre banda blanca) -- misma fase global que
         ;; el relleno por bandas de la franja
         (setq sym-color
-          (if (car (urb:composite-phase-state (+ tile-g (* 0.5 module)))) 7 8))
+          (urb:tactile-symbol-color feature
+            (car (urb:composite-phase-state (+ tile-g (* 0.5 module))))))
         (setq su (if (= feature "GUIA") (/ module 2.0) margin))
         (setq su-step (if (= feature "GUIA") module spacing))
         (while (<= su (+ (- module margin) 1e-6))
@@ -3899,12 +3923,12 @@
         (if band
           (progn
             (vla-put-Layer band layer)
-            (vla-put-Color band (if gray 8 7))
+            (vla-put-Color band (urb:tactile-fill-color feature gray))
             (urb:tag-generated-role band parent-handle "FILL")
             (setq fill
               (vl-catch-all-apply
                 'urb:add-solid-hatch
-                (list band layer (if gray 8 7))))
+                (list band layer (urb:tactile-fill-color feature gray))))
             (if (not (vl-catch-all-error-p fill))
               (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))
             (setq band-ok T)))
@@ -4073,7 +4097,7 @@
 )
 
 (defun urb:offset-strip-tones
-  (strip chain-poly len layer parent-handle elevation span
+  (strip chain-poly len layer parent-handle elevation span feature
    / s nxt bw gray first-band phase-state piece wedge p1 p2 a1 a2 n1 n2 count iter)
   ;; parte la franja lisa en tramos de tono gris/blanco con la MISMA fase
   ;; 0.80/1.00 del patron, cortando con cunas normales a la curva real
@@ -4109,11 +4133,11 @@
               (progn (urb:safe-delete piece) (urb:safe-delete wedge))
               (progn
                 (vla-put-Layer piece layer)
-                (vla-put-Color piece (if gray 8 7))
+                (vla-put-Color piece (urb:tactile-fill-color feature gray))
                 (urb:tag-generated-role piece parent-handle "FILL")
                 (urb:tag-generated-role
                   (vl-catch-all-apply
-                    'urb:add-solid-hatch (list piece layer (if gray 8 7)))
+                    'urb:add-solid-hatch (list piece layer (urb:tactile-fill-color feature gray)))
                   parent-handle "FEATURE_FILL")
                 (setq count (1+ count))))))))
     (setq s nxt gray (not gray) first-band nil))
@@ -4129,7 +4153,7 @@
   (setq spacing 0.05 margin 0.025)
   (if (= feature "GUIA")
     (setq half-length 0.075 half-width 0.012)
-    (setq radius 0.008))
+    (setq radius *urb-toperol-radio*))
   (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
   (setq tile-k 0 created 0)
   (while (< (setq tile-g (* tile-k module)) (- len 1e-6))
@@ -4154,9 +4178,9 @@
                     (urb:generated-xdata-fragment parent-handle "FEATURE")))))))
     ;; tono opuesto a la banda de esta tableta
     (setq sym-color
-      (if (car (urb:composite-phase-state
-                 (min (- len 1e-6) (+ tile-g (* 0.5 module)))))
-        7 8))
+      (urb:tactile-symbol-color feature
+        (car (urb:composite-phase-state
+               (min (- len 1e-6) (+ tile-g (* 0.5 module)))))))
     (setq su margin)
     (while (<= su (+ (- module margin) 1e-6))
       (setq dist (+ tile-g su))
@@ -19847,11 +19871,9 @@
       (setq cx (+ x1 (* t0 dx)) cy (+ y1 (* t0 dy)))
       (list (distance (list px py) (list cx cy))))))
 
-(defun urb:ramp-end-frame (boundary picked / cp par i p q a mid points sign probe)
-  ;; El usuario marca cada remate transversal; no inferirlo del lado mayor.
-  (setq cp (vlax-curve-getClosestPointTo boundary (trans picked 1 0))
-        par (vlax-curve-getParamAtPoint boundary cp) i (fix par)
-        p (vlax-curve-getPointAtParam boundary i)
+(defun urb:ramp-frame-at (boundary i / p q a mid points sign probe)
+  ;; Marco de un remate a partir del INDICE de su segmento en el contorno.
+  (setq p (vlax-curve-getPointAtParam boundary i)
         q (vlax-curve-getPointAtParam boundary (1+ i)))
   (if (and p q (> (distance p q) 0.01))
     (progn
@@ -19860,6 +19882,36 @@
             probe (polar mid (+ a (/ pi 2.0)) 0.01)
             sign (if (urb:point-in-poly-2d probe points) 1.0 -1.0))
       (list p a sign (distance p q) i))))
+
+(defun urb:ramp-end-frame (boundary picked / cp par)
+  ;; Marco del remate mas cercano a un punto marcado por el usuario.
+  ;; Se conserva como respaldo: el flujo normal ya no pregunta.
+  (setq cp (vlax-curve-getClosestPointTo boundary (trans picked 1 0))
+        par (vlax-curve-getParamAtPoint boundary cp))
+  (urb:ramp-frame-at boundary (fix par)))
+
+;; 2026-09-08 (reporte del usuario: "no entiendo porque me pide remates
+;; transversales"): los dos remates son las TAPAS del contorno, o sea los
+;; dos segmentos que quedan en los extremos del eje largo. Es el mismo
+;; problema que ya resuelve urb:costado-tip-segments para los costados del
+;; anden, asi que se reutiliza tal cual y el comando deja de preguntar.
+;; Devuelve (f1 f2) o nil si el contorno no permite decidirlo solo (ahi si
+;; se le pregunta al usuario, como antes).
+(defun urb:ramp-auto-frames (boundary / pts tips f1 f2)
+  (setq pts (urb:lwpoly-points boundary))
+  (if (< (length pts) 4)
+    nil
+    (progn
+      (setq tips
+        (vl-catch-all-apply 'urb:costado-tip-segments
+          (list pts (urb:anden-axis-angle pts))))
+      (if (or (vl-catch-all-error-p tips) (null tips))
+        nil
+        (progn
+          (setq f1 (urb:ramp-frame-at boundary (car tips))
+                f2 (urb:ramp-frame-at boundary (cadr tips)))
+          (if (and f1 f2 (/= (nth 4 f1) (nth 4 f2))) (list f1 f2)))))))
+
 
 (defun urb:ramp-terminal-region (region frame depth / en cutter piece result)
   (setq en (urb:ramp-quad-poly (car frame) (cadr frame) (caddr frame)
@@ -19875,7 +19927,8 @@
 (defun urb:build-contour-ramp
   (source frames tipo etapa sub material / doc copy region body terminals frame term
    objects hatch area total-area edge-length attrs name definition result ref obj
-   depth origin axis boundary-en elevation)
+   depth origin axis boundary-en elevation wedge-depth wedge-layer wedge-en
+   a81-count)
   ;; Nuevo modulo 2D: contorno exacto (incluye arcos), remates elegidos,
   ;; paso adoquinado/liso o acceso vehicular liso. No inventa pendientes 3D.
   (setq doc (urb:doc) objects nil terminals nil edge-length 0.0)
@@ -19899,10 +19952,14 @@
       (urb:safe-delete region) (urb:safe-delete body)
       (vl-exit-with-error "Los remates cubren todo el modulo; marque extremos separados.")))
   (setq area (if (= tipo "RAMPA-VEHICULAR") total-area (vla-get-Area body)))
+  ;; 2026-09-08 (reporte del usuario: "de la rampa vehicular tampoco se ve
+  ;; el dibujo de la rampa"): el remate se rellenaba en BLANCO sobre un
+  ;; cuerpo tambien claro, asi que el modulo quedaba como un poligono liso.
+  ;; Ahora el remate va en gris, que es el tono con el que el usuario ya
+  ;; lee las piezas inclinadas del modulo parametrico.
   (foreach term terminals
     (vla-put-Layer term "URB-RAMPA-REMATE")
-    (setq hatch (urb:add-solid-hatch term "URB-RAMPA-REMATE"
-                  (if (= tipo "RAMPA-VEHICULAR") 7 9))
+    (setq hatch (urb:add-solid-hatch term "URB-RAMPA-REMATE" 8)
           objects (append objects (list term hatch))))
   (vla-put-Layer body "URB-RAMPA")
   (setq hatch (urb:add-solid-hatch body "URB-RAMPA"
@@ -19913,12 +19970,48 @@
       (setq objects (append objects (list
         (urb:add-user-hatch body "URB-RAMPA" 0.10 axis nil 8 origin)
         (urb:add-user-hatch body "URB-RAMPA" 0.20 (+ axis (/ pi 2.0)) nil 8 origin))))))
-  ;; Acceso vehicular: remates inclinados delimitados en los dos extremos.
-  (if (= tipo "RAMPA-VEHICULAR")
-    (foreach frame frames
-      (setq boundary-en (urb:ramp-line (car frame) (cadr frame) (caddr frame)
-                         0.0 0.0 (nth 3 frame) depth "URB-RAMPA-REMATE" 8))
-      (setq objects (append objects (list (urb:as-vla-object boundary-en))))))
+  ;; 2026-09-08 (pedido del usuario, foto 4: "en los extremos del paso
+  ;; peatonal, cuando son tramos largos, me aparezca esa parte de la
+  ;; rampa"). Se dibuja en cada extremo la misma pieza que ya lleva el
+  ;; modulo parametrico U-201 y que el usuario da por buena: un rectangulo
+  ;; CON DIAGONAL (la cuna inclinada). En el acceso vehicular el
+  ;; rectangulo es el propio remate de 0.60 m; en el paso peatonal es la
+  ;; pieza A81 de 0.30 m, y solo se pone si el tramo es LARGO (>= 2.00 m
+  ;; entre remates), que es la condicion que puso el usuario.
+  (setq wedge-depth
+    (cond
+      ((= tipo "RAMPA-VEHICULAR") depth)
+      ((and (= (length frames) 2)
+            (>= (distance (car (car frames)) (car (cadr frames))) 2.0))
+        0.30)
+      (T nil)))
+  (setq a81-count 0)
+  (if wedge-depth
+    (progn
+      (if (/= tipo "RAMPA-VEHICULAR") (urb:ensure-layer "URB-RAMPA-A81" 8 T))
+      (setq wedge-layer
+        (if (= tipo "RAMPA-VEHICULAR") "URB-RAMPA-REMATE" "URB-RAMPA-A81"))
+      (foreach frame frames
+        ;; contorno de la cuna (solo en el paso: en el vehicular el remate
+        ;; ya esta dibujado como region)
+        (if (/= tipo "RAMPA-VEHICULAR")
+          (progn
+            (setq wedge-en
+              (urb:ramp-quad-poly (car frame) (cadr frame) (caddr frame)
+                0.0 0.0 (nth 3 frame) wedge-depth wedge-layer))
+            (setq obj (urb:as-vla-object wedge-en))
+            (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
+                          (list obj wedge-layer 8)))
+            (setq objects (append objects (list obj)))
+            (if (not (vl-catch-all-error-p hatch))
+              (setq objects (append objects (list hatch))))
+            (setq a81-count (1+ a81-count))))
+        ;; la DIAGONAL: es lo que hace que se lea como rampa y no como un
+        ;; poligono liso
+        (setq boundary-en
+          (urb:ramp-line (car frame) (cadr frame) (caddr frame)
+            0.0 0.0 (nth 3 frame) wedge-depth wedge-layer 8))
+        (setq objects (append objects (list (urb:as-vla-object boundary-en)))))))
   (urb:safe-delete region)
   (setq name (strcat "URB_RAMPA_" (vla-get-Handle copy))
         definition (vla-Add (vla-get-Blocks doc) (vlax-3d-point '(0 0 0)) name)
@@ -19930,7 +20023,7 @@
   (setq attrs (list (cons "TIPO" tipo) (cons "ETAPA" etapa) (cons "SUBETAPA" sub)
     (cons "ANCHO_RAMPA" (rtos (/ edge-length 2.0) 2 3))
     (cons "FONDO_M" "0") (cons "AREA_M2" (rtos area 2 6))
-    (cons "TOPEROL_ML" "0") (cons "A81_UND" "0")
+    (cons "TOPEROL_ML" "0") (cons "A81_UND" (itoa a81-count))
     (cons "BORDILLO_ML" (if (= tipo "PASO-PEATONAL") (rtos edge-length 2 6) "0"))
     (cons "MATERIAL" material)))
   (foreach obj attrs (urb:add-invisible-attribute definition origin (car obj) (car obj) (cdr obj)))
@@ -19954,7 +20047,7 @@
 
 (defun urb:create-contour-ramp-command
   (selection / *error* doc source p1 p2 p3 f1 f2 material result undo-open
-   mode previous oldwidth spec axis sign width depth endp)
+   mode previous oldwidth spec axis sign width depth endp autof)
   (setq doc (urb:doc))
   (defun *error* (msg)
     (if oldwidth (setvar "PLINEWID" oldwidth))
@@ -19998,13 +20091,29 @@
   (if (and source (= (cdr (assoc 0 (entget source))) "LWPOLYLINE")
            (= 1 (logand 1 (cdr (assoc 70 (entget source))))))
     (progn
+      ;; 2026-09-08 (reporte del usuario: "no entiendo porque me pide
+      ;; remates transversales"): los remates son las dos TAPAS del
+      ;; contorno -- los segmentos de los extremos del eje largo -- y el
+      ;; programa ya sabe encontrarlas solo (urb:ramp-auto-frames, el
+      ;; mismo criterio que usan los costados del anden). Solo se
+      ;; pregunta si el contorno no permite decidirlo.
       (if (= mode "Dibujar")
         (progn
-          (setq p1 (getpoint "\nMarque el PRIMER remate transversal del contorno: "))
-          (if p1 (setq p2 (getpoint "\nMarque el SEGUNDO remate transversal: ")))))
-      (if (and p1 p2)
+          (setq autof (urb:ramp-auto-frames source))
+          (if autof
+            (progn
+              (setq f1 (car autof) f2 (cadr autof))
+              (prompt
+                (strcat "\nRemates transversales detectados solos: "
+                  (rtos (nth 3 f1) 2 2) " m y " (rtos (nth 3 f2) 2 2) " m.")))
+            (progn
+              (prompt "\nNo se pudieron identificar las dos tapas del contorno.")
+              (setq p1 (getpoint "\nMarque el PRIMER remate transversal del contorno: "))
+              (if p1 (setq p2 (getpoint "\nMarque el SEGUNDO remate transversal: ")))))))
+      (if (and (null f1) p1 p2)
+        (setq f1 (urb:ramp-end-frame source p1) f2 (urb:ramp-end-frame source p2)))
+      (if (and f1 f2)
         (progn
-          (setq f1 (urb:ramp-end-frame source p1) f2 (urb:ramp-end-frame source p2))
           (if (and f1 f2 (/= (nth 4 f1) (nth 4 f2)))
             (progn
               (setq material "Concreto")
@@ -20285,7 +20394,7 @@
       (while (<= lv (- depth 0.025))
         (setq uvh (urb:ramp-frame-uv base-pt axis-angle side-sign lu lv))
         (setq ent
-          (urb:add-circle-symbol (car uvh) (cadr uvh) 0.008 axis-angle
+          (urb:add-circle-symbol (car uvh) (cadr uvh) *urb-toperol-radio* axis-angle
             "URB-ANDEN-LOSETA-TOPEROL-20X20" "" 7))
         (setq objects (cons (vlax-ename->vla-object ent) objects))
         (setq lv (+ lv 0.05)))
@@ -31043,6 +31152,22 @@
                     (urb:loop-signed-area rev) 1e-9)))
         (urb:loop-reverse
           '(((0.0 0.0) . 0.0) ((4.0 0.0) . 1.0) ((4.0 3.0) . 0.0)))))
+    ;; 2026-09-08: el toperol SI se generaba (3.840 domos medidos en Civil
+    ;; real) pero se pintaba con la misma alternancia gris/blanca del
+    ;; anden, asi que era indistinguible. La franja de TOPEROL pasa a tono
+    ;; propio; la GUIA conserva el tono por banda.
+    (list "La franja de toperol tiene tono propio y la guia no"
+      (and (= 8 (urb:tactile-fill-color "TOPEROL" T))
+           (= 8 (urb:tactile-fill-color "TOPEROL" nil))
+           (= 8 (urb:tactile-fill-color "GUIA" T))
+           (= 7 (urb:tactile-fill-color "GUIA" nil))
+           ;; el simbolo siempre contrasta con su fondo
+           (= 7 (urb:tactile-symbol-color "TOPEROL" T))
+           (= 7 (urb:tactile-symbol-color "TOPEROL" nil))
+           (= 7 (urb:tactile-symbol-color "GUIA" T))
+           (= 8 (urb:tactile-symbol-color "GUIA" nil))))
+    (list "El domo de toperol tiene su tamano real"
+      (equal 0.0125 *urb-toperol-radio* 1e-9))
     (list "Caja CS276 recorta un metro por extremo"
       (equal 1.0 (mp:point-base-gap "CAMARA_CS276") 1e-9))
     (list "Pozo humedo recorta hasta radio real"

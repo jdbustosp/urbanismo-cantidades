@@ -53,7 +53,7 @@
     (vt:check "BASELINE reproduce cantidad negativa aprobada" (= (nth 9 old-rec) "OK"))
     (load (strcat (getenv "URB_TEST_LAB") "/current.lsp"))
     (vt:bridge)
-    (vt:check "LOAD motor 4.82.0" (= *urb-version* "4.82.0"))
+    (vt:check "LOAD motor 4.83.0" (= *urb-version* "4.83.0"))
     (setq en (vt:fixture))
     (vt:check "Parche cambia un atributo" (= 1 (mp:setatts en '(("ID" . "B")))))
     (vt:check "Parche preserva campo oculto" (= "123" (cdr (assoc "KEEP" (mp:read-cant-data en)))))
@@ -164,7 +164,7 @@
     (vt:check "Dialogo vacio cierra sin error" (not (vl-catch-all-error-p result)))
     (setq vt-alerts nil)
     (urb:version-info-command)
-    (vt:check "Version muestra autopruebas" (vl-string-search "29/29" (car vt-alerts)))
+    (vt:check "Version muestra autopruebas" (vl-string-search "31/31" (car vt-alerts)))
     (vt:check "Fase blanca 1.0 deja 0.8m (4.80 devolvia 1.6)"
       (equal (cdr (urb:composite-phase-state 1.0)) 0.8 1e-8))
     (vt:check "Fase blanca 1.7 deja 0.1m"
