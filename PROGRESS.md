@@ -1,5 +1,44 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-08 noche (5), v4.85.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+El usuario confirmó lo que quedaba abierto en v4.84.0: **la rampa vehicular
+también con aletas**.
+
+- El desarrollo de rampa (`urb:ramp-end-objects`) ya no depende del tipo: lo
+  llevan **los dos** — paso peatonal y acceso vehicular — siempre que el módulo
+  dé la medida (`urb:ramp-ends-fit-p`). Si no da, se conserva el remate simple
+  de v4.83.
+- **Se avisa en la línea de comandos en los dos casos**: cuando entra el
+  desarrollo (con las medidas de aleta y rampa) y cuando no entra (diciendo qué
+  medidas hacen falta). Antes caía al remate simple en silencio, que es
+  justamente cómo se acumularon los reportes de esta jornada.
+- **Área**: con desarrollo, el criterio es el mismo para los dos tipos — cuerpo
+  + las dos bandas centrales de rampa; las aletas se cobran por ML/UND, como en
+  el módulo paramétrico. Sin desarrollo, el acceso vehicular conserva su área
+  total de siempre. `BORDILLO_ML` del acceso vehicular ahora suma los bordillos
+  del desarrollo (antes siempre "0").
+
+Validación: suite **82 OK / 0 FALLOS**, autopruebas **32/32**. E2E real con
+ActiveX **0 FALLOS**, con los tres casos:
+
+| caso | resultado |
+|---|---|
+| paso peatonal 6 × 3 m | `AREA_M2 13,680` · `A81_UND 4` · `TOPEROL_ML 5,200` · `BORDILLO_ML 16,000` · 4 diagonales · 400 domos · 12 bordillos |
+| acceso vehicular 6 × 4 m | `AREA_M2 19,280` · `A81_UND 4` · `TOPEROL_ML 5,200` · `BORDILLO_ML 12,000` · 4 diagonales · 400 domos · 12 bordillos |
+| acceso vehicular 3,0 × 2,5 m | sin desarrollo: `AREA_M2 7,500` (área total de siempre) · `A81_UND 0` · remate simple |
+
+Instalado 4.85.0, hash repo = instalado.
+
+**Aprendizaje del caso corto** (falso fallo del primer intento, no del motor):
+las tapas se eligen sobre el **eje largo**, así que un módulo de 2,5 × 4 m tiene
+4,00 m de largo y **sí** admite los dos desarrollos — el "corto" de verdad es el
+que tiene su lado LARGO por debajo de 3,50 m. El umbral deja como mínimo 0,50 m
+de cuerpo entre los dos desarrollos.
+
+
 ## Estado guardado — 2026-09-08 noche (4), v4.84.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

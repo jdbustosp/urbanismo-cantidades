@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.84.0")
+(setq *urb-version* "4.85.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20081,11 +20081,27 @@
   (setq region (urb:add-region-from-object copy) body (vla-Copy region)
         total-area (vla-get-Area region) objects (list copy)
         axis (cadr (car frames)) origin (car (car frames))
-        depth (cond ((= tipo "RAMPA-VEHICULAR") 0.60)
-                    ((and (= tipo "PASO-PEATONAL") (urb:ramp-ends-fit-p frames))
+        ;; 2026-09-08 (pedido del usuario, confirmado en dos pasos: primero
+        ;; el paso peatonal y despues "la rampa vehicular tambien con
+        ;; aletas"): los DOS tipos llevan el desarrollo completo de rampa
+        ;; en sus extremos siempre que el modulo de la medida. Si no da la
+        ;; medida se conserva el remate simple, y se dice por que -- antes
+        ;; se caia al remate simple en silencio.
+        depth (cond ((urb:ramp-ends-fit-p frames)
                       (setq ramp-ends T)
                       (+ *urb-rampa-desarrollo* *urb-rampa-cierre*))
+                    ((= tipo "RAMPA-VEHICULAR") 0.60)
                     (T 0.20)))
+  (if ramp-ends
+    (prompt
+      (strcat "\nDesarrollo de rampa en los dos extremos: aletas de "
+        (rtos *urb-rampa-aleta* 2 2) " m y "
+        (rtos *urb-rampa-desarrollo* 2 2) " m de rampa."))
+    (prompt
+      (strcat "\nSin desarrollo de rampa: hacen falta tapas de "
+        (rtos (urb:ramp-end-min-width) 2 2) " m o mas y "
+        (rtos (urb:ramp-end-min-length) 2 2)
+        " m entre ellas. Se dibuja el remate simple.")))
   (foreach frame frames
     (setq term (urb:ramp-terminal-region region frame depth))
     (if (null term) (progn (foreach obj objects (urb:safe-delete obj))
@@ -20097,7 +20113,14 @@
     (progn (foreach obj (append objects terminals) (urb:safe-delete obj))
       (urb:safe-delete region) (urb:safe-delete body)
       (vl-exit-with-error "Los remates cubren todo el modulo; marque extremos separados.")))
-  (setq area (if (= tipo "RAMPA-VEHICULAR") total-area (vla-get-Area body)))
+  ;; Con desarrollo de rampa el area util se arma igual en los dos tipos:
+  ;; cuerpo + las dos bandas centrales (extra-area, sumada mas abajo). Las
+  ;; aletas se cobran por ML/UND, como en el modulo parametrico. Sin
+  ;; desarrollo, el acceso vehicular conserva su area total de siempre.
+  (setq area
+    (if (and (= tipo "RAMPA-VEHICULAR") (not ramp-ends))
+      total-area
+      (vla-get-Area body)))
   ;; 2026-09-08 (reporte del usuario: "de la rampa vehicular tampoco se ve
   ;; el dibujo de la rampa"): el remate se rellenaba en BLANCO sobre un
   ;; cuerpo tambien claro, asi que el modulo quedaba como un poligono liso.
@@ -20191,7 +20214,9 @@
     (cons "FONDO_M" "0") (cons "AREA_M2" (rtos (+ area extra-area) 2 6))
     (cons "TOPEROL_ML" (rtos extra-top 2 3)) (cons "A81_UND" (itoa a81-count))
     (cons "BORDILLO_ML"
-      (if (= tipo "PASO-PEATONAL") (rtos (+ edge-length extra-bor) 2 6) "0"))
+      (if (= tipo "PASO-PEATONAL")
+        (rtos (+ edge-length extra-bor) 2 6)
+        (rtos extra-bor 2 6)))
     (cons "MATERIAL" material)))
   (foreach obj attrs (urb:add-invisible-attribute definition origin (car obj) (car obj) (cdr obj)))
   (setq ref (vla-InsertBlock (urb:space) (vlax-3d-point (list 0.0 0.0 elevation)) name 1.0 1.0 1.0 0.0))
