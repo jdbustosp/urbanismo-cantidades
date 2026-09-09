@@ -3,7 +3,7 @@
 ## Estado guardado — 2026-09-08 20:00, v4.79.0 (Codex, BOG085CD119BDQN)
 
 Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
-Commit: ver `git log` (mensaje `v4.79.0: costados longitudinales y recorte post-contenedor`).
+Commit: `d42e788` (se conservará como prefijo tras el amend documental).
 
 Atendidas las dos precisiones nuevas del usuario sobre andenes y contenedores
 de raíces:
