@@ -1,0 +1,3 @@
+(setenv "URB_TEST_LAB" "C:/Users/juanbusper/Documents/URBANISMO/work/codex4800")
+(load (strcat (getenv "URB_REPO") "/diagnosticos/anden4800/focal.lsp"))
+(command "_.QUIT" "_Y")

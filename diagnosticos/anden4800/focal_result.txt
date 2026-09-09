@@ -1,0 +1,11 @@
+OK version instalada 4.80.0
+OK ANDEN registrado
+OK recorte prefabricado registrado
+OK interior valido
+OK hueco excluido
+OK exterior excluido
+OK bucle invertido conserva hueco
+OK costado tangente se divide en dos
+OK 6m menos contenedor 2.2m = 3.8m
+OK costado totalmente tapado devuelve vacio
+DONE 10 OK / 0 FALLOS

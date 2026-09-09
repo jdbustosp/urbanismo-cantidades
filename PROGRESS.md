@@ -1,5 +1,35 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-08 20:50 — v4.80.0 — Codex / BOG085CD119BDQN
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit: ver entrega v4.80.0.
+Distorsion tactil y contenedor que no recorta acabado/prefabricado:
+
+- Simbolos usan bucles encadenados de REGION y paridad para huecos; ya no
+  tratan las aristas desordenadas de Explode como un poligono ni aceptan
+  la envolvente rectangular como superficie valida.
+- Cerca de contenedores, guia/toperol conservan eje recto y se recortan con
+  la region neta; no siguen el entrante. Huellas se llevan a la cota de la
+  region antes de Boolean. Deteccion de anden existente usa geometria WCS.
+- Insertar contenedor corta referencias rectas de prefabricados existentes,
+  conserva metadatos/enlaces y solo elimina el original al crear sustitutos.
+  Una cadena completamente tapada no vuelve a dibujarse por fallback.
+- No descartar islas cuando el recorte produce varios bucles.
+
+Verificado: regresion Core Console 71 OK/0; focal contra motor instalado
+10 OK/0 (18.2 s), incluidos ANDEN registrado y costado 6-2.2=3.8m en dos
+partes. SHA256 repo=instalado:
+637274EEBA3A7D5AE0F128631FF11B1420119A33A989AEEAABA373C87019C76F.
+Civil 3D 2023 real: un intento Hidden, PID 9712, cerrado a 90.5 s sin resultado.
+No afirmar validacion geometrica ActiveX ni visual. Harness reproducible en
+diagnosticos/anden4800; originales DWG/Excel no modificados.
+
+Limites: prefabricados curvos se conservan con aviso; el recorte de prefab
+recto exige que la huella intercepte su referencia (no resuelve intrusion
+parcial que solo toque su ancho). Bloques viejos no se reparan al instalar:
+probar recreacion/edicion tras reiniciar Civil 3D. Verificacion visual pendiente.
+Protocolo agil reforzado en TESTING_CIVIL3D.md por peticion del usuario.
+
 ## Corrección inmediata — 2026-09-08 20:20, v4.79.1 (Codex, BOG085CD119BDQN)
 
 Agente: **Codex**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

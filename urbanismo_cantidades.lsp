@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.79.1")
+(setq *urb-version* "4.80.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -3763,7 +3763,7 @@
   (region feature angle-value layer phase-offset parent-handle module
    / points bounds umin umax vmin vmax spacing margin v count
    radius half-length half-width global-u local-u seg-len sym-ename
-   tile-k tile-g su su-step sym-color wc w1 w2 ok)
+   tile-k tile-g su su-step sym-color wc w1 w2 ok loops)
   ;; Reparte simbolos tactiles reales (circulos o capsulas) en una reticula
   ;; de 5 cm sobre el area ya recortada de la franja, en vez de depender de
   ;; un patron .pat (que solo puede construirse con familias de lineas
@@ -3782,8 +3782,8 @@
   ;; objeto) porque a escala de miles/decenas de miles de simbolos por
   ;; franja resulto demasiado lento (minutos extra).
   (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
-  (setq points (urb:region-outline-points region))
-  (if (null points) (setq points (urb:object-box-points region)))
+  (setq loops (urb:region-polygons region)
+        points (apply 'append loops))
   (if points
     (progn
       (setq bounds (urb:project-bounds points angle-value)
@@ -3838,15 +3838,15 @@
                 ;; guia ademas con sus dos extremos, para no dejar barras
                 ;; colgando del borde).
                 (setq wc (urb:local-to-world local-u v angle-value))
-                (setq ok (urb:point-in-poly-p wc points))
+                (setq ok (urb:point-in-region-polygons-p wc loops))
                 (if (and ok (= feature "GUIA"))
                   (progn
                     (setq w1 (urb:local-to-world
                                (- local-u half-length) v angle-value))
                     (setq w2 (urb:local-to-world
                                (+ local-u half-length) v angle-value))
-                    (setq ok (and (urb:point-in-poly-p w1 points)
-                                  (urb:point-in-poly-p w2 points)))))
+                    (setq ok (and (urb:point-in-region-polygons-p w1 loops)
+                                  (urb:point-in-region-polygons-p w2 loops)))))
                 (if ok
                   (progn
                     (setq sym-ename
@@ -4493,6 +4493,9 @@
           ;; la franja tactil sigue la cadena del lado de la VIA (click
           ;; del usuario), no el lado mas largo del contorno
           (setq driving-chain (urb:anden-tactile-chain points))
+          ;; El entrante de un contenedor solo recorta: no cambia el rumbo
+          ;; de la guia/toperol ni genera cunas a inglete alrededor del hueco.
+          (if (urb:anden-near-root-container-p ename) (setq driving-chain nil))
           (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
             (progn
               ;; metodo principal: franja como OFFSET de la curva real
@@ -5126,7 +5129,34 @@
 
 ;; bucles cerrados de una REGION ya construida. nil si aparece una curva
 ;; que no sabemos volcar a polilinea.
-(defun urb:region-loops (region / exploded items segs seg falla)
+(defun urb:region-polygons (region / loops loop chain poly out)
+  ;; Reencadenar aristas antes de ray casting. VLA-Explode no garantiza
+  ;; orden ni orientacion; cada bucle se muestrea por separado (agujeros).
+  (setq loops (urb:region-loops region))
+  (foreach loop loops
+    (setq chain (mapcar '(lambda (v) (list (caar v) (cadar v) (cdr v))) loop))
+    (setq poly (urb:poly-chain-polyline (append chain (list (car chain)))))
+    (if poly
+      (progn
+        (setq out (cons (urb:lwpoly-points-with-arcs-fine poly) out))
+        (entdel poly))))
+  out)
+
+(defun urb:point-in-region-polygons-p (point loops / inside loop)
+  ;; Paridad: dentro de contorno exterior pero fuera de todos sus huecos.
+  (foreach loop loops
+    (if (urb:point-in-poly-2d point loop) (setq inside (not inside))))
+  inside)
+
+(defun urb:region-align-elevation (cutter base / a b za zb)
+  (setq a (urb:object-box-points cutter) b (urb:object-box-points base)
+        za (if a (caddr (car a)) 0.0) zb (if b (caddr (car b)) 0.0))
+  (if (not (equal za zb 1e-8))
+    (vla-Move cutter (vlax-3d-point (list 0.0 0.0 za))
+                     (vlax-3d-point (list 0.0 0.0 zb))))
+  cutter)
+
+(defun urb:region-loops (region / exploded items segs seg falla o)
   (setq exploded (vl-catch-all-apply 'vla-Explode (list region)))
   (if (vl-catch-all-error-p exploded)
     nil
@@ -5168,7 +5198,10 @@
           (foreach l loops
             (setq a (abs (urb:loop-signed-area l)))
             (if (> a best-a) (setq best l best-a a)))
-          (if (or (null best) (< (length best) 3) (< best-a 1e-6))
+          ;; Una polilinea no representa islas separadas ni agujeros. Nunca
+          ;; descartar una isla por escoger solo el bucle mayor.
+          (if (or (null best) (< (length best) 3) (< best-a 1e-6)
+                  (> (length loops) 1))
             nil
             (progn
               (if (< (urb:loop-signed-area best) 0.0)
@@ -6811,6 +6844,9 @@
         (setq cutter (urb:block-footprint-region obj))
         (if cutter
           (progn
+            ;; El acabado se construye en Z=0; la huella puede venir de
+            ;; Civil con una cota topografica. Boolean exige coplanaridad.
+            (urb:region-align-elevation cutter base-region)
             (setq old-area (vl-catch-all-apply 'vla-get-Area (list base-region))
                   candidate (vl-catch-all-apply 'vla-Copy (list base-region)))
             (if (and (numberp old-area)
@@ -24555,14 +24591,26 @@
           (setq i (1+ i))))))
   (reverse out))
 
-(defun urb:container-overlaps-anden-p (container anden / co ao footprint boundary)
+(defun urb:container-overlaps-anden-p (container anden / co ao boundary region cutter res area)
   (setq co (urb:as-vla-object container)
         ao (urb:as-vla-object anden))
-  (and co ao
-       (urb:objects-bbox-overlap-p co ao 0.02)
-       (setq footprint (urb:contenedor-corners container))
-       (setq boundary (urb:anden-boundary-samples anden))
-       (urb:polygons-overlap-2d-p footprint boundary)))
+  (if (and co ao (urb:objects-bbox-overlap-p co ao 0.02)
+           (setq boundary (urb:explode-anden-block-boundary anden)))
+    (progn
+      ;; Explode respeta traslacion/rotacion del INSERT; leer la definicion
+      ;; directamente comparaba coordenadas locales con puntos del mundo.
+      (setq region (urb:add-region-from-object (urb:as-vla-object boundary))
+            cutter (urb:block-footprint-region co))
+      (if (and region cutter)
+        (progn
+          (urb:region-align-elevation cutter region)
+          (setq res (vl-catch-all-apply 'vla-Boolean (list region 1 cutter)))
+          (if (not (vl-catch-all-error-p res))
+            (setq area (vl-catch-all-apply 'vla-get-Area (list region))))))
+      (if region (urb:safe-delete region))
+      (if cutter (urb:safe-delete cutter))
+      (urb:cleanup-working-boundary boundary)))
+  (and (numberp area) (> area 1e-8)))
 
 ;; Reconstruccion transaccional de un anden ya empaquetado. Solo se borra
 ;; el original cuando el bloque nuevo quedo completo. El movimiento de
@@ -24614,8 +24662,71 @@
 ;; Devuelve (actualizados movimiento-pendiente fallidos). El filtro
 ;; geometrico evita tocar andenes cuya caja envolvente coincide pero cuya
 ;; superficie no es atravesada por el contenedor.
+(defun urb:recut-prefab-for-container
+  (en container / data ext ref side pts item parts oldlen newlen piece built
+   refs good link elevation result pwidth)
+  (setq data (urb:prefab-data en)
+        ext (urb:extract-prefab-reference en (nth 0 data) (nth 5 data)))
+  (if ext
+    (progn
+      (setq ref (car ext) side (cadr ext)
+            elevation (cdr (assoc 38 (entget ref)))
+            pwidth (atof (nth 3 data))
+            link (urb:get-xdata-strings en "URB_PREFAB_ANILLO"))
+      (if (urb:lwpoly-has-arcs-p ref)
+        (prompt "\nPrefabricado curvo: recorte por contenedor pendiente; se conserva el original.")
+        (progn
+          (foreach item (entget ref)
+            (if (= (car item) 10)
+              (setq pts (cons (list (cadr item) (caddr item) 0.0) pts))))
+          (setq pts (reverse pts)
+                parts (urb:chain-split-por-poligonos pts
+                        (list (urb:contenedor-corners container)))
+                oldlen (urb:poly-chain-length pts) newlen 0.0)
+          (foreach piece parts (setq newlen (+ newlen (urb:poly-chain-length piece))))
+          (if (< newlen (- oldlen 1e-6))
+            (progn
+              (setq good T)
+              (foreach piece parts
+                (setq built (urb:poly-chain-polyline piece))
+                (if elevation (vla-put-Elevation (urb:as-vla-object built) elevation))
+                (setq built (vl-catch-all-apply 'urb:build-prefab-from-reference
+                  (list built side (nth 0 data) pwidth (nth 1 data) (nth 2 data)
+                    (nth 5 data) (urb:safe-string (nth 7 data) "Anden"))))
+                (if (or (null built) (vl-catch-all-error-p built))
+                  (setq good nil)
+                  (progn
+                    (setq refs (cons built refs))
+                    (urb:copy-quantity-scope en built)
+                    (if link (urb:set-xdata-strings (urb:as-ename built)
+                      "URB_PREFAB_ANILLO" link)))))
+              (if (and good (urb:safe-delete (urb:as-vla-object en)))
+                (setq result T)
+                (foreach built refs (urb:safe-delete built)))))))
+      (if (entget ref) (entdel ref))))
+  result)
+
+(defun urb:recut-prefabs-for-container (container / ss i en result count)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_PREFAB_BLOCK")))) i 0 count 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq en (ssname ss i) i (1+ i))
+      (if (urb:objects-bbox-overlap-p (urb:as-vla-object en)
+                                    (urb:as-vla-object container) 0.02)
+        (progn
+          (setq result (vl-catch-all-apply 'urb:recut-prefab-for-container
+                         (list en container)))
+          (cond
+            ((vl-catch-all-error-p result)
+              (prompt (strcat "\nNo se recorto prefabricado: "
+                (vl-catch-all-error-message result))))
+            (result (setq count (1+ count))))))))
+  (if (> count 0) (prompt (strcat "\nPrefabricados recortados: " (itoa count))))
+  count)
+
 (defun urb:recut-andenes-for-container (container / en result updated pending failed)
   (setq updated 0 pending 0 failed 0)
+  (urb:recut-prefabs-for-container container)
   (foreach en (urb:all-anden-blocks)
     (if (urb:container-overlaps-anden-p container en)
       (progn
@@ -24708,7 +24819,7 @@
   (setq tramos
     (vl-catch-all-apply
       '(lambda () (urb:chain-split-por-poligonos pts (urb:contenedor-polys)))))
-  (if (or (vl-catch-all-error-p tramos) (null tramos))
+  (if (vl-catch-all-error-p tramos)
     (setq tramos (list pts)))
   (setq total 0.0 refs nil ancho (urb:prefab-default-ancho tipo))
   (foreach pts tramos

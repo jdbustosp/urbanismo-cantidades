@@ -168,6 +168,33 @@ resumen y no volver a copiar logs completos ya documentados.
 
 ## 4. Lanzar y esperar el resultado
 
+### Ajuste operativo 2026-09-08 20:50 — Codex / BOG085CD119BDQN
+
+El usuario vuelve a pedir menos demora y consumo. Aplicar piramide de pruebas
+por riesgo (referencia: https://martinfowler.com/articles/practical-test-pyramid.html),
+no mas rondas generales por cada observacion:
+
+- Definir primero 1–3 invariantes del caso reportado (ej.: simbolos fuera=0,
+  area neta=area bruta menos huella, longitud restante=original menos corte).
+- Un solo lote Core Console con carga final, pruebas focales y regresion.
+  Reutilizar evidencia solo si motor, prueba y dependencias tienen mismo hash.
+- Reservar Civil real para booleanos/COM; un intento de 90 s en fixture.
+  Si no ejecuta, cerrar solo el PID propio y reportar pendiente. No encadenar
+  reintentos ni ampliar alcance con mejoras no pedidas.
+- Fijar URB_TEST_LAB dentro del SCR: getenv puede devolver un valor persistido
+  por AutoCAD, distinto al entorno heredado. Esto evita buscar resultados
+  en otra carpeta o repetir una prueba ya terminada.
+- Presupuesto de trabajo: diagnostico focal 2 min, cambio 5 min, validacion
+  y entrega 3 min; geometria excepcional hasta 15 min TOTAL. Si se supera,
+  entregar avance y bloqueo concreto, sin afirmar que esta validado.
+- Informar cambios relevantes al menos cada 60 s. Leer solo diff/rangos
+  pertinentes y devolver resumen de asserts, no logs enteros. Registrar
+  tiempo de prueba por separado del tiempo total; no prometer ahorro medido
+  de tokens sin datos de consumo.
+
+Estos limites sustituyen las esperas de 3–4 minutos de los ejemplos historicos
+que siguen. Nunca sacrificar los asserts especificos del fallo para cumplirlos.
+
 **ADVERTENCIA (2026-08-11): lanzar SIEMPRE desde PowerShell, jamás desde Git Bash.** Bash/MSYS convierte el argumento `/b` en una ruta (`C:/Program Files/Git/b`); AutoCAD lo toma como un dibujo a abrir, muestra un diálogo modal "Cannot find the specified drawing file" (que Claude no puede ver ni cerrar) y la instancia queda eterna en la pantalla [Start]. Este fue el verdadero origen de los "cuelgues" del 2026-08-04 y 2026-08-11 — no era contención de licencia con la sesión abierta del usuario, como se creyó al principio.
 
 ```powershell
