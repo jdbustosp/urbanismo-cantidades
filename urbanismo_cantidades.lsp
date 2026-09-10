@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.88.0")
+(setq *urb-version* "4.89.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -1618,8 +1618,12 @@
           "0, 0.02,0.025, 0,0.05, 0.16,-0.04"))
       (urb:write-lines
         toperol-file
-        '("*URB_TOPEROL, Puntos tactiles en loseta toperol 0.20 x 0.20"
-          "0, 0.025,0.025, 0,0.05, 0,-0.05")))
+        ;; 2026-09-10: medido sobre el bloque real del plano de detalles
+        ;; (B-TABLETA 20X20 TACTIL ALERTA, en Detalles_Rampas.dwg): la
+        ;; tableta lleva 3 x 3 = 9 domos de r = 0.0119 m, o sea paso de
+        ;; 0.0667 m y no los 0.05 que se venian usando.
+        '("*URB_TOPEROL, Puntos tactiles en tableta podotactil 0.20 x 0.20"
+          "0, 0.0333,0.0333, 0,0.0667, 0,-0.0667")))
     (progn
       (urb:ensure-support-path folder)
       T)
@@ -5204,6 +5208,37 @@
                 (list p1 p2
                   (/ (sin (/ delta 4.0)) (cos (/ delta 4.0))))))))))))
 
+;; 2026-09-10. Recorte que puede PARTIR el elemento en varios pedazos: un
+;; paso peatonal que cruza de lado a lado una zona verde la deja en DOS.
+;; urb:anden-clip-contour solo sabe reescribir UN contorno (se queda con el
+;; bucle mayor), asi que para esos casos hace falta la lista completa.
+;; Devuelve una lista de listas de puntos (un contorno por pedazo), o nil
+;; si no hubo recorte o no se pudo reconstruir con garantias.
+(defun urb:clip-poly-loops (ename minimo / obj copy region area0 area1 loops out a)
+  (setq obj (urb:as-vla-object ename))
+  (setq copy (vl-catch-all-apply '(lambda () (vla-Copy obj))))
+  (setq region
+    (if (not (vl-catch-all-error-p copy))
+      (vl-catch-all-apply '(lambda () (urb:add-region-from-object copy)))))
+  (if (and copy (not (vl-catch-all-error-p copy))) (urb:safe-delete copy))
+  (if (or (null region) (vl-catch-all-error-p region))
+    nil
+    (progn
+      (setq area0 (vl-catch-all-apply 'vla-get-Area (list region)))
+      (setq region (urb:apply-anden-cutouts region))
+      (setq area1 (vl-catch-all-apply 'vla-get-Area (list region)))
+      (if (or (not (numberp area0)) (not (numberp area1))
+              (>= area1 (- area0 1e-6)))
+        (progn (urb:safe-delete region) nil)
+        (progn
+          (setq loops (urb:region-loops region))
+          (urb:safe-delete region)
+          (foreach l loops
+            (setq a (abs (urb:loop-signed-area l)))
+            (if (> a (if minimo minimo 0.01))
+              (setq out (cons (mapcar 'car l) out))))
+          (reverse out))))))
+
 ;; saca del grupo el primer segmento que continua en "cur". Devuelve
 ;; (hit . resto) donde hit = (punto-siguiente bulge-en-ese-sentido) o nil.
 (defun urb:chain-take-next (pool cur tol / rest hit)
@@ -5296,17 +5331,33 @@
                      (vlax-3d-point (list 0.0 0.0 zb))))
   cutter)
 
-(defun urb:region-loops (region / exploded items segs seg falla o)
+(defun urb:region-loops (region / exploded items segs seg falla o sub sueltos)
   (setq exploded (vl-catch-all-apply 'vla-Explode (list region)))
   (if (vl-catch-all-error-p exploded)
     nil
     (progn
-      (setq items (urb:variant-object-list exploded) segs nil falla nil)
+      (setq items (urb:variant-object-list exploded) segs nil falla nil sueltos nil)
       (foreach o items
-        (setq seg (urb:curve-as-segment o))
-        (if seg (setq segs (cons seg segs)) (setq falla T)))
+        (cond
+          ;; 2026-09-10 (medido en Civil real): una region con caras
+          ;; SEPARADAS -- lo que deja un paso peatonal que cruza una zona
+          ;; verde de lado a lado -- NO explota en curvas: explota primero
+          ;; en dos REGIONES. Sin entrar en ellas, urb:region-loops daba
+          ;; nil y el recorte se perdia entero.
+          ((= (vla-get-ObjectName o) "AcDbRegion")
+            (setq sub (urb:region-loops o))
+            (if sub
+              (setq sueltos (append sueltos sub))
+              (setq falla T)))
+          (T
+            (setq seg (urb:curve-as-segment o))
+            (if seg (setq segs (cons seg segs)) (setq falla T)))))
       (foreach o items (urb:safe-delete o))
-      (if falla nil (urb:chain-loops-from-segments (reverse segs) 1e-6)))))
+      (cond
+        (falla nil)
+        (segs (append sueltos
+                (urb:chain-loops-from-segments (reverse segs) 1e-6)))
+        (T sueltos)))))
 
 ;; sustituye el contorno del anden por su borde NETO (contorno menos
 ;; prefabricados y contenedores). Devuelve el area neta si recorto, nil si
@@ -6959,9 +7010,16 @@
 )
 
 (defun urb:anden-cutout-blocks (/ filter ss i en result)
+  ;; 2026-09-10 (pedido del usuario: "si dibujo un paso peatonal sobre algo
+  ;; que ya esta dibujado, que me borre lo que quedaria por debajo, para
+  ;; que no quede doble area"): los modulos de rampa / paso peatonal
+  ;; (URB_RAMPA_*) entran como CORTADORES igual que los prefabricados y
+  ;; los contenedores. Con esto un anden nuevo ya nace recortado bajo el
+  ;; paso, y urb:recut-vecinos-bajo recorta los que ya existian.
   (foreach filter
     '(((0 . "INSERT") (-3 ("URB_PREFAB_BLOCK")))
-      ((0 . "INSERT") (2 . "URB_MOB_CONT*")))
+      ((0 . "INSERT") (2 . "URB_MOB_CONT*"))
+      ((0 . "INSERT") (2 . "URB_RAMPA_*")))
     (if (setq ss (ssget "_X" filter))
       (progn
         (setq i 0)
@@ -20516,7 +20574,7 @@
 
 (defun urb:create-contour-ramp-command
   (selection / *error* doc source p1 p2 p3 f1 f2 material result undo-open
-   mode previous oldwidth spec axis sign width depth endp autof)
+   mode previous oldwidth spec axis sign width depth endp autof kw recorte)
   (setq doc (urb:doc))
   (defun *error* (msg)
     (if oldwidth (setvar "PLINEWID" oldwidth))
@@ -20595,7 +20653,28 @@
                 "\nAcceso liso con remates de 0.60 m en los extremos."))
               (setq result (urb:build-contour-ramp source (list f1 f2)
                 (car selection) (cadr selection) (caddr selection) material))
-              (if result (prompt "\nModulo creado; no se recortan objetos vecinos.")))
+              ;; 2026-09-10 (pedido del usuario): antes esto avisaba "no se
+              ;; recortan objetos vecinos". Ahora se ofrece recortar lo que
+              ;; queda DEBAJO del modulo -- andenes, zonas verdes y
+              ;; prefabricados -- para que el area no quede contada dos
+              ;; veces. Por defecto SI: es el caso normal.
+              (if result
+                (progn
+                  (initget "Si No")
+                  (setq kw (getkword
+                    "\nRecortar lo que quedo debajo del modulo (andenes, zonas verdes, prefabricados)? [Si/No] <Si>: "))
+                  (if (= kw "No")
+                    (prompt "\nModulo creado; no se recortaron los objetos vecinos.")
+                    (progn
+                      (setq recorte
+                        (vl-catch-all-apply 'urb:recut-vecinos-bajo
+                          (list (urb:as-ename result))))
+                      (if (vl-catch-all-error-p recorte)
+                        (prompt (strcat "\nModulo creado, pero el recorte fallo: "
+                          (vl-catch-all-error-message recorte)))
+                        (prompt (strcat "\nModulo creado. Recortados: "
+                          (itoa (car recorte)) " anden(es) y "
+                          (itoa (cadr recorte)) " zona(s) verde(s)."))))))))
             (prompt "\nSeleccione dos remates distintos del contorno.")))))
     (prompt "\nNo se ha completado una geometria valida."))
   (if (and source (entget source)) (entdel source))
@@ -25533,6 +25612,132 @@
             (result (setq count (1+ count))))))))
   (if (> count 0) (prompt (strcat "\nPrefabricados recortados: " (itoa count))))
   count)
+
+;;; ---------------------------------------------------------------------
+;;; Recorte de lo que queda DEBAJO de un elemento nuevo (2026-09-10, pedido
+;;; del usuario: "si dibujo un paso peatonal sobre algo que ya esta
+;;; dibujado, que me borre lo que quedaria por debajo, para que no quede
+;;; doble area"). Reutiliza la maquinaria que ya existia para los
+;;; contenedores de raices: el bloque nuevo entra como CORTADOR en
+;;; urb:anden-cutout-blocks y los vecinos se reconstruyen recortados.
+;;; La zona verde es la unica pieza que faltaba: aqui va.
+;;; ---------------------------------------------------------------------
+
+;; Zonas verdes existentes en el dibujo.
+(defun urb:all-green-blocks (/ ss i en out)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_GREEN_BLOCK")))) i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq en (ssname ss i) i (1+ i))
+      (if (not (member en out)) (setq out (cons en out)))))
+  (reverse out))
+
+;; Recorta UNA zona verde contra los cortadores vigentes. Devuelve el area
+;; nueva, o nil si no se pudo (en ese caso la zona queda intacta).
+;; Arma una zona verde nueva a partir de una lista de puntos. Devuelve la
+;; referencia de bloque o nil.
+(defun urb:build-green-from-points (pts etapa sub esp / en obj hatch ref)
+  (setq en
+    (entmakex
+      (append
+        (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(100 . "AcDbPolyline")
+              (cons 90 (length pts)) '(70 . 1) '(8 . "URB-ZONA-VERDE"))
+        (mapcar '(lambda (p) (cons 10 (list (car p) (cadr p)))) pts))))
+  (if (null en)
+    nil
+    (progn
+      (setq obj (urb:as-vla-object en))
+      (vla-put-Color obj 256)
+      (setq hatch
+        (vl-catch-all-apply 'urb:add-hatch
+          (list obj "URB-ZONA-VERDE" "SOLID" 1 "SOLID" 1.0 3)))
+      (if (vl-catch-all-error-p hatch) (setq hatch nil))
+      (if (and hatch (vlax-property-available-p hatch 'EntityTransparency T))
+        (vl-catch-all-apply 'vlax-put-property
+          (list hatch 'EntityTransparency "70")))
+      (setq ref
+        (vl-catch-all-apply 'urb:package-green-zone
+          (list en hatch etapa sub esp)))
+      (if (or (vl-catch-all-error-p ref) (null ref))
+        (progn
+          (urb:safe-delete obj)
+          (if hatch (urb:safe-delete hatch))
+          nil)
+        ref))))
+
+;; Recorta UNA zona verde contra los cortadores vigentes. Si el corte la
+;; parte en varios pedazos (un paso peatonal que la cruza de lado a lado),
+;; se crea UNA zona verde por pedazo -- si se conservara solo el mayor se
+;; perderia area en silencio. Devuelve cuantas zonas quedaron, o nil.
+(defun urb:recut-one-green (ename / data etapa sub esp boundary loops refs r)
+  (setq data (urb:green-zone-data ename)
+        etapa (urb:safe-string (nth 1 data) "1")
+        sub (urb:safe-string (nth 2 data) etapa)
+        esp (atof (urb:safe-string (nth 5 data) "0.20")))
+  (setq boundary (urb:explode-green-block-boundary ename))
+  (if (null boundary)
+    nil
+    (progn
+      (setq loops (vl-catch-all-apply 'urb:clip-poly-loops (list boundary 0.05)))
+      (urb:safe-delete (urb:as-vla-object boundary))
+      (if (or (vl-catch-all-error-p loops) (null loops))
+        nil
+        (progn
+          (foreach pts loops
+            (setq r (urb:build-green-from-points pts etapa sub esp))
+            (if r (setq refs (cons r refs))))
+          (if (null refs)
+            nil
+            (progn
+              (foreach r refs (urb:copy-quantity-scope ename r))
+              (if (urb:delete-anden-block ename)
+                (length refs)
+                (progn
+                  (foreach r refs (urb:delete-anden-block (urb:as-ename r)))
+                  nil)))))))))
+
+;; Desempaca una zona verde: devuelve su contorno crudo. Mismo criterio de
+;; la via y el anden -- la polilinea CERRADA de mayor area, no la ultima.
+(defun urb:explode-green-block-boundary (ename / obj exploded objects item
+                                         boundary candidatos)
+  (setq obj (urb:as-vla-object ename))
+  (setq exploded (vl-catch-all-apply 'vla-Explode (list obj)))
+  (if (vl-catch-all-error-p exploded)
+    nil
+    (progn
+      (setq objects (urb:variant-object-list exploded))
+      (foreach item objects
+        (if (member (vla-get-ObjectName item)
+                    '("AcDbPolyline" "AcDb2dPolyline"))
+          (setq candidatos (cons item candidatos))))
+      (setq boundary (urb:largest-closed-polyline (reverse candidatos)))
+      (foreach item objects
+        (if (not (eq item boundary)) (urb:safe-delete item)))
+      (if boundary (vlax-vla-object->ename boundary)))))
+
+;; Recorta TODO lo que quede debajo del bloque recien creado: andenes,
+;; zonas verdes y prefabricados. Devuelve (andenes zonas prefabricados).
+(defun urb:recut-vecinos-bajo (cutter / co n-and n-green res)
+  (setq co (urb:as-vla-object cutter) n-and 0 n-green 0)
+  (if (null co)
+    (list 0 0 0)
+    (progn
+      (urb:recut-prefabs-for-container cutter)
+      (foreach en (urb:all-anden-blocks)
+        (if (urb:container-overlaps-anden-p cutter en)
+          (progn
+            (setq res (vl-catch-all-apply 'urb:recut-one-anden-for-container
+                        (list en)))
+            (if (and (not (vl-catch-all-error-p res)) res)
+              (setq n-and (1+ n-and))))))
+      (foreach en (urb:all-green-blocks)
+        (if (and (urb:as-vla-object en)
+                 (urb:objects-bbox-overlap-p co (urb:as-vla-object en) 0.02))
+          (progn
+            (setq res (vl-catch-all-apply 'urb:recut-one-green (list en)))
+            (if (and (not (vl-catch-all-error-p res)) res)
+              (setq n-green (1+ n-green))))))
+      (list n-and n-green 0))))
 
 (defun urb:recut-andenes-for-container (container / en result updated pending failed)
   (setq updated 0 pending 0 failed 0)

@@ -1,5 +1,79 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-10 (4), v4.89.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+### 1. Recorte de lo que queda DEBAJO de un elemento nuevo ✔
+
+Pedido: *"si dibujo un paso peatonal sobre algo que ya está dibujado, que me
+borre lo que quedaría por debajo, para que no quede doble área"*.
+
+- Los módulos `URB_RAMPA_*` entran como **cortadores** en
+  `urb:anden-cutout-blocks`, junto a prefabricados y contenedores. Con eso un
+  andén nuevo ya nace recortado bajo el paso.
+- **`urb:recut-vecinos-bajo`** recorta lo que ya existía: andenes, zonas verdes
+  y prefabricados que se solapen con el módulo. Se ofrece al terminar de crear
+  el módulo (por defecto **Sí**); antes ahí solo decía *"no se recortan objetos
+  vecinos"*.
+- **Zona verde**: era la única pieza que no existía.
+  `urb:explode-green-block-boundary` + `urb:clip-poly-loops` +
+  `urb:build-green-from-points`.
+
+**Dos hallazgos que costaron el diagnóstico** (los dos medidos, no deducidos):
+
+1. Un paso que cruza una zona verde **de lado a lado la parte en dos**. La
+   función que ya existía (`urb:anden-clip-contour`) sólo sabe reescribir UN
+   contorno y se queda con el bucle mayor — habría borrado el pedazo menor en
+   silencio. De ahí `urb:clip-poly-loops`, que devuelve **todos** los pedazos, y
+   `urb:recut-one-green`, que crea **una zona verde por pedazo**.
+2. **`vla-Explode` sobre una región de caras separadas no devuelve curvas:
+   devuelve otras REGIONES.** `urb:region-loops` las rechazaba
+   (`urb:curve-as-segment` → nil) y devolvía nil, así que el recorte se perdía
+   entero aunque el booleano hubiera funcionado. Ahora entra recursivamente en
+   las sub-regiones. Esto también arregla, de paso, cualquier recorte de andén
+   que parta el contorno en dos.
+
+Medido E2E: zona verde de 20 × 10 = **200,00 m²**, paso peatonal de 4 × 12
+encima → quedan **2 zonas** que suman **160,00 m²** = 200 − 40. Sin doble área.
+
+### 2. Lectura del DWG de detalles (`Detalles_Rampas.dwg`) ✔ investigación
+
+Leído headless sobre una **copia** (el original no se toca). 5.047 entidades,
+177 bloques. Lo que importa, con medidas reales:
+
+- **`B-RAMPA VEHICULAR`** (módulo de 10,00 m de frente):
+  - cara central de rampa: x 2,369 → 7,631 a y = −1,70 (**5,26 m**)
+  - **dos aletas TRAPEZOIDALES**, no rectángulos con diagonal:
+    `(0,0) (2.369,-1.70) (2.156,-1.70) (0,-0.20)` y su espejo
+  - banda de **0,20 m** al fondo (y −1,50 a −1,70) con **bordillo A-80**
+    (bloque de 0,80 × 0,20)
+  - **filas de tableta podotáctil ALERTA** (20×20) en el borde de fondo y
+    bajando por los dos costados
+  - **4 bolardos** en (2,40 / 7,60) × (−2,20 / −3,00)
+  - líneas de proyección de la pendiente: `(9.02,-0.20) (5.142,-1.50) (0.98,-0.20)`
+- **`B CEBRA`** = **una franja de 0,30 × 2,80 m** con relleno sólido. El paso
+  peatonal es la repetición de esa franja.
+- **`B-TABLETA 20X20 TÁCTIL ALERTA`** = tableta de 0,20 × 0,20 con **3 × 3 = 9
+  domos de r = 0,0119 m** → paso de **0,0667 m**. Se corrigió `URB_TOPEROL.pat`,
+  que venía con paso 0,05.
+- **`B-Bordillo A80`** = sección de **0,20 ancho × 0,35 alto** + zarpa hasta
+  −0,60. (La altura vista configurable quedó en 0,20 m; el A-80 mide 0,35 en
+  total.)
+
+Validación: suite **84 OK / 0 FALLOS**; E2E del recorte **0 FALLOS**; regresión
+de andén/vía **0 FALLOS** (empaquetado 0,8 s, 0 piezas sueltas, desempaque de
+vía conservando los 600,00 m²). Instalado 4.89.0, hash repo = instalado.
+
+**Pendiente, ya con las medidas en la mano**: redibujar la **rampa vehicular**
+(aletas trapezoidales + banda con A-80 + tableta alerta + bolardos) y el **paso
+peatonal largo** (franjas de 0,30 m tipo cebra), y sacar a propiedades las
+cantidades de prefabricados / losetas / adoquín y los rellenos de esos
+elementos, aparte de cortes y rellenos. Toda la evidencia está en
+`Documents\URBANISMO\work\claude_20260910_detalles\` (`survey.txt`,
+`bloques.txt`, `vertices.txt`).
+
+
 ## Estado guardado — 2026-09-10 (3), v4.88.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
