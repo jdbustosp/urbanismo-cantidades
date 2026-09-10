@@ -1,0 +1,120 @@
+
+===== B-RAMPA VEHICULAR =====
+  entidades = 18
+    INSERT = 9
+    HATCH = 3
+    LWPOLYLINE = 6
+  extension = 170736.910 x 96554.929   (min -85363.455,-96554.929)
+  bloques anidados:
+    A-80  en 2.700,-1.700  esc 1.000  rot 0.0
+    *U2214  en 7.800,-1.800  esc 1.000  rot 270.0
+    *U2216  en 3.000,-1.800  esc 1.000  rot 270.0
+    *U2210  en 2.400,-1.800  esc 1.000  rot 0.0
+    *U2212  en 2.200,-1.800  esc 1.000  rot 270.0
+    B-Bolardo  en 2.400,-2.200  esc 1.000  rot 0.0
+    B-Bolardo  en 2.400,-3.000  esc 1.000  rot 0.0
+    B-Bolardo  en 7.600,-2.200  esc -1.000  rot 0.0
+    B-Bolardo  en 7.600,-3.000  esc -1.000  rot 0.0
+
+===== B CEBRA =====
+  entidades = 2
+    LWPOLYLINE = 1
+    HATCH = 1
+  extension = 14.226 x 721.136   (min 0.000,-721.136)
+
+===== B RAMPA T1 - 2.00MT - Andén 4.00MT =====
+  entidades = 17
+    INSERT = 3
+    LWPOLYLINE = 14
+  extension = 4.839 x 4.769   (min -1.811,-4.746)
+  bloques anidados:
+    *U312  en 0.000,0.000  esc 1.000  rot 0.0
+    *U314  en 0.000,0.000  esc 1.000  rot 0.0
+    *U316  en 0.000,0.000  esc 1.000  rot 0.0
+
+===== B RAMPA T2 - 3.00MT - Separador =====
+  entidades = 15
+    HATCH = 2
+    INSERT = 1
+    LWPOLYLINE = 12
+  extension = 4.781 x 6.003   (min -2.970,-2.616)
+  bloques anidados:
+    *U2207  en -0.153,0.129  esc 1.000  rot 180.0
+
+===== B-Módulo Rampa 2.00MT - 4.00MT Andén =====
+  entidades = 19
+    INSERT = 19
+  extension = 3.294 x 3.120   (min 1.003,-0.601)
+  bloques anidados:
+    *U2175  en 2.712,2.519  esc 1.000  rot 131.3
+    *U2195  en 3.637,1.468  esc 1.000  rot 131.3
+    *U2193  en 4.297,0.717  esc 1.000  rot 131.3
+    *U2165  en 2.193,-0.601  esc 1.000  rot 131.3
+    *U2161  en 1.269,0.450  esc 1.000  rot 131.3
+    *U2163  en 1.759,-0.184  esc 1.000  rot 131.3
+    *U2177  en 3.146,2.102  esc 1.000  rot 131.3
+    *U2203  en 4.071,1.050  esc 1.000  rot 131.3
+    *U2197  en 1.003,1.282  esc -1.000  rot 221.3
+    *U2199  en 1.663,0.531  esc -1.000  rot 221.3
+    *U2201  en 2.588,-0.520  esc -1.000  rot 221.3
+    *U2205  en 1.267,0.982  esc -1.000  rot 221.3
+    *U2190  en 2.192,-0.069  esc -1.000  rot 221.3
+    *U2178  en 2.129,2.273  esc -1.000  rot 221.3
+    *U2180  en 2.789,1.522  esc -1.000  rot 221.3
+    *U2182  en 3.715,0.471  esc -1.000  rot 221.3
+    *U2184  en 2.394,1.973  esc -1.000  rot 221.3
+    *U2186  en 3.318,0.921  esc -1.000  rot 221.3
+    *U2188  en 2.129,2.273  esc 1.000  rot 311.3
+
+===== B-TABLETA 20X20 TÁCTIL ALERTA =====
+  entidades = 10
+    CIRCLE = 9
+    LWPOLYLINE = 1
+  extension = 0.366 x 0.200   (min -0.166,0.000)
+
+===== B-TABLETA 20X20 TÁCTIL =====
+  entidades = 4
+    LWPOLYLINE = 4
+  extension = 0.200 x 0.200   (min 0.000,0.000)
+
+===== B-TABLETA 20X20 TONO 1 =====
+  entidades = 2
+    HATCH = 1
+    LWPOLYLINE = 1
+  extension = 0.200 x 0.200   (min 0.000,0.000)
+
+===== B-TABLETA 20X20 TONO 2 =====
+  entidades = 2
+    HATCH = 1
+    LWPOLYLINE = 1
+  extension = 0.200 x 0.200   (min 0.000,0.000)
+
+===== B-TABLETA 20X10 TONO 2 =====
+  entidades = 2
+    LWPOLYLINE = 1
+    HATCH = 1
+  extension = 0.100 x 0.200   (min 0.000,0.000)
+
+===== B-Bordillo A80 =====
+  entidades = 5
+    CIRCLE = 2
+    LWPOLYLINE = 2
+    LINE = 1
+  extension = 0.200 x 0.600   (min -0.003,-0.600)
+
+===== B-Sardinel A10 =====
+  entidades = 7
+    CIRCLE = 3
+    LWPOLYLINE = 2
+    HATCH = 1
+    LINE = 1
+  extension = 0.200 x 0.530   (min 0.000,-0.530)
+
+===== usos en el modelo =====
+  B-RAMPA VEHICULAR x2  esc 1.000  en 85363.5,96548.9
+  B-TABLETA 20X20 TÁCTIL ALERTA x2  esc 1.000  en 85373.4,96554.5
+  B-TABLETA 20X20 TONO 2 x6  esc 1.000  en 85371.2,96552.2
+  B-TABLETA 20X10 TONO 2 x9  esc -1.000  en 85319.5,96511.1
+  B-Bordillo A80 x11  esc 1.000  en 85235.5,96571.1
+  B-Sardinel A10 x1  esc 1.000  en 85288.4,96615.1
+DONE

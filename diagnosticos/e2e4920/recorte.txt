@@ -1,0 +1,34 @@
+motor 4.91.0 cargado
+OK   sardinel curvo creado | ok
+sardineles antes = 1 | ML = 20.340
+OK   zona verde creada | ok
+zona verde AREA_M2 inicial = 216.050
+OK   remates del paso detectados | 4.00 y 4.00
+OK   paso peatonal creado | ok
+OK   el modulo de paso queda registrado como cortador | 2 cortadores
+huella del modulo de paso = 48.000
+OK   el modulo tiene huella utilizable como cortador | 48.000
+contorno desempacado de la zona verde = 216.046
+  sonda: region 216.046 | cortador 48.000
+  bbox region  = ((0.0 0.0 0.0) (20.0 11.2 0.0))
+  bbox cortador= ((6.0 -1.0 0.0) (10.0 11.0 0.0))
+  se solapan? = SI
+  bbox del INSERT = ((6.0 -1.0 0.0) (10.0 11.0 0.0))
+  region vs INSERT se solapan? = SI
+  cortadores vistos = 2
+  urb:apply-anden-cutouts -> 168.813
+  boolean solo con el paso = ok | area = 172.046
+urb:clip-poly-loops -> 3 pedazo(s)
+OK   urb:recut-vecinos-bajo corrio | (0 1 0)
+OK   recorto la zona verde | 1 zona(s) recortada(s)
+zonas verdes en el dibujo = 3 | area sumada = 168.810 | area neta medida con el booleano = 168.813
+OK   queda al menos una zona verde | 3
+OK   el area de las zonas resultantes = el area neta real | 168.810 vs 168.813
+OK   y NO quedo doble area | 216.05 -> 168.81
+zonas verdes con arco conservado = 1
+OK   el recorte NO deformo el borde curvo de la zona verde | 1 con arco
+sardineles despues = 2 | ML = 16.210 (antes 20.340)
+OK   el sardinel CURVO tambien se recorto bajo el paso | 20.34 -> 16.21
+OK   el sardinel quedo partido en dos tramos | 2
+RESULTADO 0 FALLOS
+DONE

@@ -1,0 +1,172 @@
+
+########## B-RAMPA VEHICULAR ##########
+  LWPOLYLINE [0-PROYECCION] abierta 3 vert:
+    (9.020,-0.200) (5.142,-1.500) (0.980,-0.200) 
+  HATCH [0-ACHU4] patron SOLID esc 0.000
+  LWPOLYLINE [0-PLANO4] cerrada 4 vert:
+    (7.631,-1.700) (2.369,-1.700) (2.300,-1.500) (7.709,-1.500) 
+  INSERT A-80 en 2.700,-1.700 rot 0.0
+      LWPOLYLINE [0] cerrada 4 vert:
+        (0.000,0.000) (0.000,0.200) (0.800,0.200) (0.800,0.000) 
+  HATCH [0-ACHU4] patron SOLID esc 0.000
+  LWPOLYLINE [0-PLANO4] cerrada 4 vert:
+    (0.000,0.000) (2.369,-1.700) (2.156,-1.700) (0.000,-0.200) 
+  HATCH [0-ACHU4] patron SOLID esc 0.000
+  LWPOLYLINE [0-PLANO4] cerrada 4 vert:
+    (10.000,0.000) (7.631,-1.700) (7.844,-1.700) (10.000,-0.200) 
+  LWPOLYLINE [0-PROYECCION] abierta 3 vert:
+    (0.000,0.000) (2.500,-2.500) (2.500,-3.300) 
+  LWPOLYLINE [0-PROYECCION] abierta 3 vert:
+    (10.000,0.000) (7.500,-2.500) (7.500,-3.300) 
+  INSERT *U2214 en 7.800,-1.800 rot 270.0
+      INSERT *U2215 en 0.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2215 en 0.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2215 en 0.400,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2215 en 0.600,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2215 en 0.800,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2215 en 1.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2215 en 1.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2215 en 1.400,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+  INSERT *U2216 en 3.000,-1.800 rot 270.0
+      INSERT *U2217 en 0.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TONO 1 en -0.100,-0.100 rot 0.0
+      INSERT *U2217 en 0.000,0.200 rot 0.0
+          INSERT B-TABLETA 20X20 TONO 1 en -0.100,-0.100 rot 0.0
+      INSERT *U2217 en 0.000,0.400 rot 0.0
+          INSERT B-TABLETA 20X20 TONO 1 en -0.100,-0.100 rot 0.0
+      INSERT *U2217 en 0.000,0.600 rot 0.0
+          INSERT B-TABLETA 20X20 TONO 1 en -0.100,-0.100 rot 0.0
+  INSERT *U2210 en 2.400,-1.800 rot 0.0
+      INSERT *U2211 en 0.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 0.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 0.400,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 0.600,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 0.800,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 1.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 1.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 1.400,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 1.600,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 1.800,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 2.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 2.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 2.400,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 2.600,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 2.800,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 3.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 3.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 3.400,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 3.600,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 3.800,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 4.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 4.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 4.400,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 4.600,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 4.800,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 5.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2211 en 5.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+  INSERT *U2212 en 2.200,-1.800 rot 270.0
+      INSERT *U2213 en 0.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2213 en 0.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2213 en 0.400,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2213 en 0.600,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2213 en 0.800,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2213 en 1.000,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2213 en 1.200,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+      INSERT *U2213 en 1.400,0.000 rot 0.0
+          INSERT B-TABLETA 20X20 TÁCTIL ALERTA en -0.100,-0.100 rot 0.0
+  INSERT B-Bolardo en 2.400,-2.200 rot 0.0
+      LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+        (0.035,0.025) (0.030,0.025) (0.030,-0.025) (0.035,-0.025) 
+      LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+        (-0.035,-0.025) (-0.030,-0.025) (-0.030,0.025) (-0.035,0.025) 
+  INSERT B-Bolardo en 2.400,-3.000 rot 0.0
+      LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+        (0.035,0.025) (0.030,0.025) (0.030,-0.025) (0.035,-0.025) 
+      LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+        (-0.035,-0.025) (-0.030,-0.025) (-0.030,0.025) (-0.035,0.025) 
+  INSERT B-Bolardo en 7.600,-2.200 rot 0.0
+      LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+        (0.035,0.025) (0.030,0.025) (0.030,-0.025) (0.035,-0.025) 
+      LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+        (-0.035,-0.025) (-0.030,-0.025) (-0.030,0.025) (-0.035,0.025) 
+  INSERT B-Bolardo en 7.600,-3.000 rot 0.0
+      LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+        (0.035,0.025) (0.030,0.025) (0.030,-0.025) (0.035,-0.025) 
+      LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+        (-0.035,-0.025) (-0.030,-0.025) (-0.030,0.025) (-0.035,0.025) 
+
+########## B CEBRA ##########
+  HATCH [0-ACHU3] patron SOLID esc 0.000
+  LWPOLYLINE [0-ACHU3] cerrada 4 vert:
+    (0.300,-2.800) (0.300,0.000) (0.000,0.000) (0.000,-2.800) 
+
+########## B-Bolardo ##########
+  LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+    (0.035,0.025) (0.030,0.025) (0.030,-0.025) (0.035,-0.025) 
+  LWPOLYLINE [0-PROYECCION] abierta 4 vert:
+    (-0.035,-0.025) (-0.030,-0.025) (-0.030,0.025) (-0.035,0.025) 
+
+########## B-TABLETA 20X20 TÁCTIL ALERTA ##########
+  LWPOLYLINE [0] cerrada 4 vert:
+    (0.000,0.200) (0.200,0.200) (0.200,0.000) (0.000,0.000) 
+  CIRCLE r=0.0119 en -0.166,0.166
+  CIRCLE r=0.0119 en -0.166,0.099
+  CIRCLE r=0.0119 en -0.166,0.032
+  CIRCLE r=0.0119 en -0.099,0.166
+  CIRCLE r=0.0119 en -0.099,0.099
+  CIRCLE r=0.0119 en -0.099,0.032
+  CIRCLE r=0.0119 en -0.032,0.166
+  CIRCLE r=0.0119 en -0.032,0.099
+  CIRCLE r=0.0119 en -0.032,0.032
+
+########## B-Bordillo A80 ##########
+  LINE [0] 0.197,-0.380 -> -0.003,-0.380
+  LWPOLYLINE [0] cerrada 6 vert:
+    (0.003,0.000) (-0.003,-0.005) (-0.003,-0.350) (0.197,-0.350) (0.197,-0.005) (0.193,0.000) 
+  CIRCLE r=0.0500 en 0.098,-0.120
+  CIRCLE r=0.0500 en 0.098,-0.260
+  LWPOLYLINE [0] abierta 4 vert:
+    (0.197,-0.350) (0.198,-0.600) (-0.002,-0.600) (-0.003,-0.350) 
+DONE

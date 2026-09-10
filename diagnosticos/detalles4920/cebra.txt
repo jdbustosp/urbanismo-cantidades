@@ -1,0 +1,8 @@
+B CEBRA en el modelo = 0
+--- B CEBRA anidada en otros bloques ---
+--- filas de tableta de B-RAMPA VEHICULAR ---
+  *U2210 -> 27 x B-TABLETA 20X20 TÁCTIL ALERTA
+  *U2212 -> 8 x B-TABLETA 20X20 TÁCTIL ALERTA
+  *U2214 -> 8 x B-TABLETA 20X20 TÁCTIL ALERTA
+  *U2216 -> 4 x B-TABLETA 20X20 TONO 1
+DONE

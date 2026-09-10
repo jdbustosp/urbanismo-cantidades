@@ -1,0 +1,343 @@
+DWG = detalles_copia.dwg
+entidades en modelo = 5047
+--- tipos ---
+  POLYLINE = 1508
+  INSERT = 1237
+  LWPOLYLINE = 773
+  DIMENSION = 594
+  LINE = 352
+  CIRCLE = 237
+  HATCH = 204
+  MTEXT = 100
+  MULTILEADER = 14
+  ARC = 12
+  VIEWPORT = 10
+  TEXT = 3
+  IMAGE = 3
+--- capas (top 40 por cantidad) ---
+  0-PLANO4 = 1540
+  Loseta = 660
+  0-COTAS DET = 586
+  0-PLANO6 = 507
+  0-PROYECCION = 314
+  0 = 286
+  0-PLANO5 = 217
+  0-PLANO1 = 206
+  Textos-IDU = 136
+  PLANO1 = 75
+  0-PLANO7 = 70
+  0-ACHU2 = 67
+  RUTA DE ACCESO TRAMOS = 45
+  0-TEXTO 25 = 39
+  0-PLANO2 = 36
+  0-ACHU VERDE CORTES 3 = 31
+  P_7o PLANO = 30
+  0-NIVEL 20 = 28
+  Canal = 22
+  PARAMENTO = 17
+  0-ACHU1 = 16
+  0-COTAS 50 = 14
+  0-ACHU VERDE CORTES 4 = 13
+  P_6o PLANO = 12
+  0-ACHU VERDE CORTES 2 = 10
+  1-vías = 9
+  0-MV = 8
+  TEXT = 7
+  0-TEXTOS LAYOUT = 7
+  P_2o PLANO = 6
+  0-PLANO3 = 5
+  0-TEXTO 250 = 4
+  0-PERSONAS = 4
+  0-ACHU VERDE CORTES 1 = 3
+  0-TEXTO 50 = 3
+  TEXTO2 = 3
+  ADOQUIN CONC A-25 = 2
+  0-NIVEL 50 = 2
+  0-ARB. PROPUESTO = 2
+  0-ACHU4 = 1
+capas totales = 44
+--- bloques ---
+  VW_SLASH
+  VW_FILLEDARROW
+  A55
+  A56
+  A$C38A85C30
+  DOT1
+  Angle
+  A$C589F7096
+  RALED Side
+  PORSCH_R
+  PERSONA 47
+  00-ARBOL 04
+  _ARBOL01
+  0-SECCIÓN-ADOQINADO
+  0-NIVEL FINO
+  B BORDILLO
+  2D-pe27
+  Mazda
+  PERSONA 42
+  2D-pe49
+  Papa e Hijo_Globo_CTE
+  A$C6FF57CD6
+  schoenus nigricans
+  VEGETACION RASTRERA
+  HELICOTRICHON
+  iris pseudacorus
+  _stypa
+  2D-pe25
+  PROFESOR DE CONSTRUCCION
+  typha angustifolia
+  managa-flat-1
+  zz
+  managa
+  juncus maritimus
+  _ARBOL 341
+  PQC-arbol ALZ 05
+  boom-b02
+  EN-ENEA ALZ
+  FR
+  juncus acutus
+  $1$BAMBOO
+  arb6
+  dfsgsdfggfg
+  VEG_H_09
+  MATA 10
+  PLANTA DE COBERTURA 041
+  HERBACEA3
+  11
+  ARBUSTO2
+  B- Torre del observador
+  _ArchTick
+  2D-pe26
+  skate
+  Caneca M-121_ALZ2
+  matotto
+  _None
+  _Oblique
+  Grass Elevation
+  Lily Elevation
+  Deciduous Elevation
+  People 8
+  _Dot
+  A-10
+  A-80
+  B BIOS
+  HOM-SENTADO 2
+  2D-pe32
+  0-PENDIENTE
+  0-LUMINARIA 2 PLANTA
+  Bicicleta PLANTA
+  B_PERSONA BICICLETA
+  2D-pe58
+  A$C179250D8
+  A$C34E74703
+  0-CANECAS1
+  ARBOL-5M
+  B CONT Y ARBOL
+  BICICLETA
+  XR MOBILIARIO|Xref AMBIENTACION PLANTAS|HONDA ACCORD PLANTA
+  B CEBRA
+  B-TABLETA 20X20 TONO 1
+  B-TABLETA 20X20 TONO 2
+  B-TABLETA 20X20 TÁCTIL
+  B-TABLETA 20X20 TÁCTIL ALERTA
+  B-TABLETA 20X10 TONO 2
+  B-Módulo 1
+  B-Módulo 2
+  B-Módulo 3
+  B-Módulo 4
+  B-Módulo 6
+  B-Bloque estructural
+  B-Módulo 7
+  B-Módulo 8
+  HOM-SENTADO 3
+  B Banca 2.00MT
+  B ÁRBOL CON CONTENEDOR PROYECTADOO
+  B Piso
+  B Contenedor vía T11
+  B Contenedor vía T222
+  B Estancia Tipo1 Bosque
+  B Estancia Tipo2 Ensanche
+  B Bordillo de contención 4.60MT
+  juego 2
+  mesa lippet+ vista superior
+  mesa lippet vista superior
+  B RAMPA T1 - 2.00MT - Andén 4.00MT
+  B Contenedor vía T2
+  TAG TITULO
+  B-Rótulo
+  BE-BORDILLO A80
+  BE-VIGA CINTA
+  BE-MAMPOSTERIA ESTRUCT
+  BE-VIGA DE CIMENTACIÓN
+  BE-TABLETA PODOTACTIL
+  BE-TABLETA 20X20
+  BE-CAPA ARENA O MORTERO
+  BE-ECOPAVIMENTO
+  BE-MORTERO AJUSTE
+  BE-SARDINEL
+  BE-TIERRA
+  BE-GEOTEXTIL TEJIDO
+  BE-TABLETA 20X10
+  BE-SUB BASE GRANULAR SBG PEA
+  BE-LECHO FILTRANTE
+  BE-BORDILLO FUNDIDO
+  BE-GRAMA O CÉSPED
+  B-Módulo 1 tipo c
+  B-Módulo 2 tipo c
+  B-Rampa módulo tipo c
+  B-Rampa 2 módulo tipo c
+  B-Banca M-02-A
+  0-Coordenadas
+  SUB B VIA
+  B-Bordillo A80
+  B-Sardinel A10
+  B-Contenedor planta
+  B-Matera larga planta
+  B-Caja de inspección 1
+  B-Caja de inspección 2
+  B-Caja de inspección 3
+  Group-304
+  Group-305
+  Group-314
+  sardinel derecho
+  sardinel izquierdo
+  A80
+  poste 12m
+  poste 10m
+  CAJA CS 274
+  SUMIDERO N1
+  filtro
+  BE-TABLETA PODOTACTIL A
+  BE-CAJA DE INSPECCIÓN
+  B-Redes sección
+  B-CALLOUT
+  B-Tubo 10cm
+  B-contenedor corte
+  ARBOL 121
+  B Indicativo de plano
+  B-Bolardo
+  B-RAMPA VEHICULAR
+  Modulo 1 5m
+  Modulo 2 5m
+  B Contenedor 2.00mt - Andén 4mt
+  Vegetacion bioswale
+  B-TABLETA TACTIL 20X20 TONO 1
+  B-TABLETA TACTIL 20X20 TONO 2
+  B-TABLETA 20X20 TÁCTIL TONO 1
+  B-TABLETA 20X20 TÁCTIL TONO 2
+  B-Módulo Rampa 2.00MT - 4.00MT Andén
+  B RAMPA T2 - 3.00MT - Separador
+  B Cajas luminarias
+  B Sumidero y pozo de inspección 1.80x1.00
+  A$C1ba92230
+  NORTE
+  rotulo
+  A$Cce7d33ef
+bloques con nombre = 177
+--- textos ---
+  [TEXTO2] 0.33,0.02  DETALLE DE RAMPA CICLORRUTA
+  [TEXTO2] 0.33,0.02  DETALLE DE RAMPA PEATONAL
+  [TEXTO2] 0.33,0.02  DETALLE DE RAMPA VEHICULAR
+  [TEXT] 85238.28,96568.72  ANDEN PEATONAL SECCION TIPO D 5.0m
+  [0-TEXTO 25] 85233.71,96572.31  \pxqc;HUMEDAL
+  [0-TEXTO 25] 85235.88,96572.31  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85239.01,96572.31  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [0-TEXTO 25] 85235.08,96582.31  \pxqc;HUMEDAL
+  [0-TEXTO 25] 85236.98,96582.31  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85239.01,96582.31  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [Textos-IDU] 85243.00,96538.45  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [Textos-IDU] 85242.80,96543.77  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [0-TEXTO 50] 85368.66,96549.27  VÍA
+  [0-TEXTO 50] 85367.47,96556.06  TÍTULOS
+  [0-TEXTO 50] 85368.66,96555.27  VÍA
+  [Textos-IDU] 85329.18,96553.59  \pxqc;{\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-100}
+  [Textos-IDU] 85328.92,96553.45  \pxqc;{\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-105\PPREFABRICADO}
+  [Textos-IDU] 85325.53,96553.59  \pxqc;{\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-100}
+  [Textos-IDU] 85325.67,96553.45  \pxqc;{\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-105\PPREFABRICADO}
+  [Textos-IDU] 85337.37,96553.59  \pxqc;{\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-100}
+  [Textos-IDU] 85340.02,96553.59  \pxqc;{\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-100}
+  [Textos-IDU] 85337.50,96553.45  \pxqc;{\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-105\PPREFABRICADO}
+  [Textos-IDU] 85339.75,96553.45  \pxqc;{\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-105\PPREFABRICADO}
+  [Textos-IDU] 85300.58,96549.50  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;B}
+  [Textos-IDU] 85300.78,96553.77  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;B}
+  [0-TEXTO 25] 85261.25,96572.31  \pxqc;HUMEDAL
+  [0-TEXTO 25] 85263.16,96572.31  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85265.19,96572.31  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [TEXT] 85266.49,96568.72  \pxqc;ANDEN PEATONAL SECCION TIPO B 4.0m
+  [0-TEXTO 25] 85261.25,96582.31  \pxqc;HUMEDAL
+  [0-TEXTO 25] 85263.16,96582.31  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85265.19,96582.31  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [TEXT] 85266.49,96578.72  \pxqc;ANDEN PEATONAL SECCION TIPO C 3.5m
+  [0-TEXTO 25] 85260.75,96591.59  \pxqc;HUMEDAL
+  [0-TEXTO 25] 85286.95,96601.05  VÍA
+  [0-TEXTO 25] 85294.46,96571.84  \pxqc;ESTANCIA
+  [0-TEXTO 25] 85294.46,96581.84  \pxqc;ESTANCIA
+  [0-TEXTO 25] 85261.06,96601.78  \pxqc;HUMEDAL
+  [0-TEXTO 25] 85281.06,96601.78  \pxqc;HUMEDAL
+  [0-TEXTO 25] 85281.06,96592.01  \pxqc;HUMEDAL
+  [0-TEXTO 25] 85287.82,96571.08  \pxqc;VÍA
+  [0-TEXTO 25] 85292.34,96571.84  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85290.34,96571.84  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [0-TEXTO 25] 85267.44,96602.31  \pxqc;VÍA
+  [0-TEXTO 25] 85262.66,96602.31  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85264.66,96602.31  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [0-TEXTO 25] 85288.55,96581.08  \pxqc;VÍA
+  [0-TEXTO 25] 85292.34,96581.84  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85290.34,96581.84  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [0-TEXTO 25] 85282.66,96601.80  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85284.66,96601.80  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [0-TEXTO 25] 85282.66,96593.77  \pxqc;Tipo A
+  [0-TEXTO 25] 85262.66,96591.59  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85264.66,96591.59  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [0-TEXTO 25] 85282.66,96592.01  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85284.66,96592.01  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [TEXT] 85266.49,96588.72  \pxqc;ANDEN PEATONAL SECCION TIPO B 4.0m
+  [Textos-IDU] 85301.85,96600.89  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;ESQUINAS\PRAMPAS\PCONTENEDORES\PESTANCIAS}
+  [TEXT] 85287.69,96588.72  \pxqc;ANDEN PEATONAL SECCION TIPO B 4.0m
+  [Textos-IDU] 85278.65,96539.45  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [Textos-IDU] 85278.45,96543.77  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [0-TEXTO 25] 85302.47,96621.08  \pxqc;VÍA
+  [TEXT] 85287.69,96618.72  \pxqc;ANDEN PEATONAL SECCION TIPO B 4.0m
+  [0-TEXTO 25] 85282.66,96612.62  \pxqc;Tipo B
+  [0-TEXTO 25] 85282.66,96612.31  \pxqc;FRANJA CIRCULACIÓN
+  [0-TEXTO 25] 85284.66,96612.31  \pxqc;FRANJA PAISAJISMO Y MOBILIARIO
+  [Textos-IDU] 85306.65,96559.45  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [Textos-IDU] 85306.45,96563.77  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [Textos-IDU] 85278.65,96549.45  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [Textos-IDU] 85278.45,96553.77  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [Textos-IDU] 85306.58,96549.50  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [Textos-IDU] 85306.78,96553.77  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A}
+  [Textos-IDU] 85286.54,96612.88  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;1.6 mt3}
+  [Textos-IDU] 85286.54,96612.98  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;0.0 mt3}
+  [Textos-IDU] 85283.87,96612.88  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;Relleno sub-base granular SBG-PEA - IDU}
+  [Textos-IDU] 85283.13,96612.88  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G01-02-106-}
+  [Textos-IDU] 85283.87,96612.98  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;Relleno sub-base granular SBG-C - IDU}
+  [Textos-IDU] 85283.13,96612.98  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G01-02-106}
+  [Textos-IDU] 85286.54,96612.68  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;4.0 mt2}
+  [Textos-IDU] 85286.54,96612.78  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;0.8 mt3}
+  [Textos-IDU] 85283.87,96612.68  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;Instalación Geotextil no tejido 2000}
+  [Textos-IDU] 85283.13,96612.68  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G28-01-02-01}
+  [Textos-IDU] 85283.87,96612.78  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;Relleno y compactación sub-rasante mejorada}
+  [Textos-IDU] 85283.13,96612.78  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G01-05-200}
+  [Textos-IDU] 85286.54,96612.58  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;0.0 mt2}
+  [Textos-IDU] 85286.54,96612.48  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;3.6 mt2}
+  [Textos-IDU] 85283.87,96612.48  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;Adoquín Español Tráfico Pesado Terracota (20X10X8cm)}
+  [Textos-IDU] 85283.13,96612.48  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G15-01-05}
+  [Textos-IDU] 85283.87,96612.58  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;Adoquín Español Terracota (20x10x6cm)}
+  [Textos-IDU] 85283.13,96612.58  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G15-01-04}
+  [Textos-IDU] 85286.54,96612.28  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;1.0 mt}
+  [Textos-IDU] 85286.54,96612.38  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;1.0 mt}
+  [Textos-IDU] 85283.87,96612.28  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-80 Bordillo prefabricado en concreto tipo A (80x20x35cm)}
+  [Textos-IDU] 85283.13,96612.28  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G28-01-02-01}
+  [Textos-IDU] 85283.87,96612.38  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;A-10 Sardinel prefabricado en concreto (80x20x50cm)}
+  [Textos-IDU] 85283.13,96612.38  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G28-01-01-01}
+  [Textos-IDU] 85283.87,96613.08  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;EXCAVACIÓN MECANICA + RETIRO MATERIAL}
+  [Textos-IDU] 85286.54,96613.08  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;4.0 mt3}
+  [Textos-IDU] 85286.54,96613.18  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;4.0 mt2}
+  [Textos-IDU] 85283.87,96613.18  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;LOCALIZACIÓN TRAZADO Y REPLANTEO}
+  [Textos-IDU] 85283.13,96613.08  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G00-01-03}
+  [Textos-IDU] 85283.13,96613.18  {\fUniversS 55 Roman|b0|i0|c0|p2;\C7;G00-01-01}
+  [TEXT] 85281.86,96613.61  \pxqc;G28-01-00-02
+textos = 103
+DONE
