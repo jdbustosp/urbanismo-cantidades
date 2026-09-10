@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.85.0")
+(setq *urb-version* "4.86.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -99,13 +99,13 @@
   (cond
     ((wcmatch tipo "*SARDINEL*")
       (list "Sardinel prefabricado A-10"
-            "M.O. instalación de sardinel prefabricado" "SARDINEL"))
+            "M.O. instalaciÃ³n de sardinel prefabricado" "SARDINEL"))
     ((wcmatch tipo "*CANUELA*")
-      (list "Suministro de cañuela prefabricada"
-            "M.O. instalación de cañuela prefabricada" "BORDILLO"))
+      (list "Suministro de caÃ±uela prefabricada"
+            "M.O. instalaciÃ³n de caÃ±uela prefabricada" "BORDILLO"))
     (T
       (list "Bordillo prefabricado A-80"
-            "M.O. instalación de bordillo prefabricado" "BORDILLO"))))
+            "M.O. instalaciÃ³n de bordillo prefabricado" "BORDILLO"))))
 ;; anillo perimetral de anden/sendero (v4.50)
 (setq *urb-anillo-prefab-list* '("Ninguno" "Bordillo" "Sardinel" "Canuela"))
 (setq *urb-anillo-pos-list* '("Externo" "Interno"))
@@ -585,7 +585,7 @@
     (T nil))
 )
 
-;; 2026-09-07 (rediseño pedido por el usuario): el dialogo va por DOS
+;; 2026-09-07 (rediseÃ±o pedido por el usuario): el dialogo va por DOS
 ;; niveles -- Tipologia = CATEGORIA (Andenes / Senderos / Equipamientos)
 ;; y Material/acabado = la VARIANTE de esa categoria.
 ;; La rampa salio de aqui (tiene su boton propio). El bloque de
@@ -2225,7 +2225,7 @@
 
 (defun urb:dominant-anden-axis-clusters
   (points / clusters first second)
-  ;; Diez grados absorben pequeños quiebres de levantamiento sin mezclar
+  ;; Diez grados absorben pequeÃ±os quiebres de levantamiento sin mezclar
   ;; brazos realmente diferentes. El segundo eje debe aportar al menos
   ;; 20% de la longitud del principal y separarse como minimo 15 grados.
   (setq clusters
@@ -3719,16 +3719,75 @@
 ;;;      (16 mm de diametro): a la escala a la que el usuario mira el
 ;;;      plano no llegan ni a un pixel.
 ;;; La GUIA conserva el tono por banda (asi se aprobo, y su barra de 15 cm
-;;; si se lee). El TOPEROL pasa a tono propio uniforme con los domos en
-;;; blanco -- exactamente el criterio del modulo de rampa peatonal, que el
-;;; usuario ya da por bueno -- y el domo toma su tamano real (25 mm).
+;;; si se lee).
+;;;
+;;; 2026-09-10 (correccion del usuario sobre v4.83: "ya aparece la franja de
+;;; toperol, pero quedo una franja gris; lo que queria era que quedaran los
+;;; punticos"). El relleno gris uniforme se comia la textura: a escala de
+;;; plano la franja se leia como una mancha lisa. Ahora la franja va en
+;;; tono CLARO y los domos en OSCURO, que es como se lee una loseta tactil
+;;; en un plano -- el punteado es la textura, no el fondo. El domo conserva
+;;; su tamano real (25 mm de diametro).
 (setq *urb-toperol-radio* 0.0125)
 
 (defun urb:tactile-fill-color (feature gray)
-  (if (= feature "TOPEROL") 8 (if gray 8 7)))
+  (if (= feature "TOPEROL") 7 (if gray 8 7)))
 
 (defun urb:tactile-symbol-color (feature gray)
-  (if (= feature "TOPEROL") 7 (if gray 7 8)))
+  (if (= feature "TOPEROL") 8 (if gray 7 8)))
+
+;;; 2026-09-10. Segundo problema del mismo reporte: "los andenes no estan
+;;; quedando en bloque, quedan todos los elementos por aparte". Medido en
+;;; Civil real, un anden de 24 m con guia y toperol genera 3.840 CIRCLE --
+;;; uno por domo -- y urb:package-anden tarda 15,2 s en empacarlo. En un
+;;; anden real de cientos de metros eso son minutos, y el bloque solo se
+;;; arma si el usuario aguanta la espera (si interrumpe, el material queda
+;;; suelto: es el modo de fallo que ya estaba documentado en
+;;; urb:package-anden). El punteado del toperol pasa a resolverse con el
+;;; patron URB_TOPEROL.pat -- que este mismo motor ya escribia y nunca
+;;; usaba --: UN hatch por banda en vez de un circulo por domo. Ademas de
+;;; ser ~70 veces menos entidades, un punto de patron se dibuja siempre
+;;; visible a cualquier zoom, que es justo lo que el usuario pide.
+;;; Si el patron no se puede usar en este dibujo se vuelve solo al metodo
+;;; de circulos, sin perder el toperol.
+(setq *urb-toperol-pattern-state* nil)
+
+(defun urb:add-toperol-hatch (boundary layer angle-value color / hatch res)
+  (setq res
+    (vl-catch-all-apply
+      '(lambda ()
+        (setq hatch (vla-AddHatch (urb:space) 2 "URB_TOPEROL" :vlax-true))
+        (vla-AppendOuterLoop hatch (urb:make-loop-array boundary))
+        (vla-put-Layer hatch (urb:safe-string layer "0"))
+        (vla-put-Color hatch color)
+        (vla-put-PatternScale hatch 1.0)
+        (vla-put-PatternAngle hatch
+          (urb:wcs-angle-to-current-ucs (if angle-value angle-value 0.0)))
+        (vla-Evaluate hatch)
+        hatch)))
+  (if (or (vl-catch-all-error-p res) (null res))
+    (progn
+      (if (and hatch (= (type hatch) 'VLA-OBJECT)) (urb:safe-delete hatch))
+      (setq *urb-toperol-pattern-state* "NO")
+      nil)
+    (progn (setq *urb-toperol-pattern-state* "SI") res))
+)
+
+;; Punteado sobre una banda ya creada. Solo aplica al toperol; la guia
+;; conserva sus barras, que a 15 cm si se leen.
+(defun urb:toperol-texture (piece feature layer angle-value parent-handle / h)
+  (if (and (= feature "TOPEROL") (/= *urb-toperol-pattern-state* "NO"))
+    (progn
+      (setq h (urb:add-toperol-hatch piece layer angle-value
+                (urb:tactile-symbol-color feature T)))
+      (if h (urb:tag-generated-role h parent-handle "FEATURE_SYMBOL"))
+      h))
+)
+
+;; T cuando el punteado ya quedo resuelto por patron y no hay que sembrar
+;; un circulo por domo.
+(defun urb:toperol-by-pattern-p (feature)
+  (and (= feature "TOPEROL") (= *urb-toperol-pattern-state* "SI")))
 
 (defun urb:add-circle-symbol (u v radius angle-value layer parent-handle color / world-pt)
   ;; Punto tactil real (toperol): un circulo dibujado, no una marca de hatch
@@ -3836,7 +3895,10 @@
         (setq radius *urb-toperol-radio*))
       (setq tile-k (fix (/ (+ phase-offset 1e-9) module)))
       (setq tile-g (* tile-k module))
-      (while (< tile-g (+ phase-offset seg-len (- 1e-6)))
+      ;; v4.86: si el punteado ya lo puso el patron URB_TOPEROL, no se
+      ;; siembra un circulo por domo (miles de entidades por anden)
+      (while (and (not (urb:toperol-by-pattern-p feature))
+                  (< tile-g (+ phase-offset seg-len (- 1e-6))))
         ;; tono OPUESTO a la banda donde cae la tableta (blanco sobre
         ;; banda gris, gris sobre banda blanca) -- misma fase global que
         ;; el relleno por bandas de la franja
@@ -3882,7 +3944,7 @@
           (setq su (+ su su-step)))
         (setq tile-k (1+ tile-k))
         (setq tile-g (* tile-k module)))
-      (> count 0))
+      (or (urb:toperol-by-pattern-p feature) (> count 0)))
     nil)
 )
 
@@ -3897,7 +3959,7 @@
   ;; layer ya es la capa de guia/toperol real (antes esta pieza base vivia
   ;; aparte en URB-ANDEN-AUX); el rol FILL mantiene el orden de dibujo.
   (vla-put-Layer region layer)
-  (vla-put-Color region 8)
+  (vla-put-Color region (urb:tactile-fill-color feature T))
   (urb:tag-generated-role region parent-handle "FILL")
   ;; TONO POR BANDA (U-201): las tabletas tactiles toman el color de la
   ;; banda gris/blanca del patron donde caen (alternando con la MISMA fase
@@ -3931,6 +3993,7 @@
                 (list band layer (urb:tactile-fill-color feature gray))))
             (if (not (vl-catch-all-error-p fill))
               (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))
+            (urb:toperol-texture band feature layer angle-value parent-handle)
             (setq band-ok T)))
         (setq cursor nxt gray (not gray) first-band nil))))
   ;; respaldo: si el particionado por bandas no produjo nada (region
@@ -3940,9 +4003,10 @@
       (setq fill
         (vl-catch-all-apply
           'urb:add-solid-hatch
-          (list region layer 8)))
+          (list region layer (urb:tactile-fill-color feature T))))
       (if (not (vl-catch-all-error-p fill))
-        (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))))
+        (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))
+      (urb:toperol-texture region feature layer angle-value parent-handle)))
   (setq grid
     (urb:add-user-hatch
       region layer module angle-value T 9 origin))
@@ -4139,6 +4203,8 @@
                   (vl-catch-all-apply
                     'urb:add-solid-hatch (list piece layer (urb:tactile-fill-color feature gray)))
                   parent-handle "FEATURE_FILL")
+                (urb:toperol-texture piece feature layer
+                  (urb:curve-tangent chain-poly (* 0.5 (+ s nxt))) parent-handle)
                 (setq count (1+ count))))))))
     (setq s nxt gray (not gray) first-band nil))
   count
@@ -4182,7 +4248,10 @@
         (car (urb:composite-phase-state
                (min (- len 1e-6) (+ tile-g (* 0.5 module)))))))
     (setq su margin)
-    (while (<= su (+ (- module margin) 1e-6))
+    ;; con el punteado ya resuelto por patron no se siembra un circulo por
+    ;; domo: solo quedan las juntas de tableta (v4.86)
+    (while (and (not (urb:toperol-by-pattern-p feature))
+                (<= su (+ (- module margin) 1e-6)))
       (setq dist (+ tile-g su))
       (if (<= dist len)
         (progn
@@ -4211,7 +4280,7 @@
                 (setq ro (+ ro spacing)))))))
       (setq su (+ su spacing)))
     (setq tile-k (1+ tile-k)))
-  (> created 0)
+  (or (urb:toperol-by-pattern-p feature) (> created 0))
 )
 
 (defun urb:build-offset-strip
@@ -4637,7 +4706,7 @@
 
 (defun urb:polygon-self-intersects-p (points / n i j p1 p2 p3 p4 found)
   ;; Revisa todo par de aristas NO adyacentes del contorno cerrado en
-  ;; busca de un cruce real (poligono "moño"/autointersectado). Un
+  ;; busca de un cruce real (poligono "moÃ±o"/autointersectado). Un
   ;; contorno asi produce rellenos con forma anomala (la mancha ancha que
   ;; aparece cuando el usuario dibuja con clics imprecisos) aunque cada
   ;; arista individual se vea razonable.
@@ -4656,7 +4725,7 @@
   found)
 
 (defun urb:anden-shape-ok-p (pts / selfx widthx)
-  ;; Envuelve las 2 validaciones de forma (moño / ancho anomalo) con
+  ;; Envuelve las 2 validaciones de forma (moÃ±o / ancho anomalo) con
   ;; vl-catch-all-apply: si CUALQUIERA de las dos revienta con un error
   ;; interno (geometria degenerada, division por cero, etc. -- ya se vio
   ;; un caso real con una polilinea casi plana), la validacion se trata
@@ -4678,7 +4747,7 @@
       (prompt
         (strcat
           "\n*** El contorno dibujado se cruza a si mismo (forma tipo"
-          " \"moño\") ***"
+          " \"moÃ±o\") ***"
           "\nEsto genera un relleno con una mancha ancha/anomala en"
           " vez de una franja pareja."
           "\nEl contorno queda dibujado para que lo revise/corrija;"
@@ -4753,12 +4822,23 @@
   (urb:ensure-layer "URB-ANDEN" 7 T)
 )
 
-(defun urb:count-toperol-symbols (objects / n item)
+;; Cuenta el punteado del toperol realmente dibujado. v4.82 solo contaba
+;; CIRCLE (un domo por entidad); desde v4.86 el punteado normal es UN
+;; HATCH con el patron URB_TOPEROL por banda, asi que tambien cuenta. Si
+;; no contara los dos, el control de calidad de urb:build-anden-finish
+;; rechazaria un acabado que en realidad si tiene su toperol.
+(defun urb:count-toperol-symbols (objects / n item nombre)
   (setq n 0)
   (foreach item objects
-    (if (and (= (vla-get-ObjectName item) "AcDbCircle")
-             (wcmatch (strcase (vla-get-Layer item)) "*TOPEROL*"))
-      (setq n (1+ n))))
+    (if (wcmatch (strcase (vla-get-Layer item)) "*TOPEROL*")
+      (cond
+        ((= (vla-get-ObjectName item) "AcDbCircle") (setq n (1+ n)))
+        ((= (vla-get-ObjectName item) "AcDbHatch")
+          (setq nombre
+            (vl-catch-all-apply 'vla-get-PatternName (list item)))
+          (if (and (= (type nombre) 'STR)
+                   (wcmatch (strcase nombre) "*TOPEROL*"))
+            (setq n (1+ n)))))))
   n)
 
 (defun urb:build-anden-finish
@@ -6448,7 +6528,7 @@
           (if (vl-catch-all-error-p costados-res) (setq costados-res nil))
           (setq anillo-refs (cadr costados-res))))
       ;; Vinculo temporal al contorno: permite que el generador de acabado
-      ;; encuentre los costados recién creados. Tras empaquetar se sustituye
+      ;; encuentre los costados reciÃ©n creados. Tras empaquetar se sustituye
       ;; por el handle definitivo del bloque de anden.
       (if anillo-refs
         (foreach aref anillo-refs
@@ -7008,7 +7088,7 @@
 )
 
 (defun urb:explode-anden-block-boundary
-  (ename / obj exploded objects item boundary layer)
+  (ename / obj exploded objects item boundary layer candidatos)
   (setq obj (vlax-ename->vla-object ename))
   (setq exploded
     (vl-catch-all-apply 'vla-Explode (list obj)))
@@ -7016,6 +7096,10 @@
     nil
     (progn
       (setq objects (urb:variant-object-list exploded))
+      ;; 2026-09-10: misma correccion que en la via -- entre los candidatos
+      ;; de la capa del contorno se toma el de MAYOR area cerrada, no el
+      ;; ultimo que aparezca; los demas se borran tres lineas mas abajo.
+      (setq candidatos nil)
       (foreach item objects
         (setq layer
           (strcase
@@ -7025,7 +7109,8 @@
                 (vla-get-ObjectName item)
                 '("AcDbPolyline" "AcDb2dPolyline"))
               (or (urb:starts-with layer "URB-Q-ANDEN-") (= layer "URB-ANDEN")))
-          (setq boundary item)))
+          (setq candidatos (cons item candidatos))))
+      (setq boundary (urb:largest-closed-polyline (reverse candidatos)))
       (foreach item objects
         (if (not (eq item boundary))
           (urb:safe-delete item)))
@@ -7092,7 +7177,7 @@
   ;; Las versiones 4.17.3 preliminares guardaban el sentido en otra APPID.
   ;; Se retira antes de escribir URB_ANDEN para evitar dos XDATA separadas.
   (urb:clear-xdata-app boundary "URB_ANDEN_PATTERN")
-  ;; Misma validacion que urb:draw-closed-polyline (moño/ancho anomalo):
+  ;; Misma validacion que urb:draw-closed-polyline (moÃ±o/ancho anomalo):
   ;; este es el OTRO camino (edicion, no dibujo nuevo) que regenera el
   ;; acabado sobre un contorno -- sin este chequeo aqui, una polilinea que
   ;; llegue deformada (edicion de grips, seleccion manual, etc.) generaba
@@ -7614,7 +7699,7 @@
       (setq roads (urb:selected-roads selection))
       (setq mp-entities (urb:selected-mp-entities selection))
       ;; Una seleccion mixta ya no descarta objetos silenciosamente. Se
-      ;; rechaza completa para que el usuario sepa exactamente qué se editó.
+      ;; rechaza completa para que el usuario sepa exactamente quÃ© se editÃ³.
       (setq mixed-count
         (+ (if roads 1 0)
            (if parents 1 0)
@@ -10594,7 +10679,7 @@
   (setq d (mp:diametro-label vals))
   (setq mat (mp:getval "MATERIAL" vals ""))
   (cond
-    ;; 2026-08-28: etiqueta compacta estilo plano record ("Ø8" PVC L=34");
+    ;; 2026-08-28: etiqueta compacta estilo plano record ("Ã˜8" PVC L=34");
     ;; tramos ACU muy cortos (<8 m, conectores entre accesorios de un
     ;; mismo cruce) SIN etiqueta -- eran la causa de cota sobre cota
     ((= base "TRAMO_ACUEDUCTO")
@@ -15264,6 +15349,29 @@
                   nil))))))))
 )
 
+;; De una lista de objetos ya explotados, la polilinea que de verdad es un
+;; contorno: la CERRADA de mayor area. Si ninguna cierra o ninguna tiene
+;; area, devuelve la ultima polilinea (comportamiento anterior a v4.86),
+;; para no dejar sin contorno a un bloque viejo con geometria rara.
+;; Funcion aparte para poder autoprobar la regla de eleccion.
+(defun urb:largest-closed-polyline (objects / item area cerrada best best-area ultima)
+  (setq best nil best-area nil ultima nil)
+  (foreach item objects
+    (if (= (vla-get-ObjectName item) "AcDbPolyline")
+      (progn
+        (setq ultima item)
+        (setq cerrada
+          (vl-catch-all-apply 'vla-get-Closed (list item)))
+        (setq area (vl-catch-all-apply 'vla-get-Area (list item)))
+        (if (and (not (vl-catch-all-error-p cerrada))
+                 (= cerrada :vlax-true)
+                 (numberp area)
+                 (> area 1e-6)
+                 (or (null best-area) (> area best-area)))
+          (setq best item best-area area)))))
+  (if best best ultima)
+)
+
 ;; Desempaca un bloque de via ya empacado: recupera el contorno crudo
 ;; (capa URB-VIA-CONTORNO) y le reaplica la xdata que tenia el bloque,
 ;; para que el resto del flujo de edicion siga funcionando igual que
@@ -15282,13 +15390,19 @@
       (setq objects (urb:variant-object-list exploded))
       ;; 4.18.0: todas las capas de via se consolidaron en URB-VIA, asi que
       ;; la capa ya no distingue el contorno de las abscisas/datos/tabla
-      ;; dentro del bloque explotado. El tipo de objeto si alcanza: el
-      ;; contorno es la unica LWPOLYLINE (abscisas son LINE+TEXT, datos es
-      ;; MTEXT, verificacion es TABLE) -- vale tanto para vias nuevas como
-      ;; para vias viejas (capa URB-VIA-CONTORNO).
-      (foreach item objects
-        (if (= (vla-get-ObjectName item) "AcDbPolyline")
-          (setq boundary item)))
+      ;; dentro del bloque explotado.
+      ;;
+      ;; 2026-09-10 (reporte del usuario: "si edito una via, cuando termino
+      ;; de editar me la borra del todo"). Hasta v4.85 esto se resolvia con
+      ;; "el contorno es la UNICA LWPOLYLINE del bloque" y se guardaba la
+      ;; ULTIMA que apareciera. Ese supuesto ya no se cumple: medido en
+      ;; Civil real, el bloque de via trae DOS polilineas (contorno de
+      ;; 600,00 m2 y una de apoyo de area 0,00). Si la ultima resultaba ser
+      ;; la de apoyo, el contorno REAL se borraba tres lineas mas abajo y
+      ;; la via desaparecia. Ahora se escoge por area: el contorno es la
+      ;; polilinea CERRADA de mayor area, y solo si ninguna sirve se cae al
+      ;; comportamiento anterior.
+      (setq boundary (urb:largest-closed-polyline objects))
       (foreach item objects
         (if (not (eq item boundary)) (urb:safe-delete item)))
       (if boundary
@@ -17429,7 +17543,7 @@
       (if (not (vl-catch-all-error-p inner-transform))
         (setq inner-origin (nth 0 inner-transform)))
       ;; El handle de la referencia COGO identifica una etiqueta fisica.
-      ;; Sus varias geometrías candidatas conservan el mismo identificador,
+      ;; Sus varias geometrÃ­as candidatas conservan el mismo identificador,
       ;; lo que permite elegir despues una sola posicion representativa.
       (setq source-id
         (urb:safe-string
@@ -19980,7 +20094,8 @@
     (setq objects (cons obj objects))
     (setq hatch
       (vl-catch-all-apply 'urb:add-solid-hatch
-        (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20" 8)))
+        (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
+          (urb:tactile-fill-color "TOPEROL" T))))
     (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
     (setq lu (+ (min tu1 tu2) 0.025))
     (while (<= lu (- (max tu1 tu2) 0.025 (- 1e-6)))
@@ -19989,7 +20104,8 @@
         (setq uvh (urb:ramp-frame-uv base axis sign lu lv))
         (setq ent
           (urb:add-circle-symbol (car uvh) (cadr uvh) *urb-toperol-radio*
-            axis "URB-ANDEN-LOSETA-TOPEROL-20X20" "" 7))
+            axis "URB-ANDEN-LOSETA-TOPEROL-20X20" ""
+            (urb:tactile-symbol-color "TOPEROL" T)))
         (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
         (setq lv (+ lv 0.05)))
       (setq lu (+ lu 0.05)))
@@ -20538,7 +20654,7 @@
    block-name blocks block-definition copy-result insert-result block-ref
    block-ename)
   ;; Geometria segun los bloques B RAMPA T1/T2 reales de U-201 (disecados
-  ;; 2026-08-09, espécimen sin rotar "T2 - 3.00MT - Anden 4.00MT"):
+  ;; 2026-08-09, espÃ©cimen sin rotar "T2 - 3.00MT - Anden 4.00MT"):
   ;;  - franjas laterales de 0.20 m a TODO el fondo del anden, con
   ;;    relleno solido (las columnas grises del plano)
   ;;  - superficie de rampa TRAPEZOIDAL: ancho W+0.60 contra la via
@@ -20578,7 +20694,8 @@
     (setq objects (cons obj objects))
     (setq hatch
       (vl-catch-all-apply 'urb:add-solid-hatch
-        (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20" 8)))
+        (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
+          (urb:tactile-fill-color "TOPEROL" T))))
     (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
     (setq lu (+ u1 0.025))
     (while (<= lu (+ u1 0.175 1e-6))
@@ -20587,7 +20704,8 @@
         (setq uvh (urb:ramp-frame-uv base-pt axis-angle side-sign lu lv))
         (setq ent
           (urb:add-circle-symbol (car uvh) (cadr uvh) *urb-toperol-radio* axis-angle
-            "URB-ANDEN-LOSETA-TOPEROL-20X20" "" 7))
+            "URB-ANDEN-LOSETA-TOPEROL-20X20" ""
+            (urb:tactile-symbol-color "TOPEROL" T)))
         (setq objects (cons (vlax-ename->vla-object ent) objects))
         (setq lv (+ lv 0.05)))
       (setq lu (+ lu 0.05))))
@@ -21754,7 +21872,7 @@
                   stage substage "ML" length-value handle quantity-status "" "")
                 records))
             ;; Una entidad representa un tramo, no una pieza comercial. La
-            ;; salida UND=1 se retiro porque inducía a contar tramos como piezas.
+            ;; salida UND=1 se retiro porque inducÃ­a a contar tramos como piezas.
             (if (= quantity-status "REVISAR")
               (setq controls
                 (cons
@@ -23112,7 +23230,7 @@
             current-map)))
       (progn
         ;; Los registros de otros DWG se conservan, pero al migrar una tabla
-        ;; antigua también se neutralizan cantidades con estado no aprobado.
+        ;; antigua tambiÃ©n se neutralizan cantidades con estado no aprobado.
         (setq adjusted row)
         (if (urb:string-equal-p (nth type-index row) "CANTIDAD")
           (progn
@@ -23812,48 +23930,48 @@
 ;; catalogo: (codigo etiqueta actividad-ppto forma ancho largo)
 (setq *urb-mob-tipos*
   '(("CANECA" "Caneca doble M-121"
-      "Suministro e instalación de dos canecas M-121" "CIRC" 0.50 0.50)
+      "Suministro e instalaciÃ³n de dos canecas M-121" "CIRC" 0.50 0.50)
     ("BANCA-M30" "Banca en concreto M-30"
-      "Suministro e instalación de banca en concreto con espaldar M-30"
+      "Suministro e instalaciÃ³n de banca en concreto con espaldar M-30"
       "RECT" 2.00 0.70)
     ("BANCA-L206" "Banca L=2,06m"
-      "Suministro e instalación de banca L=2,06m (CIO106682)"
+      "Suministro e instalaciÃ³n de banca L=2,06m (CIO106682)"
       "RECT" 2.06 0.60)
     ("PARADERO" "Paradero de buses M-10"
-      "Suministro e instalación de paradero de buses Tipo M-10"
+      "Suministro e instalaciÃ³n de paradero de buses Tipo M-10"
       "RECT" 3.00 1.50)
     ("PROTECTOR-ARBOL" "Protector de arbol M-91"
-      "Suministro e instalación de protector de árbol de dos tubos Tipo M-91"
+      "Suministro e instalaciÃ³n de protector de Ã¡rbol de dos tubos Tipo M-91"
       "CIRC" 1.00 1.00)
     ("ARBOL" "Arbol"
-      "Suministro e instalación de árbol" "ARBOL" 1.20 1.20)
+      "Suministro e instalaciÃ³n de Ã¡rbol" "ARBOL" 1.20 1.20)
     ("SENAL-SITP" "Senal paradero SITP SI-08"
-      "Señal vertical Paradero SITP SI-08 / Plaqueta" "CIRC" 0.30 0.30)
+      "SeÃ±al vertical Paradero SITP SI-08 / Plaqueta" "CIRC" 0.30 0.30)
     ;; el bolardo vive en los capitulos de RAMPA del ppto (verificado
     ;; 2026-08-20 contra el libro), no en ANDENES -- red propia (campo 7)
     ("BOLARDO" "Bolardo alto M-63"
-      "Suministro e instalación de bolardo alto en hierro Tipo M-63"
+      "Suministro e instalaciÃ³n de bolardo alto en hierro Tipo M-63"
       "CIRC" 0.25 0.25 "RAMPA-PEATONAL")
     ("CONT-RAICES" "Contenedor raices 2,0x1,2"
-      "Suministro y construcción de contenedor de raíces (Dimensiones: 2,0x1,2m). Incluye tierra negra"
+      "Suministro y construcciÃ³n de contenedor de raÃ­ces (Dimensiones: 2,0x1,2m). Incluye tierra negra"
       "CONTEN" 2.00 1.20)
     ("CONT-A" "Contenedor raices Tipo A (2,00x2,20)"
-      "Suministro y construcción de contenedor de raíces Tipo A (2,00x2,20)m"
+      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo A (2,00x2,20)m"
       "CONTEN" 2.00 2.20)
     ("CONT-B" "Contenedor raices Tipo B (1,50x2,20)"
-      "Suministro y construcción de contenedor de raíces Tipo B (1,50x2,20)m"
+      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo B (1,50x2,20)m"
       "CONTEN" 1.50 2.20)
     ("CONT-C" "Contenedor raices Tipo C (1,20x2,20)"
-      "Suministro y construcción de contenedor de raíces Tipo C (1,20x2,20)m"
+      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo C (1,20x2,20)m"
       "CONTEN" 1.20 2.20)
     ("CONT-D" "Contenedor raices Tipo D (0,84x4,20)"
-      "Suministro y construcción de contenedor de raíces Tipo D (0,84x4,20)m"
+      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo D (0,84x4,20)m"
       "CONTEN" 0.84 4.20)
     ("CONT-E" "Contenedor raices Tipo E (0,70x4,20)"
-      "Suministro y construcción de contenedor de raíces Tipo E (0,70x4,20)m"
+      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo E (0,70x4,20)m"
       "CONTEN" 0.70 4.20)
     ("CONT-F" "Contenedor raices Tipo F (0,70x4,20)"
-      "Suministro y construcción de contenedor de raíces Tipo F (0,70x4,20)m"
+      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo F (0,70x4,20)m"
       "CONTEN" 0.70 4.20)
     ;; ---------- mobiliario de PARQUE (2026-09-06): descripciones
     ;; EXACTAS de los capitulos por parque del presupuesto nuevo; el
@@ -23874,8 +23992,8 @@
       "D5-02 deslizadero recto en polimero" "RECT" 3.50 1.00)
     ("JUEGO-D5-03" "Columpio en canasta (D5-03)"
       "D5-03 columpio en canasta" "RECT" 3.00 2.00)
-    ("JUEGO-D5-05" "Red piramidal pequeña (D5-05)"
-      "D5-05 red piramidal pequeña" "CIRC" 3.00 3.00)
+    ("JUEGO-D5-05" "Red piramidal pequeÃ±a (D5-05)"
+      "D5-05 red piramidal pequeÃ±a" "CIRC" 3.00 3.00)
     ("JUEGO-D5-09" "Presas de escalada (D5-09)"
       "D5-09 presas infantiles de escalada" "RECT" 2.40 1.20)
     ("JUEGO-D2-02" "Laberinto de troncos (D2-02)"
@@ -24571,17 +24689,17 @@
 ;; 2026-08-24 el usuario lo edita en Ajustes en vez de verlo en la
 ;; ventana de creacion (urb:send-espesor-de aplica el valor efectivo).
 (setq *urb-send-tipos*
-  '(;; 2026-09-07 (rediseño del dialogo): ANDEN EN CONCRETO -- variante
+  '(;; 2026-09-07 (rediseÃ±o del dialogo): ANDEN EN CONCRETO -- variante
     ;; del anden nativo cuando el material no es loseta; su presupuesto
     ;; va a la red ANDEN (o al capitulo del parque si se dibuja adentro)
     ("ANDEN-CONC" "Anden en concreto" "ANDEN" 9 ""
-      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
+      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
        ("Concreto 3000 psi" "M3" "AREA" 0.10)
        ("Malla electrosoldada" "KG" "AREA" 2.36)
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
          "M3" "AREA" 0.40))
       "URB-ANDEN-CONCRETO" 0.40)
     ("SEND-TROTE" "Sendero de trote" "SENDERO" 40 "TROTE"
@@ -24590,7 +24708,7 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
          "M3" "AREA" 0.40))
       "URB-SENDERO-TROTE" 0.40)
     ("SEND-ECO" "Sendero ecologico" "SENDERO" 74 "SENDERO"
@@ -24599,7 +24717,7 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
          "M3" "AREA" 0.40))
       "URB-SENDERO-ECOLOGICO" 0.40)
     ("PLAZOLETA" "Plazoleta en concreto" "SENDERO" 253 "SENDERO"
@@ -24608,29 +24726,29 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
          "M3" "AREA" 0.40))
       "URB-PLAZOLETA" 0.40)
     ("CICLORRUTA" "Ciclorruta" "CICLORRUTA" 150 "CICLOR"
-      (("Descapote mecánico de material vegetal (Incluye cargue y retiro externo)"
+      (("Descapote mecÃ¡nico de material vegetal (Incluye cargue y retiro externo)"
          "M2" "AREA" 1.0)
-       ("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
-       ("Suministro, extendida y compactación de Rodadura Asfáltica MD-13"
+       ("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+       ("Suministro, extendida y compactaciÃ³n de Rodadura AsfÃ¡ltica MD-13"
          "M3" "AREA" 0.08)
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
          "M3" "AREA" 0.38)
        ("Bordillo prefabricado A-80" "UN" "PER" 1.25)
-       ("M.O. instalación de bordillo prefabricado" "ML" "PER" 1.0))
+       ("M.O. instalaciÃ³n de bordillo prefabricado" "ML" "PER" 1.0))
       "URB-CICLORRUTA" 0.38)
     ("RAMPA-CONC" "Rampa en concreto (ancho variable)" "RAMPA-PEATONAL" 31 ""
-      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
-       ("Suministro y construcción de remate de rampa en concreto fundido en sitio"
+      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+       ("Suministro y construcciÃ³n de remate de rampa en concreto fundido en sitio"
          "M2" "AREA" 1.0)
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
          "M3" "AREA" 0.40))
       "URB-RAMPA-CONCRETO" 0.40)
     ;; ---------- EQUIPAMIENTOS DE PARQUE (2026-09-06, pedido del
@@ -24726,7 +24844,7 @@
        ("mortero de nivelacion" "M3" "AREA" 0.04)
        ("superficie en caucho reciclado" "M2" "AREA" 1.0))
       "URB-PISTA-CAUCHO" 0.35)
-    ("PARQUE-NINOS" "Parque de niños (piso)" "PARQUE-NINOS" 41 "PARQUE DE NI"
+    ("PARQUE-NINOS" "Parque de niÃ±os (piso)" "PARQUE-NINOS" 41 "PARQUE DE NI"
       (("Localizacion y replanteo" "M2" "AREA" 1.0)
        ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.40)
        ("Subabase granular SBG-B" "M3" "AREA" 0.20)
@@ -24773,13 +24891,13 @@
 ;; de la cartilla). Actividades EXACTAS del capitulo 2.5.3.7 del ppto.
 (setq *urb-bioswale-tipo*
   '("BIOSWALE" "Bioswale / biorretenedor" "ALC-PLUVIAL" 140 "BIORETENEDORES"
-     (("Excavación manual para bioswale/bioretenedor" "M3" "AREA" 0.60)
-      ("Cargue, transporte y disposición de sobrantes" "M3" "AREA" 0.60)
+     (("ExcavaciÃ³n manual para bioswale/bioretenedor" "M3" "AREA" 0.60)
+      ("Cargue, transporte y disposiciÃ³n de sobrantes" "M3" "AREA" 0.60)
       ("Base de gravilla permeable para bioretenedor" "M3" "AREA" 0.20)
-      ("Suministro y colocación de gravilla 25-40 mm (capa drenante)" "M3" "AREA" 0.12)
-      ("Suministro y colocación de gravilla 10-15 mm (capa filtrante)" "M3" "AREA" 0.15)
-      ("Relleno con material orgánico para bioretenedor" "M3" "AREA" 0.13)
-      ("Tubería perforada PVC Ø6\" para drenaje de bioswale" "ML" "PER" 0.5)
+      ("Suministro y colocaciÃ³n de gravilla 25-40 mm (capa drenante)" "M3" "AREA" 0.12)
+      ("Suministro y colocaciÃ³n de gravilla 10-15 mm (capa filtrante)" "M3" "AREA" 0.15)
+      ("Relleno con material orgÃ¡nico para bioretenedor" "M3" "AREA" 0.13)
+      ("TuberÃ­a perforada PVC Ã˜6\" para drenaje de bioswale" "ML" "PER" 0.5)
       ("Rejilla de drenaje para bioswale" "UN" "UN" 1.0)
       ("Jardineria" "M2" "AREA" 1.0))
      "URB-BIOSWALE" 0.60))
@@ -25435,7 +25553,7 @@
 ;; dibuja el contorno cerrado + relleno + xdata + prefabricado por
 ;; costados AUTOMATICO para UN elemento de la familia "poligono cerrado"
 ;; (senderos o bioswale comparten el mismo motor). appid es la xdata
-;; donde vive el tipo (URB_SENDERO o URB_BIOSWALE); su compañera
+;; donde vive el tipo (URB_SENDERO o URB_BIOSWALE); su compaÃ±era
 ;; "<appid>_GEN" identifica el hatch de relleno hacia el contorno padre.
 ;; 2026-08-24 v3 (pedido del usuario): los costados NO se trazan a mano
 ;; -- el programa identifica solo los dos lados largos del poligono
@@ -25701,7 +25819,7 @@
             (setq factor
               (cond
                 ((urb:string-equal-p (nth 0 receta)
-                   "Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)")
+                   "ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)")
                   espesor)
                 ((urb:string-equal-p (nth 0 receta) "Concreto 3000 psi")
                   (urb:send-capa-cfg "URB_SEND_CONCRETO" (nth 3 receta)))
@@ -25713,7 +25831,7 @@
                        "Subbase granular SBG"))
                   (urb:send-capa-cfg "URB_SEND_SBG" (nth 3 receta)))
                 ((urb:string-equal-p (nth 0 receta)
-                   "Suministro, extendida y compactación de Rodadura Asfáltica MD-13")
+                   "Suministro, extendida y compactaciÃ³n de Rodadura AsfÃ¡ltica MD-13")
                   (urb:send-capa-cfg "URB_SEND_ASFALTO" (nth 3 receta)))
                 (T (nth 3 receta))))
             (setq qty
@@ -25751,7 +25869,7 @@
   (urb:ppto-rows-poly-elemento "URB_BIOSWALE"
     (list *urb-bioswale-tipo*) "BIOSWALE"))
 
-;; ---------- SEÑALIZACION Y DEMARCACION (2026-09-06, pedido del
+;; ---------- SEÃ‘ALIZACION Y DEMARCACION (2026-09-06, pedido del
 ;; usuario: comando APARTE de anden/senderos). Tres clases:
 ;;  LINEA   -> polilineas seleccionadas/dibujadas; cantidad = longitud x
 ;;             factor (factor <1 en discontinuas = ocupacion pintada;
@@ -25764,29 +25882,29 @@
 ;; este catalogo si el APU real difiere.
 (setq *urb-senal-tipos*
   '(("LC-AM-12" "Linea continua amarilla a=0,12" "LINEA"
-      "Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
+      "LÃ­nea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
     ("LC-AM-15" "Linea continua amarilla a=0,15" "LINEA"
-      "Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,15m)" "ML" 1.0)
+      "LÃ­nea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,15m)" "ML" 1.0)
     ("LC-BL-12" "Linea continua blanca a=0,12" "LINEA"
-      "Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
+      "LÃ­nea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
     ("LC-BL-CICLO" "Linea continua blanca ciclorruta a=0,10" "LINEA"
-      "Línea continua de color blanco para ciclorruta - Pintura acrílica (a=0,10m)" "ML" 1.0)
+      "LÃ­nea continua de color blanco para ciclorruta - Pintura acrÃ­lica (a=0,10m)" "ML" 1.0)
     ("LD-BL-1X1" "Linea discontinua blanca 1m x 1m" "LINEA"
-      "Línea discontinua de color blanco 1m x 1m - Pintura de dos componentes metil metacrilato (a=0,20m)" "ML" 0.5)
+      "LÃ­nea discontinua de color blanco 1m x 1m - Pintura de dos componentes metil metacrilato (a=0,20m)" "ML" 0.5)
     ("LD-BL-3X5" "Linea discontinua blanca 3m x 5m" "LINEA"
-      "Línea discontinua de color blanco 3m x 5m - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 0.375)
+      "LÃ­nea discontinua de color blanco 3m x 5m - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 0.375)
     ("LD-AM-CICLO" "Linea discontinua amarilla ciclorruta 1m x 2m" "LINEA"
-      "Línea discontinua de color amarillo para ciclorruta 1m x 2m - Pintura acrílica (a=0,10m)" "ML" 0.3333)
+      "LÃ­nea discontinua de color amarillo para ciclorruta 1m x 2m - Pintura acrÃ­lica (a=0,10m)" "ML" 0.3333)
     ("RESALTO" "Resalto en concreto" "LINEA"
-      "Suministro e instalación de resalto en concreto" "ML" 1.0)
+      "Suministro e instalaciÃ³n de resalto en concreto" "ML" 1.0)
     ("CEBRA" "Linea cebreada paso peatones (eje del paso)" "LINEA"
-      "Línea cebreada para paso de peatones (a=0,4m) - Pintura de dos componentes metil metacrilato" "M2" 2.0)
+      "LÃ­nea cebreada para paso de peatones (a=0,4m) - Pintura de dos componentes metil metacrilato" "M2" 2.0)
     ("PARE-06" "Linea de Pare a=0,6 (metil)" "LINEA"
-      "Línea de Pare - Pintura de dos componentes metil metacrilato (a=0,6m)" "M2" 0.6)
+      "LÃ­nea de Pare - Pintura de dos componentes metil metacrilato (a=0,6m)" "M2" 0.6)
     ("PARE-02" "Linea de Pare a=0,2 (acrilica)" "LINEA"
-      "Línea de Pare - Pintura acrílica (a=0,2m)" "M2" 0.2)
+      "LÃ­nea de Pare - Pintura acrÃ­lica (a=0,2m)" "M2" 0.2)
     ("POMPEYANO" "Demarcacion rampas de pompeyano (eje)" "LINEA"
-      "Demarcación de rampas de pompeyano (Color amarillo) - Pintura de dos componentes metil metacrilato" "M2" 1.0)
+      "DemarcaciÃ³n de rampas de pompeyano (Color amarillo) - Pintura de dos componentes metil metacrilato" "M2" 1.0)
     ("CRUCE-CICLO" "Cruce ciclorruta por calzada (eje)" "LINEA"
       "Cruce ciclorruta por calzada (0,4m x 0,4m) - Pintura de dos componentes metil metacrilato" "M2" 1.2)
     ("CRUCE-CICLO-AZ" "Cruce ciclorruta calzada azul (eje)" "LINEA"
@@ -25806,47 +25924,47 @@
     ("FL-FR-DER-IZQ" "Flecha frente, derecha o izquierda" "SIMBOLO"
       "Flecha de frente, a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato" "M2" 1.8)
     ("FL-CICLO" "Flecha de frente ciclocarril" "SIMBOLO"
-      "Flecha de frente para ciclocarril - Pintura acrílica" "M2" 0.8)
+      "Flecha de frente para ciclocarril - Pintura acrÃ­lica" "M2" 0.8)
     ("PICT-BICI" "Pictograma de bicicleta" "SIMBOLO"
-      "Pictograma de bicicleta - Pintura acrílica" "M2" 1.0)
+      "Pictograma de bicicleta - Pintura acrÃ­lica" "M2" 1.0)
     ("PICT-PEATON" "Pictograma cruce peatonal" "SIMBOLO"
       "Pictograma de cruce peatonal - Pintura de dos componentes metil metacrilato" "M2" 1.5)
     ("LETRAS" "Demarcacion de letras" "SIMBOLO"
-      "Demarcación de letras - Pintura acrílica" "M2" 1.5)
+      "DemarcaciÃ³n de letras - Pintura acrÃ­lica" "M2" 1.5)
     ("VEL-20" "Maxima velocidad 20 km/h" "SIMBOLO"
-      "Demarcación máxima velocidad permitida (20 km/h) - Pintura de dos componentes metil metacrilato" "M2" 3.0)
+      "DemarcaciÃ³n mÃ¡xima velocidad permitida (20 km/h) - Pintura de dos componentes metil metacrilato" "M2" 3.0)
     ("TRIANGULOS" "Sentido transito pompeyano (triangulos)" "SIMBOLO"
-      "Sentido del tránsito en pompeyanos (Triángulos) - Pintura de dos componentes metil metacrilato" "M2" 0.5)
+      "Sentido del trÃ¡nsito en pompeyanos (TriÃ¡ngulos) - Pintura de dos componentes metil metacrilato" "M2" 0.5)
     ("SV-60" "Senal vertical 0,60x0,60" "SENAL"
-      "Señal vertical (0,60mx0,60m)" "UN" 1.0)
+      "SeÃ±al vertical (0,60mx0,60m)" "UN" 1.0)
     ("SV-CICLO-D" "Senal ciclorruta doble 0,45" "SENAL"
-      "Señal vertical ciclorruta doble (0,45m x 0,45m)" "UN" 1.0)
+      "SeÃ±al vertical ciclorruta doble (0,45m x 0,45m)" "UN" 1.0)
     ("SV-CICLO-S" "Senal ciclorruta sencilla 0,45" "SENAL"
-      "Señal vertical ciclorruta sencilla (0,45m x 0,45m)" "UN" 1.0)
+      "SeÃ±al vertical ciclorruta sencilla (0,45m x 0,45m)" "UN" 1.0)
     ("SV-CICLO-INI" "Senal Inicio ciclorruta" "SENAL"
-      "Señal vertical ciclorruta sencilla \"Inicio ciclorruta\"" "UN" 1.0)
+      "SeÃ±al vertical ciclorruta sencilla \"Inicio ciclorruta\"" "UN" 1.0)
     ("SV-CICLO-FIN" "Senal Fin ciclorruta" "SENAL"
-      "Señal vertical ciclorruta sencilla \"Fin ciclorruta\"" "UN" 1.0)
+      "SeÃ±al vertical ciclorruta sencilla \"Fin ciclorruta\"" "UN" 1.0)
     ("SV-SP46A" "Senal SP-46A / SR-30" "SENAL"
-      "Señal vertical SP-46A / SR-30" "UN" 1.0)
+      "SeÃ±al vertical SP-46A / SR-30" "UN" 1.0)
     ("SV-SPB03" "Senal SPB-03" "SENAL"
-      "Señal vertical SPB-03" "UN" 1.0)
+      "SeÃ±al vertical SPB-03" "UN" 1.0)
     ("SV-SPB04" "Senal SPB-04" "SENAL"
-      "Señal vertical SPB-04" "UN" 1.0)
+      "SeÃ±al vertical SPB-04" "UN" 1.0)
     ("SV-SPC01" "Senal SPC-01 / SPC-01" "SENAL"
-      "Señal vertical SPC-01 / SPC-01" "UN" 1.0)
+      "SeÃ±al vertical SPC-01 / SPC-01" "UN" 1.0)
     ("SV-SPC01R" "Senal SPC-01 / SRC-01" "SENAL"
-      "Señal vertical SPC-01 / SRC-01" "UN" 1.0)
+      "SeÃ±al vertical SPC-01 / SRC-01" "UN" 1.0)
     ("SV-SP59A" "Senal cruce ciclistas SP-59A" "SENAL"
-      "Señal vertical ubicación de cruce ciclistas SP-59A" "UN" 1.0)
+      "SeÃ±al vertical ubicaciÃ³n de cruce ciclistas SP-59A" "UN" 1.0)
     ("SV-SP46" "Senal cruce peatonal SP-46" "SENAL"
-      "Señal vertical ubicación de cruce peatonal SP-46" "UN" 1.0)
+      "SeÃ±al vertical ubicaciÃ³n de cruce peatonal SP-46" "UN" 1.0)
     ("SV-SP46B" "Senal cruce peatonal SP-46B" "SENAL"
-      "Señal vertical ubicación de cruce peatonal SP-46B" "UN" 1.0)
+      "SeÃ±al vertical ubicaciÃ³n de cruce peatonal SP-46B" "UN" 1.0)
     ("TACHA-C" "Tacha reflectiva (linea central)" "SENAL"
-      "Tacha reflectiva bidireccional (Línea central)" "UN" 1.0)
+      "Tacha reflectiva bidireccional (LÃ­nea central)" "UN" 1.0)
     ("TACHA-B" "Tacha reflectiva (linea de borde)" "SENAL"
-      "Tacha reflectiva bidireccional (Línea de borde)" "UN" 1.0)))
+      "Tacha reflectiva bidireccional (LÃ­nea de borde)" "UN" 1.0)))
 
 (defun urb:senal-ensure-layer (entry / capa)
   (setq capa (strcat "URB-SENAL-" (nth 0 entry)))
@@ -25913,7 +26031,7 @@
   (vl-load-com)
   (initget "Linea Simbolo Vertical")
   (setq clase
-    (getkword "\nClase de señalizacion [Linea/Simbolo/Vertical] <Linea>: "))
+    (getkword "\nClase de seÃ±alizacion [Linea/Simbolo/Vertical] <Linea>: "))
   (if (null clase) (setq clase "Linea"))
   (setq clase
     (cond ((= clase "Linea") "LINEA")
@@ -26020,7 +26138,7 @@
   (if (not (vl-file-directory-p folder)) (vl-mkdir folder))
   (strcat folder "\\ppto_libro.txt"))
 
-;; 2026-09-03 MULTI-PC (pregunta del usuario: "¿si actualizo el ppto en
+;; 2026-09-03 MULTI-PC (pregunta del usuario: "Â¿si actualizo el ppto en
 ;; varios computadores me reconoce bien la ruta?"): la ruta guardada es
 ;; absoluta y LOCAL por maquina, y SharePoint monta en bases distintas
 ;; (C:\Users\<usuario>\colsubsidio.com en un PC, D:\colsubsidio.com en
@@ -27900,15 +28018,15 @@
           ;; en SUMINISTRO (UN = tubos de 6 m) + INSTALACION (ML) por
           ;; material y diametro, y la zanja sale por su capitulo de
           ;; MOVIMIENTO DE TIERRAS propio. Nomenclatura por capitulo:
-          ;; * ACUEDUCTO: "PVC presion ØN" / "y piezas especiales HD ØN".
+          ;; * ACUEDUCTO: "PVC presion Ã˜N" / "y piezas especiales HD Ã˜N".
           ;; * SANITARIO/PLUVIAL: NOVAFORT/NOVALOC/PVC -> "PVC flexible"
           ;;   (texto del libro; ademas asi el pluvial hereda el precio
           ;;   del sanitario por SUMIF); CSR/CCR/CER -> "en concreto MAT".
           (setq rows
             (cond
               ((= red "ACUEDUCTO")
-                ;; PVC va como "PVC presion ØN" en el libro; HD va como
-                ;; "tuberia y piezas especiales HD ØN".
+                ;; PVC va como "PVC presion Ã˜N" en el libro; HD va como
+                ;; "tuberia y piezas especiales HD Ã˜N".
                 ;; 2026-09-06 (regla del usuario: SUMINISTRO siempre en
                 ;; UNIDAD, mano de obra en ML): el suministro se emite en
                 ;; UN = tubos de 6 m (ML/6), igual que el sanitario; la
@@ -28038,7 +28156,7 @@
             ;; del modelo).
             (progn
               (if (= (vl-string-trim " " ctok) "")
-                (setq ctok "3x185 mm² Al XLPE 15 kV"))
+                (setq ctok "3x185 mmÂ² Al XLPE 15 kV"))
               ;; circuitos de cable en el mismo banco: multiplica el ML
               ;; de suministro y tendido (2026-08-26, 46 tramos del plano
               ;; llevan doble/triple circuito)
@@ -28048,29 +28166,29 @@
               (setq rows
                 (list
                   (urb:ppto-row red
-                    (strcat "Suministro e instalación de banco de ductos "
+                    (strcat "Suministro e instalaciÃ³n de banco de ductos "
                       mat-d "-TDP " ductos-n (chr 216) diam-d "\"")
                     id "" "" etapa sub "ML" lng handle)
                   (urb:ppto-row red (strcat "Suministro cable " ctok)
                     id "" "" etapa sub "ML" (* lng circ) handle)
                   (urb:ppto-row red
                     (strcat
-                      "Tendido, conexionado e identificación cable " ctok)
+                      "Tendido, conexionado e identificaciÃ³n cable " ctok)
                     id "" "" etapa sub "ML" (* lng circ) handle)
                   (urb:ppto-row red
-                    "Excavación para canalización MT, incluye cargue"
+                    "ExcavaciÃ³n para canalizaciÃ³n MT, incluye cargue"
                     id "" "" etapa sub "M3" exc handle)
                   (urb:ppto-row red
-                    "Relleno en arena limpia para protección de ductos"
+                    "Relleno en arena limpia para protecciÃ³n de ductos"
                     id "" "" etapa sub "M3" arena handle)
                   (urb:ppto-row red
-                    "Relleno y compactación con base granular clase B"
+                    "Relleno y compactaciÃ³n con base granular clase B"
                     id "" "" etapa sub "M3" base-gran handle)
                   (urb:ppto-row red
-                    "Cinta de señalización para red de media tensión"
+                    "Cinta de seÃ±alizaciÃ³n para red de media tensiÃ³n"
                     id "" "" etapa sub "ML" lng handle)
                   (urb:ppto-row red
-                    "Limpieza, mandrilado y verificación de ductos MT"
+                    "Limpieza, mandrilado y verificaciÃ³n de ductos MT"
                     id "" "" etapa sub "ML"
                     (* lng (atof ductos-n)) handle))))
             ;; BT / alumbrado: la canalizacion del ppto es todo incluido
@@ -28078,11 +28196,11 @@
             (setq rows
               (list
                 (urb:ppto-row red
-                  (strcat "Suministro e instalación de tuberia "
+                  (strcat "Suministro e instalaciÃ³n de tuberia "
                     ductos-n " " diam-d " TDP")
                   id "" "" etapa sub "ML" lng handle)
                 (urb:ppto-row red
-                  (strcat "Suministro e instalación de cable " ctok)
+                  (strcat "Suministro e instalaciÃ³n de cable " ctok)
                   id "" "" etapa sub "ML" lng handle))))
           (foreach r rows (if r (setq out (cons r out))))))
       (setq i (1+ i))))
@@ -28181,23 +28299,23 @@
                 "ELECTRICA-MT" "ELECTRICA-BT-AP")
               (cond
                 ((= base "CAMARA_CS274")
-                  "Suministro e instalación Caja de paso en mamposteria según norma CS-274")
+                  "Suministro e instalaciÃ³n Caja de paso en mamposteria segÃºn norma CS-274")
                 ((= base "CAMARA_CS275")
-                  "Suministro e instalación Caja de paso en mamposteria según norma CS-275")
+                  "Suministro e instalaciÃ³n Caja de paso en mamposteria segÃºn norma CS-275")
                 ;; 2026-08-26: redaccion del libro correcto (fila 1037)
                 ((= base "CAMARA_CS276")
-                  "Construcción de caja de inspección doble norma CS276")
+                  "ConstrucciÃ³n de caja de inspecciÃ³n doble norma CS276")
                 ;; CS280 NO existe en el libro correcto -- queda pendiente
                 ;; a proposito (afectacion reportada al usuario)
                 ((= base "CAMARA_CS280")
-                  "Construcción de cámara de paso MT norma CS280")
+                  "ConstrucciÃ³n de cÃ¡mara de paso MT norma CS280")
                 (T "Caja para barraje norma CS281"))
               id "" "" etapa sub "UN" 1.0 handle))))
         ((= base "LUMINARIA_AP")
           (setq r (urb:safe-string (cdr (assoc "TIPO_LUMINARIA" atts)) ""))
           (setq rows
             (list (urb:ppto-row "ELECTRICA-BT-AP"
-              (strcat "Suministro e instalación de luminaria LED"
+              (strcat "Suministro e instalaciÃ³n de luminaria LED"
                 (if (or (= r "") (= (strcase r) "LED")) "" (strcat " " r)))
               (urb:safe-string (cdr (assoc "CODIGO" atts)) id)
               "" "" etapa sub "UN" 1.0 handle))))
@@ -28213,7 +28331,7 @@
             (max 0 (atoi (urb:safe-string (cdr (assoc "LUMINARIAS" atts)) "0"))))
           (setq rows
             (list (urb:ppto-row "ELECTRICA-BT-AP"
-              (strcat "Suministro e instalación poste de concreto " r
+              (strcat "Suministro e instalaciÃ³n poste de concreto " r
                 " m. Tipo recto AP (Incluye ahoyada, hincada y plomada)")
               id "" "" etapa sub "UN" 1.0 handle)))
           (if (> prof 0)
@@ -28221,10 +28339,10 @@
               (append rows
                 (list
                   (urb:ppto-row "ELECTRICA-BT-AP"
-                    "Suministro e instalación de luminaria LED"
+                    "Suministro e instalaciÃ³n de luminaria LED"
                     id "" "" etapa sub "UN" (float prof) handle)
                   (urb:ppto-row "ELECTRICA-BT-AP"
-                    "Suministro e instalación de alambre 2x12 AWG-THW (Acometida para luminarias)"
+                    "Suministro e instalaciÃ³n de alambre 2x12 AWG-THW (Acometida para luminarias)"
                     id "" "" etapa sub "ML"
                     (* prof (+ (atof r) 3.0)) handle))))))
         ((= base "TRANSFORMADOR_AP")
@@ -31344,22 +31462,41 @@
                     (urb:loop-signed-area rev) 1e-9)))
         (urb:loop-reverse
           '(((0.0 0.0) . 0.0) ((4.0 0.0) . 1.0) ((4.0 3.0) . 0.0)))))
-    ;; 2026-09-08: el toperol SI se generaba (3.840 domos medidos en Civil
-    ;; real) pero se pintaba con la misma alternancia gris/blanca del
-    ;; anden, asi que era indistinguible. La franja de TOPEROL pasa a tono
-    ;; propio; la GUIA conserva el tono por banda.
-    (list "La franja de toperol tiene tono propio y la guia no"
-      (and (= 8 (urb:tactile-fill-color "TOPEROL" T))
-           (= 8 (urb:tactile-fill-color "TOPEROL" nil))
+    ;; 2026-09-10: en el toperol la textura son los PUNTOS, no el fondo --
+    ;; el relleno gris uniforme de v4.83 se los comia. Franja clara, domos
+    ;; oscuros. La GUIA conserva su tono por banda.
+    (list "El toperol se lee por sus puntos, no por el fondo"
+      (and (= 7 (urb:tactile-fill-color "TOPEROL" T))
+           (= 7 (urb:tactile-fill-color "TOPEROL" nil))
+           (= 8 (urb:tactile-symbol-color "TOPEROL" T))
+           (= 8 (urb:tactile-symbol-color "TOPEROL" nil))
+           ;; y el punto nunca queda del mismo tono que su fondo
+           (/= (urb:tactile-fill-color "TOPEROL" T)
+               (urb:tactile-symbol-color "TOPEROL" T))
            (= 8 (urb:tactile-fill-color "GUIA" T))
            (= 7 (urb:tactile-fill-color "GUIA" nil))
-           ;; el simbolo siempre contrasta con su fondo
-           (= 7 (urb:tactile-symbol-color "TOPEROL" T))
-           (= 7 (urb:tactile-symbol-color "TOPEROL" nil))
            (= 7 (urb:tactile-symbol-color "GUIA" T))
            (= 8 (urb:tactile-symbol-color "GUIA" nil))))
     (list "El domo de toperol tiene su tamano real"
       (equal 0.0125 *urb-toperol-radio* 1e-9))
+    ;; 2026-09-10: el punteado por patron es lo que evita sembrar miles de
+    ;; circulos (y con ellos el empacado de minutos). Solo se salta el
+    ;; sembrado cuando el patron QUEDO puesto; ante la duda se siembra.
+    (list "Solo se salta el sembrado de domos si el patron quedo puesto"
+      ((lambda (previo / r)
+        (setq r
+          (and (progn (setq *urb-toperol-pattern-state* "SI")
+                 (urb:toperol-by-pattern-p "TOPEROL"))
+               (progn (setq *urb-toperol-pattern-state* "NO")
+                 (not (urb:toperol-by-pattern-p "TOPEROL")))
+               (progn (setq *urb-toperol-pattern-state* nil)
+                 (not (urb:toperol-by-pattern-p "TOPEROL")))
+               ;; la guia nunca usa el patron de puntos
+               (progn (setq *urb-toperol-pattern-state* "SI")
+                 (not (urb:toperol-by-pattern-p "GUIA")))))
+        (setq *urb-toperol-pattern-state* previo)
+        r)
+        *urb-toperol-pattern-state*))
     ;; 2026-09-08: el desarrollo completo de rampa (aletas laterales) solo
     ;; cabe si el extremo tiene ancho para las dos aletas y el paso es
     ;; largo -- la condicion "cuando son tramos largos" del usuario.

@@ -1,5 +1,63 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-10, v4.86.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+Tres de los seis puntos del reporte del usuario. Los tres se reprodujeron en
+Civil real antes de tocar nada.
+
+1. ✔ **"Si edito una vía, cuando termino de editar me la borra del todo."**
+   Causa encontrada y medida: `urb:explode-road-block-boundary` se apoyaba en
+   *"el contorno es la ÚNICA LWPOLYLINE del bloque"* y se quedaba con **la
+   última** que apareciera, borrando las demás. Ese supuesto ya no se cumple:
+   medido, el bloque de vía trae **dos** polilíneas — el contorno (600,00 m²) y
+   una de apoyo de área 0,00. Cuando la última era la de apoyo, el contorno real
+   se borraba y la vía desaparecía. Ahora se elige por geometría
+   (`urb:largest-closed-polyline`: la cerrada de mayor área, con respaldo al
+   comportamiento anterior). Se aplicó la misma corrección al desempaque del
+   **andén**, que tenía el mismo patrón.
+2. ✔ **"Los andenes no están quedando en bloque, quedan todos los elementos por
+   aparte."** No era un fallo del empaquetado: era su **coste**. Medido, un andén
+   de 24 m con guía y toperol generaba **3.840 CIRCLE** (uno por domo) y
+   `urb:package-anden` tardaba **15,2 s**; en un andén real de cientos de metros
+   son minutos, y el bloque solo se arma si el usuario aguanta la espera — si
+   interrumpe, el material queda suelto (modo de fallo ya documentado en el
+   propio `urb:package-anden`). El punteado pasa a resolverse con el patrón
+   `URB_TOPEROL.pat`, que este motor **ya escribía y nunca usaba**: un HATCH por
+   banda en vez de un círculo por domo.
+   Medido en el mismo caso: **334 objetos** (antes 4.454) y **1,2 s** de
+   empaquetado, con 0 piezas sueltas.
+3. ✔ **"Ya aparece la franja de toperol, pero quedó una franja gris; lo que
+   quería era que quedaran los punticos."** El relleno gris uniforme de v4.83 se
+   comía la textura. Ahora la franja va **clara** y los puntos **oscuros** — el
+   punteado es la textura, no el fondo —, y al venir de un patrón se dibujan
+   visibles a cualquier zoom. La **guía** conserva su tono por banda.
+   `urb:count-toperol-symbols` (el control de calidad de v4.82, que solo contaba
+   CIRCLE) ahora cuenta también el hatch del patrón; sin eso rechazaba un acabado
+   que sí tenía su toperol.
+
+Validación: suite Core Console **83 OK / 0 FALLOS**, autopruebas **33/33**.
+E2E real con ActiveX **0 FALLOS**: andén empacado en 1,2 s con 0 sueltas, 14
+hatches de punteo y 0 círculos, fondo claro; y el desempaque de vía conservando
+el contorno de 600,00 m². Instalado 4.86.0, hash repo = instalado.
+
+**Pendiente del mismo mensaje del usuario, sin empezar**: los tres puntos de
+movimiento de tierras y alineamiento — (a) MT por pendiente obliga a vía al
+principio Y al final, debería aceptar vía o pozo en cualquiera de los dos
+extremos y varias cotas de pozos; (b) MT de andenes/zonas verdes debe dejar
+escoger vía/pozo pero la cota **no** es la rasante de la vía sino superior;
+(c) poder trazar una vía nueva que no tiene alineamiento ni cotas propias,
+tomándolos de la vía vecina.
+
+**Nota de herramientas**: escribir el `.lsp` con `Set-Content -Encoding UTF8`
+(PowerShell 5.1) le mete **BOM** y lo pasa a CRLF. Hay que reescribirlo con
+`UTF8Encoding($false)` y `\n`. Igual de importante: `[System.IO.File]` resuelve
+rutas relativas contra el directorio del proceso, no contra el `Set-Location`
+de PowerShell — usar siempre ruta absoluta (un descuido asi dejo en cero el
+archivo del laboratorio).
+
+
 ## Estado guardado — 2026-09-08 noche (5), v4.85.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
