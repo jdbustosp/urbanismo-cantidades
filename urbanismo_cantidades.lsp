@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.86.0")
+(setq *urb-version* "4.87.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -126,6 +126,10 @@
 ;; Records (distancia-eje cota) del modo Pendiente con 3+ cotas (pozos
 ;; sobre la via); se limpia al terminar cada creacion de via.
 (setq *urb-road-picked-stations* nil)
+;; Pendiente en % cuando el usuario solo tiene UNA cota de referencia
+;; (2026-09-10: "puede que tenga via al principio pero no al final").
+;; Se limpia igual que las otras dos.
+(setq *urb-road-picked-slope* nil)
 ;; Bordes extremos (e1 e2) elegidos al calcular el eje automatico; los
 ;; sardineles los reutilizan sin repreguntar. Se limpia por creacion.
 (setq *urb-road-end-edges* nil)
@@ -15826,23 +15830,66 @@
 ;; primer clic resulta ser una VIA creada o una etiqueta con numero
 ;; (auto-detect) y el flujo continua pidiendo la cota final y las
 ;; intermedias, igual que el modo Pendiente.
-(defun urb:pick-road-cotas-loop (picks / sel obj txt value point msg n done)
+;; 2026-09-10 (reporte del usuario: "me esta limitando mucho a seleccionar
+;; via al principio y via al final... puede que tenga via al principio pero
+;; que pasa si no tengo via al final, o si no tengo ni al principio ni al
+;; final"). El picker SIEMPRE acepto cualquier fuente -- via creada, pozo
+;; del modelo, etiqueta con numero o valor digitado --, pero lo decia mal:
+;; hablaba de "la COTA del extremo INICIAL/FINAL de la via" y exigia DOS
+;; referencias, asi que sin una segunda no se podia seguir. Ahora los
+;; mensajes nombran las cuatro fuentes y, con UNA sola cota, se pide la
+;; PENDIENTE y con eso se arma la rasante (el mismo camino de "cota inicial
+;; + pendiente" que el motor ya sabia usar).
+(defun urb:pick-road-cotas-loop (picks / sel obj txt value point msg n done slope)
   (setq done nil)
+  (setq *urb-road-picked-slope* nil)
   (while (not done)
     (setq n (length picks))
     (setq msg
       (cond
-        ((= n 0) "\nSeleccione la COTA del extremo INICIAL de la via: ")
-        ((= n 1) "\nSeleccione la COTA del extremo FINAL de la via: ")
-        (T "\nSeleccione OTRA cota sobre la via (pozos, quiebres) o Enter para terminar: ")))
+        ((= n 0)
+          (strcat "\nPrimera cota de referencia -- clic sobre una VIA creada,"
+                  " un POZO, una etiqueta de cota, o Enter para digitarla: "))
+        ((= n 1)
+          (strcat "\nSegunda cota (el otro extremo, misma libertad de fuente)"
+                  " o Enter para seguir con una PENDIENTE: "))
+        (T "\nOtra cota sobre la via (pozos, quiebres) o Enter para terminar: ")))
     (setq sel (nentsel msg))
     (cond
       ((null sel)
-        (if (>= n 2)
-          (setq done T)
-          (progn
-            (prompt "\nSe necesitan al menos 2 cotas; seleccion cancelada.")
-            (setq done T picks nil))))
+        (cond
+          ((>= n 2) (setq done T))
+          ;; una sola referencia: se completa con la pendiente
+          ((= n 1)
+            (setq slope
+              (getreal "\nPendiente de la via en % (Enter cancela): "))
+            (if slope
+              (progn
+                (setq *urb-road-picked-slope* slope)
+                (prompt
+                  (strcat "\nRasante desde la cota seleccionada con pendiente "
+                    (rtos slope 2 3) " %."))
+                (setq done T))
+              (progn
+                (prompt "\nSin segunda cota ni pendiente; seleccion cancelada.")
+                (setq done T picks nil))))
+          ;; ninguna referencia: se digita la cota y la pendiente
+          (T
+            (setq value (getreal "\nCota inicial (msnm), Enter cancela: "))
+            (if value
+              (progn
+                (setq slope
+                  (getreal "\nPendiente de la via en % <0>: "))
+                (setq *urb-road-picked-slope* (if slope slope 0.0))
+                (setq picks (list (list value nil)))
+                (prompt
+                  (strcat "\nRasante digitada: " (rtos value 2 3)
+                    " msnm con pendiente "
+                    (rtos *urb-road-picked-slope* 2 3) " %."))
+                (setq done T))
+              (progn
+                (prompt "\nSeleccion cancelada.")
+                (setq done T picks nil))))))
       (T
         ;; AUTO-DETECCION: el mismo click reconoce una VIA creada o un
         ;; TEXTO/etiqueta de cota de cualquier XREF. Se prueba primero la
@@ -16792,6 +16839,11 @@
     nil)
 )
 
+;; Cota al final de un tramo a partir de la cota inicial, la pendiente en %
+;; y la longitud. Pura, para poder autoprobarla.
+(defun urb:cota-por-pendiente (c0 slope span)
+  (+ c0 (* (/ slope 100.0) span)))
+
 (defun urb:store-selected-road-grade
   (boundary axis-start span direction
    / data records item local c0 c1)
@@ -16814,6 +16866,17 @@
     ((and *urb-road-picked-cotas* (= (length *urb-road-picked-cotas*) 2))
       (setq c0 (car *urb-road-picked-cotas*)
             c1 (cadr *urb-road-picked-cotas*)
+            records (list (list 0.0 c0) (list span c1))))
+    ;; 2026-09-10: UNA sola cota de referencia + pendiente. Cubre "tengo
+    ;; via al principio pero no al final" y "no tengo via en ninguno de
+    ;; los dos extremos" (ahi la cota se digita). La rasante se arma con
+    ;; los mismos records de siempre, asi que todo lo que viene despues
+    ;; -- movimiento de tierras, memoria, exportacion -- no cambia.
+    ((and *urb-road-picked-cotas*
+          (= (length *urb-road-picked-cotas*) 1)
+          (numberp *urb-road-picked-slope*))
+      (setq c0 (car *urb-road-picked-cotas*)
+            c1 (urb:cota-por-pendiente c0 *urb-road-picked-slope* span)
             records (list (list 0.0 c0) (list span c1)))))
   (if records
     (progn
@@ -16847,6 +16910,7 @@
     ;; siguiente via (2026-08-11 v2)
     (setq *urb-road-picked-cotas* nil)
     (setq *urb-road-picked-stations* nil)
+    (setq *urb-road-picked-slope* nil)
     (setq *urb-road-end-edges* nil)
     (if undo-open
       (progn
@@ -16908,6 +16972,7 @@
               ;; rasante por tramos proyectando cada clic sobre el eje
               (setq *urb-road-picked-cotas* nil)
               (setq *urb-road-picked-stations* nil)
+              (setq *urb-road-picked-slope* nil)
               (setq picks nil)
               (if (urb:string-equal-p (nth 6 dialog) "Pendiente")
                 (setq picks (urb:pick-road-cotas)))
@@ -16920,6 +16985,9 @@
                   (setq cota-info (list "" "0" "PENDIENTE"))))
               (cond
                 ((null picks) nil)
+                ;; una sola cota: se completa con la pendiente (v4.87)
+                ((= (length picks) 1)
+                  (setq *urb-road-picked-cotas* (mapcar 'car picks)))
                 ((= (length picks) 2)
                   (setq *urb-road-picked-cotas* (mapcar 'car picks)))
                 (T
@@ -17061,6 +17129,7 @@
                     (alert memoria-result))))))))))
   (setq *urb-road-picked-cotas* nil)
   (setq *urb-road-picked-stations* nil)
+  (setq *urb-road-picked-slope* nil)
   (setq *urb-road-end-edges* nil)
   (if undo-open
     (progn
@@ -17153,8 +17222,9 @@
                         (urb:safe-string (car cota-info) "") "PICKED")
                     (progn
                       (setq *urb-road-picked-cotas* nil
-                            *urb-road-picked-stations* nil)
-                      (if (= (length (cadr cota-info)) 2)
+                            *urb-road-picked-stations* nil
+                            *urb-road-picked-slope* nil)
+                      (if (<= (length (cadr cota-info)) 2)
                         (setq *urb-road-picked-cotas*
                           (mapcar 'car (cadr cota-info)))
                         (setq *urb-road-picked-stations*
@@ -31516,6 +31586,13 @@
                 (list '(8.0 0.0) pi 1.0 1.0 2))))
         (equal 1.70 (urb:ramp-end-min-width) 1e-9)
         (equal 3.50 (urb:ramp-end-min-length) 1e-9)))
+    ;; 2026-09-10: con UNA sola cota de referencia la rasante se completa
+    ;; con la pendiente ("tengo via al principio pero no al final").
+    (list "Con una cota y la pendiente sale la cota del otro extremo"
+      (and (equal 2561.00 (urb:cota-por-pendiente 2560.00 1.0 100.0) 1e-9)
+           (equal 2559.00 (urb:cota-por-pendiente 2560.00 -1.0 100.0) 1e-9)
+           ;; pendiente 0 = tramo horizontal, no un error
+           (equal 2560.00 (urb:cota-por-pendiente 2560.00 0.0 100.0) 1e-9)))
     (list "Caja CS276 recorta un metro por extremo"
       (equal 1.0 (mp:point-base-gap "CAMARA_CS276") 1e-9))
     (list "Pozo humedo recorta hasta radio real"

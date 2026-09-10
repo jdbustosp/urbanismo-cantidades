@@ -1,5 +1,47 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-10 (2), v4.87.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+Cuarto y sexto punto del reporte, que resultaron ser el mismo cuello de botella:
+el selector de cotas de la vía.
+
+- **"Me está limitando mucho a seleccionar vía al principio y vía al final...
+  ¿qué pasa si no tengo vía al final, o si no tengo ni al principio ni al
+  final?"** El picker (`urb:pick-road-cotas-loop`) **siempre** aceptó cualquier
+  fuente — vía creada (rasante interpolada en el clic), pozo/elemento del
+  modelo, etiqueta con número, o valor digitado — pero lo decía mal: hablaba de
+  *"la COTA del extremo INICIAL/FINAL de la vía"* y **exigía dos referencias**
+  (`"Se necesitan al menos 2 cotas; seleccion cancelada"`). Sin una segunda no
+  se podía continuar.
+  Ahora:
+  - los mensajes nombran las cuatro fuentes, sin decir "vía";
+  - con **una sola** cota, se pide la **pendiente (%)** y con eso se arma la
+    rasante;
+  - con **ninguna**, se digitan cota inicial y pendiente.
+  La rasante resultante usa los **mismos records** de siempre
+  (`urb:cota-por-pendiente`, pura y autoprobada), así que el movimiento de
+  tierras, la memoria y la exportación no cambian de camino.
+- **"La vía que voy a hacer no tiene alineamiento ni cotas, pero tengo los de la
+  vía de al lado."** Con lo anterior queda cubierto sin código nuevo: el modo de
+  alineamiento **"Nuevo"** ya permite *dibujar* el eje
+  (`urb:select-or-draw-road-axis`), y las cotas se toman clicando la **vía
+  vecina** — `urb:cota-from-pick` interpola su rasante en el punto del clic. Lo
+  que faltaba era poder hacerlo con una sola referencia, que es justo lo que se
+  acaba de habilitar.
+
+Validación: suite Core Console **84 OK / 0 FALLOS**, autopruebas **34/34**.
+Instalado 4.87.0, hash repo = instalado.
+
+**Pendiente del mismo mensaje, sin empezar**: el movimiento de tierras de
+**andenes y zonas verdes** — debe dejar escoger vía/pozo como referencia, pero
+cuando la referencia es una vía la cota **no** es su rasante sino **superior**
+(el andén va por encima de la calzada). Hay que decidir de dónde sale ese
+desnivel (altura de bordillo configurable en Ajustes es lo más probable) y
+revisar con ese criterio el MT de la zona verde.
+
+
 ## Estado guardado — 2026-09-10, v4.86.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
