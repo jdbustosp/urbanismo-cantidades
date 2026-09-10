@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.89.0")
+(setq *urb-version* "4.90.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -5233,10 +5233,16 @@
         (progn
           (setq loops (urb:region-loops region))
           (urb:safe-delete region)
+          ;; 2026-09-10 v2 (reporte del usuario: "la zona verde cortada la
+          ;; deformo con respecto a la original"): NO se puede devolver
+          ;; solo los puntos. Cada vertice trae su bulge y sin el los arcos
+          ;; del contorno original se vuelven cuerdas rectas -- que es
+          ;; exactamente la deformacion que se vio en la zona verde de un
+          ;; borde curvo. Se devuelve el bucle completo (punto . bulge).
           (foreach l loops
             (setq a (abs (urb:loop-signed-area l)))
             (if (> a (if minimo minimo 0.01))
-              (setq out (cons (mapcar 'car l) out))))
+              (setq out (cons l out))))
           (reverse out))))))
 
 ;; saca del grupo el primer segmento que continua en "cur". Devuelve
@@ -25551,9 +25557,29 @@
 ;; Devuelve (actualizados movimiento-pendiente fallidos). El filtro
 ;; geometrico evita tocar andenes cuya caja envolvente coincide pero cuya
 ;; superficie no es atravesada por el contenedor.
+;; Poligono(s) de la huella de un bloque CORTADOR. Para un contenedor de
+;; raices se conserva el camino exacto por catalogo; para cualquier otro
+;; bloque -- un modulo de paso peatonal o de rampa, por ejemplo -- se saca
+;; de su huella real. 2026-09-10: sin esto, urb:recut-prefab-for-container
+;; le pedia urb:contenedor-corners a un modulo de paso, recibia nil y no
+;; recortaba NINGUN sardinel (reporte del usuario con foto).
+(defun urb:cutter-polygons (cutter / poly reg polys)
+  (setq poly (vl-catch-all-apply 'urb:contenedor-corners (list cutter)))
+  (if (and (not (vl-catch-all-error-p poly)) poly)
+    (list poly)
+    (progn
+      (setq reg (vl-catch-all-apply 'urb:block-footprint-region
+                  (list (urb:as-vla-object cutter))))
+      (if (or (vl-catch-all-error-p reg) (null reg))
+        nil
+        (progn
+          (setq polys (vl-catch-all-apply 'urb:region-polygons (list reg)))
+          (urb:safe-delete reg)
+          (if (vl-catch-all-error-p polys) nil polys))))))
+
 (defun urb:recut-prefab-for-container
   (en container / data ext ref side pts item parts oldlen newlen piece built
-   refs good link elevation result pwidth)
+   refs good link elevation result pwidth polys)
   (setq data (urb:prefab-data en)
         ext (urb:extract-prefab-reference en (nth 0 data) (nth 5 data)))
   (if ext
@@ -25562,15 +25588,26 @@
             elevation (cdr (assoc 38 (entget ref)))
             pwidth (atof (nth 3 data))
             link (urb:get-xdata-strings en "URB_PREFAB_ANILLO"))
-      (if (urb:lwpoly-has-arcs-p ref)
-        (prompt "\nPrefabricado curvo: recorte por contenedor pendiente; se conserva el original.")
+      (setq polys (urb:cutter-polygons container))
+      (if (null polys)
+        (prompt "\nNo se pudo obtener la huella del elemento que corta; el prefabricado queda intacto.")
         (progn
-          (foreach item (entget ref)
-            (if (= (car item) 10)
-              (setq pts (cons (list (cadr item) (caddr item) 0.0) pts))))
-          (setq pts (reverse pts)
-                parts (urb:chain-split-por-poligonos pts
-                        (list (urb:contenedor-corners container)))
+          ;; 2026-09-10: el prefabricado CURVO ya no se salta. Antes se
+          ;; avisaba "recorte por contenedor pendiente" y el sardinel de
+          ;; una via en curva quedaba entero por debajo del paso peatonal.
+          ;; Se recorta sobre el muestreo fino del arco (el mismo que usa
+          ;; la franja tactil): la longitud sale de las cuerdas finas, no
+          ;; del arco exacto, con error muy por debajo del centimetro.
+          (if (urb:lwpoly-has-arcs-p ref)
+            (setq pts
+              (mapcar '(lambda (p) (list (car p) (cadr p) 0.0))
+                (urb:lwpoly-points-with-arcs-fine ref)))
+            (progn
+              (foreach item (entget ref)
+                (if (= (car item) 10)
+                  (setq pts (cons (list (cadr item) (caddr item) 0.0) pts))))
+              (setq pts (reverse pts))))
+          (setq parts (urb:chain-split-por-poligonos pts polys)
                 oldlen (urb:poly-chain-length pts) newlen 0.0)
           (foreach piece parts (setq newlen (+ newlen (urb:poly-chain-length piece))))
           (if (< newlen (- oldlen 1e-6))
@@ -25634,15 +25671,22 @@
 
 ;; Recorta UNA zona verde contra los cortadores vigentes. Devuelve el area
 ;; nueva, o nil si no se pudo (en ese caso la zona queda intacta).
-;; Arma una zona verde nueva a partir de una lista de puntos. Devuelve la
-;; referencia de bloque o nil.
-(defun urb:build-green-from-points (pts etapa sub esp / en obj hatch ref)
+;; Arma una zona verde nueva a partir de un bucle (punto . bulge) --
+;; conservando los ARCOS del contorno original, que es lo que se perdia
+;; cuando solo se pasaban los puntos.
+(defun urb:build-green-from-points (loop etapa sub esp / en obj hatch ref verts)
+  (setq verts nil)
+  (foreach v loop
+    (setq verts
+      (cons (cons 42 (if (numberp (cdr v)) (cdr v) 0.0))
+        (cons (cons 10 (list (car (car v)) (cadr (car v)))) verts))))
+  (setq verts (reverse verts))
   (setq en
     (entmakex
       (append
         (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(100 . "AcDbPolyline")
-              (cons 90 (length pts)) '(70 . 1) '(8 . "URB-ZONA-VERDE"))
-        (mapcar '(lambda (p) (cons 10 (list (car p) (cadr p)))) pts))))
+              (cons 90 (length loop)) '(70 . 1) '(8 . "URB-ZONA-VERDE"))
+        verts)))
   (if (null en)
     nil
     (progn

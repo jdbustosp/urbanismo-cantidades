@@ -1,5 +1,67 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-10 (5), v4.90.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+Los dos defectos que el usuario vio en el recorte de v4.89.0. Los dos eran
+reales y los dos quedaron reproducidos antes de tocar código.
+
+1. ✔ **"Recortó solo la zona verde, no los sardineles."** Dos causas encadenadas:
+   - `urb:recut-prefab-for-container` le pedía la huella al cortador con
+     **`urb:contenedor-corners`**, que solo sabe leer un contenedor de raíces
+     (catálogo + xdata `URB_MOBILIARIO`). Con un módulo de paso peatonal
+     devolvía **nil** y no se recortaba ningún prefabricado. Ahora
+     **`urb:cutter-polygons`**: contenedor por catálogo si lo es, y si no, la
+     huella real del bloque (`urb:block-footprint-region` →
+     `urb:region-polygons`).
+   - Aun con la huella, los prefabricados **curvos** se saltaban a propósito
+     (*"Prefabricado curvo: recorte por contenedor pendiente"*) — y el sardinel
+     de una vía en curva es justo eso. Ahora se recorta sobre el muestreo fino
+     del arco (`urb:lwpoly-points-with-arcs-fine`, el mismo que usa la franja
+     táctil): la longitud sale de cuerdas finas, con error muy por debajo del
+     centímetro.
+2. ✔ **"La zona verde cortada la deformó respecto a la original."** Culpa mía en
+   v4.89.0: `urb:clip-poly-loops` devolvía `(mapcar 'car l)` — **solo los
+   puntos**, tirando el *bulge* de cada vértice. Un borde curvo se rehacía como
+   cuerda recta. Ahora devuelve el bucle completo `(punto . bulge)` y
+   `urb:build-green-from-points` escribe el grupo 42.
+
+Medido E2E (zona verde con borde en arco + sardinel curvo bajo el paso):
+- sardinel **20,340 → 16,210 ML**, partido en **2 tramos**;
+- zona verde **216,05 → 168,81 m²**, en 3 pedazos, y el total coincide con el
+  área neta real medida con el booleano (**168,813**);
+- **el arco del borde se conserva** (1 zona con arco tras el recorte).
+
+Suite **84 OK / 0 FALLOS**; regresión de andén/vía **0 FALLOS**.
+Instalado 4.90.0, hash repo = instalado.
+
+### Reconocimiento: SEÑALIZACION.dwg
+
+Leído headless sobre copia (`01_DISENOS_BASE\SEÑALIZACION.dwg`; el original no
+se toca). 10.014 entidades. Lo que importa:
+
+- La señalización del proyecto es esencialmente **demarcación horizontal**, toda
+  en la capa **`SEN_BASE_DEMARCACION`** (1.642 entidades) + `SEN_BASE_DEM_CPS_2010`
+  (67). Los rótulos que se repiten: **"LINEA CONTINUA DE CARRIL AMARILLA"** y
+  **"LINEA SEGMENTADA BLANCA DE CARRIL"**.
+- Señalización **vertical**: bloque **`SP-20`** ×6 (poca cosa).
+- La **cebra** del paso peatonal ya está identificada en el otro plano:
+  `B CEBRA` = franja de **0,30 × 2,80 m**.
+
+Conclusión para el usuario: **sí se puede colgar de la modelación de la vía**,
+porque todo se genera a lo largo del eje que la vía ya tiene. Propuesta: al
+crear/editar una vía, ofrecer generar su demarcación (línea de eje continua
+amarilla, segmentada blanca de carril, líneas de borde) como bloque propio con
+ML para el presupuesto, más la cebra en los pasos peatonales.
+
+**Pendiente, con las medidas ya en la mano** (ver entrada de v4.89.0):
+redibujar la **rampa vehicular** — aletas TRAPEZOIDALES, banda de 0,20 con
+bordillo A-80, filas de tableta podotáctil de alerta y 4 bolardos — y el **paso
+peatonal largo** con franjas de cebra; y sacar a propiedades las cantidades de
+prefabricados / losetas / adoquín y sus rellenos.
+
+
 ## Estado guardado — 2026-09-10 (4), v4.89.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
