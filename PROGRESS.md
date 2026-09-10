@@ -1,5 +1,63 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-10 (3), v4.88.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+Dos de los cuatro puntos del reporte nuevo.
+
+1. ✔ **Editar el movimiento de tierras desde EDITAR** (vías y andenes). Después
+   de aceptar la ventana de configuración se pregunta
+   `Editar tambien el movimiento de tierras de <la via|el anden> (volver a
+   tomar cotas)? [Si/No] <No>` (`urb:ask-edit-movimiento`). Con Enter la edición
+   queda exactamente como antes.
+   - **Vía**: si responde Sí, vuelve a correr el picker de cotas y guarda la
+     rasante nueva antes de recalcular (`urb:store-selected-road-grade` +
+     `urb:try-road-earthworks`).
+   - **Andén**: se rehace el MT **sobre el mismo bloque**, sin reconstruirlo —
+     segundos en vez de los minutos que cuesta regenerar el acabado. Para eso
+     se agregó **`urb:anden-block-points`**, que saca el contorno de un andén ya
+     empacado sin desempacarlo.
+     *Bug encontrado por el propio E2E*: la primera versión usaba
+     `urb:lwpoly-points`, que hace `(trans pt ename 0)`; medido en Civil real,
+     `trans` devuelve **nil** para una entidad que vive dentro de la definición
+     de bloque (no tiene contexto de inserción) y el helper regresaba una lista
+     de nils — habría reventado en producción. Ahora lee el DXF directo (el
+     bloque se arma con punto base 0,0,0 y el contorno es plano).
+2. ✔ **Cota de diseño de andén / zona verde sobre una vía.** En
+   `urb:pick-design-cotas`, cuando la referencia que se clickea es una **vía**,
+   la cota ya no es su rasante: es la rasante **+ la altura vista del
+   bordillo**, que es donde va el andén. La altura sale de Ajustes
+   (`urb:prefab-default-alto`, clave `URB_PREFAB_ALTO_BORDILLO`), con campo
+   nuevo en la ventana de Ajustes y **0,20 m por defecto** — el bordillo A-80
+   del proyecto. Un pozo o una etiqueta se siguen tomando tal cual.
+
+Validación: suite Core Console **84 OK / 0 FALLOS**, autopruebas **34/34**.
+E2E real con ActiveX **0 FALLOS**: altura por defecto 0,200; contorno recuperado
+de un andén empacado con **área 28,800 = la original**. Instalado 4.88.0, hash
+repo = instalado.
+
+**Pendientes del mismo mensaje, con el terreno ya reconocido**:
+
+- **Recortar lo que queda debajo de un elemento nuevo** (foto 1: un paso
+  peatonal dibujado encima de una zona verde y unos sardineles). El módulo por
+  contorno avisa hoy *"no se recortan objetos vecinos"*. La maquinaria existe y
+  es reutilizable: `urb:recut-andenes-for-container` +
+  `urb:recut-prefabs-for-container` ya recortan andenes y prefabricados contra
+  un bloque que se inserta encima, y `urb:anden-cutout-blocks` es la lista de
+  "cortadores" (hoy `URB_PREFAB_BLOCK` y `URB_MOB_CONT*`). Falta: generalizar de
+  "contenedor" a "cualquier bloque cortador", agregar los `URB_RAMPA_*` a esa
+  lista, y **crear el recorte de ZONA VERDE**, que es el que no existe.
+- **Rampa vehicular y paso peatonal largo mal dibujados** (fotos 3, 4 y 5). Los
+  detalles reales están en
+  `...\10_RECORD\6. Andenes\Detalles_Rampas.dwg` (5,3 MB). Hay que leer ese DWG
+  headless para sacar las medidas y la composición verdaderas antes de redibujar
+  — no se puede deducir de las fotos. Además el usuario pide que en propiedades
+  queden las cantidades de **prefabricados, losetas y adoquín**, y los
+  **rellenos** de esos elementos (iguales a los del andén) aparte de cortes y
+  rellenos.
+
+
 ## Estado guardado — 2026-09-10 (2), v4.87.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

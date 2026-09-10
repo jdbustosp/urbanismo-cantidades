@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.87.0")
+(setq *urb-version* "4.88.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -7091,6 +7091,45 @@
   schema
 )
 
+;; Puntos del contorno de un anden YA empacado, SIN desempacarlo. El
+;; bloque se arma con -BLOCK y punto base 0,0,0, asi que las coordenadas de
+;; la definicion son las mismas del dibujo. Permite rehacer el movimiento
+;; de tierras en segundos, en vez de reconstruir el anden entero (minutos).
+(defun urb:anden-block-points (ename / obj bdef item capa candidatos mejor pts)
+  (setq obj (vl-catch-all-apply 'urb:as-vla-object (list ename)))
+  (if (or (vl-catch-all-error-p obj) (null obj))
+    nil
+    (progn
+      (setq bdef
+        (vl-catch-all-apply 'vla-Item
+          (list (vla-get-Blocks (urb:doc)) (vla-get-Name obj))))
+      (if (vl-catch-all-error-p bdef)
+        nil
+        (progn
+          (setq candidatos nil)
+          (vlax-for item bdef
+            (setq capa (strcase (urb:safe-string (vla-get-Layer item) "")))
+            (if (and (member (vla-get-ObjectName item)
+                             '("AcDbPolyline" "AcDb2dPolyline"))
+                     (or (urb:starts-with capa "URB-Q-ANDEN-")
+                         (= capa "URB-ANDEN")))
+              (setq candidatos (cons item candidatos))))
+          (setq mejor (urb:largest-closed-polyline (reverse candidatos)))
+          ;; Los vertices se leen del DXF directo, SIN (trans pt ename 0):
+          ;; medido en Civil real, trans devuelve nil para una entidad que
+          ;; vive dentro de la definicion de bloque (no tiene contexto de
+          ;; insercion) y urb:lwpoly-points regresaba una lista de nils.
+          ;; El bloque se arma con punto base 0,0,0 y el contorno es plano,
+          ;; asi que el DXF ya viene en coordenadas del dibujo.
+          (if mejor
+            (progn
+              (setq pts nil)
+              (foreach item (entget (vlax-vla-object->ename mejor))
+                (if (= (car item) 10)
+                  (setq pts
+                    (cons (list (cadr item) (caddr item)) pts))))
+              (reverse pts))))))))
+
 (defun urb:explode-anden-block-boundary
   (ename / obj exploded objects item boundary layer candidatos)
   (setq obj (vlax-ename->vla-object ename))
@@ -7121,6 +7160,21 @@
       (if boundary
         (vlax-vla-object->ename boundary)
         nil)))
+)
+
+;; 2026-09-10 (pedido del usuario: "cuando le doy editar elemento me sale
+;; la ventana de configuracion inicial, pero quiero que dentro de esa
+;; ventana o despues de darle ok me de la opcion de editar el movimiento de
+;; tierras"). Se pregunta DESPUES de aceptar la ventana, en la linea de
+;; comandos, para vias y andenes. Por defecto NO, para que un Enter deje la
+;; edicion como estaba.
+(defun urb:ask-edit-movimiento (que / kw)
+  (initget "Si No")
+  (setq kw
+    (getkword
+      (strcat "\nEditar tambien el movimiento de tierras de " que
+              " (volver a tomar cotas)? [Si/No] <No>: ")))
+  (urb:yes-p (urb:safe-string kw "No"))
 )
 
 (defun urb:call-edit-stage (stage function arguments / result)
@@ -7878,7 +7932,16 @@
                             (list ename material etapa subetapa guia toperol
                               format calculate surface grade-source))
                           (setq updated (1+ updated))
-                          (setq failed (1+ failed))))
+                          (setq failed (1+ failed)))
+                        ;; 2026-09-10: aqui la geometria no cambia, asi que
+                        ;; el movimiento se puede rehacer sobre el MISMO
+                        ;; bloque -- segundos, en vez de los minutos que
+                        ;; cuesta reconstruir el anden entero.
+                        (if (urb:ask-edit-movimiento "el anden")
+                          (urb:call-edit-stage
+                            "editar movimiento del anden"
+                            'urb:anden-earthworks-por-cotas
+                            (list ename (urb:anden-block-points ename)))))
                       (progn
                         (setq boundary
                           (urb:call-edit-stage
@@ -13791,6 +13854,8 @@
         ": row { : text { label = \"Bordillo\"; width = 30; } : edit_box { key = \"a_bordillo\"; edit_width = 10; } }"
         ": row { : text { label = \"Sardinel\"; width = 30; } : edit_box { key = \"a_sardinel\"; edit_width = 10; } }"
         ": row { : text { label = \"Canuela\"; width = 30; } : edit_box { key = \"a_canuela\"; edit_width = 10; } } }"
+        ": boxed_column { label = \"Altura vista del bordillo (m) -- cuanto queda el anden/zona verde por encima de la rasante de la via\";"
+        ": row { : text { label = \"Bordillo / sardinel\"; width = 30; } : edit_box { key = \"h_bordillo\"; edit_width = 10; } } }"
         ": boxed_column { label = \"Prefabricado por costados -- valor por defecto (se elige/cambia tambien en la ventana de Sendero y Bioswale)\";"
         ": row { : text { label = \"Derecha\"; width = 30; } : popup_list { key = \"c_lado1\"; width = 16; } }"
         ": row { : text { label = \"Izquierda\"; width = 30; } : popup_list { key = \"c_lado2\"; width = 16; } } }"
@@ -13814,7 +13879,8 @@
     ("MP_TRAMO_LINE_WIDTH" "t_ancho" 0.01 2.0)
     ("URB_PREFAB_ANCHO_BORDILLO" "a_bordillo" 0.05 2.0)
     ("URB_PREFAB_ANCHO_SARDINEL" "a_sardinel" 0.05 2.0)
-    ("URB_PREFAB_ANCHO_CANUELA" "a_canuela" 0.05 2.0)))
+    ("URB_PREFAB_ANCHO_CANUELA" "a_canuela" 0.05 2.0)
+    ("URB_PREFAB_ALTO_BORDILLO" "h_bordillo" 0.05 1.0)))
 
 (defun urb:send-config-capture (/ field valores clave tile lo hi v ok)
   (setq valores nil ok T)
@@ -13868,6 +13934,7 @@
             ((= tile "a_bordillo") (urb:prefab-default-ancho "Bordillo"))
             ((= tile "a_sardinel") (urb:prefab-default-ancho "Sardinel"))
             ((= tile "a_canuela") (urb:prefab-default-ancho "Canuela"))
+            ((= tile "h_bordillo") (urb:prefab-default-alto "Bordillo"))
             (T 0.20)))
         (set_tile tile (rtos default 2 3)))
       (urb:fill-popup "c_lado1" *urb-anillo-prefab-list*
@@ -15935,7 +16002,7 @@
 ;; DIGITADA (opcion Digitar: numero + punto donde aplica). Sin vias ni
 ;; pozos, se digita y ya. Con UNA sola cota el plano de diseno queda
 ;; horizontal; con 2 es una rasante lineal; con 3+ un plano ajustado.
-(defun urb:pick-design-cotas (/ picks sel value point done n)
+(defun urb:pick-design-cotas (/ picks sel value point done n alto)
   (setq done nil picks nil)
   (while (not done)
     (setq n (length picks))
@@ -15973,8 +16040,17 @@
         ;; etiqueta con numero -> digitar de respaldo
         (setq value (urb:cota-from-pick sel))
         (if value
-          (prompt (strcat "\nCota de la RASANTE de la via en el clic: "
-            (rtos value 2 3)))
+          ;; 2026-09-10 (pedido del usuario): estas son cotas de DISENO de
+          ;; anden / zona verde. Si la referencia es una VIA, la cota NO es
+          ;; su rasante: el anden va POR ENCIMA de la calzada, la altura
+          ;; del bordillo/sardinel. Esa altura sale de Ajustes
+          ;; (urb:prefab-default-alto), no se pregunta.
+          (progn
+            (setq alto (urb:prefab-default-alto "Bordillo"))
+            (prompt (strcat "\nRasante de la via en el clic: " (rtos value 2 3)
+              " + " (rtos alto 2 2) " m de bordillo -> cota de diseno "
+              (rtos (+ value alto) 2 3)))
+            (setq value (+ value alto)))
           (progn
             (setq value (urb:cota-from-model-punto sel))
             (if value
@@ -17169,7 +17245,7 @@
 (defun urb:edit-road
   (boundary / old dialog axis surface data obj area range axis-start
    axis-length label start interval handle via-id block-ref original-block
-   edit-completed cota-info)
+   edit-completed cota-info picks)
   ;; Si la via ya esta empacada en un bloque (atributos visibles en
   ;; Properties), se desempaca primero: se recupera el contorno crudo
   ;; con su xdata intacta y se sigue el mismo flujo de siempre; al
@@ -17269,6 +17345,21 @@
                         (nth 10 dialog) (nth 11 dialog) (nth 12 dialog)
                         (rtos area 2 6) (rtos axis-length 2 6) (nth 19 old)
                         (nth 4 dialog) (rtos axis-start 2 6) via-id)
+                      ;; 2026-09-10 (pedido del usuario): despues de aceptar
+                      ;; la ventana se puede rehacer la rasante. Con Enter
+                      ;; (No) la edicion sigue exactamente como antes.
+                      (if (urb:ask-edit-movimiento "la via")
+                        (progn
+                          (setq picks (urb:pick-road-cotas))
+                          (cond
+                            ((null picks) nil)
+                            ((<= (length picks) 2)
+                              (setq *urb-road-picked-stations* nil)
+                              (setq *urb-road-picked-cotas* (mapcar 'car picks)))
+                            (T
+                              (setq *urb-road-picked-cotas* nil)
+                              (setq *urb-road-picked-stations*
+                                (urb:picked-cotas-to-stations picks axis))))))
                       (urb:store-selected-road-grade
                         boundary axis-start axis-length (nth 12 old))
                       (setq interval (atof (nth 8 dialog)))
@@ -24995,6 +25086,19 @@
     (urb:parse-real
       (urb:safe-string
         (urb:config-read (strcat "URB_PREFAB_ANCHO_" (strcase prefab))) "")))
+  (if (and v (> v 0.0)) v 0.20))
+
+;; 2026-09-10 (pedido del usuario): ALTURA vista del bordillo/sardinel, o
+;; sea cuanto queda el anden POR ENCIMA de la rasante de la via. Se usa
+;; para las cotas de diseno de anden y zona verde cuando la referencia que
+;; se clickea es una via: la cota no es la rasante, es la rasante mas esta
+;; altura. Configurable en Ajustes; por defecto 0.20 m (bordillo A-80 del
+;; proyecto, el mismo valor que ya trae el ancho por defecto).
+(defun urb:prefab-default-alto (prefab / v)
+  (setq v
+    (urb:parse-real
+      (urb:safe-string
+        (urb:config-read (strcat "URB_PREFAB_ALTO_" (strcase prefab))) "")))
   (if (and v (> v 0.0)) v 0.20))
 
 ;; 2026-09-01 (pedido del usuario): tamano del texto y espesor de los

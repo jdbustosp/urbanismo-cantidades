@@ -20,7 +20,7 @@
 <ApplicationPackage
     SchemaVersion="1.0"
     AutodeskProduct="AutoCAD"
-    AppVersion="4.87.0"
+    AppVersion="4.88.0"
     ProductType="Application"
     Name="Urbanismo Cantidades"
     Description="Cuantificacion de obras de urbanismo: andenes, vias, rampas, prefabricados, redes y movimiento de tierras. Pestana CANTIDADES."
