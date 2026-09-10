@@ -1,5 +1,40 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-10 (7), v4.92.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+**Paso peatonal largo: el cuerpo con la textura de bandas del andén.**
+
+`B CEBRA` (0,30 × 2,80 m) está definido pero **no se usa** en
+`Detalles_Rampas.dwg`, así que el paso entre franjas no se podía deducir del
+plano. Se le preguntó al usuario entre tres opciones y eligió **"textura de
+andén (bandas gris/blanco)"**, no cebra pintada.
+
+**`urb:decorate-region-anden-bands`** (extraída del criterio que ya usaba
+`urb:build-ramp` para el módulo paramétrico): aplica sobre una región la misma
+modelación por bandas del andén — fase 0,80/1,00; **gris** = loseta 20×20
+(sólido gris + retícula 0,20 doble); **blanco** = adoquín (sólido blanco +
+juntas 0,10 al eje y 0,20 perpendicular). El cuerpo del **PASO-PEATONAL** la usa
+en vez del relleno plano; si por lo que sea no se puede construir, cae al
+relleno de siempre. El **acceso vehicular conserva su superficie lisa**, que es
+como está en el plano de detalles.
+
+Medido E2E sobre un paso de 12 × 4 m: cuerpo con **2 bandas grises + 3 blancas**
+y **19 hatches** (cada banda con sus juntas).
+
+Suite **84 OK / 0 FALLOS**. E2E de rampa vehicular + paso largo **0 FALLOS**.
+Regresión del recorte **0 FALLOS**. Instalado 4.92.0, hash repo = instalado.
+
+**Queda pendiente del mismo hilo**: sacar a propiedades las cantidades de
+losetas y adoquín del paso (hoy están `AREA_M2`, `A81_UND`, `TOPEROL_ML`,
+`BORDILLO_ML`, y en el vehicular `BORDILLO_A80_ML` y `BOLARDO_UND`), y los
+rellenos de esos elementos aparte de cortes y rellenos. Y la **demarcación de
+vías** colgada de la modelación de la vía (ver la entrada de v4.90.0 para dónde
+vive: capa `SEN_BASE_DEMARCACION`, línea continua amarilla y segmentada blanca,
+bloque vertical `SP-20`).
+
+
 ## Estado guardado — 2026-09-10 (6), v4.91.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

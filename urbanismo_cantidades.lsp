@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.91.0")
+(setq *urb-version* "4.92.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20395,6 +20395,66 @@
 )
 
 ;;; ---------------------------------------------------------------------
+;; 2026-09-10 (decision del usuario sobre el paso peatonal largo: "textura
+;; de anden, bandas gris/blanco"): el cuerpo del paso deja de ser un
+;; relleno plano y toma la MISMA modelacion por bandas del anden -- fase
+;; 0.80/1.00, gris = loseta 20x20 (solido gris + reticula 0.20 doble),
+;; blanco = adoquin (solido blanco + juntas 0.10 al eje y 0.20
+;; perpendicular). Es el mismo criterio que ya usa urb:build-ramp para el
+;; modulo parametrico, aqui extraido para poder reutilizarlo.
+;; Devuelve la lista de objetos creados, o nil si no pudo (el llamador
+;; vuelve entonces al relleno plano de siempre).
+(defun urb:decorate-region-anden-bands
+  (region axis layer / pts bounds umin umax vmin vmax phase gray primera
+   bw s e piece objects hatch origin iter)
+  (setq pts (urb:region-outline-points region))
+  (if (null pts) (setq pts (urb:object-box-points region)))
+  (if (null pts)
+    nil
+    (progn
+      (setq bounds (urb:project-bounds pts axis)
+            umin (nth 0 bounds) umax (nth 1 bounds)
+            vmin (- (nth 2 bounds) 0.5) vmax (+ (nth 3 bounds) 0.5))
+      (setq phase (urb:composite-phase-state umin))
+      (setq gray (car phase) primera T s umin objects nil iter 0)
+      (while (and (< s (- umax 1e-6)) (< iter 20000))
+        (setq iter (1+ iter))
+        (setq bw (if primera (cdr phase) (if gray 0.80 1.00)))
+        (if (< bw 0.001) (setq bw 0.001))
+        (setq e (min umax (+ s bw)))
+        (setq piece (urb:clip-stripe region s e vmin vmax axis))
+        (if piece
+          (progn
+            (vla-put-Layer piece layer)
+            (vla-put-Color piece (if gray 8 7))
+            (setq objects (cons piece objects))
+            (setq origin (urb:local-to-world s vmin axis))
+            (setq hatch
+              (vl-catch-all-apply 'urb:add-solid-hatch
+                (list piece layer (if gray 8 7))))
+            (if (not (vl-catch-all-error-p hatch))
+              (setq objects (cons hatch objects)))
+            (if gray
+              (progn
+                (setq hatch
+                  (vl-catch-all-apply 'urb:add-user-hatch
+                    (list piece layer 0.20 axis T 9 origin)))
+                (if (not (vl-catch-all-error-p hatch))
+                  (setq objects (cons hatch objects))))
+              (progn
+                (setq hatch
+                  (vl-catch-all-apply 'urb:add-user-hatch
+                    (list piece layer 0.10 axis nil 8 origin)))
+                (if (not (vl-catch-all-error-p hatch))
+                  (setq objects (cons hatch objects)))
+                (setq hatch
+                  (vl-catch-all-apply 'urb:add-user-hatch
+                    (list piece layer 0.20 (+ axis (/ pi 2.0)) nil 8 origin)))
+                (if (not (vl-catch-all-error-p hatch))
+                  (setq objects (cons hatch objects)))))))
+        (setq s e gray (not gray) primera nil))
+      (reverse objects))))
+
 ;;; RAMPA VEHICULAR segun el plano de detalles (2026-09-10, reporte del
 ;;; usuario: "la rampa vehicular no se parece en nada a como tiene que
 ;;; quedar"). Las medidas NO son estimadas: salen de leer el bloque
@@ -20565,7 +20625,8 @@
   (source frames tipo etapa sub material / doc copy region body terminals frame term
    objects hatch area total-area edge-length attrs name definition result ref obj
    depth origin axis boundary-en elevation wedge-depth wedge-layer wedge-en
-   a81-count ramp-ends endres extra-top extra-bor extra-area a80-ml bolardos)
+   a81-count ramp-ends endres extra-top extra-bor extra-area a80-ml bolardos
+   bandas)
   ;; Nuevo modulo 2D: contorno exacto (incluye arcos), remates elegidos,
   ;; paso adoquinado/liso o acceso vehicular liso. No inventa pendientes 3D.
   (setq doc (urb:doc) objects nil terminals nil edge-length 0.0)
@@ -20641,14 +20702,24 @@
       (setq hatch (urb:add-solid-hatch term "URB-RAMPA-REMATE" 8)
             objects (append objects (list term hatch)))))
   (vla-put-Layer body "URB-RAMPA")
-  (setq hatch (urb:add-solid-hatch body "URB-RAMPA"
-                (if (= material "Adoquin") 7 9))
-        objects (append objects (list body hatch)))
-  (if (= material "Adoquin")
+  ;; 2026-09-10 (decision del usuario): el cuerpo del PASO PEATONAL lleva
+  ;; la textura por bandas del anden -- por eso en el plano se ve oscuro y
+  ;; texturizado y no como un relleno plano. El acceso vehicular conserva
+  ;; su superficie lisa, que es como esta en el plano de detalles.
+  (setq bandas
+    (if (= tipo "PASO-PEATONAL")
+      (vl-catch-all-apply 'urb:decorate-region-anden-bands
+        (list body axis "URB-RAMPA"))))
+  (if (and bandas (not (vl-catch-all-error-p bandas)))
+    (setq objects (append objects (list body) bandas))
     (progn
-      (setq objects (append objects (list
-        (urb:add-user-hatch body "URB-RAMPA" 0.10 axis nil 8 origin)
-        (urb:add-user-hatch body "URB-RAMPA" 0.20 (+ axis (/ pi 2.0)) nil 8 origin))))))
+      (setq hatch (urb:add-solid-hatch body "URB-RAMPA"
+                    (if (= material "Adoquin") 7 9))
+            objects (append objects (list body hatch)))
+      (if (= material "Adoquin")
+        (setq objects (append objects (list
+          (urb:add-user-hatch body "URB-RAMPA" 0.10 axis nil 8 origin)
+          (urb:add-user-hatch body "URB-RAMPA" 0.20 (+ axis (/ pi 2.0)) nil 8 origin)))))))
   ;; 2026-09-08 (pedido del usuario, foto 4: "en los extremos del paso
   ;; peatonal, cuando son tramos largos, me aparezca esa parte de la
   ;; rampa" -> confirmado despues: "quiero el DESARROLLO COMPLETO de la
