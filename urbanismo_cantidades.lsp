@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.90.0")
+(setq *urb-version* "4.91.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20280,13 +20280,18 @@
 (setq *urb-rampa-desarrollo* 1.30)
 (setq *urb-rampa-cierre* 0.20)
 
-;; ancho minimo de extremo para que quepan las dos aletas y algo de banda
-(defun urb:ramp-end-min-width ()
-  (+ (* 2.0 *urb-rampa-aleta*) 0.50))
+;; Medidas minimas del extremo. 2026-09-10: dependen del TIPO, porque el
+;; acceso vehicular usa las del plano de detalles (aleta 2,369 y 1,70 de
+;; rampa mas 0,20 de tableta) y el paso peatonal las del modulo U-201.
+(defun urb:ramp-end-min-width (tipo)
+  (if (= tipo "RAMPA-VEHICULAR")
+    (urb:rampav-min-width)
+    (+ (* 2.0 *urb-rampa-aleta*) 0.50)))
 
-;; largo minimo del modulo para que quepan los dos desarrollos
-(defun urb:ramp-end-min-length ()
-  (+ (* 2.0 (+ *urb-rampa-desarrollo* *urb-rampa-cierre*)) 0.50))
+(defun urb:ramp-end-min-length (tipo)
+  (if (= tipo "RAMPA-VEHICULAR")
+    (+ (* 2.0 (+ *urb-rampav-fondo* *urb-rampav-tableta*)) 0.50)
+    (+ (* 2.0 (+ *urb-rampa-desarrollo* *urb-rampa-cierre*)) 0.50)))
 
 (defun urb:ramp-end-objects
   (frame material / base axis sign L dev total objects obj hatch ent
@@ -20389,6 +20394,155 @@
     (* (- L (* 2.0 *urb-rampa-aleta*)) dev))
 )
 
+;;; ---------------------------------------------------------------------
+;;; RAMPA VEHICULAR segun el plano de detalles (2026-09-10, reporte del
+;;; usuario: "la rampa vehicular no se parece en nada a como tiene que
+;;; quedar"). Las medidas NO son estimadas: salen de leer el bloque
+;;; B-RAMPA VEHICULAR de Detalles_Rampas.dwg con AutoCAD headless
+;;; (evidencia en work/claude_20260910_detalles/vertices.txt). Modulo del
+;;; plano: 10,00 m de frente.
+;;;
+;;;   aleta TRAPEZOIDAL a cada lado: (0,0) (2.369,1.70) (2.156,1.70) (0,0.20)
+;;;     -- no es un rectangulo con diagonal, que es lo que se dibujaba
+;;;   cara de rampa entre las dos aletas, a 1,70 m de fondo
+;;;   banda de fondo de 0,20 m (v 1.50 -> 1.70) = bordillo A-80
+;;;   fila de tableta podotactil de ALERTA a lo ancho del fondo (27
+;;;     tabletas de 0,20 en el modulo de 10 m) y 8 tabletas bajando por
+;;;     cada costado
+;;;   4 bolardos, a 2,20 y 3,00 m de fondo
+;;; ---------------------------------------------------------------------
+(setq *urb-rampav-aleta* 2.369)     ; ancho de la aleta sobre el bordillo
+(setq *urb-rampav-aleta-int* 2.156) ; su borde interior, ya al fondo
+(setq *urb-rampav-fondo* 1.70)      ; profundidad de la rampa
+(setq *urb-rampav-banda* 0.20)      ; banda de fondo (bordillo A-80)
+(setq *urb-rampav-tableta* 0.20)    ; tableta podotactil 20 x 20
+(setq *urb-rampav-lateral* 1.60)    ; 8 tabletas bajando por cada costado
+(setq *urb-rampav-bolardo-v* '(2.20 3.00))
+(setq *urb-rampav-bolardo-r* 0.075)
+
+;; ancho minimo para que quepan las dos aletas y algo de cara de rampa
+(defun urb:rampav-min-width ()
+  (+ (* 2.0 *urb-rampav-aleta*) 1.00))
+
+;; ancho real de aleta para un modulo de L metros: la del plano si cabe;
+;; si el acceso es mas angosto se reparte lo que haya dejando 1,00 m de
+;; cara de rampa, y nunca baja de 0,30.
+(defun urb:rampav-aleta (L / a)
+  (setq a (if (>= L (urb:rampav-min-width))
+            *urb-rampav-aleta*
+            (/ (- L 1.00) 2.0)))
+  (max 0.30 a))
+
+(defun urb:ramp-vehicular-objects
+  (frame / base axis sign L a ai f b objects obj hatch ent u1 u2 lu n-tab
+   tab-ml a80-ml bol origin)
+  (setq base (car frame) axis (cadr frame) sign (caddr frame) L (nth 3 frame))
+  (setq a (urb:rampav-aleta L)
+        ai (* a (/ *urb-rampav-aleta-int* *urb-rampav-aleta*))
+        f *urb-rampav-fondo*
+        b *urb-rampav-banda*)
+  (setq objects nil tab-ml 0.0 a80-ml 0.0 bol 0)
+  (urb:ensure-layer "URB-RAMPA" 4 T)
+  (urb:ensure-layer "URB-RAMPA-REMATE" 4 T)
+  (urb:ensure-layer "URB-BORDILLO" 9 T)
+  (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
+  (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
+
+  ;; ---- cara de rampa, entre las dos aletas ----
+  (setq obj
+    (urb:as-vla-object
+      (urb:ramp-quad-poly base axis sign a 0.0 (- L a) f "URB-RAMPA")))
+  (setq objects (cons obj objects))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA" 9)))
+  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+  ;; lineas de proyeccion de la pendiente, como en el plano
+  (setq ent (urb:ramp-line base axis sign a 0.0 (* 0.5 L) f "URB-RAMPA" 8))
+  (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
+  (setq ent (urb:ramp-line base axis sign (* 0.5 L) f (- L a) 0.0 "URB-RAMPA" 8))
+  (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
+
+  ;; ---- las dos aletas TRAPEZOIDALES ----
+  (foreach quad
+    (list
+      (list (list 0.0 0.0) (list a f) (list ai f) (list 0.0 b))
+      (list (list L 0.0) (list (- L a) f) (list (- L ai) f) (list L b)))
+    (setq obj
+      (urb:as-vla-object
+        (urb:ramp-poly-pts base axis sign quad "URB-RAMPA-REMATE")))
+    (setq objects (cons obj objects))
+    (setq hatch
+      (vl-catch-all-apply 'urb:add-solid-hatch
+        (list obj "URB-RAMPA-REMATE" 8)))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects))))
+
+  ;; ---- banda de fondo = bordillo A-80 ----
+  (setq obj
+    (urb:as-vla-object
+      (urb:ramp-poly-pts base axis sign
+        (list (list a f) (list (- L a) f)
+              (list (- L ai) (- f b)) (list ai (- f b)))
+        "URB-BORDILLO")))
+  (setq objects (cons obj objects))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-BORDILLO" 9)))
+  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+  (setq a80-ml (- L (* 2.0 a)))
+
+  ;; ---- tableta podotactil de ALERTA: fila de fondo ----
+  (setq u1 (+ a 0.03) u2 (- L a 0.03))
+  (if (> (- u2 u1) *urb-rampav-tableta*)
+    (progn
+      (setq obj
+        (urb:as-vla-object
+          (urb:ramp-quad-poly base axis sign u1 f u2 (+ f *urb-rampav-tableta*)
+            "URB-ANDEN-LOSETA-TOPEROL-20X20")))
+      (setq objects (cons obj objects))
+      (setq hatch
+        (vl-catch-all-apply 'urb:add-solid-hatch
+          (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
+            (urb:tactile-fill-color "TOPEROL" T))))
+      (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+      (setq hatch (urb:toperol-texture obj "TOPEROL"
+                    "URB-ANDEN-LOSETA-TOPEROL-20X20" axis ""))
+      (if hatch (setq objects (cons hatch objects)))
+      (setq tab-ml (+ tab-ml (- u2 u1)))))
+
+  ;; ---- tableta de ALERTA bajando por los dos costados ----
+  (foreach lu (list (list (- u1 *urb-rampav-tableta*) u1)
+                    (list u2 (+ u2 *urb-rampav-tableta*)))
+    (setq obj
+      (urb:as-vla-object
+        (urb:ramp-quad-poly base axis sign (car lu) (+ f *urb-rampav-tableta*)
+          (cadr lu) (+ f *urb-rampav-tableta* *urb-rampav-lateral*)
+          "URB-ANDEN-LOSETA-TOPEROL-20X20")))
+    (setq objects (cons obj objects))
+    (setq hatch
+      (vl-catch-all-apply 'urb:add-solid-hatch
+        (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
+          (urb:tactile-fill-color "TOPEROL" T))))
+    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+    (setq hatch (urb:toperol-texture obj "TOPEROL"
+                  "URB-ANDEN-LOSETA-TOPEROL-20X20" axis ""))
+    (if hatch (setq objects (cons hatch objects)))
+    (setq tab-ml (+ tab-ml *urb-rampav-lateral*)))
+
+  ;; ---- los 4 bolardos ----
+  (foreach lu (list u1 u2)
+    (foreach lv *urb-rampav-bolardo-v*
+      (setq origin (urb:ramp-local-point base axis sign lu lv))
+      (setq ent
+        (entmakex
+          (list '(0 . "CIRCLE") '(100 . "AcDbEntity")
+                '(8 . "URB-RAMPA-REMATE") '(62 . 8) '(100 . "AcDbCircle")
+                (cons 10 (list (car origin) (cadr origin) 0.0))
+                (cons 40 *urb-rampav-bolardo-r*))))
+      (if ent
+        (progn (setq objects (cons (urb:as-vla-object ent) objects))
+               (setq bol (1+ bol))))))
+
+  ;; (objetos  area-de-rampa  tableta-ML  bordilloA80-ML  bolardos)
+  (list (reverse objects) (* (- L (* 2.0 a)) f) tab-ml a80-ml bol)
+)
+
 ;; T si el paso da para llevar el desarrollo completo en los dos extremos
 ;; ("cuando son tramos largos", condicion del usuario).
 ;; punto medio de la tapa de un remate: es el que mide de verdad el largo
@@ -20398,20 +20552,20 @@
   (setq p (car frame) a (cadr frame) L (nth 3 frame))
   (list (+ (car p) (* 0.5 L (cos a))) (+ (cadr p) (* 0.5 L (sin a)))))
 
-(defun urb:ramp-ends-fit-p (frames)
+(defun urb:ramp-ends-fit-p (frames tipo)
   (and frames (= (length frames) 2)
-       (>= (nth 3 (car frames)) (urb:ramp-end-min-width))
-       (>= (nth 3 (cadr frames)) (urb:ramp-end-min-width))
+       (>= (nth 3 (car frames)) (urb:ramp-end-min-width tipo))
+       (>= (nth 3 (cadr frames)) (urb:ramp-end-min-width tipo))
        (>= (distance (urb:ramp-frame-mid (car frames))
                      (urb:ramp-frame-mid (cadr frames)))
-           (urb:ramp-end-min-length)))
+           (urb:ramp-end-min-length tipo)))
 )
 
 (defun urb:build-contour-ramp
   (source frames tipo etapa sub material / doc copy region body terminals frame term
    objects hatch area total-area edge-length attrs name definition result ref obj
    depth origin axis boundary-en elevation wedge-depth wedge-layer wedge-en
-   a81-count ramp-ends endres extra-top extra-bor extra-area)
+   a81-count ramp-ends endres extra-top extra-bor extra-area a80-ml bolardos)
   ;; Nuevo modulo 2D: contorno exacto (incluye arcos), remates elegidos,
   ;; paso adoquinado/liso o acceso vehicular liso. No inventa pendientes 3D.
   (setq doc (urb:doc) objects nil terminals nil edge-length 0.0)
@@ -20428,20 +20582,31 @@
         ;; en sus extremos siempre que el modulo de la medida. Si no da la
         ;; medida se conserva el remate simple, y se dice por que -- antes
         ;; se caia al remate simple en silencio.
-        depth (cond ((urb:ramp-ends-fit-p frames)
+        ;; 2026-09-10: la profundidad que se recorta del cuerpo tiene que
+        ;; ser LA MISMA que ocupa el modulo que se dibuja despues. El
+        ;; acceso vehicular usa las medidas del plano (1,70 de rampa +
+        ;; 0,20 de tableta de alerta); el paso peatonal, las del U-201.
+        depth (cond ((urb:ramp-ends-fit-p frames tipo)
                       (setq ramp-ends T)
-                      (+ *urb-rampa-desarrollo* *urb-rampa-cierre*))
+                      (if (= tipo "RAMPA-VEHICULAR")
+                        (+ *urb-rampav-fondo* *urb-rampav-tableta*)
+                        (+ *urb-rampa-desarrollo* *urb-rampa-cierre*)))
                     ((= tipo "RAMPA-VEHICULAR") 0.60)
                     (T 0.20)))
   (if ramp-ends
     (prompt
-      (strcat "\nDesarrollo de rampa en los dos extremos: aletas de "
-        (rtos *urb-rampa-aleta* 2 2) " m y "
-        (rtos *urb-rampa-desarrollo* 2 2) " m de rampa."))
+      (if (= tipo "RAMPA-VEHICULAR")
+        (strcat "\nRampa vehicular segun el plano de detalles: aletas de "
+          (rtos *urb-rampav-aleta* 2 2) " m, "
+          (rtos *urb-rampav-fondo* 2 2)
+          " m de rampa, bordillo A-80 al fondo, tableta podotactil de alerta y bolardos.")
+        (strcat "\nDesarrollo de rampa en los dos extremos: aletas de "
+          (rtos *urb-rampa-aleta* 2 2) " m y "
+          (rtos *urb-rampa-desarrollo* 2 2) " m de rampa.")))
     (prompt
       (strcat "\nSin desarrollo de rampa: hacen falta tapas de "
-        (rtos (urb:ramp-end-min-width) 2 2) " m o mas y "
-        (rtos (urb:ramp-end-min-length) 2 2)
+        (rtos (urb:ramp-end-min-width tipo) 2 2) " m o mas y "
+        (rtos (urb:ramp-end-min-length tipo) 2 2)
         " m entre ellas. Se dibuja el remate simple.")))
   (foreach frame frames
     (setq term (urb:ramp-terminal-region region frame depth))
@@ -20494,8 +20659,24 @@
   ;; central de rampa y bordillo transversal de cierre. Si no da la
   ;; medida, o en el acceso vehicular, se conserva la cuna simple:
   ;; rectangulo con diagonal.
-  (setq a81-count 0 extra-top 0.0 extra-bor 0.0 extra-area 0.0)
-  (if ramp-ends
+  (setq a81-count 0 extra-top 0.0 extra-bor 0.0 extra-area 0.0
+        a80-ml 0.0 bolardos 0)
+  (if (and ramp-ends (= tipo "RAMPA-VEHICULAR"))
+    ;; 2026-09-10: el acceso vehicular deja de usar el modulo peatonal y
+    ;; pasa a dibujarse como el plano de detalles -- aletas TRAPEZOIDALES,
+    ;; banda de fondo con bordillo A-80, tableta podotactil de alerta al
+    ;; fondo y por los dos costados, y 4 bolardos.
+    (foreach frame frames
+      (setq endres (vl-catch-all-apply 'urb:ramp-vehicular-objects (list frame)))
+      (if (vl-catch-all-error-p endres)
+        (prompt (strcat "\nAVISO: no se pudo dibujar la rampa vehicular: "
+                  (vl-catch-all-error-message endres)))
+        (setq objects (append objects (car endres))
+              extra-area (+ extra-area (nth 1 endres))
+              extra-top (+ extra-top (nth 2 endres))
+              a80-ml (+ a80-ml (nth 3 endres))
+              bolardos (+ bolardos (nth 4 endres))))))
+  (if (and ramp-ends (/= tipo "RAMPA-VEHICULAR"))
     (foreach frame frames
       (setq endres (vl-catch-all-apply 'urb:ramp-end-objects
                      (list frame material)))
@@ -20507,7 +20688,9 @@
               extra-top (+ extra-top (nth 2 endres))
               extra-bor (+ extra-bor (nth 3 endres))
               extra-area (+ extra-area (nth 4 endres)))))
-    (progn
+    ;; sin desarrollo de rampa: la cuna simple de siempre
+    (if ramp-ends nil
+     (progn
       (setq wedge-depth
         (cond
           ((= tipo "RAMPA-VEHICULAR") depth)
@@ -20541,7 +20724,7 @@
               (urb:ramp-line (car frame) (cadr frame) (caddr frame)
                 0.0 0.0 (nth 3 frame) wedge-depth wedge-layer 8))
             (setq objects
-              (append objects (list (urb:as-vla-object boundary-en)))))))))
+              (append objects (list (urb:as-vla-object boundary-en))))))))))
   (urb:safe-delete region)
   (setq name (strcat "URB_RAMPA_" (vla-get-Handle copy))
         definition (vla-Add (vla-get-Blocks doc) (vlax-3d-point '(0 0 0)) name)
@@ -20554,6 +20737,8 @@
     (cons "ANCHO_RAMPA" (rtos (/ edge-length 2.0) 2 3))
     (cons "FONDO_M" "0") (cons "AREA_M2" (rtos (+ area extra-area) 2 6))
     (cons "TOPEROL_ML" (rtos extra-top 2 3)) (cons "A81_UND" (itoa a81-count))
+    (cons "BORDILLO_A80_ML" (rtos a80-ml 2 3))
+    (cons "BOLARDO_UND" (itoa bolardos))
     (cons "BORDILLO_ML"
       (if (= tipo "PASO-PEATONAL")
         (rtos (+ edge-length extra-bor) 2 6)
@@ -31928,17 +32113,28 @@
         ;; tapas de 3,00 m separadas 5,00 m entre puntos medios: cabe
         (urb:ramp-ends-fit-p
           (list (list '(0.0 0.0) 0.0 1.0 3.0 0)
-                (list '(8.0 0.0) pi 1.0 3.0 2)))
+                (list '(8.0 0.0) pi 1.0 3.0 2)) "PASO-PEATONAL")
         ;; mismo ancho pero 1,00 m entre puntos medios: no cabe
         (not (urb:ramp-ends-fit-p
           (list (list '(0.0 0.0) 0.0 1.0 3.0 0)
-                (list '(2.0 0.0) pi 1.0 3.0 2))))
+                (list '(2.0 0.0) pi 1.0 3.0 2)) "PASO-PEATONAL"))
         ;; largo suficiente pero tapa de 1,00 m: no caben las dos aletas
         (not (urb:ramp-ends-fit-p
           (list (list '(0.0 0.0) 0.0 1.0 1.0 0)
-                (list '(8.0 0.0) pi 1.0 1.0 2))))
-        (equal 1.70 (urb:ramp-end-min-width) 1e-9)
-        (equal 3.50 (urb:ramp-end-min-length) 1e-9)))
+                (list '(8.0 0.0) pi 1.0 1.0 2)) "PASO-PEATONAL"))
+        (equal 1.70 (urb:ramp-end-min-width "PASO-PEATONAL") 1e-9)
+        (equal 3.50 (urb:ramp-end-min-length "PASO-PEATONAL") 1e-9)
+        ;; 2026-09-10: el acceso vehicular pide MAS frente (dos aletas de
+        ;; 2,369) -- esa misma tapa de 3,00 m ya no le sirve
+        (not (urb:ramp-ends-fit-p
+          (list (list '(0.0 0.0) 0.0 1.0 3.0 0)
+                (list '(8.0 0.0) pi 1.0 3.0 2)) "RAMPA-VEHICULAR"))
+        ;; con 6,00 m de tapa y 6,00 m entre puntos medios si cabe
+        (urb:ramp-ends-fit-p
+          (list (list '(0.0 0.0) 0.0 1.0 6.0 0)
+                (list '(12.0 0.0) pi 1.0 6.0 2)) "RAMPA-VEHICULAR")
+        (equal 5.738 (urb:ramp-end-min-width "RAMPA-VEHICULAR") 1e-6)
+        (equal 4.30 (urb:ramp-end-min-length "RAMPA-VEHICULAR") 1e-6)))
     ;; 2026-09-10: con UNA sola cota de referencia la rasante se completa
     ;; con la pendiente ("tengo via al principio pero no al final").
     (list "Con una cota y la pendiente sale la cota del otro extremo"

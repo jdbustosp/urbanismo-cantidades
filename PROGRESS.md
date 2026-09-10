@@ -1,5 +1,70 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-10 (6), v4.91.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+
+### Rampa vehicular con la geometría del plano ✔
+
+Reporte del usuario: *"la rampa vehicular no se parece en nada a como tiene que
+quedar"*. Las medidas **no son estimadas**: salen de leer el bloque
+`B-RAMPA VEHICULAR` de `Detalles_Rampas.dwg` con AutoCAD headless (evidencia en
+`work/claude_20260910_detalles/vertices.txt`). Módulo del plano: 10,00 m de
+frente.
+
+**`urb:ramp-vehicular-objects`** dibuja, por extremo:
+
+- **aletas TRAPEZOIDALES** — `(0,0) (2.369,1.70) (2.156,1.70) (0,0.20)` y su
+  espejo. Antes eran rectángulos con una diagonal, que es lo que el usuario veía
+  como "no se parece en nada".
+- **cara de rampa** entre las dos aletas, a 1,70 m de fondo, con sus dos líneas
+  de proyección de pendiente.
+- **banda de fondo de 0,20 m** = bordillo **A-80**, contada en ML.
+- **tableta podotáctil de ALERTA** a lo ancho del fondo y bajando 1,60 m por
+  cada costado (8 tabletas por lado en el plano), con su punteado por patrón.
+- **4 bolardos** por extremo, a 2,20 y 3,00 m de fondo.
+
+Constantes: `*urb-rampav-aleta*` 2,369 · `*urb-rampav-aleta-int*` 2,156 ·
+`*urb-rampav-fondo*` 1,70 · `*urb-rampav-banda*` 0,20 · `*urb-rampav-lateral*`
+1,60. Si el acceso es más angosto que 5,738 m, la aleta se reparte dejando
+1,00 m de cara de rampa y nunca baja de 0,30.
+
+**Desajuste que encontró el propio E2E**: la profundidad que se recortaba del
+cuerpo venía del módulo peatonal (1,50) mientras el dibujo vehicular ocupa 1,90
+(1,70 + 0,20 de tableta) — el cuerpo se montaba 0,40 m sobre la rampa.
+`urb:ramp-end-min-width` / `urb:ramp-end-min-length` / `urb:ramp-ends-fit-p`
+pasan a depender del **tipo**, y `depth` usa las medidas que de verdad se
+dibujan.
+
+**Cantidades nuevas en propiedades**: `BORDILLO_A80_ML` y `BOLARDO_UND`
+(`A81_UND` queda en 0 para el acceso vehicular: esa pieza es del módulo
+peatonal).
+
+Medido E2E sobre un acceso de 10 × 6 m: tapas de 6,00 m, `BORDILLO_A80_ML 2,524`
+(= 2 × (6,00 − 2 × 2,369)), `TOPEROL_ML 8,804`, `BOLARDO_UND 8`, `A81_UND 0`;
+en el bloque, 8 círculos de bolardo, 4 piezas de banda A-80 y 18 piezas de
+tableta con 6 punteados.
+
+Suite **84 OK / 0 FALLOS** (la autoprueba del ajuste de extremos ahora cubre
+también el caso vehicular). Regresión del recorte **0 FALLOS**.
+Instalado 4.91.0, hash repo = instalado.
+
+### Paso peatonal largo — pendiente de una precisión
+
+`B CEBRA` (0,30 × 2,80 m, relleno sólido) está **definido pero NO se usa** en
+`Detalles_Rampas.dwg`, así que el **paso entre franjas no se puede deducir del
+plano**. Sin ese dato hay dos lecturas posibles de la foto 5 y no conviene
+adivinar por cuarta vez:
+
+1. **cebra pintada**: franjas de 0,30 m transversales, con separación a definir
+   (lo estándar es franja = espacio, o sea paso 0,60);
+2. **acabado construido**: el mismo cuerpo de hoy pero con la textura por bandas
+   del andén (gris/blanco real) en vez del relleno plano, que es lo que hace que
+   en la foto 5 se vea oscuro y texturizado.
+
+Hay que preguntarle al usuario cuál de las dos, y si es la cebra, con qué paso.
+
+
 ## Estado guardado — 2026-09-10 (5), v4.90.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
