@@ -1,0 +1,58 @@
+motor 4.95.0 cargado
+remates: 2
+OK   paso creado | ok
+AREA_M2 = 44.480000
+BORDILLO_ML = 20.800000
+TOPEROL_ML = 14.000
+A81_UND = 4
+MATERIAL = Adoquin
+LOSETA_LISA_M2 = 15.840
+LOSETA_LISA_UND = 396
+ADOQUIN_M2 = 22.400
+ADOQUIN_20X10_UND = 1120
+LOSETA_GUIA_ML = 8.600
+LOSETA_GUIA_UND = 86
+LOSETA_TOPEROL_UND = 70
+SBG_M3 = 22.240
+ARENA_M3 = 1.779
+GEOTEXTIL_M2 = 51.152
+OK   bandas (loseta + adoquin) = 38,24 m2: no pisan bordillos, A81, toperol ni guia | 38.240
+OK   hay loseta Y adoquin | 15.84 / 22.40
+OK   guia por el eje entre las dos alertas: 8,60 ml | 8.600
+OK   toperol: laterales 1,50 x 4 + alerta 4,00 x 2 = 14,00 ml | 14.000
+OK   AREA_M2 = bandas + guia + toperol = 44,48 | 44.480000
+OK   A81: 4 | 4
+OK   SBG = AREA x 0,50 | 22.240
+OK   bajada marcada en los dos extremos (BAJA x2) | 2
+OK   guia dibujada (region + relleno + barras) | 6
+quebrado: remates 3.50 y 3.50
+OK   paso quebrado creado | ok
+quebrado AREA_M2 = 46.418859
+quebrado LOSETA_LISA_M2 = 13.973
+quebrado ADOQUIN_M2 = 25.522
+quebrado LOSETA_GUIA_ML = 10.808
+quebrado TOPEROL_ML = 13.000
+OK   la guia sigue el quiebre (~10,8 ml) | 10.808
+OK   bandas del paso quebrado cubren todo sin traslapes | 39.495 vs 39.499
+OK   exportacion de rampas sin error | 18 filas
+fila: PASO-PEATONAL | Arena de nivelacion | M3 1.779
+fila: PASO-PEATONAL | Geotextil tejido 2100 | M2 51.152
+fila: PASO-PEATONAL | Subbase granular SBG | M3 22.240
+fila: PASO-PEATONAL | Loseta guia | ML 8.600
+fila: PASO-PEATONAL | Adoquin gris 10x20x6 | UN 1120.000
+fila: PASO-PEATONAL | Loseta lisa 20x20x6 | UN 396.000
+fila: PASO-PEATONAL | Bordillo prefabricado | ML 20.800
+fila: PASO-PEATONAL | Loseta toperol | ML 14.000
+fila: PASO-PEATONAL | Prefabricado A-81 | UN 4.000
+fila: PASO-PEATONAL | Arena de nivelacion | M3 1.857
+fila: PASO-PEATONAL | Geotextil tejido 2100 | M2 53.382
+fila: PASO-PEATONAL | Subbase granular SBG | M3 23.209
+fila: PASO-PEATONAL | Loseta guia | ML 10.808
+fila: PASO-PEATONAL | Adoquin gris 10x20x6 | UN 1276.000
+fila: PASO-PEATONAL | Loseta lisa 20x20x6 | UN 349.000
+fila: PASO-PEATONAL | Bordillo prefabricado | ML 18.800
+fila: PASO-PEATONAL | Loseta toperol | ML 13.000
+fila: PASO-PEATONAL | Prefabricado A-81 | UN 4.000
+OK   salen loseta, adoquin, SBG, geotextil y arena | 
+RESULTADO 0 FALLOS
+DONE

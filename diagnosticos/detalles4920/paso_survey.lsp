@@ -1,0 +1,33 @@
+;; Ubica en el plano de detalles los modulos de rampa / paso peatonal
+;; (inserciones y rotulos). SOLO LECTURA sobre una copia.
+(setq lab (getenv "URB_TEST_LAB"))
+(setq *o* (open (strcat lab "/paso_survey.txt") "w"))
+(load (strcat lab "/dumpx.lsp"))
+(setvar "CMDECHO" 0)
+(defun eff-name (ed / bn obj r)
+  (setq bn (cdr (assoc 2 ed)))
+  (if (= (substr bn 1 1) "*")
+    (progn
+      (setq r (vl-catch-all-apply
+        '(lambda () (vla-get-EffectiveName (vlax-ename->vla-object (cdr (assoc -1 ed)))))))
+      (if (vl-catch-all-error-p r) bn r))
+    bn))
+(setq ss (ssget "_X" '((410 . "Model"))) i 0)
+(repeat (if ss (sslength ss) 0)
+  (setq ed (entget (ssname ss i)) i (1+ i) tp (cdr (assoc 0 ed)))
+  (cond
+    ((= tp "INSERT")
+      (setq nm (eff-name ed) p (ref-pt ed))
+      (if (wcmatch (strcase nm) "*RAMPA*,*M?DULO*,*MODULO*,*PASO*,*CEBRA*,*TABLETA*,*BORDILLO*,*SARDINEL*")
+        (w (strcat "I " nm " | " (cdr (assoc 2 ed)) " | " (r2 (car p)) " " (r2 (cadr p))
+             " rot " (rtos (* 180.0 (/ (cond ((cdr (assoc 50 ed))) (0.0)) pi)) 2 1)
+             " esc " (rtos (cond ((cdr (assoc 41 ed))) (1.0)) 2 3)))))
+    ((member tp '("TEXT" "MTEXT"))
+      (setq s (cdr (assoc 1 ed)) p (ref-pt ed))
+      (if (wcmatch (strcase s) "*RAMPA*,*PASO*,*PEATONAL*,*M?DULO*,*MODULO*,*CEBRA*,*CRUCE*")
+        (w (strcat "X " (r2 (car p)) " " (r2 (cadr p)) " | " s))))))
+(w "DONE")
+(close *o*)
+(setq *m* (open (strcat lab "/png_log.txt") "w"))
+(write-line "DONE" *m*)
+(close *m*)

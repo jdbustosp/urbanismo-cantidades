@@ -63,7 +63,7 @@
             (setq s "" n 0)
             (foreach p lazo
               (setq s (strcat s " " (r2 (car p)) " " (r2 (cadr p))) n (1+ n)))
-            (w (strcat "F " (itoa c) " S " (itoa n) s))))))))
+            (w (strcat "P " (itoa c) " " (itoa n) s))))))))
 
 ;; puntos de un arco de bulge entre p1 y p2 (sin p1)
 (defun bulge-pts (p1 p2 b / ang ch r mid cen a1 k res n)
@@ -205,7 +205,7 @@
               (foreach v lp
                 (setq s (strcat s " " (r2 (car (car v))) " " (r2 (cadr (car v))))
                       n (1+ n)))
-              (w (strcat "F " (itoa c) " S " (itoa n) s)))))))
+              (w (strcat "P " (itoa c) " " (itoa n) s)))))))
     ((and (= nm "AcDbHatch") (hatch-recreate-fill obj c)) nil)
     ((= nm "AcDbHatch")
       ;; relleno: se vuelca cada lazo exterior como poligono relleno

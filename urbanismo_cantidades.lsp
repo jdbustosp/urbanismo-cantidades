@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.94.0")
+(setq *urb-version* "4.95.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -20468,6 +20468,13 @@
 (setq *urb-rampa-aleta* 0.60)
 (setq *urb-rampa-desarrollo* 1.30)
 (setq *urb-rampa-cierre* 0.20)
+;; v4.95: fila de tableta de ALERTA a todo el ancho al pie del desarrollo
+;; (B-Rampa modulo tipo c del plano: banda de cierre y luego la alerta)
+(setq *urb-rampa-alerta* 0.20)
+
+;; fondo total que ocupa el extremo del paso peatonal
+(defun urb:paso-end-depth ()
+  (+ *urb-rampa-desarrollo* *urb-rampa-cierre* *urb-rampa-alerta*))
 
 ;; Medidas minimas del extremo. 2026-09-10: dependen del TIPO, porque el
 ;; acceso vehicular usa las del plano de detalles (aleta 2,369 y 1,70 de
@@ -20480,16 +20487,34 @@
 (defun urb:ramp-end-min-length (tipo)
   (if (= tipo "RAMPA-VEHICULAR")
     (+ (* 2.0 (+ *urb-rampav-fondo* *urb-rampav-tableta*)) 0.50)
-    (+ (* 2.0 (+ *urb-rampa-desarrollo* *urb-rampa-cierre*)) 0.50)))
+    (+ (* 2.0 (urb:paso-end-depth)) 0.50)))
 
+;; v4.95 (2026-09-11, "sigue con el paso peatonal"): el extremo se rehizo
+;; contra el plano (B-Rampa modulo tipo c, leido de su definicion) y la
+;; foto 5 del usuario:
+;;   - la SUPERFICIE de rampa ya no es una banda lisa: lleva la MISMA
+;;     textura por bandas del cuerpo, de corrido. Aqui solo se devuelve su
+;;     contorno; el llamador la une al cuerpo antes de modular las bandas.
+;;   - la bajada se marca con un tono translucido, flecha y "BAJA" hacia
+;;     la tapa (v = 0), como el acceso vehicular.
+;;   - toperol y bordillo laterales bajan hasta la banda de cierre (antes
+;;     quedaba un hueco en la esquina de 0,30 x 0,20).
+;;   - fila de tableta de ALERTA a todo el ancho al pie del desarrollo.
+;;   - el punteado del toperol va por patron (un hatch), no un circulo por
+;;     domo.
+;; Devuelve (objetos a81-und toperol-ml bordillo-ml area-rampa-m2
+;;           ename-contorno-superficie toperol-m2).
 (defun urb:ramp-end-objects
-  (frame material / base axis sign L dev total objects obj hatch ent
-   tramos tu1 tu2 bu1 bu2 au1 au2 du1 du2 lu lv uvh a81 top-ml bor-ml origin)
+  (frame material / base axis sign L dev total alert objects obj hatch ent
+   tramos tu1 tu2 bu1 bu2 au1 au2 du1 du2 a81 top-ml top-m2 bor-ml
+   surface origin txt mid)
   (setq base (car frame) axis (cadr frame) sign (caddr frame) L (nth 3 frame))
   (setq dev *urb-rampa-desarrollo*
-        total (+ *urb-rampa-desarrollo* *urb-rampa-cierre*))
-  (setq objects nil a81 0 top-ml 0.0 bor-ml 0.0)
+        total (+ *urb-rampa-desarrollo* *urb-rampa-cierre*)
+        alert *urb-rampa-alerta*)
+  (setq objects nil a81 0 top-ml 0.0 top-m2 0.0 bor-ml 0.0)
   (urb:ensure-layer "URB-RAMPA-A81" 8 T)
+  (urb:ensure-layer "URB-RAMPA-BAJADA" 8 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
   (urb:ensure-layer "URB-BORDILLO" 9 T)
   (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
@@ -20505,38 +20530,19 @@
           bu1 (nth 2 tr) bu2 (nth 3 tr)
           au1 (nth 4 tr) au2 (nth 5 tr)
           du1 (nth 6 tr) du2 (nth 7 tr))
-    ;; toperol de la aleta: gris con sus domos blancos
+    ;; toperol de la aleta, hasta la banda de cierre
+    (setq objects
+      (append (reverse (urb:paso-toperol-quad base axis sign tu1 0.0 tu2 total))
+              objects))
+    (setq top-ml (+ top-ml total) top-m2 (+ top-m2 (* 0.20 total)))
+    ;; bordillo de confinamiento de la aleta, tambien hasta el cierre
     (setq obj
       (urb:as-vla-object
-        (urb:ramp-quad-poly base axis sign tu1 0.0 tu2 dev
-          "URB-ANDEN-LOSETA-TOPEROL-20X20")))
-    (setq objects (cons obj objects))
-    (setq hatch
-      (vl-catch-all-apply 'urb:add-solid-hatch
-        (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
-          (urb:tactile-fill-color "TOPEROL" T))))
-    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-    (setq lu (+ (min tu1 tu2) 0.025))
-    (while (<= lu (- (max tu1 tu2) 0.025 (- 1e-6)))
-      (setq lv 0.025)
-      (while (<= lv (- dev 0.025))
-        (setq uvh (urb:ramp-frame-uv base axis sign lu lv))
-        (setq ent
-          (urb:add-circle-symbol (car uvh) (cadr uvh) *urb-toperol-radio*
-            axis "URB-ANDEN-LOSETA-TOPEROL-20X20" ""
-            (urb:tactile-symbol-color "TOPEROL" T)))
-        (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
-        (setq lv (+ lv 0.05)))
-      (setq lu (+ lu 0.05)))
-    (setq top-ml (+ top-ml dev))
-    ;; bordillo de confinamiento de la aleta
-    (setq obj
-      (urb:as-vla-object
-        (urb:ramp-quad-poly base axis sign bu1 0.0 bu2 dev "URB-BORDILLO")))
+        (urb:ramp-quad-poly base axis sign bu1 0.0 bu2 total "URB-BORDILLO")))
     (setq objects (cons obj objects))
     (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-BORDILLO" 9)))
     (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-    (setq bor-ml (+ bor-ml dev))
+    (setq bor-ml (+ bor-ml total))
     ;; prefabricado A81: rectangulo CON DIAGONAL (la cuna inclinada)
     (setq obj
       (urb:as-vla-object
@@ -20548,25 +20554,39 @@
       (urb:ramp-line base axis sign du1 0.0 du2 dev "URB-RAMPA-A81" 7))
     (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
     (setq a81 (1+ a81)))
-  ;; ---- banda central de la rampa, entre las dos aletas ----
+  ;; ---- superficie de la rampa, entre las dos aletas: su contorno va al
+  ;;      llamador (textura de bandas de corrido con el cuerpo) ----
+  (setq surface
+    (urb:ramp-quad-poly base axis sign
+      *urb-rampa-aleta* 0.0 (- L *urb-rampa-aleta*) dev "URB-RAMPA"))
+  ;; ---- LA BAJADA: tono translucido + flecha "BAJA" hacia la tapa ----
   (setq obj
     (urb:as-vla-object
       (urb:ramp-quad-poly base axis sign
-        *urb-rampa-aleta* 0.0 (- L *urb-rampa-aleta*) dev "URB-RAMPA")))
+        *urb-rampa-aleta* 0.0 (- L *urb-rampa-aleta*) dev "URB-RAMPA-BAJADA")))
   (setq objects (cons obj objects))
-  (setq origin (urb:ramp-local-point base axis sign *urb-rampa-aleta* 0.0))
-  (setq hatch
-    (vl-catch-all-apply 'urb:add-solid-hatch
-      (list obj "URB-RAMPA" (if (= material "Adoquin") 7 9))))
-  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-  (if (= material "Adoquin")
-    (foreach h
-      (list
-        (vl-catch-all-apply 'urb:add-user-hatch
-          (list obj "URB-RAMPA" 0.10 axis nil 8 origin))
-        (vl-catch-all-apply 'urb:add-user-hatch
-          (list obj "URB-RAMPA" 0.20 (+ axis (/ pi 2.0)) nil 8 origin)))
-      (if (not (vl-catch-all-error-p h)) (setq objects (cons h objects)))))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA-BAJADA" 8)))
+  (if (not (vl-catch-all-error-p hatch))
+    (progn
+      (if (vlax-property-available-p hatch 'EntityTransparency T)
+        (vl-catch-all-apply 'vlax-put-property
+          (list hatch 'EntityTransparency "60")))
+      (setq objects (cons hatch objects))))
+  (setq mid (* 0.5 L))
+  (foreach seg (list (list mid (- dev 0.20) mid 0.20)
+                     (list (- mid 0.12) 0.40 mid 0.20)
+                     (list (+ mid 0.12) 0.40 mid 0.20))
+    (setq ent (urb:ramp-line base axis sign (nth 0 seg) (nth 1 seg)
+                (nth 2 seg) (nth 3 seg) "URB-RAMPA-BAJADA" 7))
+    (if ent (setq objects (cons (urb:as-vla-object ent) objects))))
+  (setq origin (urb:ramp-local-point base axis sign (+ mid 0.22) (* 0.5 dev)))
+  (setq txt (vl-catch-all-apply 'vla-AddText
+    (list (urb:space) "BAJA" (vlax-3d-point (list (car origin) (cadr origin) 0.0)) 0.15)))
+  (if (not (vl-catch-all-error-p txt))
+    (progn
+      (vla-put-Layer txt "URB-RAMPA-BAJADA")
+      (vla-put-Rotation txt (+ axis (if (< sign 0) (- (/ pi 2.0)) (/ pi 2.0))))
+      (setq objects (cons txt objects))))
   ;; ---- bordillo transversal que cierra el desarrollo ----
   (setq obj
     (urb:as-vla-object
@@ -20576,11 +20596,147 @@
   (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-BORDILLO" 9)))
   (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
   (setq bor-ml (+ bor-ml (- L 0.60)))
-  ;; el area util de rampa es la banda central entre las dos aletas, con
-  ;; el mismo criterio del modulo parametrico (las aletas se cobran por
-  ;; su ML/UND, no por area)
+  ;; ---- fila de tableta de ALERTA a todo el ancho ----
+  (setq objects
+    (append (reverse (urb:paso-toperol-quad base axis sign 0.0 total L (+ total alert)))
+            objects))
+  (setq top-ml (+ top-ml L) top-m2 (+ top-m2 (* alert L)))
   (list (reverse objects) a81 top-ml bor-ml
-    (* (- L (* 2.0 *urb-rampa-aleta*)) dev))
+    (* (- L (* 2.0 *urb-rampa-aleta*)) dev) surface top-m2)
+)
+
+;; Franja de toperol (tableta de alerta) en coordenadas locales: contorno,
+;; relleno y punteado por patron (con respaldo de circulos si el patron no
+;; esta disponible en este dibujo). Devuelve la lista de objetos.
+(defun urb:paso-toperol-quad (base axis sign u1 v1 u2 v2 / obj hatch out lu lv uvh ent)
+  (setq obj
+    (urb:as-vla-object
+      (urb:ramp-quad-poly base axis sign u1 v1 u2 v2 "URB-ANDEN-LOSETA-TOPEROL-20X20")))
+  (setq out (list obj))
+  (setq hatch
+    (vl-catch-all-apply 'urb:add-solid-hatch
+      (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20" (urb:tactile-fill-color "TOPEROL" T))))
+  (if (not (vl-catch-all-error-p hatch)) (setq out (cons hatch out)))
+  (setq hatch (urb:toperol-texture obj "TOPEROL" "URB-ANDEN-LOSETA-TOPEROL-20X20" axis ""))
+  (if hatch
+    (setq out (cons hatch out))
+    (progn
+      (setq lu (+ (min u1 u2) 0.025))
+      (while (<= lu (- (max u1 u2) 0.025 (- 1e-6)))
+        (setq lv (+ (min v1 v2) 0.025))
+        (while (<= lv (- (max v1 v2) 0.025 (- 1e-6)))
+          (setq uvh (urb:ramp-frame-uv base axis sign lu lv))
+          (setq ent
+            (urb:add-circle-symbol (car uvh) (cadr uvh) *urb-toperol-radio*
+              axis "URB-ANDEN-LOSETA-TOPEROL-20X20" ""
+              (urb:tactile-symbol-color "TOPEROL" T)))
+          (if ent (setq out (cons (urb:as-vla-object ent) out)))
+          (setq lv (+ lv 0.05)))
+        (setq lu (+ lu 0.05)))))
+  (reverse out)
+)
+
+;; Eje del paso: punto medio entre sus dos costados, del remate 1 al 2.
+;; Los costados son los tramos del contorno entre las dos tapas (las mismas
+;; que eligio urb:ramp-auto-frames), asi que sigue un paso quebrado o curvo
+;; (foto 5 del usuario) y no solo uno recto.
+(defun urb:paso-centerline (boundary frames / pts n i1 i2 k side-a side-b la lb
+   nseg res j ta pa pb)
+  (setq pts (mapcar '(lambda (p) (list (car p) (cadr p))) (urb:lwpoly-points boundary))
+        n (length pts)
+        i1 (nth 4 (car frames)) i2 (nth 4 (cadr frames)))
+  (setq k (rem (1+ i1) n) side-a (list (nth k pts)))
+  (while (/= k i2) (setq k (rem (1+ k) n) side-a (cons (nth k pts) side-a)))
+  (setq side-a (reverse side-a))
+  (setq k (rem (1+ i2) n) side-b (list (nth k pts)))
+  (while (/= k i1) (setq k (rem (1+ k) n) side-b (cons (nth k pts) side-b)))
+  ;; side-b queda armado al reves: ya corre del remate 1 al 2
+  (setq la (urb:chain-total-length side-a) lb (urb:chain-total-length side-b))
+  (cond
+    ((or (< la 1e-6) (< lb 1e-6)) nil)
+    ;; los dos costados con los mismos vertices (lo normal al dibujar un
+    ;; paso quebrado): vertice con vertice, asi el quiebre del eje queda en
+    ;; su sitio exacto y las cunas de las bandas empatan sin traslape
+    ((and (= (length side-a) (length side-b)) (<= (length side-a) 60))
+      (mapcar '(lambda (pa pb)
+                 (list (* 0.5 (+ (car pa) (car pb))) (* 0.5 (+ (cadr pa) (cadr pb)))))
+              side-a side-b))
+    (T
+    (progn
+      (setq nseg (max 2 (fix (+ 0.999 (/ (max la lb) 0.25)))) j 0 res nil)
+      (repeat (1+ nseg)
+        (setq ta (/ (float j) nseg)
+              pa (urb:chain-point-at side-a (* ta la))
+              pb (urb:chain-point-at side-b (* ta lb)))
+        (setq res (cons (list (* 0.5 (+ (car pa) (car pb)))
+                              (* 0.5 (+ (cadr pa) (cadr pb)))) res)
+              j (1+ j)))
+      (reverse res))))
+)
+
+;; punto a una distancia d sobre una cadena abierta de puntos
+(defun urb:chain-point-at (chain d / rest p q seg found)
+  (setq rest chain found nil)
+  (while (and (cadr rest) (not found))
+    (setq p (car rest) q (cadr rest) seg (distance p q))
+    (if (or (<= d seg) (null (cddr rest)))
+      (setq found
+        (if (> seg 1e-9)
+          (polar p (angle p q) (min d seg))
+          p))
+      (setq d (- d seg)))
+    (setq rest (cdr rest)))
+  (if found found (car chain))
+)
+
+;; Guia podotactil por el eje del cuerpo del paso: franja de 0,40 (dos
+;; tabletas de 0,20) entre las dos filas de alerta. Devuelve
+;; (objetos region-de-la-guia largo-ml area-m2) o nil. La region queda en
+;; los objetos; el llamador la resta del cuerpo para que las bandas no la
+;; pisen.
+(defun urb:paso-guide-strip (centerline body trim / cl len sub c1 c2 strip res
+   objects d ln hatch area)
+  (setq cl (urb:open-poly-from-points centerline 0.0))
+  (setq len (urb:curve-length cl))
+  (if (> len (+ (* 2.0 trim) 0.40))
+    (setq sub (vl-catch-all-apply 'urb:chain-subpoly (list cl trim (- len trim)))))
+  (if (and cl (entget cl)) (entdel cl))
+  (if (or (null sub) (vl-catch-all-error-p sub))
+    nil
+    (progn
+      (setq c1 (urb:offset-poly sub 0.20) c2 (urb:offset-poly sub -0.20))
+      (setq strip (if (and c1 c2) (urb:strip-band-region c1 c2 0.0)))
+      (if c1 (entdel c1))
+      (if c2 (entdel c2))
+      (if strip
+        (progn
+          ;; que no se salga del cuerpo (paso que se angosta)
+          (setq res (vl-catch-all-apply 'vla-Boolean
+                      (list strip 1 (vla-Copy body))))
+          (if (or (vl-catch-all-error-p res) (not (urb:region-usable-p strip)))
+            (progn (urb:safe-delete strip) (setq strip nil)))))
+      (if (null strip)
+        (progn (entdel sub) nil)
+        (progn
+          (urb:ensure-layer "URB-ANDEN-LOSETA-GUIA-20X20" 8 T)
+          (vla-put-Layer strip "URB-ANDEN-LOSETA-GUIA-20X20")
+          (setq objects (list strip))
+          (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
+                        (list strip "URB-ANDEN-LOSETA-GUIA-20X20"
+                              (urb:tactile-fill-color "GUIA" T))))
+          (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+          ;; las barras de la tableta guia siguen el eje (tambien en curva)
+          (foreach d '(0.15 0.05 -0.05 -0.15)
+            (setq ln (urb:offset-poly sub d))
+            (if ln
+              (progn
+                (vla-put-Layer (urb:as-vla-object ln) "URB-ANDEN-LOSETA-GUIA-20X20")
+                (vla-put-Color (urb:as-vla-object ln) 7)
+                (setq objects (cons (urb:as-vla-object ln) objects)))))
+          (setq area (vla-get-Area strip))
+          (setq len (urb:curve-length sub))
+          (entdel sub)
+          (list (reverse objects) strip len area)))))
 )
 
 ;;; ---------------------------------------------------------------------
@@ -20614,35 +20770,140 @@
         (setq piece (urb:clip-stripe region s e vmin vmax axis))
         (if piece
           (progn
-            (vla-put-Layer piece layer)
-            (vla-put-Color piece (if gray 8 7))
-            (setq objects (cons piece objects))
             (setq origin (urb:local-to-world s vmin axis))
-            (setq hatch
-              (vl-catch-all-apply 'urb:add-solid-hatch
-                (list piece layer (if gray 8 7))))
-            (if (not (vl-catch-all-error-p hatch))
-              (setq objects (cons hatch objects)))
-            (if gray
-              (progn
-                (setq hatch
-                  (vl-catch-all-apply 'urb:add-user-hatch
-                    (list piece layer 0.20 axis T 9 origin)))
-                (if (not (vl-catch-all-error-p hatch))
-                  (setq objects (cons hatch objects))))
-              (progn
-                (setq hatch
-                  (vl-catch-all-apply 'urb:add-user-hatch
-                    (list piece layer 0.10 axis nil 8 origin)))
-                (if (not (vl-catch-all-error-p hatch))
-                  (setq objects (cons hatch objects)))
-                (setq hatch
-                  (vl-catch-all-apply 'urb:add-user-hatch
-                    (list piece layer 0.20 (+ axis (/ pi 2.0)) nil 8 origin)))
-                (if (not (vl-catch-all-error-p hatch))
-                  (setq objects (cons hatch objects)))))))
+            (setq objects
+              (append (reverse (urb:band-piece-objects piece gray layer axis origin))
+                      objects))))
         (setq s e gray (not gray) primera nil))
       (reverse objects))))
+
+;; Relleno + juntas de UNA banda. Si la banda quedo partida en varias caras
+;; (la corta la guia o un bordillo) el HATCH la rechaza entera: v4.95 la
+;; decora cara por cara con el mismo origen (mismo arreglo que v4.94 hizo
+;; en el anden) en vez de dejarla sin relleno.
+(defun urb:band-piece-objects (piece gray layer axis origin / out hatch faces)
+  (vla-put-Layer piece layer)
+  (vla-put-Color piece (if gray 8 7))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
+                (list piece layer (if gray 8 7))))
+  (if (and (vl-catch-all-error-p hatch)
+           (setq faces (urb:region-split-faces piece)))
+    (progn
+      (urb:safe-delete piece)
+      (foreach f faces
+        (setq out (append out (urb:band-piece-objects f gray layer axis origin))))
+      out)
+    (progn
+      (setq out (list piece))
+      (if (not (vl-catch-all-error-p hatch)) (setq out (append out (list hatch))))
+      (foreach h
+        (if gray
+          (list (vl-catch-all-apply 'urb:add-user-hatch
+                  (list piece layer 0.20 axis T 9 origin)))
+          (list (vl-catch-all-apply 'urb:add-user-hatch
+                  (list piece layer 0.10 axis nil 8 origin))
+                (vl-catch-all-apply 'urb:add-user-hatch
+                  (list piece layer 0.20 (+ axis (/ pi 2.0)) nil 8 origin))))
+        (if (not (vl-catch-all-error-p h)) (setq out (append out (list h)))))
+      out))
+)
+
+;; v4.95: bandas del paso peatonal que SIGUEN EL EJE (paso quebrado o curvo,
+;; como el de la foto 5). Cada tramo del eje recorta su cuna entre
+;; bisectrices (la misma junta a inglete del anden segmentado) y la modula
+;; con su propio angulo. La fase se ancla al EJE -- una banda gris de 0,80
+;; centrada en el eje, donde va la guia, y 1,00 / 0,80 hacia los lados --,
+;; asi en el quiebre las bandas de los dos tramos empatan a la misma
+;; distancia del eje. Devuelve la lista de objetos.
+(defun urb:paso-bands-along (region centerline layer / pts n edges bis span
+   objects i slice th axis uc)
+  (setq pts (urb:simplify-chain centerline (/ pi 90.0)) n (length pts))
+  (if (< n 2)
+    nil
+    (progn
+      ;; se alarga 1,00 m por cada punta: con una tapa oblicua la superficie
+      ;; de rampa no puede quedar por fuera de la primera / ultima cuna
+      (setq pts
+        (append
+          (list (polar (car pts) (angle (cadr pts) (car pts)) 1.0))
+          (cdr (reverse (cdr (reverse pts))))
+          (list (polar (last pts) (angle (nth (- n 2) pts) (last pts)) 1.0))))
+      (setq edges (urb:open-chain-edges pts)
+            bis (urb:chain-edge-bisectors edges)
+            span (urb:points-span pts)
+            i 0)
+      (foreach e edges
+        (setq slice (urb:clip-edge-wedge region (nth 0 e) (nth 1 e)
+                      (car (nth i bis)) (cadr (nth i bis)) span))
+        (if slice
+          (progn
+            (setq th (angle (nth 0 e) (nth 1 e)) axis (+ th (* 0.5 pi)))
+            (setq uc (+ (* (car (nth 0 e)) (cos axis)) (* (cadr (nth 0 e)) (sin axis))))
+            (setq objects (append objects
+                            (urb:decorate-bands-anchored slice axis layer uc)))
+            (urb:safe-delete slice)))
+        (setq i (1+ i)))
+      objects))
+)
+
+;; quita los vertices intermedios donde la cadena casi no gira
+(defun urb:simplify-chain (pts tol / out prev a1 a2 k)
+  (if (< (length pts) 3)
+    pts
+    (progn
+      (setq out (list (car pts)) k 1)
+      (while (< k (1- (length pts)))
+        (setq a1 (angle (car out) (nth k pts))
+              a2 (angle (nth k pts) (nth (1+ k) pts)))
+        (if (and (> (distance (car out) (nth k pts)) 1e-6)
+                 (> (abs (urb:turning-angle a1 a2)) tol))
+          (setq out (cons (nth k pts) out)))
+        (setq k (1+ k)))
+      (reverse (cons (last pts) out))))
+)
+
+;; bandas 0,80 gris / 1,00 blanco sobre u = proyeccion en "axis", con la
+;; fase anclada en uc: gris de (uc - 0,40) a (uc + 0,40)
+(defun urb:decorate-bands-anchored (region axis layer uc / pts bounds umin umax
+   vmin vmax s e gray piece objects origin iter)
+  (setq pts (urb:region-outline-points region))
+  (if (null pts) (setq pts (urb:object-box-points region)))
+  (if pts
+    (progn
+      (setq bounds (urb:project-bounds pts axis)
+            umin (nth 0 bounds) umax (nth 1 bounds)
+            vmin (- (nth 2 bounds) 0.5) vmax (+ (nth 3 bounds) 0.5))
+      (setq s (- uc 0.40) iter 0)
+      (while (> s umin) (setq s (- s 1.80)))
+      (setq gray T)
+      (while (and (< s (- umax 1e-6)) (< iter 20000))
+        (setq iter (1+ iter) e (+ s (if gray 0.80 1.00)))
+        (if (> e (+ umin 1e-6))
+          (progn
+            (setq piece (urb:clip-stripe region (max s umin) (min e umax) vmin vmax axis))
+            (if piece
+              (progn
+                (setq origin (urb:local-to-world s vmin axis))
+                (setq objects
+                  (append objects
+                    (urb:band-piece-objects piece gray layer axis origin)))))))
+        (setq s e gray (not gray)))))
+  objects
+)
+
+;; areas de loseta (bandas grises) y adoquin (blancas) de una lista de
+;; objetos de bandas: (gris blanco)
+(defun urb:band-areas (objects / g b a)
+  (setq g 0.0 b 0.0)
+  (foreach o objects
+    (if (and (= (type o) 'VLA-OBJECT)
+             (= (vla-get-ObjectName o) "AcDbRegion"))
+      (progn
+        (setq a (vl-catch-all-apply 'vla-get-Area (list o)))
+        (if (numberp a)
+          (if (= (vla-get-Color o) 8) (setq g (+ g a)) (setq b (+ b a)))))))
+  (list g b)
+)
 
 ;;; RAMPA VEHICULAR segun el plano de detalles (2026-09-10, reporte del
 ;;; usuario: "la rampa vehicular no se parece en nada a como tiene que
@@ -21053,7 +21314,8 @@
    objects hatch area total-area edge-length attrs name definition result ref obj
    depth origin axis boundary-en elevation wedge-depth wedge-layer wedge-en
    a81-count ramp-ends endres extra-top extra-bor extra-area a80-ml bolardos
-   bandas)
+   bandas top-m2 guia-ml guia-m2 paso-largo end-objs surfaces tiled guia r
+   area-tot gb cl)
   ;; Nuevo modulo 2D: contorno exacto (incluye arcos), remates elegidos,
   ;; paso adoquinado/liso o acceso vehicular liso. No inventa pendientes 3D.
   (setq doc (urb:doc) objects nil terminals nil edge-length 0.0)
@@ -21078,7 +21340,7 @@
                       (setq ramp-ends T)
                       (if (= tipo "RAMPA-VEHICULAR")
                         (+ *urb-rampav-fondo* *urb-rampav-tableta*)
-                        (+ *urb-rampa-desarrollo* *urb-rampa-cierre*)))
+                        (urb:paso-end-depth)))
                     ((= tipo "RAMPA-VEHICULAR") 0.60)
                     (T 0.20)))
   (if ramp-ends
@@ -21129,6 +21391,72 @@
       (setq hatch (urb:add-solid-hatch term "URB-RAMPA-REMATE" 8)
             objects (append objects (list term hatch)))))
   (vla-put-Layer body "URB-RAMPA")
+  (setq a81-count 0 extra-top 0.0 extra-bor 0.0 extra-area 0.0
+        a80-ml 0.0 bolardos 0 top-m2 0.0 guia-ml 0.0 guia-m2 0.0
+        paso-largo (and ramp-ends (/= tipo "RAMPA-VEHICULAR")))
+  (if paso-largo
+    ;; v4.95 (2026-09-11, "sigue con el paso peatonal"; referencia: la foto
+    ;; 5 del usuario y B-Rampa modulo tipo c del plano). El paso largo se
+    ;; arma como UN solo pavimento:
+    ;;   cuerpo + superficies de rampa de los dos extremos, unidas, con la
+    ;;     textura por bandas de corrido (en el plano la rampa sigue el
+    ;;     patron del anden; antes era una banda lisa),
+    ;;   guia podotactil de 0,40 por el eje, entre las dos filas de alerta,
+    ;;   y encima de todo el modulo de cada extremo (aletas, bordillos,
+    ;;     alerta y el tono de la bajada).
+    ;; Las bandas se modulan sobre ese pavimento YA descontado de bordillos,
+    ;; A81, toperol y guia: ninguna franja de adoquin o loseta queda por
+    ;; encima de ellos (pedido del usuario).
+    (progn
+      (setq end-objs nil surfaces nil)
+      (foreach frame frames
+        (setq endres (vl-catch-all-apply 'urb:ramp-end-objects
+                       (list frame material)))
+        (if (vl-catch-all-error-p endres)
+          (prompt (strcat "\nAVISO: no se pudo dibujar el desarrollo de rampa: "
+                    (vl-catch-all-error-message endres)))
+          (setq end-objs (append end-objs (car endres))
+                a81-count (+ a81-count (nth 1 endres))
+                extra-top (+ extra-top (nth 2 endres))
+                extra-bor (+ extra-bor (nth 3 endres))
+                top-m2 (+ top-m2 (nth 6 endres))
+                surfaces (cons (nth 5 endres) surfaces))))
+      (setq tiled (vla-Copy body))
+      (foreach s surfaces
+        (setq r (vl-catch-all-apply 'urb:add-region-from-object
+                  (list (urb:as-vla-object s))))
+        (if (entget s) (entdel s))
+        (if (and r (not (vl-catch-all-error-p r)))
+          (if (vl-catch-all-error-p
+                (vl-catch-all-apply 'vla-Boolean (list tiled 0 r)))
+            (urb:safe-delete r))))
+      (setq cl (vl-catch-all-apply 'urb:paso-centerline (list source frames)))
+      (if (vl-catch-all-error-p cl) (setq cl nil))
+      (setq guia
+        (if cl
+          (vl-catch-all-apply 'urb:paso-guide-strip
+            (list cl body (urb:paso-end-depth)))))
+      (if (or (null guia) (vl-catch-all-error-p guia))
+        (setq guia nil)
+        (progn
+          (vl-catch-all-apply 'vla-Boolean (list tiled 2 (vla-Copy (nth 1 guia))))
+          (setq guia-ml (nth 2 guia) guia-m2 (nth 3 guia))))
+      (setq area (vla-get-Area tiled))
+      ;; bandas que siguen el eje (paso quebrado); sin eje, las de siempre
+      (setq bandas
+        (if cl
+          (vl-catch-all-apply 'urb:paso-bands-along (list tiled cl "URB-RAMPA"))))
+      (if (or (null bandas) (vl-catch-all-error-p bandas))
+        (setq bandas (vl-catch-all-apply 'urb:decorate-region-anden-bands
+                       (list tiled axis "URB-RAMPA"))))
+      (urb:safe-delete tiled)
+      (if (vl-catch-all-error-p bandas) (setq bandas nil))
+      ;; AREA_M2 = todo lo pavimentado: bandas + guia + toperol (como el
+      ;; AREA_M2 del anden, que tambien incluye sus franjas tactiles)
+      (setq area (+ area guia-m2 top-m2))
+      (setq objects (append objects (list body) bandas
+                      (if guia (car guia)) end-objs)))
+   (progn
   ;; 2026-09-10 (decision del usuario): el cuerpo del PASO PEATONAL lleva
   ;; la textura por bandas del anden -- por eso en el plano se ve oscuro y
   ;; texturizado y no como un relleno plano. El acceso vehicular conserva
@@ -21140,13 +21468,14 @@
   (if (and bandas (not (vl-catch-all-error-p bandas)))
     (setq objects (append objects (list body) bandas))
     (progn
+      (setq bandas nil)
       (setq hatch (urb:add-solid-hatch body "URB-RAMPA"
                     (if (= material "Adoquin") 7 9))
             objects (append objects (list body hatch)))
       (if (= material "Adoquin")
         (setq objects (append objects (list
           (urb:add-user-hatch body "URB-RAMPA" 0.10 axis nil 8 origin)
-          (urb:add-user-hatch body "URB-RAMPA" 0.20 (+ axis (/ pi 2.0)) nil 8 origin)))))))
+          (urb:add-user-hatch body "URB-RAMPA" 0.20 (+ axis (/ pi 2.0)) nil 8 origin)))))))))
   ;; 2026-09-08 (pedido del usuario, foto 4: "en los extremos del paso
   ;; peatonal, cuando son tramos largos, me aparezca esa parte de la
   ;; rampa" -> confirmado despues: "quiero el DESARROLLO COMPLETO de la
@@ -21156,9 +21485,7 @@
   ;; toperol 0.20 + bordillo 0.10 + A81 0.30 con su diagonal --, banda
   ;; central de rampa y bordillo transversal de cierre. Si no da la
   ;; medida, o en el acceso vehicular, se conserva la cuna simple:
-  ;; rectangulo con diagonal.
-  (setq a81-count 0 extra-top 0.0 extra-bor 0.0 extra-area 0.0
-        a80-ml 0.0 bolardos 0)
+  ;; rectangulo con diagonal. (v4.95: el paso largo ya se armo arriba.)
   (if (and ramp-ends (= tipo "RAMPA-VEHICULAR"))
     ;; 2026-09-10: el acceso vehicular deja de usar el modulo peatonal y
     ;; pasa a dibujarse como el plano de detalles -- aletas TRAPEZOIDALES,
@@ -21174,18 +21501,7 @@
               extra-top (+ extra-top (nth 2 endres))
               a80-ml (+ a80-ml (nth 3 endres))
               bolardos (+ bolardos (nth 4 endres))))))
-  (if (and ramp-ends (/= tipo "RAMPA-VEHICULAR"))
-    (foreach frame frames
-      (setq endres (vl-catch-all-apply 'urb:ramp-end-objects
-                     (list frame material)))
-      (if (vl-catch-all-error-p endres)
-        (prompt (strcat "\nAVISO: no se pudo dibujar el desarrollo de rampa: "
-                  (vl-catch-all-error-message endres)))
-        (setq objects (append objects (car endres))
-              a81-count (+ a81-count (nth 1 endres))
-              extra-top (+ extra-top (nth 2 endres))
-              extra-bor (+ extra-bor (nth 3 endres))
-              extra-area (+ extra-area (nth 4 endres)))))
+  (progn
     ;; sin desarrollo de rampa: la cuna simple de siempre
     (if ramp-ends nil
      (progn
@@ -21242,6 +21558,30 @@
         (rtos (+ edge-length extra-bor) 2 6)
         (rtos extra-bor 2 6)))
     (cons "MATERIAL" material)))
+  ;; v4.95: cantidades de acabado y de estructura en propiedades (pedido del
+  ;; usuario: "que en propiedades quede de una vez lo de prefabricados,
+  ;; losetas, adoquin, y los rellenos, que son iguales que los del anden").
+  ;; Loseta = bandas grises (20x20, 25 und/m2); adoquin = bandas blancas
+  ;; (20x10, 50 und/m2); estructura con los mismos espesores del anden.
+  (if (/= tipo "RAMPA-VEHICULAR")
+    (progn
+      (setq area-tot (+ area extra-area)
+            gb (cond (bandas (urb:band-areas bandas))
+                     ((= material "Adoquin") (list 0.0 area-tot))
+                     (T (list 0.0 0.0))))
+      (setq attrs
+        (append attrs
+          (list
+            (cons "LOSETA_LISA_M2" (rtos (car gb) 2 3))
+            (cons "LOSETA_LISA_UND" (itoa (fix (+ 0.5 (/ (car gb) 0.04)))))
+            (cons "ADOQUIN_M2" (rtos (cadr gb) 2 3))
+            (cons "ADOQUIN_20X10_UND" (itoa (fix (+ 0.5 (/ (cadr gb) 0.02)))))
+            (cons "LOSETA_GUIA_ML" (rtos guia-ml 2 3))
+            (cons "LOSETA_GUIA_UND" (itoa (fix (+ 0.5 (/ guia-m2 0.04)))))
+            (cons "LOSETA_TOPEROL_UND" (itoa (fix (+ 0.5 (/ top-m2 0.04)))))
+            (cons "SBG_M3" (rtos (* area-tot 0.50) 2 3))
+            (cons "ARENA_M3" (rtos (* area-tot 0.04) 2 3))
+            (cons "GEOTEXTIL_M2" (rtos (* area-tot 1.15) 2 3)))))))
   (foreach obj attrs (urb:add-invisible-attribute definition origin (car obj) (car obj) (cdr obj)))
   (setq ref (vla-InsertBlock (urb:space) (vlax-3d-point (list 0.0 0.0 elevation)) name 1.0 1.0 1.0 0.0))
   (vla-put-Layer ref "URB-RAMPA")
@@ -28997,7 +29337,28 @@
             (atof (urb:safe-string (cdr (assoc "TOPEROL_ML" atts)) "0")) handle)
           (urb:ppto-row red "Bordillo prefabricado"
             "" "" "" etapa sub "ML"
-            (atof (urb:safe-string (cdr (assoc "BORDILLO_ML" atts)) "0")) handle)))
+            (atof (urb:safe-string (cdr (assoc "BORDILLO_ML" atts)) "0")) handle)
+          ;; v4.95: acabados y estructura del paso (los bloques anteriores no
+          ;; traen estos atributos y sus filas salen en 0, o sea no salen)
+          (urb:ppto-row red "Loseta lisa 20x20x6"
+            "" "" "" etapa sub "UN"
+            (atof (urb:safe-string (cdr (assoc "LOSETA_LISA_UND" atts)) "0")) handle)
+          (urb:ppto-row red "Adoquin gris 10x20x6"
+            "" "" "" etapa sub "UN"
+            (atof (urb:safe-string (cdr (assoc "ADOQUIN_20X10_UND" atts)) "0")) handle)
+          (urb:ppto-row red "Loseta guia"
+            "" "" "" etapa sub "ML"
+            (atof (urb:safe-string (cdr (assoc "LOSETA_GUIA_ML" atts)) "0")) handle)
+          (urb:ppto-row red "Subbase granular SBG"
+            "" "" "" etapa sub "M3"
+            (atof (urb:safe-string (cdr (assoc "SBG_M3" atts)) "0")) handle)
+          (urb:ppto-row red "Geotextil tejido 2100"
+            "" "" "" etapa sub "M2"
+            (atof (urb:safe-string (cdr (assoc "GEOTEXTIL_M2" atts)) "0")) handle)
+          (urb:ppto-row red "Arena de nivelacion"
+            "" "" "" etapa sub "M3"
+            (atof (urb:safe-string (cdr (assoc "ARENA_M3" atts)) "0")) handle)))
+      (setq rows (vl-remove nil rows))
       (setq rows
         (append rows
           (urb:ppto-param-rows "RAMPA" red
@@ -29008,6 +29369,12 @@
                 (atof (urb:safe-string (cdr (assoc "TOPEROL_ML" atts)) "0")))
               (cons "BORDILLO_ML"
                 (atof (urb:safe-string (cdr (assoc "BORDILLO_ML" atts)) "0")))
+              (cons "LOSETA_LISA_M2"
+                (atof (urb:safe-string (cdr (assoc "LOSETA_LISA_M2" atts)) "0")))
+              (cons "ADOQUIN_M2"
+                (atof (urb:safe-string (cdr (assoc "ADOQUIN_M2" atts)) "0")))
+              (cons "GUIA_ML"
+                (atof (urb:safe-string (cdr (assoc "LOSETA_GUIA_ML" atts)) "0")))
               (cons "UNIDAD" 1.0))
             "" "" "" etapa sub handle)))
       (setq rows (urb:ppto-rows+zona rows (urb:ppto-zona-de be)))
@@ -32627,7 +32994,8 @@
           (list (list '(0.0 0.0) 0.0 1.0 1.0 0)
                 (list '(8.0 0.0) pi 1.0 1.0 2)) "PASO-PEATONAL"))
         (equal 1.70 (urb:ramp-end-min-width "PASO-PEATONAL") 1e-9)
-        (equal 3.50 (urb:ramp-end-min-length "PASO-PEATONAL") 1e-9)
+        ;; v4.95: el extremo suma la fila de alerta (1,30 + 0,20 + 0,20)
+        (equal 3.90 (urb:ramp-end-min-length "PASO-PEATONAL") 1e-9)
         ;; 2026-09-10: el acceso vehicular pide MAS frente (dos aletas de
         ;; 2,369) -- esa misma tapa de 3,00 m ya no le sirve
         (not (urb:ramp-ends-fit-p

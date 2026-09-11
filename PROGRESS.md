@@ -1,5 +1,69 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-11, v4.95.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+Pedido: *"sigue con el paso peatonal"* (paso largo como la foto 5, y que las
+franjas de adoquín/loseta no queden por encima de los bordillos).
+
+### Referencias que se usaron (evidencia en `diagnosticos/detalles4920/`)
+
+- **Foto 5 del usuario** (`foto5_paso_largo_usuario.png`, recuperada del
+  historial): cuerpo texturizado, **guía táctil por el eje** que sigue el quiebre,
+  **franja de alerta** a todo el ancho al llegar a cada extremo y el módulo de
+  rampa con aletas en cada punta.
+- **`B-Rampa módulo tipo c`** del plano (`r_def11.png`): la rampa peatonal lleva
+  **la misma textura de bandas del andén**, entre dos aletas prefabricadas, con
+  banda transversal de cierre y fila de alerta a todo el ancho.
+- Nuevo volcador `dumpx.lsp`: recorre la **definición** de los bloques (también
+  dinámicos `*U`) aplicando la matriz de inserción, sin explotarlos — así se pudo
+  leer por fin el módulo peatonal (explotado salía fuera de sitio). Solo usa
+  `entget`, sirve en la consola sin gráficos.
+
+### Lo que cambió en el paso peatonal largo
+
+- **Extremo** (`urb:ramp-end-objects` rehecho): toperol y bordillo laterales
+  bajan hasta el cierre (antes quedaba un hueco de 0,30 × 0,20), A81 con
+  diagonal, **superficie de rampa con la textura de bandas de corrido** (antes
+  banda lisa), **bajada marcada** (tono 60 % transparente, flecha y "BAJA" hacia
+  la tapa), bordillo de cierre y **fila de alerta a todo el ancho**. Punteado por
+  patrón `URB_TOPEROL` (un hatch, no un círculo por domo). Fondo del extremo
+  1,30 + 0,20 + 0,20 = **1,70** (`urb:paso-end-depth`); largo mínimo 3,90.
+- **Guía podotáctil** de 0,40 por el eje (`urb:paso-centerline`,
+  `urb:paso-guide-strip`), entre las dos filas de alerta; sigue el quiebre.
+- **Bandas que siguen el eje** (`urb:paso-bands-along`): cada tramo del eje se
+  modula en su cuña entre bisectrices, con la fase anclada al eje (gris de 0,80
+  centrada donde va la guía, luego 1,00 / 0,80). Paso recto o quebrado.
+- **Nada queda debajo de otra cosa**: el pavimento (cuerpo + superficies de
+  rampa) se modula ya descontado de bordillos, A81, toperol y guía.
+- Bandas partidas en varias caras (las corta la guía) se decoran cara por cara
+  (`urb:band-piece-objects`, mismo arreglo de v4.94 en el andén).
+
+### Cantidades nuevas en propiedades (y en la exportación)
+
+`LOSETA_LISA_M2/UND` (bandas grises, 25 und/m²), `ADOQUIN_M2`,
+`ADOQUIN_20X10_UND` (blancas, 50 und/m²), `LOSETA_GUIA_ML/UND`,
+`LOSETA_TOPEROL_UND`, y estructura igual que el andén: `SBG_M3` (×0,50),
+`ARENA_M3` (×0,04), `GEOTEXTIL_M2` (×1,15). `AREA_M2` del paso largo = todo lo
+pavimentado (bandas + guía + toperol). `urb:ppto-rows-rampas` saca filas de
+loseta, adoquín, guía, SBG, geotextil y arena (bloques viejos: 0, no salen).
+
+### Verificación
+
+E2E `e2e_paso.lsp` (Civil real), **0 FALLOS**:
+- recto 12 × 4: bandas **38,24** + guía 3,44 + toperol 2,80 + A81 1,56 +
+  bordillos 1,96 = **48,00 m²** exactos; guía 8,60 ml; toperol 14,00 ml; BAJA ×2.
+- quebrado (eje 7 m + 7,21 m, ancho 3,5): bandas 39,495 vs 39,499 esperado (sin
+  huecos ni traslapes en el quiebre); guía 10,81 ml.
+- exportación: 18 filas, salen loseta/adoquín/SBG/geotextil/arena.
+Suite **85 OK / 0 FALLOS**; E2E rampav, recorte y acceso **0 FALLOS**. Instalado
+4.95.0, hash repo = instalado. Renders: `diagnosticos/e2e4920/r_paso.png` y
+`r_paso_q.png`.
+
+**Pendiente**: demarcación de vías (SEN_BASE_DEMARCACION / SP-20); cantidades de
+acabados también para la rampa peatonal paramétrica (`urb:build-ramp`).
+
+
 ## Estado guardado — 2026-09-11, v4.94.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

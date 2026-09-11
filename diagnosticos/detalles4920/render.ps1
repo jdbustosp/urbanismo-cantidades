@@ -4,7 +4,7 @@ param(
   [string]$Salida = "C:\Users\juanbusper\Documents\URBANISMO\work\claude_20260910_detalles\r_vehicular.png",
   [double]$X1 = [double]::NaN, [double]$Y1 = [double]::NaN,
   [double]$X2 = [double]::NaN, [double]$Y2 = [double]::NaN,
-  [int]$Ancho = 1600, [switch]$Voltear, [switch]$Claro
+  [int]$Ancho = 1600, [switch]$Voltear, [switch]$Claro, [switch]$Auto
 )
 Add-Type -AssemblyName System.Drawing
 $ci = [System.Globalization.CultureInfo]::InvariantCulture
@@ -40,6 +40,21 @@ foreach ($ln in $lines) {
   }
   if ($ln -match '^E ') { $dentro = $false; continue }
   if ($dentro) { $recs.Add($ln) }
+}
+if ($Auto) {
+  $xs = New-Object System.Collections.Generic.List[double]; $ys = New-Object System.Collections.Generic.List[double]
+  foreach ($r in $recs) {
+    $t = $r.Split(' ')
+    switch ($t[0]) {
+      'L' { $xs.Add((N $t[2])); $xs.Add((N $t[4])); $ys.Add((N $t[3])); $ys.Add((N $t[5])) }
+      'P' { for ($k=0; $k -lt [int]$t[2]; $k++) { $xs.Add((N $t[3+2*$k])); $ys.Add((N $t[4+2*$k])) } }
+      'C' { $xs.Add((N $t[2])); $ys.Add((N $t[3])) }
+      { $_ -in 'F','T' } { for ($k=0; $k -lt [int]$t[3]; $k++) { $xs.Add((N $t[4+2*$k])); $ys.Add((N $t[5+2*$k])) } }
+    }
+  }
+  $m = 0.3
+  $X1 = ($xs | Measure-Object -Minimum).Minimum - $m; $X2 = ($xs | Measure-Object -Maximum).Maximum + $m
+  $Y1 = ($ys | Measure-Object -Minimum).Minimum - $m; $Y2 = ($ys | Measure-Object -Maximum).Maximum + $m
 }
 $w = $X2 - $X1; $h = $Y2 - $Y1
 $esc = $Ancho / $w
