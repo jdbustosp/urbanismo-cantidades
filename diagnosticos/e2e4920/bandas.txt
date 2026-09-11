@@ -1,0 +1,17 @@
+motor 4.93.0
+acceso: ok
+base area 56.000
+base recortada area 53.738 caras 2
+banda 0.0: area 3.200 caras 0 | hatch ok area hatch 3.200
+   por caras: 0/0 con hatch
+banda 1.8: area 3.079 caras 2 | hatch Automation Error. Invalid input
+   por caras: 2/2 con hatch
+banda 2.6: area 3.771 caras 2 | hatch Automation Error. Invalid input
+   por caras: 2/2 con hatch
+banda 5.0: area 3.040 caras 2 | hatch Automation Error. Invalid input
+   por caras: 2/2 con hatch
+banda 8.0: area 3.040 caras 2 | hatch Automation Error. Invalid input
+   por caras: 2/2 con hatch
+banda 11.4: area 3.879 caras 2 | hatch Automation Error. Invalid input
+   por caras: 2/2 con hatch
+DONE

@@ -1,5 +1,60 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-11, v4.94.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+Pedido (tras ver el render del plano): *"que se vea bien qué parte es en bajada,
+la franja de adoquines y losetas también, que no queden por encima de los
+bordillos"*.
+
+### 1. Acceso vehicular rehecho como SUPERPOSICIÓN (igual al plano) ✔
+
+- `urb:build-contour-ramp` despacha: `RAMPA-VEHICULAR` → `urb:build-vehicular-access`;
+  el resto sigue por `urb:build-contour-ramp-cuerpo`.
+- **Una sola cara de rampa**, del lado de la vía (`urb:vehicular-curb-frame`: el
+  borde recto más cercano a una vía; si no hay vía, el más largo / el primero
+  dibujado).
+- **Bajada** marcada: abanico sombreado (capa `URB-RAMPA-BAJADA`, gris 60 %
+  transparente), líneas de proyección en V, flecha y texto **BAJA** hacia la vía.
+- **Aletas curvas** (bulge 0,32172 leído del plano) y **banda A-80** del fondo
+  salen como **bordillos prefabricados** reales (`urb:rampav-bordillo` →
+  `urb:build-prefab-from-reference`), no dentro del bloque.
+- Tableta de alerta al fondo y costados, bolardos (4) y arcos de acceso.
+- El módulo **no es cortador** (`urb:anden-cutout-blocks` lo salta): el andén
+  sigue por debajo y **solo se recorta bajo los bordillos**
+  (`urb:recut-andenes-under`). Sin la pregunta de "recortar" al crear el acceso.
+- Atributos: `TIPO RAMPA-VEHICULAR`, `AREA_M2` = bajada, `BORDILLO_PREFAB_UND`,
+  `BOLARDO_UND`; `BORDILLO_A80_ML` del bloque = 0 (va en los prefabricados).
+
+### 2. Error real: se PERDÍAN las franjas del andén que corta un bordillo ✔
+
+Al renderizar, el andén bajo el acceso salió **sin franjas** entre las aletas.
+Diagnóstico medido (`e2e_bandas.lsp`): aletas + banda A-80 parten el andén en
+**2 caras**; cada franja recortada queda como región de 2 caras y el HATCH la
+rechaza (*Automation Error. Invalid input*) → la franja se borraba entera. Por
+caras sí sirve (2/2).
+
+- `urb:region-split-faces` + `urb:decorate-stripe-region`: si el sombreado de
+  una franja falla, se decora **cara por cara con el mismo origen**.
+- Lo mismo para la retícula 40×40 (`urb:decorate-composite-region`).
+- Aplica a cualquier andén que un prefabricado parta en dos, no solo al acceso.
+
+E2E acceso: andén 56,000 → **53,740 m²** (2,26 bajo los bordillos), **28 franjas =
+53,738 m²** (antes quedaban solo las de los extremos), 3 prefabricados (2 curvos),
+bajada 11,11 m², 4 bolardos — **0 FALLOS**. Render: `diagnosticos/e2e4920/r_acceso_v.png`.
+
+Renderer: `dumplib.lsp` vuelca también regiones con arcos (encadenadas) y hatches
+no asociativos (borde reconstruido con `-HATCHEDIT`), con registro `T` para
+rellenos transparentes; `render.ps1 -Voltear -Claro` para verlo como el plano.
+
+Suite **85 OK / 0 FALLOS**; E2E rampav y recorte **0 FALLOS**. Instalado 4.94.0,
+hash repo = instalado.
+
+**Pendiente inmediato**: mismo criterio en el **paso peatonal** (que sus franjas de
+adoquín/loseta no pasen por encima de sus bordillos/confinamientos); cantidades de
+losetas/adoquín y rellenos del paso/rampa en propiedades; demarcación de vías.
+
+
 ## Estado guardado — 2026-09-11, v4.93.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

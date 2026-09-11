@@ -4,7 +4,7 @@ param(
   [string]$Salida = "C:\Users\juanbusper\Documents\URBANISMO\work\claude_20260910_detalles\r_vehicular.png",
   [double]$X1 = [double]::NaN, [double]$Y1 = [double]::NaN,
   [double]$X2 = [double]::NaN, [double]$Y2 = [double]::NaN,
-  [int]$Ancho = 1600
+  [int]$Ancho = 1600, [switch]$Voltear, [switch]$Claro
 )
 Add-Type -AssemblyName System.Drawing
 $ci = [System.Globalization.CultureInfo]::InvariantCulture
@@ -49,7 +49,7 @@ $g = [System.Drawing.Graphics]::FromImage($bmp)
 $g.SmoothingMode = 'AntiAlias'
 $g.Clear([System.Drawing.Color]::White)
 function PX([double]$x) { [single](($x - $X1) * $esc) }
-function PY([double]$y) { [single](($Y2 - $y) * $esc) }
+function PY([double]$y) { if ($Voltear) { [single](($y - $Y1) * $esc) } else { [single](($Y2 - $y) * $esc) } }
 function Pts($tok, $start, $n) {
   $arr = New-Object 'System.Drawing.PointF[]' $n
   for ($k=0; $k -lt $n; $k++) {
@@ -64,11 +64,22 @@ foreach ($r in $recs) {
     $c = Aci ([int]$t[1]); $n = [int]$t[3]
     if ($n -lt 3) { continue }
     $pts = Pts $t 4 $n
+    if ($Claro -and $t[1] -eq '7') { $c = [System.Drawing.Color]::FromArgb(250,250,250) }
+    if ($Claro -and $t[1] -eq '8') { $c = [System.Drawing.Color]::FromArgb(200,200,200) }
     if ($t[2] -eq 'S') {
       $b = New-Object System.Drawing.SolidBrush $c; $g.FillPolygon($b, $pts); $b.Dispose()
+      if ($Claro) { $pen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(150,150,150)), 1; $g.DrawPolygon($pen, $pts); $pen.Dispose() }
     } else {
       $pen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(120,$c)), 1; $g.DrawPolygon($pen, $pts); $pen.Dispose()
     }
+  }
+}
+# 1b) rellenos translucidos (transparencia propia) encima de los demas
+foreach ($r in $recs) {
+  $t = $r.Split(' ')
+  if ($t[0] -eq 'T' -and [int]$t[3] -ge 3) {
+    $b = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(110, (Aci ([int]$t[1]))))
+    $g.FillPolygon($b, (Pts $t 4 ([int]$t[3]))); $b.Dispose()
   }
 }
 # 2) lineas, polilineas y circulos

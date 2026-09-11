@@ -1,0 +1,17 @@
+motor 4.93.0 cargado
+OK   anden base construido y empacado | 
+AREA_M2 del anden antes del acceso = 56.000
+OK   acceso vehicular creado | ok
+prefabricados de bordillo creados = 3
+OK   las dos aletas y la banda salen como BORDILLOS prefabricados (3) | 3
+OK   las aletas son bordillos CURVOS (2 con arco) | 2
+OK   el modulo del acceso NO es cortador (es superposicion) | 
+AREA_M2 del anden despues = 53.740 (bajo 2.260 m2)
+OK   el anden se recorto bajo los bordillos, no en todo el acceso | bajo 2.260 m2
+franjas del anden: 28 rellenos, 53.738 m2
+OK   las franjas del anden cubren todo el anden neto (no se pierden bajo el acceso) | 53.738 de 53.740
+acceso: AREA_M2 (bajada) = 11.111948 | BOLARDO_UND = 4 | BORDILLO_PREFAB_UND = 3
+OK   la bajada tiene area | 11.111948
+volcado listo: dump_acceso.txt
+RESULTADO 0 FALLOS
+DONE

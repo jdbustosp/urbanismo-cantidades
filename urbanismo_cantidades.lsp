@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.93.0")
+(setq *urb-version* "4.94.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -3122,9 +3122,34 @@
     nil)
 )
 
+(defun urb:region-split-faces (region / exploded items faces o)
+  ;; 2026-09-11 (medido en Civil real): una region con caras SEPARADAS --
+  ;; la banda del anden que cruzan las aletas y la banda A-80 de un acceso
+  ;; vehicular -- no sirve de borde de HATCH ("Automation Error. Invalid
+  ;; input"), pero cada cara por separado si. Devuelve las caras como
+  ;; regiones sueltas, o nil si la region tiene una sola cara.
+  (setq exploded (vl-catch-all-apply 'vla-Explode (list region)))
+  (if (not (vl-catch-all-error-p exploded))
+    (progn
+      (setq items (urb:variant-object-list exploded))
+      (foreach o items
+        (if (= (vla-get-ObjectName o) "AcDbRegion")
+          (setq faces (cons o faces))
+          (urb:safe-delete o)))
+      (if (< (length faces) 2)
+        (progn (foreach o faces (urb:safe-delete o)) (setq faces nil)))))
+  (reverse faces)
+)
+
+(defun urb:decorate-stripe-region (region angle-value origin parent-handle gray)
+  (if gray
+    (urb:decorate-gray-stripe region angle-value origin parent-handle)
+    (urb:decorate-white-stripe region angle-value origin parent-handle))
+)
+
 (defun urb:decorate-composite-stripe
   (base-region umin umax vmin vmax angle-value origin parent-handle gray
-   / eps region success)
+   / eps region success faces face-ok)
   ;; El exito exige DOS cosas: region con area y relleno SOLID evaluado.
   ;; Si cualquiera falla, elimina la tentativa y repite con mas solape.
   (foreach eps (urb:stripe-overlaps)
@@ -3137,11 +3162,22 @@
         (if region
           (progn
             (setq success
-              (if gray
-                (urb:decorate-gray-stripe
-                  region angle-value origin parent-handle)
-                (urb:decorate-white-stripe
-                  region angle-value origin parent-handle)))
+              (urb:decorate-stripe-region
+                region angle-value origin parent-handle gray))
+            ;; banda partida en varias caras: se decora cara por cara con
+            ;; el MISMO origen, asi la franja sigue siendo una sola banda
+            ;; y no desaparece al lado de un bordillo que la corta
+            (if (and (not success)
+                     (setq faces (urb:region-split-faces region)))
+              (progn
+                (setq face-ok 0)
+                (foreach f faces
+                  (if (urb:decorate-stripe-region
+                        f angle-value origin parent-handle gray)
+                    (setq face-ok (1+ face-ok))
+                    (urb:safe-delete f)))
+                (if (> face-ok 0)
+                  (progn (urb:safe-delete region) (setq success T region nil)))))
             (if (not success) (urb:safe-delete region)))))))
   success
 )
@@ -3244,7 +3280,18 @@
             (urb:add-user-hatch
               base-region layer module angle-value T 9 origin))
           (if (not (vl-catch-all-error-p grid))
-            (urb:tag-generated-role grid parent-handle "JOINT"))
+            (urb:tag-generated-role grid parent-handle "JOINT")
+            ;; zona partida en varias caras (v4.94): reticula por cara
+            ((lambda (faces / ok g)
+               (foreach f faces
+                 (vla-put-Layer f layer)
+                 (urb:tag-generated-role f parent-handle "FILL")
+                 (setq g (urb:add-user-hatch f layer module angle-value T 9 origin))
+                 (if (not (vl-catch-all-error-p g))
+                   (progn (urb:tag-generated-role g parent-handle "JOINT")
+                          (setq ok T))))
+               (if ok (progn (urb:safe-delete base-region) (setq grid T))))
+             (urb:region-split-faces base-region)))
           (and grid (not (vl-catch-all-error-p grid))))
         (progn
           ;; Detalle 20x20: 0.80 m de loseta gris y 1.00 m de adoquin
@@ -7032,7 +7079,15 @@
         (setq i 0)
         (repeat (sslength ss)
           (setq en (ssname ss i))
-          (if (not (member en result)) (setq result (cons en result)))
+          ;; 2026-09-11: el ACCESO VEHICULAR es una superposicion sobre el
+          ;; anden (asi esta en el plano): el modulo entero NO corta. Lo que
+          ;; corta son sus bordillos (aletas curvas y banda A-80), que ya
+          ;; son prefabricados y entran por el primer filtro.
+          (if (and (not (member en result))
+                   (not (urb:string-equal-p
+                          (car (urb:get-xdata-strings en "URB_RAMPA_BLOCK"))
+                          "RAMPA-VEHICULAR")))
+            (setq result (cons en result)))
           (setq i (1+ i))))))
   result
 )
@@ -20627,61 +20682,136 @@
             (/ (- L 1.00) 2.0)))
   (max 0.30 a))
 
+;;; ---------------------------------------------------------------------
+;;; RAMPA VEHICULAR v2 (2026-09-11). Se rehizo despues de RENDERIZAR el
+;;; plano (diagnosticos/detalles4920/r_vehicular.png) y de leer los arcos
+;;; con su bulge (bulges.txt). Lo que muestra el plano y que v4.91 no hacia:
+;;;
+;;;  * el acceso NO reemplaza el anden: el patron de bandas del anden sigue
+;;;    de corrido por debajo. El modulo es una SUPERPOSICION.
+;;;  * las aletas son BORDILLOS CURVOS de 0,20: arco desde la esquina del
+;;;    bordillo de la via hasta la cara de rampa, bulge 0,32172 (~71 grados).
+;;;    v4.91 los dibujo como trapecios porque solo se habian leido los
+;;;    vertices, no el bulge.
+;;;  * al fondo de la bajada, una banda de bordillo A-80 de 0,20.
+;;;  * la rampa va SOLO del lado de la via (una cara), no en los dos extremos.
+;;;
+;;; Pedido del usuario al ver el plano: "que se vea bien que parte es en
+;;; bajada" y "que la franja de adoquines y losetas no quede por encima de
+;;; los bordillos". Por eso las dos aletas y la banda se construyen como
+;;; PREFABRICADOS de bordillo de verdad: el motor ya los usa como cortadores,
+;;; asi que el patron del anden se recorta debajo de ellos, y ya salen en el
+;;; presupuesto como bordillo prefabricado A-80. La bajada se marca con un
+;;; tono translucido, las lineas en V del plano y una flecha "BAJA".
+;;; ---------------------------------------------------------------------
+(setq *urb-rampav-bulge* 0.32172)   ; arco de la aleta (del plano)
+(setq *urb-rampav-banda-ini* 0.0685) ; la banda arranca 6,85 cm antes del arco
+
+;; Polilinea en coordenadas LOCALES de la rampa con arcos: verts = (u v
+;; bulge). El marco local puede ser un reflejo (side-sign = -1) y en ese
+;; caso el sentido de los arcos se invierte, asi que el bulge se multiplica
+;; por side-sign.
+(defun urb:ramp-bulge-poly (base axis sign verts closed layer / data w)
+  (setq data
+    (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(100 . "AcDbPolyline")
+          (cons 8 layer) (cons 90 (length verts)) (cons 70 (if closed 1 0))))
+  (foreach v verts
+    (setq w (urb:ramp-local-point base axis sign (car v) (cadr v)))
+    (setq data
+      (append data
+        (list (cons 10 (list (car w) (cadr w)))
+              (cons 42 (* (if (caddr v) (caddr v) 0.0) sign))))))
+  (entmakex data))
+
+;; Prefabricado de bordillo a lo largo de una referencia local. Devuelve la
+;; referencia de bloque del prefabricado o nil.
+(defun urb:rampav-bordillo (base axis sign verts side-uv etapa sub / ref side r)
+  (setq ref (urb:ramp-bulge-poly base axis sign verts nil "URB-RAMPA"))
+  (setq side (urb:ramp-local-point base axis sign (car side-uv) (cadr side-uv)))
+  (setq r
+    (vl-catch-all-apply 'urb:build-prefab-from-reference
+      (list ref (list (car side) (cadr side) 0.0) "Bordillo" *urb-rampav-banda*
+            etapa sub "Exterior" "Anden")))
+  (if (or (null r) (vl-catch-all-error-p r))
+    (progn (if (and ref (entget ref)) (entdel ref)) nil)
+    r))
+
 (defun urb:ramp-vehicular-objects
-  (frame / base axis sign L a ai f b objects obj hatch ent u1 u2 lu n-tab
-   tab-ml a80-ml bol origin)
+  (frame etapa sub depth / base axis sign L a f b bi objects obj hatch ent
+   u1 u2 lu lv tab-ml bol origin prefabs r fan-area vx txt)
   (setq base (car frame) axis (cadr frame) sign (caddr frame) L (nth 3 frame))
   (setq a (urb:rampav-aleta L)
-        ai (* a (/ *urb-rampav-aleta-int* *urb-rampav-aleta*))
         f *urb-rampav-fondo*
-        b *urb-rampav-banda*)
-  (setq objects nil tab-ml 0.0 a80-ml 0.0 bol 0)
+        b *urb-rampav-banda*
+        bi (max 0.0 (- a *urb-rampav-banda-ini*)))
+  (setq objects nil prefabs nil tab-ml 0.0 bol 0)
   (urb:ensure-layer "URB-RAMPA" 4 T)
+  (urb:ensure-layer "URB-RAMPA-BAJADA" 8 T)
   (urb:ensure-layer "URB-RAMPA-REMATE" 4 T)
-  (urb:ensure-layer "URB-BORDILLO" 9 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
   (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
 
-  ;; ---- cara de rampa, entre las dos aletas ----
+  ;; ---- LA BAJADA: abanico entre las dos aletas, del bordillo de la via
+  ;;      (v = 0) a la banda del fondo. Tono translucido: el patron del
+  ;;      anden se sigue viendo por debajo, como en el plano. ----
   (setq obj
     (urb:as-vla-object
-      (urb:ramp-quad-poly base axis sign a 0.0 (- L a) f "URB-RAMPA")))
+      (urb:ramp-bulge-poly base axis sign
+        (list (list 0.0 0.0 *urb-rampav-bulge*)
+              (list a f 0.0)
+              (list (- L a) f *urb-rampav-bulge*)
+              (list L 0.0 0.0))
+        T "URB-RAMPA-BAJADA")))
   (setq objects (cons obj objects))
-  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-RAMPA" 9)))
-  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-  ;; lineas de proyeccion de la pendiente, como en el plano
-  (setq ent (urb:ramp-line base axis sign a 0.0 (* 0.5 L) f "URB-RAMPA" 8))
+  (setq fan-area (vl-catch-all-apply 'vla-get-Area (list obj)))
+  (if (not (numberp fan-area)) (setq fan-area (* (- L a) f)))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
+                (list obj "URB-RAMPA-BAJADA" 8)))
+  (if (not (vl-catch-all-error-p hatch))
+    (progn
+      (if (vlax-property-available-p hatch 'EntityTransparency T)
+        (vl-catch-all-apply 'vlax-put-property
+          (list hatch 'EntityTransparency "60")))
+      (setq objects (cons hatch objects))))
+  ;; lineas en V de la pendiente (plano: (0.98,0.2) (5.14,1.5) (9.02,0.2))
+  (setq vx (* 0.4137 a))
+  (setq ent (urb:ramp-line base axis sign vx 0.20 (* 0.5 L) (- f b) "URB-RAMPA-BAJADA" 8))
   (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
-  (setq ent (urb:ramp-line base axis sign (* 0.5 L) f (- L a) 0.0 "URB-RAMPA" 8))
+  (setq ent (urb:ramp-line base axis sign (* 0.5 L) (- f b) (- L vx) 0.20 "URB-RAMPA-BAJADA" 8))
   (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
+  ;; flecha de pendiente: baja hacia la via (v = 0)
+  (setq ent (urb:ramp-line base axis sign (* 0.5 L) (- f b 0.20) (* 0.5 L) 0.30 "URB-RAMPA-BAJADA" 7))
+  (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
+  (setq ent (urb:ramp-line base axis sign (- (* 0.5 L) 0.15) 0.55 (* 0.5 L) 0.30 "URB-RAMPA-BAJADA" 7))
+  (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
+  (setq ent (urb:ramp-line base axis sign (+ (* 0.5 L) 0.15) 0.55 (* 0.5 L) 0.30 "URB-RAMPA-BAJADA" 7))
+  (if ent (setq objects (cons (urb:as-vla-object ent) objects)))
+  (setq origin (urb:ramp-local-point base axis sign (+ (* 0.5 L) 0.25) (* 0.5 (- f b))))
+  (setq txt (vl-catch-all-apply 'vla-AddText
+    (list (urb:space) "BAJA" (vlax-3d-point (list (car origin) (cadr origin) 0.0)) 0.18)))
+  (if (not (vl-catch-all-error-p txt))
+    (progn
+      (vla-put-Layer txt "URB-RAMPA-BAJADA")
+      (vla-put-Rotation txt (+ axis (if (< sign 0) (- (/ pi 2.0)) (/ pi 2.0))))
+      (setq objects (cons txt objects))))
 
-  ;; ---- las dos aletas TRAPEZOIDALES ----
-  (foreach quad
-    (list
-      (list (list 0.0 0.0) (list a f) (list ai f) (list 0.0 b))
-      (list (list L 0.0) (list (- L a) f) (list (- L ai) f) (list L b)))
-    (setq obj
-      (urb:as-vla-object
-        (urb:ramp-poly-pts base axis sign quad "URB-RAMPA-REMATE")))
-    (setq objects (cons obj objects))
-    (setq hatch
-      (vl-catch-all-apply 'urb:add-solid-hatch
-        (list obj "URB-RAMPA-REMATE" 8)))
-    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects))))
+  ;; ---- ALETAS = bordillos curvos de 0,20 (PREFABRICADOS) ----
+  (setq r (urb:rampav-bordillo base axis sign
+            (list (list 0.0 0.0 *urb-rampav-bulge*) (list a f 0.0))
+            (list -1.0 (* 0.5 f)) etapa sub))
+  (if r (setq prefabs (cons r prefabs)))
+  (setq r (urb:rampav-bordillo base axis sign
+            (list (list L 0.0 (- *urb-rampav-bulge*)) (list (- L a) f 0.0))
+            (list (+ L 1.0) (* 0.5 f)) etapa sub))
+  (if r (setq prefabs (cons r prefabs)))
+  ;; ---- BANDA DEL FONDO = bordillo A-80 de 0,20 (PREFABRICADO) ----
+  (setq r (urb:rampav-bordillo base axis sign
+            (list (list bi (- f b) 0.0) (list (- L bi) (- f b) 0.0))
+            (list (* 0.5 L) (+ f 1.0)) etapa sub))
+  (if r (setq prefabs (cons r prefabs)))
 
-  ;; ---- banda de fondo = bordillo A-80 ----
-  (setq obj
-    (urb:as-vla-object
-      (urb:ramp-poly-pts base axis sign
-        (list (list a f) (list (- L a) f)
-              (list (- L ai) (- f b)) (list ai (- f b)))
-        "URB-BORDILLO")))
-  (setq objects (cons obj objects))
-  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch (list obj "URB-BORDILLO" 9)))
-  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-  (setq a80-ml (- L (* 2.0 a)))
-
-  ;; ---- tableta podotactil de ALERTA: fila de fondo ----
+  ;; ---- tableta podotactil de ALERTA: fila al fondo y bajando por los
+  ;;      costados (del bloque del plano) ----
   (setq u1 (+ a 0.03) u2 (- L a 0.03))
   (if (> (- u2 u1) *urb-rampav-tableta*)
     (progn
@@ -20690,51 +20820,60 @@
           (urb:ramp-quad-poly base axis sign u1 f u2 (+ f *urb-rampav-tableta*)
             "URB-ANDEN-LOSETA-TOPEROL-20X20")))
       (setq objects (cons obj objects))
-      (setq hatch
-        (vl-catch-all-apply 'urb:add-solid-hatch
-          (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
-            (urb:tactile-fill-color "TOPEROL" T))))
+      (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
+                    (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
+                          (urb:tactile-fill-color "TOPEROL" T))))
       (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-      (setq hatch (urb:toperol-texture obj "TOPEROL"
-                    "URB-ANDEN-LOSETA-TOPEROL-20X20" axis ""))
+      (setq hatch (urb:toperol-texture obj "TOPEROL" "URB-ANDEN-LOSETA-TOPEROL-20X20" axis ""))
       (if hatch (setq objects (cons hatch objects)))
       (setq tab-ml (+ tab-ml (- u2 u1)))))
-
-  ;; ---- tableta de ALERTA bajando por los dos costados ----
   (foreach lu (list (list (- u1 *urb-rampav-tableta*) u1)
                     (list u2 (+ u2 *urb-rampav-tableta*)))
-    (setq obj
-      (urb:as-vla-object
-        (urb:ramp-quad-poly base axis sign (car lu) (+ f *urb-rampav-tableta*)
-          (cadr lu) (+ f *urb-rampav-tableta* *urb-rampav-lateral*)
-          "URB-ANDEN-LOSETA-TOPEROL-20X20")))
-    (setq objects (cons obj objects))
-    (setq hatch
-      (vl-catch-all-apply 'urb:add-solid-hatch
-        (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
-          (urb:tactile-fill-color "TOPEROL" T))))
-    (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
-    (setq hatch (urb:toperol-texture obj "TOPEROL"
-                  "URB-ANDEN-LOSETA-TOPEROL-20X20" axis ""))
-    (if hatch (setq objects (cons hatch objects)))
-    (setq tab-ml (+ tab-ml *urb-rampav-lateral*)))
+    (if (< (+ f *urb-rampav-tableta*) depth)
+      (progn
+        (setq obj
+          (urb:as-vla-object
+            (urb:ramp-quad-poly base axis sign (car lu) (+ f *urb-rampav-tableta*)
+              (cadr lu)
+              (min depth (+ f *urb-rampav-tableta* *urb-rampav-lateral*))
+              "URB-ANDEN-LOSETA-TOPEROL-20X20")))
+        (setq objects (cons obj objects))
+        (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
+                      (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
+                            (urb:tactile-fill-color "TOPEROL" T))))
+        (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
+        (setq hatch (urb:toperol-texture obj "TOPEROL" "URB-ANDEN-LOSETA-TOPEROL-20X20" axis ""))
+        (if hatch (setq objects (cons hatch objects)))
+        (setq tab-ml (+ tab-ml (- (min depth (+ f *urb-rampav-tableta* *urb-rampav-lateral*))
+                                  (+ f *urb-rampav-tableta*)))))))
 
-  ;; ---- los 4 bolardos ----
+  ;; ---- borde del acceso hacia el predio (arcos de cuarto de circulo del
+  ;;      plano) y los 4 bolardos, solo lo que quepa en el fondo dibujado --
+  (if (and (>= L 5.5) (>= depth 2.5))
+    (foreach v (list (list (list 0.0 0.0 0.41421) (list 2.5 2.5 0.0)
+                           (list 2.5 (min depth 3.3) 0.0))
+                     (list (list L 0.0 -0.41421) (list (- L 2.5) 2.5 0.0)
+                           (list (- L 2.5) (min depth 3.3) 0.0)))
+      (setq ent (urb:ramp-bulge-poly base axis sign v nil "URB-RAMPA-REMATE"))
+      (if ent (setq objects (cons (urb:as-vla-object ent) objects)))))
   (foreach lu (list u1 u2)
     (foreach lv *urb-rampav-bolardo-v*
-      (setq origin (urb:ramp-local-point base axis sign lu lv))
-      (setq ent
-        (entmakex
-          (list '(0 . "CIRCLE") '(100 . "AcDbEntity")
-                '(8 . "URB-RAMPA-REMATE") '(62 . 8) '(100 . "AcDbCircle")
-                (cons 10 (list (car origin) (cadr origin) 0.0))
-                (cons 40 *urb-rampav-bolardo-r*))))
-      (if ent
-        (progn (setq objects (cons (urb:as-vla-object ent) objects))
-               (setq bol (1+ bol))))))
+      (if (< lv depth)
+        (progn
+          (setq origin (urb:ramp-local-point base axis sign lu lv))
+          (setq ent
+            (entmakex
+              (list '(0 . "CIRCLE") '(100 . "AcDbEntity")
+                    '(8 . "URB-RAMPA-REMATE") '(62 . 8) '(100 . "AcDbCircle")
+                    (cons 10 (list (car origin) (cadr origin) 0.0))
+                    (cons 40 *urb-rampav-bolardo-r*))))
+          (if ent
+            (progn (setq objects (cons (urb:as-vla-object ent) objects))
+                   (setq bol (1+ bol))))))))
 
-  ;; (objetos  area-de-rampa  tableta-ML  bordilloA80-ML  bolardos)
-  (list (reverse objects) (* (- L (* 2.0 a)) f) tab-ml a80-ml bol)
+  ;; (objetos area-de-bajada tableta-ML bordillo-ML-en-el-bloque bolardos
+  ;;  prefabricados) -- el bordillo se cuenta en los PREFABRICADOS, no aqui
+  (list (reverse objects) fan-area tab-ml 0.0 bol (reverse prefabs))
 )
 
 ;; T si el paso da para llevar el desarrollo completo en los dos extremos
@@ -20755,7 +20894,161 @@
            (urb:ramp-end-min-length tipo)))
 )
 
-(defun urb:build-contour-ramp
+;; Que tapa del modulo es la del lado de la VIA: la mas cercana a una via
+;; creada (bloques URB_VIA). En el modo Tres puntos el primer remate ya es
+;; el del bordillo por construccion, asi que solo decide en el modo
+;; Dibujar. Sin vias en el dibujo se queda con el primero.
+(defun urb:frame-nearest-road (frames / ss i en r lo hi mid best best-d d fr)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA")))) best nil best-d nil)
+  (if (null ss)
+    (car frames)
+    (progn
+      (foreach fr frames
+        (setq mid (urb:ramp-frame-mid fr) i 0)
+        (repeat (sslength ss)
+          (setq en (ssname ss i) i (1+ i))
+          (setq r (vl-catch-all-apply
+            '(lambda () (vla-GetBoundingBox (urb:as-vla-object en) 'lo 'hi)
+               (list (vlax-safearray->list lo) (vlax-safearray->list hi)))))
+          (if (not (vl-catch-all-error-p r))
+            (progn
+              ;; distancia del punto medio a la caja de la via
+              (setq d (distance mid
+                        (list (max (car (car r)) (min (car mid) (car (cadr r))))
+                              (max (cadr (car r)) (min (cadr mid) (cadr (cadr r)))))))
+              (if (or (null best-d) (< d best-d)) (setq best fr best-d d))))))
+      (if best best (car frames)))))
+
+;; Borde del ACCESO VEHICULAR que da a la via. La deteccion automatica de
+;; remates (urb:ramp-auto-frames) toma las tapas del eje LARGO, que en un paso
+;; peatonal son los extremos; pero un acceso vehicular es mas ANCHO que
+;; profundo (el del plano: 10 x 3,3 m) y su borde contra la via es un lado
+;; largo. Aqui se prueban TODOS los bordes rectos: el mas cercano a una via
+;; creada; sin vias en el dibujo, el mas largo. Devuelve (frame fondo).
+(defun urb:vehicular-curb-frame (source / n i fr cands best pts mid p a s d fondo)
+  (setq n (fix (+ 0.5 (vlax-curve-getEndParam source))) i 0 cands nil)
+  (while (< i n)
+    (setq fr (vl-catch-all-apply 'urb:ramp-frame-at (list source i)))
+    (if (and fr (not (vl-catch-all-error-p fr)) (> (nth 3 fr) 0.50))
+      (setq cands (cons fr cands)))
+    (setq i (1+ i)))
+  (setq cands (reverse cands))
+  (if (null cands)
+    nil
+    (progn
+      (setq best
+        (if (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA"))))
+          (urb:frame-nearest-road cands)
+          ;; el mas largo; en empate (bordes paralelos iguales) el que se
+          ;; dibujo PRIMERO, que normalmente es el del bordillo
+          (progn
+            (setq best (car cands))
+            (foreach fr (cdr cands)
+              (if (> (nth 3 fr) (+ (nth 3 best) 0.01)) (setq best fr)))
+            best)))
+      ;; fondo = la mayor distancia de un vertice del contorno a la linea
+      ;; del borde, medida hacia adentro del modulo
+      (setq p (car best) a (cadr best) s (caddr best) fondo 0.0)
+      (foreach q (urb:lwpoly-points source)
+        (setq d (* s (+ (* (- (car q) (car p)) (- (sin a)))
+                        (* (- (cadr q) (cadr p)) (cos a)))))
+        (if (> d fondo) (setq fondo d)))
+      (list best fondo))))
+
+;; Recorta los andenes que queden debajo de los prefabricados nuevos: el
+;; anden se reconstruye UNA vez y en ese momento aplica todos los
+;; cortadores (los bordillos curvos y la banda de la rampa incluidos).
+(defun urb:recut-andenes-under (refs / hechos en res n)
+  (setq hechos nil n 0)
+  (foreach en (urb:all-anden-blocks)
+    (if (and (not (member en hechos))
+             (vl-some '(lambda (r)
+                         (urb:objects-bbox-overlap-p (urb:as-vla-object r)
+                                                     (urb:as-vla-object en) 0.02))
+                      refs))
+      (progn
+        (setq hechos (cons en hechos))
+        (setq res (vl-catch-all-apply 'urb:recut-one-anden-for-container (list en)))
+        (if (and (not (vl-catch-all-error-p res)) res) (setq n (1+ n))))))
+  n)
+
+;; ACCESO VEHICULAR como SUPERPOSICION sobre el anden (2026-09-11). Una sola
+;; cara de rampa, del lado de la via. El contorno dibujado solo marca la
+;; extension del modulo (linea fina); no lleva relleno propio -- el patron
+;; del anden se sigue viendo, igual que en el plano de detalles.
+(defun urb:build-vehicular-access
+  (source frames etapa sub / doc copy elevation frame other depth endres
+   objects name definition result attrs ref origin area prefabs n-rec)
+  (setq doc (urb:doc))
+  (urb:ensure-layer "URB-RAMPA" 4 T)
+  ;; el borde que da a la via se busca entre TODOS los lados del contorno
+  ;; (ver urb:vehicular-curb-frame); los remates que llegan son de respaldo
+  (setq other (vl-catch-all-apply 'urb:vehicular-curb-frame (list source)))
+  (if (and other (not (vl-catch-all-error-p other)))
+    (setq frame (car other) depth (cadr other))
+    (setq frame (car frames)
+          depth (if (cadr frames)
+                  (distance (urb:ramp-frame-mid (car frames))
+                            (urb:ramp-frame-mid (cadr frames)))
+                  4.0)))
+  (setq copy (vla-Copy (urb:as-vla-object source))
+        elevation (vla-get-Elevation copy))
+  (vla-put-Elevation copy 0.0)
+  (vla-put-Layer copy "URB-RAMPA")
+  (vla-put-Color copy 8)
+  (setq objects (list copy) origin (car frame))
+  (setq endres (vl-catch-all-apply 'urb:ramp-vehicular-objects
+                 (list frame etapa sub depth)))
+  (if (vl-catch-all-error-p endres)
+    (progn (urb:safe-delete copy)
+      (vl-exit-with-error (strcat "No se pudo dibujar el acceso vehicular: "
+        (vl-catch-all-error-message endres)))))
+  (setq objects (append objects (car endres))
+        area (nth 1 endres)
+        prefabs (nth 5 endres))
+  (setq name (strcat "URB_RAMPA_" (vla-get-Handle copy))
+        definition (vla-Add (vla-get-Blocks doc) (vlax-3d-point '(0 0 0)) name)
+        result (vl-catch-all-apply 'vla-CopyObjects
+          (list doc (urb:object-array-variant objects) definition)))
+  (if (vl-catch-all-error-p result)
+    (progn (foreach obj objects (urb:safe-delete obj)) (urb:safe-delete definition)
+      (foreach r prefabs (urb:safe-delete r))
+      (vl-exit-with-error (vl-catch-all-error-message result))))
+  (setq attrs
+    (list (cons "TIPO" "RAMPA-VEHICULAR") (cons "ETAPA" etapa) (cons "SUBETAPA" sub)
+      (cons "ANCHO_RAMPA" (rtos (nth 3 frame) 2 3))
+      (cons "FONDO_M" (rtos *urb-rampav-fondo* 2 3))
+      (cons "AREA_M2" (rtos area 2 6))
+      (cons "TOPEROL_ML" (rtos (nth 2 endres) 2 3))
+      (cons "A81_UND" "0")
+      (cons "BORDILLO_A80_ML" "0")
+      (cons "BORDILLO_PREFAB_UND" (itoa (length prefabs)))
+      (cons "BOLARDO_UND" (itoa (nth 4 endres)))
+      (cons "BORDILLO_ML" "0")
+      (cons "MATERIAL" "Concreto")))
+  (foreach obj attrs (urb:add-invisible-attribute definition origin (car obj) (car obj) (cdr obj)))
+  (setq ref (vla-InsertBlock (urb:space) (vlax-3d-point (list 0.0 0.0 elevation)) name 1.0 1.0 1.0 0.0))
+  (vla-put-Layer ref "URB-RAMPA")
+  (urb:set-xdata-strings (urb:as-ename ref) "URB_RAMPA_BLOCK"
+    (list "RAMPA-VEHICULAR" etapa sub (rtos (nth 3 frame) 2 6) "0" (rtos area 2 6)))
+  (foreach obj objects (urb:safe-delete obj))
+  ;; los bordillos curvos y la banda recortan el patron del anden de abajo
+  (setq n-rec (if prefabs (urb:recut-andenes-under prefabs) 0))
+  (prompt (strcat "\nAcceso vehicular: rampa del lado de la via, "
+    (itoa (length prefabs)) " bordillos prefabricados (aletas curvas + banda A-80), "
+    (itoa (nth 4 endres)) " bolardos."
+    (if (> n-rec 0) (strcat " Anden recortado bajo los bordillos: " (itoa n-rec) ".") "")))
+  ref)
+
+;; 2026-09-11: el acceso vehicular sigue su propio camino (superposicion
+;; sobre el anden, una sola cara del lado de la via, aletas como bordillos
+;; curvos prefabricados). El paso peatonal conserva el de siempre.
+(defun urb:build-contour-ramp (source frames tipo etapa sub material)
+  (if (= tipo "RAMPA-VEHICULAR")
+    (urb:build-vehicular-access source frames etapa sub)
+    (urb:build-contour-ramp-cuerpo source frames tipo etapa sub material)))
+
+(defun urb:build-contour-ramp-cuerpo
   (source frames tipo etapa sub material / doc copy region body terminals frame term
    objects hatch area total-area edge-length attrs name definition result ref obj
    depth origin axis boundary-en elevation wedge-depth wedge-layer wedge-en
@@ -21054,7 +21347,10 @@
               ;; queda DEBAJO del modulo -- andenes, zonas verdes y
               ;; prefabricados -- para que el area no quede contada dos
               ;; veces. Por defecto SI: es el caso normal.
-              (if result
+              ;; 2026-09-11: el acceso vehicular NO pregunta -- es una
+              ;; superposicion y su constructor ya recorto el anden bajo sus
+              ;; bordillos.
+              (if (and result (/= (car selection) "RAMPA-VEHICULAR"))
                 (progn
                   (initget "Si No")
                   (setq kw (getkword

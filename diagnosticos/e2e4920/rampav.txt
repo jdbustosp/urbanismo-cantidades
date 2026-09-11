@@ -1,18 +1,17 @@
-motor 4.91.0 cargado
+motor 4.94.0 cargado
 OK   la aleta del plano es de 2,369 m | 2.369
 OK   el fondo de la rampa es de 1,70 m | 1.700
 OK   un acceso de 10 m usa la aleta completa del plano | 2.369
 OK   un acceso angosto reparte la aleta sin dejar de dibujarse | 1.500
 OK   remates detectados | 6.00 y 6.00
 OK   acceso vehicular creado | ok
-AREA_M2 = 41.490800 | BORDILLO_A80_ML = 2.524 | TOPEROL_ML = 8.804 | BOLARDO_UND = 8 | A81_UND = 0
-OK   el bordillo A-80 de fondo se cuenta | 2.524 esperado 2.524
-OK   quedan los 4 bolardos por extremo (8 en total) | 8
+AREA_M2 = 11.111948 | BORDILLO_A80_ML = 0 | TOPEROL_ML = 8.402 | BOLARDO_UND = 4 | A81_UND = 0
+OK   el bordillo sale como 3 prefabricados, no dentro del bloque | prefab 3 | A80 en bloque 0
+OK   una sola cara de rampa: 4 bolardos | 4
 OK   el acceso vehicular ya NO usa la pieza A81 del modulo peatonal | 0
-bloque: remate=18 (circulos 8) | bordillo=4 | tableta=18 (punteadas 6)
-OK   los bolardos quedan dibujados como circulos | 8
-OK   hay banda de bordillo A-80 en los dos extremos | 4
-OK   hay tableta podotactil de alerta con su punteado | 18 piezas / 6 punteadas
+bloque: remate=6 (circulos 4) | bordillo=0 | tableta=9 (punteadas 3)
+OK   los bolardos quedan dibujados como circulos | 4
+OK   hay tableta podotactil de alerta con su punteado | 9 piezas / 3 punteadas
 OK   paso peatonal largo creado | ok
 cuerpo del paso: bandas grises=2 blancas=3 | hatches=19
 OK   el cuerpo del paso quedo con la textura por bandas del anden | 2 gris / 3 blanco

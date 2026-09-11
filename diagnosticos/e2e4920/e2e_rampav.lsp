@@ -73,14 +73,16 @@
           " | TOPEROL_ML = " (att veh "TOPEROL_ML")
           " | BOLARDO_UND = " (att veh "BOLARDO_UND")
           " | A81_UND = " (att veh "A81_UND")))
-        ;; el A-80 de fondo mide (Ltapa - 2*aleta) por extremo
-        (setq Lt (nth 3 (car fr)))
-        (setq a80esp (* 2.0 (- Lt (* 2.0 (urb:rampav-aleta Lt)))))
-        (echk "el bordillo A-80 de fondo se cuenta"
-          (< (abs (- a80esp (atof (att veh "BORDILLO_A80_ML")))) 0.02)
-          (strcat (att veh "BORDILLO_A80_ML") " esperado " (rtos a80esp 2 3)))
-        (echk "quedan los 4 bolardos por extremo (8 en total)"
-          (= "8" (att veh "BOLARDO_UND")) (att veh "BOLARDO_UND"))
+        ;; v4.94 (diseno del plano): UNA sola cara de rampa, del lado de la
+        ;; via, y el bordillo (aletas curvas + banda A-80) sale como 3
+        ;; PREFABRICADOS aparte -- no se cuenta dentro del bloque
+        (echk "el bordillo sale como 3 prefabricados, no dentro del bloque"
+          (and (= "3" (att veh "BORDILLO_PREFAB_UND"))
+               (= "0" (att veh "BORDILLO_A80_ML")))
+          (strcat "prefab " (att veh "BORDILLO_PREFAB_UND")
+                  " | A80 en bloque " (att veh "BORDILLO_A80_ML")))
+        (echk "una sola cara de rampa: 4 bolardos"
+          (= "4" (att veh "BOLARDO_UND")) (att veh "BOLARDO_UND"))
         (echk "el acceso vehicular ya NO usa la pieza A81 del modulo peatonal"
           (= "0" (att veh "A81_UND")) (att veh "A81_UND"))
         ;; inventario del bloque
@@ -105,9 +107,7 @@
           ") | bordillo=" (itoa n-bor) " | tableta=" (itoa n-tab)
           " (punteadas " (itoa n-pun) ")"))
         (echk "los bolardos quedan dibujados como circulos"
-          (= n-cir 8) (itoa n-cir))
-        (echk "hay banda de bordillo A-80 en los dos extremos"
-          (>= n-bor 4) (itoa n-bor))
+          (= n-cir 4) (itoa n-cir))
         (echk "hay tableta podotactil de alerta con su punteado"
           (and (>= n-tab 6) (> n-pun 0))
           (strcat (itoa n-tab) " piezas / " (itoa n-pun) " punteadas"))))
