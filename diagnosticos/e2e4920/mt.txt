@@ -1,0 +1,13 @@
+motor 4.93.0 cargado
+anden de prueba: 20.00 m2 | estructura 0.60 m
+a nivel: corte 12.000 | relleno 0.000
+OK   a nivel del terreno igual se excava la caja de la estructura | 12.000 esperado 12.000
+OK   y no aparece relleno de tierra | 0.000
++1,00: corte 0.000 | relleno 8.000
+OK   el relleno de tierra llega solo hasta la subrasante (8 m3, no 20) | 8.000 esperado 8.000
+OK   y no aparece corte | 0.000
+zona verde a nivel: corte 4.000
+OK   la zona verde excava el espesor de su tierra negra (20 x 0,20 = 4 m3) | 4.000
+referencia SIN estructura (calculo anterior): corte 0.000 | relleno 0.000
+RESULTADO 0 FALLOS
+DONE

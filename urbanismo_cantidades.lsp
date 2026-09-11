@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.92.0")
+(setq *urb-version* "4.93.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -6391,8 +6391,9 @@
               '(100 . "AcDbPolyline") (cons 90 (length pts)) '(70 . 1))
         (mapcar '(lambda (p) (cons 10 p)) pts)))
       (setq pl (entlast))
+      ;; anden: se excava hasta la subrasante (terminado - 0.60 de estructura)
       (setq mov (vl-catch-all-apply 'urb:earthworks-from-picks
-        (list pl picks)))
+        (list pl picks *urb-anden-depth*)))
       (if (and pl (entget pl)) (entdel pl))
       (if (and mov (not (vl-catch-all-error-p mov)))
         (progn
@@ -7439,8 +7440,24 @@
     ((= n 1) (car (car picks)))
     (T nil)))
 
-(defun urb:earthworks-from-picks (ename picks / surface poly step minx maxx
-   miny maxy x y ztn zdis corte relleno cell area obj)
+;; 2026-09-11 (pedido del usuario: "que los cortes y rellenos esten bien con
+;; respecto a los llenos granulares que toque hacer"). Hasta v4.93 esta
+;; funcion comparaba el terreno contra la cota TERMINADA (encima de la
+;; loseta o de la tierra negra) y NO descontaba la estructura. Eso
+;; subestimaba el corte (hay que excavar hasta la subrasante para meter la
+;; estructura) y contaba la estructura granular como si fuera relleno de
+;; tierra. El calculo ORIGINAL del anden (urb:run-anden-earthworks) si lo
+;; hacia bien -- terreno contra (terminado - *urb-anden-depth*) --, asi que
+;; los dos caminos del anden daban numeros distintos para lo mismo.
+;; Ahora cada llamador pasa el ESPESOR de su estructura y se mide contra la
+;; SUBRASANTE = cota terminada - espesor:
+;;   anden y rampa -> *urb-anden-depth* (0.60 = loseta + arena + SBG)
+;;   zona verde    -> espesor de tierra negra de la zona
+;;   sendero       -> espesor de su tipo (Ajustes)
+;; La estructura en si (granular, tierra negra) se sigue cantidando aparte.
+(defun urb:earthworks-from-picks (ename picks depth / surface poly step minx maxx
+   miny maxy x y ztn zdis corte relleno cell area obj zsub)
+  (if (not (numberp depth)) (setq depth 0.0))
   (setq surface (mp:current-terrain-surface))
   (if (null surface)
     (progn
@@ -7472,9 +7489,12 @@
                   (setq ztn (urb:surface-elevation surface x y))
                   (setq zdis (urb:design-z-from-picks picks x y))
                   (if (and ztn zdis)
-                    (if (> ztn zdis)
-                      (setq corte (+ corte (* (- ztn zdis) cell)))
-                      (setq relleno (+ relleno (* (- zdis ztn) cell)))))))
+                    (progn
+                      ;; se compara contra la SUBRASANTE, no contra el terminado
+                      (setq zsub (- zdis depth))
+                      (if (> ztn zsub)
+                        (setq corte (+ corte (* (- ztn zsub) cell)))
+                        (setq relleno (+ relleno (* (- zsub ztn) cell))))))))
               (setq y (+ y step)))
             (setq x (+ x step)))
           (list corte relleno))))))
@@ -7687,7 +7707,9 @@
           (setq picks (urb:pick-design-cotas))
           (if (and picks (>= (length picks) 1))
             (progn
-              (setq mov (urb:earthworks-from-picks ename picks))
+              ;; zona verde: la subrasante queda un espesor de tierra negra
+              ;; por debajo del terminado
+              (setq mov (urb:earthworks-from-picks ename picks thickness))
               (if mov
                 (prompt (strcat "\nCorte: " (rtos (car mov) 2 2)
                   " m3 | Relleno: " (rtos (cadr mov) 2 2) " m3"))))
@@ -15643,7 +15665,107 @@
   value
 )
 
-(defun urb:selected-cota-number (selected / ename edata obj txt value)
+;;; 2026-09-11 (reporte del usuario: "elegi 2565.25 pero me reconoce
+;;; siempre la cota de abajo, la de 2562.25"). Las etiquetas de pozo traen
+;;; las DOS cotas en un mismo objeto (tapa arriba, batea abajo, en dos
+;;; renglones). urb:selected-cota-number usaba mp:last-decimal-number, que
+;;; recorre TODO el texto y se queda con el ULTIMO numero -- siempre el de
+;;; abajo, se clickeara donde se clickeara. Ahora el texto se parte por
+;;; renglones y se toma el renglon que queda bajo el clic.
+
+;; Un numero por renglon, de arriba a abajo. MTEXT separa renglones con \P;
+;; en cada renglon se toma el ULTIMO decimal, porque los codigos de formato
+;; (\H0.7x; \f...;) van ANTES del contenido y tambien traen decimales.
+(defun urb:text-line-numbers (txt / out v)
+  (setq txt (vl-string-translate "\n" "\r" (urb:safe-string txt "")))
+  (foreach ln (urb:split-string txt "\\P")
+    (foreach sub (urb:split-string ln "\r")
+      (setq v (mp:last-decimal-number sub))
+      (if v (setq out (cons (atof v) out)))))
+  (reverse out))
+
+;; Punto de un nentsel llevado a WCS con su matriz (entidades anidadas en
+;; un bloque o XREF). Sin matriz, la entidad ya esta en WCS.
+(defun urb:nentsel-to-wcs (pt mat)
+  (if (and mat (= (length mat) 4))
+    (mapcar '+
+      (mapcar '(lambda (c) (* (car pt) c)) (nth 0 mat))
+      (mapcar '(lambda (c) (* (cadr pt) c)) (nth 1 mat))
+      (mapcar '(lambda (c) (* (if (caddr pt) (caddr pt) 0.0) c)) (nth 2 mat))
+      (nth 3 mat))
+    pt))
+
+(defun urb:nentsel-dir-to-wcs (v mat)
+  (if (and mat (= (length mat) 4))
+    (mapcar '+
+      (mapcar '(lambda (c) (* (car v) c)) (nth 0 mat))
+      (mapcar '(lambda (c) (* (cadr v) c)) (nth 1 mat))
+      (mapcar '(lambda (c) (* (if (caddr v) (caddr v) 0.0) c)) (nth 2 mat)))
+    v))
+
+;; Indice 0..n-1 del renglon clickeado (0 = el de arriba). Se mide sobre
+;; el eje "hacia abajo" DEL PROPIO TEXTO (sirve rotado) desde el centro del
+;; bloque de texto; el centro de la caja de un rectangulo rotado es el
+;; centro del rectangulo, asi que no depende del punto de insercion ni de
+;; la justificacion. Solo para TEXT/MTEXT; para otras etiquetas devuelve
+;; nil y el llamador pregunta en vez de adivinar.
+(defun urb:picked-line-index (selected obj n / name mat pick lo hi res ctr rot
+                              up upw ctrw len d h pitch idx sp)
+  (setq name (vl-catch-all-apply 'vla-get-ObjectName (list obj)))
+  (if (not (member name '("AcDbText" "AcDbMText")))
+    nil
+    (progn
+      (setq mat (caddr selected)
+            pick (trans (cadr selected) 1 0))
+      (setq res
+        (vl-catch-all-apply
+          '(lambda () (vla-GetBoundingBox obj 'lo 'hi)
+             (list (vlax-safearray->list lo) (vlax-safearray->list hi)))))
+      (setq rot (vl-catch-all-apply 'vla-get-Rotation (list obj)))
+      (if (or (vl-catch-all-error-p res) (not (numberp rot)))
+        nil
+        (progn
+          (setq ctr (mapcar '(lambda (a b) (* 0.5 (+ a b))) (car res) (cadr res)))
+          (setq up (list (- (sin rot)) (cos rot) 0.0))
+          (setq ctrw (urb:nentsel-to-wcs ctr mat)
+                upw (urb:nentsel-dir-to-wcs up mat))
+          (setq len (distance '(0.0 0.0 0.0) upw))
+          (if (< len 1e-9)
+            nil
+            (progn
+              ;; d > 0 = el clic cae POR DEBAJO del centro del texto
+              (setq d (- (+ (* (- (car pick) (car ctrw)) (/ (car upw) len))
+                            (* (- (cadr pick) (cadr ctrw)) (/ (cadr upw) len)))))
+              (if (= n 2)
+                (if (< d 0.0) 0 1)
+                (progn
+                  (setq h (vl-catch-all-apply 'vla-get-Height (list obj)))
+                  (setq sp (if (= name "AcDbMText")
+                             (vl-catch-all-apply 'vla-get-LineSpacingFactor (list obj))
+                             1.0))
+                  (if (or (not (numberp h)) (not (numberp sp)))
+                    nil
+                    (progn
+                      (setq pitch (* h len 1.6667 sp))
+                      (setq idx (fix (/ (+ d (* 0.5 n pitch)) pitch)))
+                      (max 0 (min (1- n) idx)))))))))))))
+
+;; Si no se pudo saber por geometria, se pregunta: nunca se elige en
+;; silencio una cota que el usuario no clickeo.
+(defun urb:ask-which-cota (nums / i s keys kw)
+  (setq s "" keys "" i 1)
+  (foreach v nums
+    (setq s (strcat s "  " (itoa i) "=" (rtos v 2 3))
+          keys (strcat keys (if (> i 1) " " "") (itoa i)))
+    (setq i (1+ i)))
+  (initget keys)
+  (setq kw (getkword
+    (strcat "\nLa etiqueta trae " (itoa (length nums)) " cotas:" s
+            ". Cual es la que quiere? [" (vl-string-translate " " "/" keys)
+            "] <1>: ")))
+  (nth (1- (if kw (atoi kw) 1)) nums))
+
+(defun urb:selected-cota-number (selected / ename edata obj txt nums idx)
   ;; Lee TEXT/MTEXT, etiquetas Civil y proxies seleccionados con NENTSEL,
   ;; incluidos los que viven dentro de un XREF. Se prueban tanto ActiveX
   ;; como DXF porque cada tipo de etiqueta expone el contenido distinto.
@@ -15652,14 +15774,26 @@
         obj
           (if ename
             (vl-catch-all-apply 'vlax-ename->vla-object (list ename))))
-  (if (and obj (not (vl-catch-all-error-p obj)))
+  (if (vl-catch-all-error-p obj) (setq obj nil))
+  (if obj
     (progn
       (setq txt (vl-catch-all-apply 'vla-get-TextString (list obj)))
       (if (vl-catch-all-error-p txt) (setq txt nil))))
   (if (or (null txt) (= (urb:safe-string txt "") ""))
     (setq txt (cdr (assoc 1 edata))))
-  (if txt (setq value (mp:last-decimal-number txt)))
-  (if value (atof value) nil)
+  (setq nums (if txt (urb:text-line-numbers txt)))
+  (cond
+    ((null nums) nil)
+    ((= (length nums) 1) (car nums))
+    (T
+      (setq idx (if obj (vl-catch-all-apply 'urb:picked-line-index
+                          (list selected obj (length nums)))))
+      (if (or (null idx) (vl-catch-all-error-p idx))
+        (urb:ask-which-cota nums)
+        (progn
+          (prompt (strcat "\nLa etiqueta trae " (itoa (length nums))
+            " cotas; se toma la del renglon clickeado."))
+          (nth idx nums)))))
 )
 
 (defun urb:road-design-grade-records (road data / mov records span c0 c1)
@@ -21103,7 +21237,8 @@
                           '(100 . "AcDbPolyline") '(90 . 4) '(70 . 1))
                     (mapcar '(lambda (p) (cons 10 p)) (reverse pts))))
                   (setq pe (entlast))
-                  (setq mov (urb:earthworks-from-picks pe picks))
+                  ;; la rampa va dentro del anden: misma estructura
+                  (setq mov (urb:earthworks-from-picks pe picks *urb-anden-depth*))
                   (if (entget pe) (entdel pe))
                   (if mov
                     (progn
@@ -26323,7 +26458,9 @@
         (setq picks2 (urb:pick-design-cotas))
         (if (and picks2 (>= (length picks2) 1))
           (progn
-            (setq mov2 (urb:earthworks-from-picks ename picks2))
+            ;; sendero: la subrasante queda el espesor de su tipo por debajo
+            (setq mov2 (urb:earthworks-from-picks ename picks2
+                         (vl-catch-all-apply 'urb:send-espesor-de (list entry))))
             (if mov2
               (progn
                 (urb:set-xdata-strings ename "URB_SEND_MOV"
@@ -32213,6 +32350,17 @@
            (equal 2559.00 (urb:cota-por-pendiente 2560.00 -1.0 100.0) 1e-9)
            ;; pendiente 0 = tramo horizontal, no un error
            (equal 2560.00 (urb:cota-por-pendiente 2560.00 0.0 100.0) 1e-9)))
+    ;; 2026-09-11: la etiqueta de pozo trae tapa y batea en DOS renglones.
+    ;; Antes se tomaba el ULTIMO numero del texto (siempre la de abajo).
+    ;; Ahora hay un numero por renglon, en orden, y los codigos de formato
+    ;; del MTEXT (\H0.7x; etc.) no se confunden con la cota.
+    (list "La etiqueta de dos cotas da un numero por renglon"
+      (and (equal '(2565.25 2562.25)
+                  (urb:text-line-numbers "2565.25\\P2562.25") 1e-9)
+           (equal '(2565.25 2562.25)
+                  (urb:text-line-numbers "{\\H0.7x;2565.25}\\P{\\H0.7x;2562.25}") 1e-9)
+           (equal '(2560.5) (urb:text-line-numbers "CT=2560.50") 1e-9)
+           (null (urb:text-line-numbers "SIN COTA"))))
     (list "Caja CS276 recorta un metro por extremo"
       (equal 1.0 (mp:point-base-gap "CAMARA_CS276") 1e-9))
     (list "Pozo humedo recorta hasta radio real"

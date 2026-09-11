@@ -1,5 +1,90 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-11, v4.93.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+Se partió de v4.92.0 (`0da37bd`); se comprobó que Codex no había subido nada
+desde el otro PC (`git fetch`: sin commits nuevos, handoff sin entradas nuevas).
+
+### 1. Cota en texto: se tomaba siempre la de abajo ✔
+
+Reporte: *"elegí 2565.25 pero me reconoce siempre la cota de abajo, la de
+2562.25"*. Las etiquetas de pozo traen **tapa y batea en el MISMO objeto**, en
+dos renglones. `urb:selected-cota-number` usaba `mp:last-decimal-number`, que
+recorre todo el texto y se queda con el **último** número — siempre el de abajo,
+se clickeara donde se clickeara.
+
+- `urb:text-line-numbers`: un número por renglón (`\P`), de arriba a abajo; en
+  cada renglón el último decimal, porque los códigos de formato del MTEXT
+  (`\H0.7x;`) van antes del contenido y también traen decimales.
+- `urb:picked-line-index`: qué renglón se clickeó, proyectando el clic sobre el
+  eje "hacia abajo" del propio texto desde el centro de su caja (sirve rotado y
+  no depende de la justificación). Soporta entidades anidadas en XREF con la
+  matriz de `nentsel`.
+- Si no se puede saber por geometría (etiquetas que no son TEXT/MTEXT),
+  `urb:ask-which-cota` **pregunta** mostrando las cotas — nunca elige en silencio.
+
+E2E real: etiqueta de dos renglones horizontal, rotada 60° y 120° → clic arriba
+**2565.25**, clic abajo **2562.25** en los tres casos; una etiqueta de una sola
+cota no cambia. Autoprueba nueva sobre la partición por renglones.
+
+### 2. Movimiento de tierras de andenes y zonas verdes ✔ (error real)
+
+Pedido: *"que los cortes y rellenos estén bien con respecto a los llenos
+granulares"*. **`urb:earthworks-from-picks` comparaba el terreno contra la cota
+TERMINADA y no descontaba la estructura.** Subestimaba el corte y contaba la
+estructura granular como relleno de tierra. El cálculo ORIGINAL del andén
+(`urb:run-anden-earthworks`) sí lo hacía bien (terreno contra
+`terminado − *urb-anden-depth*`), así que los dos caminos del andén daban
+números distintos para lo mismo.
+
+Ahora cada llamador pasa el espesor de su estructura y se mide contra la
+**subrasante**: andén y rampa `*urb-anden-depth*` (0,60 = loseta + arena + SBG);
+zona verde su espesor de tierra negra; sendero el de su tipo.
+
+| caso (andén de 20 m²) | antes | ahora |
+|---|---|---|
+| terminado a nivel del terreno | corte 0 | corte **12,000** (caja de 0,60) |
+| terminado 1,00 m por encima | relleno 20 | relleno **8,000** (solo hasta subrasante) |
+| zona verde a nivel (tierra 0,20) | corte 0 | corte **4,000** |
+
+**Cómo escoge la cota cuando se clickea una vía** (`urb:cota-from-via`): proyecta
+el clic sobre el eje de la vía, saca la abscisa e interpola la rasante ahí; para
+cotas de diseño de andén/zona verde le suma la altura de bordillo (v4.88).
+
+### 3. Rampa y paso peatonal: por qué no se parecen — DIAGNÓSTICO con imagen
+
+Se renderizó el plano: AutoCAD no plotea a PNG desde la consola sin gráficos y
+`PNGOUT` sale vacío con la ventana minimizada, así que se armó un extractor
+propio (`diagnosticos/detalles4920/dump.lsp`, explota copias de los bloques
+hasta primitivas en WCS) + un renderer en PowerShell/System.Drawing
+(`render.ps1`). Resultado: **`diagnosticos/detalles4920/r_vehicular.png`**.
+
+Lo que muestra el plano, y que el motor NO hace:
+
+- El acceso vehicular **no reemplaza el andén**: el patrón de bandas del andén
+  (negras 0,80 / blancas con retícula 20×20) **sigue de corrido por debajo**.
+- Las aletas son **CURVAS (arcos)** que barren desde las esquinas del bordillo
+  hasta la cara de rampa. Los vértices de v4.91 venían de una polilínea con
+  *bulge* que no se leyó — por eso se dibujaron como trapecios rectos.
+- La rampa es una **superposición**: una banda gris delgada en la cara, líneas
+  de proyección en V, bolardos (cuadros con X) y una tableta de alerta.
+
+O sea: el motor modela la rampa como un objeto pavimentado aparte que **corta y
+reemplaza** el andén (y lo rellena con sus propios sólidos); el plano la dibuja
+como una **modificación dentro del andén**, con el mismo pavimento. Ese es el
+motivo de fondo de que "siga sin parecerse".
+
+**Pendiente**: rehacer el acceso vehicular como superposición (no cortador, sin
+rellenos propios, aletas en arco), y aplicar el mismo criterio al paso peatonal.
+El módulo peatonal del plano (`B-Módulo 1/2 tipo c`, `B-Módulo 4/7/8`) no se pudo
+renderizar todavía: sus bloques dinámicos explotan fuera de sitio; hace falta
+otra estrategia para esos.
+
+Suite **85 OK / 0 FALLOS**, autopruebas **35/35**. E2E de cota **0 FALLOS**, E2E
+de movimiento **0 FALLOS**. Instalado 4.93.0, hash repo = instalado.
+
+
 ## Estado guardado — 2026-09-10 (7), v4.92.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
