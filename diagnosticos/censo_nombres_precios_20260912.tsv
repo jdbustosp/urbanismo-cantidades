@@ -1,0 +1,569 @@
+actividades de nivel 5 leidas: 1456
+
+== A) MISMO NOMBRE (normalizado) CON TEXTO O PRECIO DISTINTO ==
+clave	variantes	precios	filas
+base granular bg	Base granular BG | base granular BG	251774,33	100,283,302,320,436,455
+comision topografica	Comision topografica | COMISION TOPOGRAFICA	12000000	1171,1237
+planos record	Planos record | PLANOS RECORD	20000000	1218,1305
+subtotal A: 3
+
+== B) FAMILIAS PARECIDAS (mismas 2 primeras palabras) CON PRECIOS DISTINTOS ==
+familia	actividad	UM	VU	veces
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 1	%	12700139793.85	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 2	%	3665203923.61	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 3	%	1733118405.57	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 3A	%	195447152.15	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 3B	%	2410679445.07	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 4	%	801751985.66	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 4A	%	410984926.96	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 4B	%	1387833434.34	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 4C	%	195223463.77	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 4D	%	115374134.61	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 4E	%	10913390535.84	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 4F	%	528064742.65	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 5	%	351491589	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 5A	%	1427427914.61	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 5B	%	266776874.69	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 5C	%	301431583.46	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 5D	%	512579428.99	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 5E	%	1099229718.15	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 5F	%	330894660.52	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 5G	%	1056202179.71	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 7	%	4088359645.87	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 8	%	4146250347.13	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 8A	%	1909929188.63	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 8B	%	1426172944.99	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 8C	%	1308643446.73	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 8D	%	343041214.91	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 9	%	694632480.57	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 9A	%	1120996984.53	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 9B	%	1038040215.43	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 9C	%	904201859.64	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 9D	%	1177106284.75	1
+admin delegad	ADMIN DELEGAD + HON + REEMB SUBETAPA 9E	%	0	1
+admin delegad	ADMIN DELEGAD + HON + REEMB GENERAL	%	85426423857.6	1
+arcos metalicos	Arcos metalicos de microfutbol altura 1,80 x 2,5 ancho	UN	1815000	2
+arcos metalicos	Arcos metalicos de futbol(incluyen malla)	UN	4950000	1
+base granular	Base granular BG	M3	251774.33	12
+base granular	base granular 0,20m idu	M3	236515	7
+base granular	Base granular clase B (BG38/BG25) para telecomunicaciones	M3	584902.67	1
+cabezal descarga	Cabezal de descarga en concreto para tubería Ø12"-Ø16" (incluye aletas y solado)	UN	8500000	1
+cabezal descarga	Cabezal de descarga en concreto para tubería Ø18"-Ø24" (incluye aletas y solado)	UN	12500000	1
+cabezal descarga	Cabezal de descarga en concreto para tubería Ø8"-Ø10" (incluye aletas y solado)	UN	6000000	1
+caja maniobra	Caja de maniobra pedestal de 5 vías ET512 Fig. 4	UN	106000000	1
+caja maniobra	Caja de maniobra pedestal de 3 vías ET512 Fig. 1	UN	79500000	1
+canalizacion banco	Canalización banco de ductos TDP PVC 8Ø3" EPM RS1-003	ML	603371.15	1
+canalizacion banco	Canalización banco de ductos TDP PVC 7Ø3" EPM RS1-003	ML	445234.03	1
+canalizacion banco	Canalización banco de ductos TDP PVC 6Ø3" EPM RS1-003	ML	452504.52	1
+canalizacion banco	Canalización banco de ductos TDP PVC 5Ø3" EPM RS1-003	ML	377075.97	1
+carcamo placa	Cárcamo o placa de protección para tubería (Red de acueducto)	ML	9010000	1
+carcamo placa	Cárcamo o placa de protección para tubería (Red de alcantarillado sanitario)	ML	12720000	1
+carcamo placa	Cárcamo o placa de protección para tubería (Red de alcantarillado pluvial)	ML	800000	1
+cinta senalizacion	Cinta de señalización	ML	508.01	3
+cinta senalizacion	Cinta de señalización para red de media tensión	ML	1696	1
+codo 11	Codo 11,25° Ø4"	UN	311640	1
+codo 11	Codo 11,25° Ø6"	UN	527880	1
+codo 11	Codo 11,25° Ø8"	UN	767440	1
+codo 11	Codo 11,25° Ø12"	UN	1299560	1
+codo 22	Codo 22,5° Ø6"	UN	737760	1
+codo 22	Codo 22,5° Ø8"	UN	1071660	1
+codo 22	Codo 22,5° Ø12"	UN	1815780	1
+codo 45	Codo 45° Ø6"	UN	664620	1
+codo 45	Codo 45° Ø8"	UN	965660	1
+codo 45	Codo 45° Ø12"	UN	1635580	1
+codo 90	Codo 90° Ø6"	UN	697480	1
+codo 90	Codo 90° Ø8"	UN	1013360	1
+codo 90	Codo 90° Ø12"	UN	1716140	1
+colocacion emulsion	Suministro y colocación de Emulsión Asfáltica de Rompimiento Lento CRL-1 (Imprimación)	M2	3398.21	1
+colocacion emulsion	Suministro y colocación de Emulsión Asfáltica de Rompimiento rápido CRR-2 (Riego de liga)	M2	4077.86	1
+colocacion recebo	Suministro y colocación de recebo	M3	101915.14	5
+colocacion recebo	Suministro y colocación de recebo B-200	M3	110000	7
+construccion caja	Construcción de caja para válvulas de gas	UN	924678.07	1
+construccion caja	Construcción de caja de inspección doble norma CS276	UN	5770200	1
+construccion conexion	Construcción y conexión de acometida Ø1"	UN	1590000	1
+construccion conexion	Construcción y conexión de acometida Ø2"	UN	2120000	1
+construccion conexion	Construcción y conexión de acometida Ø3"	UN	2650000	1
+construccion conexion	Construcción y conexión de acometida Ø4"	UN	3392000	1
+construccion conexion	Construcción de conexión domiciliaria sanitaria Ø8"	UN	1272000	1
+construccion contenedor	Suministro y construcción de contenedor de raíces (Dimensiones: 2,0x1,2m). Incluye tierra negra	UN	2442321.97	1
+construccion contenedor	Suministro y construcción de contenedor de raíces Tipo A (2,00x2,20)m	UN	4477590.28	1
+construccion contenedor	Suministro y construcción de contenedor de raíces Tipo B (1,50x2,20)m	UN	3358192.71	1
+construccion contenedor	Suministro y construcción de contenedor de raíces Tipo C (1,20x2,20)m	UN	2686554.17	1
+construccion contenedor	Suministro y construcción de contenedor de raíces Tipo D (0,84x4,20)m	UN	3590213.3	1
+construccion contenedor	Suministro y construcción de contenedor de raíces Tipo E (0,70x4,20)m	UN	2991844.42	1
+construccion contenedor	Suministro y construcción de contenedor de raíces Tipo F (0,70x4,20)m	UN	2991844.42	1
+construccion pozos	Construcción de pozos de lanzamiento	UN	541481565.4	1
+construccion pozos	Construcción de pozos de salida	UN	398057499.4	1
+construccion pozos	Construcción de pozos intermedios	UN	128990281.5	2
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 1	%	12700139793.85	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 2	%	3665203923.61	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 3	%	1733118405.57	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 3A	%	195447152.15	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 3B	%	2410679445.07	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 4	%	801751985.66	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 4A	%	410984926.96	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 4B	%	1387833434.34	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 4C	%	195223463.77	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 4D	%	115374134.61	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 4E	%	10913390535.84	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 4F	%	528064742.65	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 5	%	351491589	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 5A	%	1427427914.61	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 5B	%	266776874.69	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 5C	%	301431583.46	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 5D	%	512579428.99	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 5E	%	1099229718.15	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 5F	%	330894660.52	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 5G	%	1056202179.71	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 7	%	4088359645.87	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 8	%	4146250347.13	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 8A	%	1909929188.63	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 8B	%	1426172944.99	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 8C	%	1308643446.73	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 8D	%	343041214.91	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 9	%	694632480.57	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 9A	%	1120996984.53	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 9B	%	1038040215.43	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 9C	%	904201859.64	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 9D	%	1177106284.75	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) SUBETAPA 9E	%	0	1
+costos gestion	COSTOS GESTION AMBIENTAL (CAR) GENERAL	%	85426423857.6	1
+descargue acopio	Descargue y acopio de tubería en concreto	GB	12884.12	1
+descargue acopio	Descargue y acopio de tubería	KG	64160.69	1
+dren filtro	Dren filtro 100 mm(filtro frances)	ML	80000	3
+dren filtro	Dren filtro 200 mm (filtro frances)	ML	110000	4
+empate a	Empate a punto de conexión	UN	5000000	5
+empate a	Empate a red existente Ø4"	UN	8480000	1
+empate a	Empate a red existente Ø6"	UN	10600000	1
+empate a	Empate a red existente Ø10"	UN	15900000	1
+empate a	Empate a red existente Ø12"	UN	21200000	1
+empate a	EMPATE A PUNTO DE CONEXIÓN (INCLUYE UNIONES DE REPARACION Y ACCESORIOS)	GB	50000000	1
+empate tee	Empate en tee Ø6" × Ø6"	UN	13389920	1
+empate tee	Empate en tee Ø8" × Ø2"	UN	10563960	1
+empate tee	Empate en tee Ø8" × Ø6"	UN	16361100	1
+entibado continuo	Entibado continuo E-1A, H≤2,00 m	M2	52205	3
+entibado continuo	Entibado continuo E-1B, 2,00<H≤3,00 m	M2	95400	3
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 1	%	12700139793.85	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 2	%	3665203923.61	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 3	%	1733118405.57	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 3A	%	195447152.15	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 3B	%	2410679445.07	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 4	%	801751985.66	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 4A	%	410984926.96	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 4B	%	1387833434.34	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 4C	%	195223463.77	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 4D	%	115374134.61	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 4E	%	10913390535.84	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 4F	%	528064742.65	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 5	%	351491589	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 5A	%	1427427914.61	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 5B	%	266776874.69	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 5C	%	301431583.46	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 5D	%	512579428.99	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 5E	%	1099229718.15	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 5F	%	330894660.52	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 5G	%	1056202179.71	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 7	%	4088359645.87	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 8	%	4146250347.13	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 8A	%	1909929188.63	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 8B	%	1426172944.99	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 8C	%	1308643446.73	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 8D	%	343041214.91	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 9	%	694632480.57	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 9A	%	1120996984.53	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 9B	%	1038040215.43	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 9C	%	904201859.64	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 9D	%	1177106284.75	1
+estudios disenos	ESTUDIOS Y DISEÑOS SUBETAPA 9E	%	0	1
+estudios disenos	ESTUDIOS Y DISEÑOS GENERAL	%	85426423857.6	1
+excavacion manual	Excavacion manual de vigas cerramiento y zanjas filto perimetral	M3	35000	3
+excavacion manual	Excavacion manual de muro contencion con zarpa	M3	35000	3
+excavacion manual	Excavación manual para bioswale/bioretenedor	M3	115000	1
+excavacion manual	Excavación manual para redes profundidad 0-2 m (incluye cargue)	M3	224438.33	1
+excavacion manual	EXCAVACIÓN MANUAL, INCLUYE RETIRO INTERNO DE ESCOMBROS	M3	30000	1
+extendida compactacion	Suministro, extendida y compactación de Rodadura Asfáltica MDC-19	M3	1112765.68	1
+extendida compactacion	Suministro, extendida y compactación de Capa intermedia asfáltica MDC-25	M3	1058203.95	1
+extendida compactacion	Suministro, extendida y compactación de Rodadura Asfáltica MD-13	M3	1173933.34	1
+flecha frente	Flecha de frente - Pintura de dos componentes metil metacrilato	M2	73290.31	1
+flecha frente	Flecha de frente o a la derecha - Pintura de dos componentes metil metacrilato	M2	73290.31	1
+flecha frente	Flecha de frente o a la izquierda - Pintura de dos componentes metil metacrilato	M2	73290.31	1
+flecha frente	Flecha de frente para ciclocarril - Pintura acrílica	M2	27799.77	1
+flecha frente	Flecha de frente, a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato	M2	73290.31	1
+geotextil tejido	Geotextil tejido 2100	M2	7523.8	21
+geotextil tejido	Geotextil tejido 2400	M2	11840.49	13
+geotextil tejido	Geotextil tejido 1600	M2	17000	2
+imprevistos subetapa	IMPREVISTOS SUBETAPA 1	%	12700139793.85	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 2	%	3665203923.61	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 3	%	1733118405.57	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 3A	%	195447152.15	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 3B	%	2410679445.07	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 4	%	801751985.66	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 4A	%	410984926.96	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 4B	%	1387833434.34	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 4C	%	195223463.77	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 4D	%	115374134.61	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 4E	%	10913390535.84	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 4F	%	528064742.65	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 5	%	351491589	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 5A	%	1427427914.61	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 5B	%	266776874.69	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 5C	%	301431583.46	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 5D	%	512579428.99	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 5E	%	1099229718.15	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 5F	%	330894660.52	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 5G	%	1056202179.71	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 6	%	1691950009.99	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 7	%	4088359645.87	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 8	%	4146250347.13	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 8A	%	1909929188.63	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 8B	%	1426172944.99	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 8C	%	1308643446.73	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 8D	%	343041214.91	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 9	%	694632480.57	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 9A	%	1120996984.53	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 9B	%	1038040215.43	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 9C	%	904201859.64	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 9D	%	1177106284.75	1
+imprevistos subetapa	IMPREVISTOS SUBETAPA 9E	%	0	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2023 (GENERAL)	GL	163278318.86	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 01)	GL	24314513.03	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 02)	GL	18526047.91	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 03)	GL	87898908.91	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 07)	GL	5083377.46	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2024 (GENERAL)	GL	648418128.29	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 01)	GL	96558876.52	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 02)	GL	73571466.18	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 03)	GL	349068059.94	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 04)	GL	315256695.09	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 05)	GL	577733222.62	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 07)	GL	20187334.84	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2025 (GENERAL)	GL	1069320369.01	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 01)	GL	149464998.07	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 02)	GL	113882425.38	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 03)	GL	575655692.48	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 04)	GL	519896638.94	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 05)	GL	952752361.24	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 07)	GL	33291370.8	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2026 (GENERAL)	GL	1283533093.27	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 03)	GL	677241738.09	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 04)	GL	624045478.33	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 05)	GL	1143613477.11	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 07)	GL	39960499.57	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 08)	GL	1319893070.1	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 09)	GL	555291529.37	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2027 (GENERAL)	GL	1546351957	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 03)	GL	815915142.79	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 04)	GL	751826307.97	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 05)	GL	1377782113.81	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 07)	GL	48142893.26	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 08)	GL	1590157077.12	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 09)	GL	668994159.68	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2028 (GENERAL)	GL	1765267708.44	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 04)	GL	858261728.71	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 05)	GL	1572833573.72	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 07)	GL	54958442.34	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 08)	GL	1815274282.73	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 09)	GL	763703102.56	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2029 (GENERAL)	GL	2001282698.75	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 04)	GL	973010688.67	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 05)	GL	1783120262.19	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 07)	GL	62306345.54	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 08)	GL	2057975115.13	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 09)	GL	865809643.96	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2030 (GENERAL)	GL	2260987718.88	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 04)	GL	1099277587.72	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 05)	GL	2014514499.43	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 07)	GL	70391795.3	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 08)	GL	2325037069.46	1
+indexacion ejecutar	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 09)	GL	978165140.34	1
+instalacion banca	Suministro e instalación de banca en concreto con espaldar M-30	UN	1148590.21	1
+instalacion banca	Suministro e instalación de banca L=2,06m (CIO106682)	UN	2126100.68	1
+instalacion banco	Suministro e instalación de banco de ductos PVC-TDP 4Ø6"	ML	347042	1
+instalacion banco	Suministro e instalación de banco de ductos PVC-TDP 6Ø6"	ML	464651	1
+instalacion banco	Suministro e instalación de banco de ductos PVC-TDP 12Ø6"	ML	848000	1
+instalacion banco	Suministro e instalación de banco de ductos PVC-TDP 9Ø6"	ML	921310	1
+instalacion poste	Suministro e instalación poste de concreto 10 m. Tipo recto AP  (Incluye ahoyada, hincada y plomada)	UN	2071401.96	1
+instalacion poste	Suministro e instalación poste de concreto 12 m. Tipo recto AP  (Incluye ahoyada, hincada y plomada)	UN	2478929.42	1
+instalacion poste	Suministro e instalación poste de concreto 14 m. Tipo recto AP  (Incluye ahoyada, hincada y plomada)	UN	3500000	1
+instalacion provisional	INSTALACIÓN PROVISIONAL DE ACUEDUCTO (SUMINISTRO CARROTANQUE)	MES	600000	1
+instalacion provisional	INSTALACIÓN PROVISIONAL DE ENERGÍA (PLANTA + COMBUSTIBLE)	MES	6000000	1
+instalacion transformador	Suministro e instalación transformador trifásico tipo aceite 30 kVA, 11,4 kV / 208-120 V	UN	42400000	1
+instalacion transformador	Suministro e instalación transformador trifásico tipo aceite 45 kVA, 11,4 kV / 208-120 V	UN	46640000	1
+instalacion transformador	Suministro e instalación transformador trifásico tipo aceite 112,5 kVA, 11,4 kV / 208-120 V	UN	58300000	1
+instalacion transformador	Suministro e instalación transformador trifásico tipo aceite 150 kVA, 11,4 kV / 208-120 V	UN	65720000	1
+instalacion transformador	Suministro e instalación transformador trifásico tipo aceite 225 kVA, 11,4 kV / 208-120 V	UN	79500000	1
+instalacion transformador	Suministro e instalación transformador trifásico tipo aceite 300 kVA, 11,4 kV / 208-120 V	UN	90100000	1
+instalacion transformador	Suministro e instalación transformador trifásico tipo aceite 400 kVA, 11,4 kV / 208-120 V	UN	106000000	1
+instalacion transformador	Suministro e instalación transformador trifásico tipo aceite 500 kVA, 11,4 kV / 208-120 V	UN	127200000	1
+instalacion transformador	Suministro e instalación transformador trifásico tipo aceite 630 kVA, 11,4 kV / 208-120 V	UN	153700000	1
+instalacion tuberia	Instalación tubería PVC presión Ø1"	ML	2541.76	1
+instalacion tuberia	Instalación tubería PVC presión Ø2"	ML	5083.53	1
+instalacion tuberia	Instalación tubería PVC presión Ø3"	ML	7625.29	1
+instalacion tuberia	Instalación tubería PVC presión Ø4"	ML	10167.05	1
+instalacion tuberia	Instalación tubería PVC presión Ø6"	ML	15250.58	1
+instalacion tuberia	Instalación tubería PVC presión Ø8"	ML	20334.11	1
+instalacion tuberia	Instalación tubería PVC presión Ø10"	ML	25417.64	1
+instalacion tuberia	Instalación tubería PVC presión Ø12"	ML	30501.16	1
+instalacion tuberia	Instalación tubería y piezas especiales HD Ø4"	ML	127200	1
+instalacion tuberia	Instalación tubería y piezas especiales HD Ø12"	ML	320000	1
+instalacion tuberia	Instalación tubería PVC flexible Ø8"	ML	28467.75	1
+instalacion tuberia	Instalación tubería PVC flexible Ø6"	ML	30000	1
+instalacion tuberia	Instalación tubería PVC flexible Ø10"	ML	35584.69	1
+instalacion tuberia	Instalación tubería PVC flexible Ø12"	ML	42701.63	2
+instalacion tuberia	Instalación tubería PVC flexible Ø14"	ML	49818.57	2
+instalacion tuberia	Instalación tubería PVC flexible Ø16"	ML	56935.5	1
+instalacion tuberia	Instalación tubería PVC flexible Ø18"	ML	64052.44	1
+instalacion tuberia	Instalación tubería PVC flexible Ø24"	ML	85403.26	2
+instalacion tuberia	Instalación tubería PVC flexible Ø30"	ML	106754.07	1
+instalacion tuberia	Instalación tubería PVC flexible Ø20"	ML	72000	1
+instalacion tuberia	Suministro e instalación de tuberia 2Ф3" TDP (incluye excavación, retiro de escombros y relleno)	ML	174404.48	2
+instalacion tuberia	Instalación de tubería de concreto reforzado mediante tecnología sin zanja Pipe Jacking de DI 900mm	ML	3334353	1
+instalacion tuberia	Instalación de tubería de concreto reforzado mediante tecnología sin zanja Pipe Jacking de DI 30"	ML	3334353	1
+instalacion tuberia	Instalación de tubería de alcantarillado en concreto	ML	4260.41	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 1	%	12700139793.85	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 2	%	3665203923.61	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 3	%	1733118405.57	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 3A	%	195447152.15	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 3B	%	2410679445.07	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 4	%	801751985.66	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 4A	%	410984926.96	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 4B	%	1387833434.34	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 4C	%	195223463.77	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 4D	%	115374134.61	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 4E	%	10913390535.84	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 4F	%	528064742.65	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 5	%	351491589	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 5A	%	1427427914.61	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 5B	%	266776874.69	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 5C	%	301431583.46	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 5D	%	512579428.99	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 5E	%	1099229718.15	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 5F	%	330894660.52	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 5G	%	1056202179.71	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 7	%	4088359645.87	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 8	%	4146250347.13	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 8A	%	1909929188.63	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 8B	%	1426172944.99	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 8C	%	1308643446.73	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 8D	%	343041214.91	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 9	%	694632480.57	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 9A	%	1120996984.53	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 9B	%	1038040215.43	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 9C	%	904201859.64	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 9D	%	1177106284.75	1
+interventoria hon	INTERVENTORIA + HON + REEMB SUBETAPA 9E	%	0	1
+interventoria hon	INTERVENTORIA + HON + REEMB GENERAL	%	85426423857.6	1
+linea continua	Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,12m)	ML	8845.38	1
+linea continua	Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,15m)	ML	10083.74	1
+linea continua	Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,12m)	ML	8845.38	1
+linea continua	Línea continua de color blanco para ciclorruta - Pintura acrílica (a=0,10m)	ML	2176.24	1
+linea discontinua	Línea discontinua de color amarillo para ciclorruta 1m x 2m - Pintura acrílica (a=0,10m)	ML	725.41	1
+linea discontinua	Línea discontinua de color blanco 1m x 1m - Pintura de dos componentes metil metacrilato (a=0,20m)	ML	6722.49	1
+linea discontinua	Línea discontinua de color blanco 3m x 5m - Pintura de dos componentes metil metacrilato (a=0,12m)	ML	3317.02	1
+linea pare	Línea de Pare - Pintura acrílica (a=0,2m)	M2	27799.77	1
+linea pare	Línea de Pare - Pintura de dos componentes metil metacrilato (a=0,6m)	M2	73290.31	1
+localizacion replanteo	M.O. localización y replanteo	M2	6201.63	4
+localizacion replanteo	Localizacion y replanteo	M2	6201.63	35
+localizacion replanteo	Localización y replanteo topográfico	ML	4770	3
+mano obra	Mano de obra losa contrapiso	M2	53000	11
+mano obra	Mano de obra tuberia novafort 315 mm - 6"	ML	42702	5
+mano obra	Mano de obra tuberia novafort 250 mm - 8"	ML	35978.2	1
+mano obra	Mano de obra tuberia novafort 315 mm - 4"	ML	42702	1
+mat concreto	MAT - Concreto pobre 1500 psi	M3	422463	3
+mat concreto	MAT - Concreto industrializado 4000 psi	M3	650000	3
+mat concreto	MAT - Concreto tremie 4000 psi	M3	780000	1
+obras preliminares	Obras preliminares generales SUBETAPA 1	%	12270666467.49	1
+obras preliminares	Obras preliminares generales SUBETAPA 2	%	3541259829.57	1
+obras preliminares	Obras preliminares generales SUBETAPA 3	%	1674510536.78	1
+obras preliminares	Obras preliminares generales SUBETAPA 3A	%	188837828.16	1
+obras preliminares	Obras preliminares generales SUBETAPA 3B	%	2329158884.13	1
+obras preliminares	Obras preliminares generales SUBETAPA 4	%	774639599.67	1
+obras preliminares	Obras preliminares generales SUBETAPA 4A	%	397086885.95	1
+obras preliminares	Obras preliminares generales SUBETAPA 4B	%	1340901868.93	1
+obras preliminares	Obras preliminares generales SUBETAPA 4C	%	188621704.13	1
+obras preliminares	Obras preliminares generales SUBETAPA 4D	%	111472593.82	1
+obras preliminares	Obras preliminares generales SUBETAPA 4E	%	10544338681.97	1
+obras preliminares	Obras preliminares generales SUBETAPA 4F	%	510207480.82	1
+obras preliminares	Obras preliminares generales SUBETAPA 5	%	339605400	1
+obras preliminares	Obras preliminares generales SUBETAPA 5A	%	1379157405.42	1
+obras preliminares	Obras preliminares generales SUBETAPA 5B	%	257755434.48	1
+obras preliminares	Obras preliminares generales SUBETAPA 5C	%	291238244.89	1
+obras preliminares	Obras preliminares generales SUBETAPA 5D	%	495245825.11	1
+obras preliminares	Obras preliminares generales SUBETAPA 5E	%	1062057698.7	1
+obras preliminares	Obras preliminares generales SUBETAPA 5F	%	319704986.01	1
+obras preliminares	Obras preliminares generales SUBETAPA 5G	%	1020485197.78	1
+obras preliminares	Obras preliminares generales SUBETAPA 6	%	1634734309.17	1
+obras preliminares	Obras preliminares generales SUBETAPA 7	%	3950105938.04	1
+obras preliminares	Obras preliminares generales SUBETAPA 8	%	4006038982.74	1
+obras preliminares	Obras preliminares generales SUBETAPA 8A	%	1845342211.24	1
+obras preliminares	Obras preliminares generales SUBETAPA 8B	%	1377944874.38	1
+obras preliminares	Obras preliminares generales SUBETAPA 8C	%	1264389803.6	1
+obras preliminares	Obras preliminares generales SUBETAPA 8D	%	331440787.35	1
+obras preliminares	Obras preliminares generales SUBETAPA 9	%	671142493.3	1
+obras preliminares	Obras preliminares generales SUBETAPA 9A	%	1083088873.94	1
+obras preliminares	Obras preliminares generales SUBETAPA 9B	%	1002937406.21	1
+obras preliminares	Obras preliminares generales SUBETAPA 9C	%	873624985.16	1
+obras preliminares	Obras preliminares generales SUBETAPA 9D	%	1137300758.21	1
+obras preliminares	Obras preliminares generales SUBETAPA 9E	%	0	1
+obras preliminares	Obras preliminares generales GENERAL	%	82537607591.89	1
+operacion ptar	OPERACIÓN PTAR (AGOSTO 2023 - AGOSTO 2024)	AÑO	258634835	1
+operacion ptar	OPERACIÓN PTAR (AGOSTO 2024 - AGOSTO 2025)	AÑO	300000000	1
+operacion ptar	OPERACIÓN PTAR (AGOSTO 2025 - AGOSTO 2026)	AÑO	300000000	1
+operacion ptar	OPERACIÓN PTAR (AGOSTO 2026 - AGOSTO 2027)	AÑO	300000000	1
+operacion ptar	OPERACIÓN PTAR (AGOSTO 2027 - AGOSTO 2028)	AÑO	300000000	1
+operacion ptar	OPERACIÓN PTAR (AGOSTO 2028 - AGOSTO 2029)	AÑO	300000000	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 1	%	12700139793.85	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 2	%	3665203923.61	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 3	%	1733118405.57	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 3A	%	195447152.15	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 3B	%	2410679445.07	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 4	%	801751985.66	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 4A	%	410984926.96	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 4B	%	1387833434.34	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 4C	%	195223463.77	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 4D	%	115374134.61	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 4E	%	10913390535.84	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 4F	%	528064742.65	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 5	%	351491589	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 5A	%	1427427914.61	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 5B	%	266776874.69	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 5C	%	301431583.46	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 5D	%	512579428.99	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 5E	%	1099229718.15	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 5F	%	330894660.52	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 5G	%	1056202179.71	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 7	%	4088359645.87	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 8	%	4146250347.13	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 8A	%	1909929188.63	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 8B	%	1426172944.99	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 8C	%	1308643446.73	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 8D	%	343041214.91	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 9	%	694632480.57	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 9A	%	1120996984.53	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 9B	%	1038040215.43	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 9C	%	904201859.64	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 9D	%	1177106284.75	1
+plan gestion	PLAN DE GESTION URBANA (PGU) SUBETAPA 9E	%	0	1
+plan manejo	Plan de manejo de tránsito y señalización	ML	100612.15	1
+plan manejo	PLAN DE MANEJO DE TRAFICO	UND	25000000	1
+planos record	Planos récord y levantamiento final (Red de acueducto)	GB	37100000	1
+planos record	Planos récord y levantamiento final (Red de alcantarillado sanitario)	GB	42400000	1
+planos record	Planos récord, rotulado e inventario final de red MT	GB	21200000	1
+planos record	Planos record	GLB	20000000	2
+pmt subetapa	PMT - SUBETAPA 1	%	12700139793.85	1
+pmt subetapa	PMT - SUBETAPA 2	%	3665203923.61	1
+pmt subetapa	PMT - SUBETAPA 3	%	1733118405.57	1
+pmt subetapa	PMT - SUBETAPA 3A	%	195447152.15	1
+pmt subetapa	PMT - SUBETAPA 3B	%	2410679445.07	1
+pmt subetapa	PMT - SUBETAPA 4	%	801751985.66	1
+pmt subetapa	PMT - SUBETAPA 4A	%	410984926.96	1
+pmt subetapa	PMT - SUBETAPA 4B	%	1387833434.34	1
+pmt subetapa	PMT - SUBETAPA 4C	%	195223463.77	1
+pmt subetapa	PMT - SUBETAPA 4D	%	115374134.61	1
+pmt subetapa	PMT - SUBETAPA 4E	%	10913390535.84	1
+pmt subetapa	PMT - SUBETAPA 4F	%	528064742.65	1
+pmt subetapa	PMT - SUBETAPA 5	%	351491589	1
+pmt subetapa	PMT - SUBETAPA 5A	%	1427427914.61	1
+pmt subetapa	PMT - SUBETAPA 5B	%	266776874.69	1
+pmt subetapa	PMT - SUBETAPA 5C	%	301431583.46	1
+pmt subetapa	PMT - SUBETAPA 5D	%	512579428.99	1
+pmt subetapa	PMT - SUBETAPA 5E	%	1099229718.15	1
+pmt subetapa	PMT - SUBETAPA 5F	%	330894660.52	1
+pmt subetapa	PMT - SUBETAPA 5G	%	1056202179.71	1
+pmt subetapa	PMT - SUBETAPA 7	%	4088359645.87	1
+pmt subetapa	PMT - SUBETAPA 8	%	4146250347.13	1
+pmt subetapa	PMT - SUBETAPA 8A	%	1909929188.63	1
+pmt subetapa	PMT - SUBETAPA 8B	%	1426172944.99	1
+pmt subetapa	PMT - SUBETAPA 8C	%	1308643446.73	1
+pmt subetapa	PMT - SUBETAPA 8D	%	343041214.91	1
+pmt subetapa	PMT - SUBETAPA 9	%	694632480.57	1
+pmt subetapa	PMT - SUBETAPA 9A	%	1120996984.53	1
+pmt subetapa	PMT - SUBETAPA 9B	%	1038040215.43	1
+pmt subetapa	PMT - SUBETAPA 9C	%	904201859.64	1
+pmt subetapa	PMT - SUBETAPA 9D	%	1177106284.75	1
+pmt subetapa	PMT - SUBETAPA 9E	%	0	1
+pruebas hermeticidad	Pruebas de hermeticidad y CCTV según norma EAAB de tramos acabados	GB	50000000	1
+pruebas hermeticidad	PRUEBAS HERMETICIDAD-CCTV	UN	6000000	1
+reduccion concentrica	Reducción concéntrica Ø4" × Ø2"	UN	822560	1
+reduccion concentrica	Reducción concéntrica Ø4" × Ø3"	UN	1005940	1
+reduccion concentrica	Reducción concéntrica Ø6" × Ø2"	UN	1195680	1
+reduccion concentrica	Reducción concéntrica Ø6" × Ø4"	UN	1598480	1
+reduccion concentrica	Reducción concéntrica Ø8" × Ø4"	UN	2026720	1
+reduccion concentrica	Reducción concéntrica Ø8" × Ø6"	UN	2476160	1
+reduccion concentrica	Reducción concéntrica Ø12" × Ø8"	UN	3936840	1
+relleno arena	Relleno en arena peña	M3	110000	5
+relleno arena	Relleno en arena limpia para protección de ductos	M3	267915	1
+relleno arena	RELLENO EN ARENA DE PEÑA	M3	110000	1
+relleno material	Relleno con material seleccionado B-200	M3	101915.14	2
+relleno material	Relleno Material seleccionado(montañas)	M3	67000	2
+relleno material	Relleno con material seleccionado de excavación	M3	23203.01	3
+relleno material	Relleno con material orgánico para bioretenedor	M3	100000	1
+relleno recebo	Relleno en recebo b400	M3	107000	5
+relleno recebo	RELLENO EN RECEBO B-200	M3	110000	1
+senal vertical	Señal vertical (0,60mx0,60m)	UN	650076.61	1
+senal vertical	Señal vertical ciclorruta doble (0,45m x 0,45m)	UN	800296.48	1
+senal vertical	Señal vertical ciclorruta sencilla "Fin ciclorruta"	UN	656243.11	1
+senal vertical	Señal vertical ciclorruta sencilla "Inicio ciclorruta"	UN	656243.11	1
+senal vertical	Señal vertical ciclorruta sencilla (0,45m x 0,45m)	UN	656243.11	1
+senal vertical	Señal vertical SP-46A / SR-30	UN	888750.3	1
+senal vertical	Señal vertical SPB-03	UN	656243.11	1
+senal vertical	Señal vertical SPB-04	UN	656243.11	1
+senal vertical	Señal vertical SPC-01 / SPC-01	UN	800296.48	1
+senal vertical	Señal vertical SPC-01 / SRC-01	UN	800296.48	1
+senal vertical	Señal vertical ubicación de cruce ciclistas SP-59A	UN	765134.42	1
+senal vertical	Señal vertical ubicación de cruce peatonal SP-46	UN	765134.42	1
+senal vertical	Señal vertical ubicación de cruce peatonal SP-46B	UN	800633.44	1
+subbase granular	Subbase granular SBG	M3	120348.37	6
+subbase granular	Subbase granular SBG (sello subrasante)	M3	120348.37	1
+subbase granular	Subbase granular 0,20m idu	M3	217337	5
+tee 12	Tee Ø12" × Ø4"	UN	1992800	1
+tee 12	Tee Ø12" × Ø6"	UN	2129540	1
+tee 12	Tee Ø12" × Ø8"	UN	2268400	1
+tee 12	Tee Ø12" × Ø12"	UN	2550360	1
+tee 6	Tee Ø6" × Ø1"	UN	754720	1
+tee 6	Tee Ø6" × Ø2"	UN	809840	1
+tee 6	Tee Ø6" × Ø4"	UN	921140	1
+tee 6	Tee Ø6" × Ø6"	UN	1035620	1
+tee 8	Tee Ø8" × Ø2"	UN	1136320	1
+tee 8	Tee Ø8" × Ø4"	UN	1257160	1
+tee 8	Tee Ø8" × Ø6"	UN	1380120	1
+tee 8	Tee Ø8" × Ø8"	UN	1505200	1
+tendido conexionado	Tendido, conexionado e identificación cable 3x120 mm² Al XLPE 15 kV	ML	53000	1
+tendido conexionado	Tendido, conexionado e identificación cable 3x185 mm² Al XLPE 15 kV	ML	68377	1
+tendido conexionado	Tendido, conexionado e identificación cable 3x240 mm² Al XLPE 15 kV	ML	84800	1
+transporte disposicion	Transporte y disposición final de sobrantes	M3	106000	1
+transporte disposicion	Transporte y disposición final de escombros (21 km)	M3	138498.03	1
+tuberia grp	Suministro de Tubería GRP 92"	ML	8710876.02	1
+tuberia grp	Suministro de Tubería GRP 48"	ML	2366186.81	1
+tuberia novafor	Suministro tuberia novafor 315 mm 6"- 6 mts	UN	941853	5
+tuberia novafor	Suministro tuberia novafor 250 mm 8"- 6 mts	UN	654547	1
+tuberia novafor	Suministro tuberia novafor 315 mm 4"- 6 mts	UN	941853	1
+tuberia piezas	Suministro tubería y piezas especiales HD Ø4"	UN	339200	1
+tuberia piezas	Suministro tubería y piezas especiales HD Ø12"	UN	9200000	1
+tuberia pvc	Suministro tubería PVC presión Ø1"	UN	7189.11	1
+tuberia pvc	Suministro tubería PVC presión Ø2"	UN	25927.43	1
+tuberia pvc	Suministro tubería PVC presión Ø3"	UN	49789.45	1
+tuberia pvc	Suministro tubería PVC presión Ø4"	UN	65764.1	1
+tuberia pvc	Suministro tubería PVC presión Ø6"	UN	135112.06	1
+tuberia pvc	Suministro tubería PVC presión Ø8"	UN	228863.66	1
+tuberia pvc	Suministro tubería PVC presión Ø10"	UN	360277.94	1
+tuberia pvc	Suministro tubería PVC presión Ø12"	UN	504098.05	1
+tuberia pvc	Suministro tubería PVC flexible Ø8"	UN	448151.71	1
+tuberia pvc	Suministro tubería PVC flexible Ø6"	UN	340000	1
+tuberia pvc	Suministro tubería PVC flexible Ø10"	UN	654546.72	1
+tuberia pvc	Suministro tubería PVC flexible Ø12"	UN	941852.76	2
+tuberia pvc	Suministro tubería PVC flexible Ø14"	UN	1411491.65	2
+tuberia pvc	Suministro tubería PVC flexible Ø16"	UN	1726406.79	1
+tuberia pvc	Suministro tubería PVC flexible Ø18"	UN	2229654.29	1
+tuberia pvc	Suministro tubería PVC flexible Ø24"	UN	3983204.53	2
+tuberia pvc	Suministro tubería PVC flexible Ø30"	UN	5951739.39	1
+tuberia pvc	Suministro tubería PVC flexible Ø20"	UN	2900000	1
+tuberia pvc	TUBERIA PVC-RDE21 4"	ML	228893	1
+tuberia pvc	TUBERIA PVC-RDE21 1"	ML	6856.9	1
+uniones grp	Uniones GRP para tuberia de 48"	UN	1247108.42	1
+uniones grp	Uniones GRP para tuberia de 92"	UN	2810416.4	1
+valvula compuerta	Válvula de compuerta Ø4"	UN	1610000	1
+valvula compuerta	Válvula de compuerta Ø6"	UN	3030000	1
+valvula compuerta	Válvula de compuerta Ø8"	UN	5110000	1
+valvula compuerta	Válvula de compuerta Ø12"	UN	10250000	1
+subtotal B: 68 familias
