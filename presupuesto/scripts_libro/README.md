@@ -100,3 +100,43 @@ y guardar*.
 | `refrescar_guardar.ps1` | Actualiza las dos pivots 3 veces y **guarda**. Es el paso que hace válida cualquier verificación. |
 | `chk_nivel5.ps1` | Distingue el nivel 5 del ramo POR EJECUTAR (sí lleva cantidad) del ramo EJECUTADO (en la fuente no hay cantidad). |
 | `ver_formats_xml.ps1` | Lee del .xlsx los `<formats>` / `applyPatternFormats` de cada pivot: sirve para ver qué le dejó Excel después de guardar. |
+
+### Corrección (misma noche): los subtotales SÍ deben salir en VALOR_TOTAL y VR DESEM.
+
+Con ámbito de pivot, **Excel usa el `<pivotArea>` como ámbito real y pasa por
+encima del `sqref`**. El ocultamiento iba con un área sin referencias ("todas
+las celdas de datos"), así que tapaba las **cuatro** columnas de valor: los
+subtotales de VALOR_TOTAL y VR DESEM. quedaban en blanco (los valores estaban,
+solo no se veían).
+
+Se arregla nombrando el campo de datos en el área:
+
+```xml
+<pivotArea type="data" collapsedLevelsAreSubtotals="1" fieldPosition="0">
+  <references count="1">
+    <reference field="4294967294" count="1"><x v="0"/></reference>
+  </references>
+</pivotArea>
+```
+
+`field="4294967294"` es el pseudo-campo *Valores*; `<x v="n"/>` el índice del
+dato en el orden de `<dataFields>` (0 = Suma CANTIDAD, 1 = V. UNITARIO PROM,
+2 = Suma VALOR_TOTAL, 3 = VR DESEM. FOVIS). Van **dos** reglas de
+ocultamiento, una por dato. Las reglas de color sí van con el área sin
+referencias, porque deben pintar las cuatro columnas.
+
+Y el **formato de número tiene que aplicarse a TODO el cuerpo** de la pivot
+(`formatos_datos.ps1`), no solo a las filas de nivel 5: si no, los subtotales
+salen en `General` y se ven como `1,58873E+11`. El formato de celda manda
+sobre el `NumberFormat` del campo de datos, así que no sirve poner las celdas
+en "General" esperando que herede.
+
+| Script | Qué hace |
+|---|---|
+| `formatos_datos.ps1` | Formato de número de los 4 campos de datos **y de todo el cuerpo** de las dos dinámicas, más los anchos de columna para que no salga `#####`. Correr ANTES de `cf_final.ps1`. |
+| `ver_subtotales.ps1` | Muestra, por nivel, el texto/valor/formato de las 4 columnas de valor. Es el control de que los subtotales salen en VALOR_TOTAL y VR DESEM. y no en CANTIDAD ni V. UNITARIO. |
+
+> **Ojo al reaplicar**: `cf_final.ps1` sobre un libro que ya lo tiene aplicado
+> dejó el archivo ilegible para Excel (el borrado del `<ext>` previo por regex
+> corta mal si hay varios). Para reaplicar: restaurar del backup
+> `antes_cf_final` y correr `formatos_datos.ps1` + `cf_final.ps1` una sola vez.

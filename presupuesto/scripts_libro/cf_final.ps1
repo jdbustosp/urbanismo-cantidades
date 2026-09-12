@@ -89,31 +89,47 @@ $dxfOcul = '<x14:dxf><numFmt numFmtId="231" formatCode=";;;"/></x14:dxf>'
 $reglasHoja = ""       # x14, ambito de pivot -> columnas de VALOR
 $cfPivot = @{ "DinamicaPpto" = ""; "ResumenEtapas" = "" }
 $pri = 1
-function ReglaPivot([string]$pivot, [string]$sqref, [string]$dxf, [string]$formula, [bool]$stop) {
+# OJO: con ambito de pivot, Excel usa el <pivotArea> como ambito real y
+# pasa por encima del sqref. Si el area va sin referencias ("todas las
+# celdas de datos"), la regla toca las CUATRO columnas de valor. Para que
+# el ocultamiento caiga solo en CANTIDAD y V. UNITARIO hay que nombrar el
+# campo de datos: field="4294967294" es el pseudo-campo "Valores" y
+# <x v="n"/> el indice del dato (0 = Suma CANTIDAD, 1 = V. UNITARIO PROM,
+# 2 = Suma VALOR_TOTAL, 3 = VR DESEM. FOVIS).
+function ReglaPivot([string]$pivot, [string]$sqref, [string]$dxf, [string]$formula,
+                    [bool]$stop, [int]$dato) {
   $s = '<x14:conditionalFormatting xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main" pivot="1">' +
        '<x14:cfRule type="expression" priority="' + $script:pri + '"'
   if ($stop) { $s += ' stopIfTrue="1"' }
   $s += ' id="' + (Guid12) + '"><xm:f>' + (Esc $formula) + '</xm:f>' + $dxf +
         '</x14:cfRule><xm:sqref>' + $sqref + '</xm:sqref></x14:conditionalFormatting>'
   $script:reglasHoja += $s
+  $area = '<pivotArea type="data" collapsedLevelsAreSubtotals="1" fieldPosition="0"'
+  if ($dato -ge 0) {
+    $area += '><references count="1"><reference field="4294967294" count="1"><x v="' +
+             $dato + '"/></reference></references></pivotArea>'
+  } else {
+    $area += '/>'
+  }
   $script:cfPivot[$pivot] += ('<conditionalFormat priority="' + $script:pri +
-    '" scope="data" type="all"><pivotAreas count="1">' +
-    '<pivotArea type="data" collapsedLevelsAreSubtotals="1" fieldPosition="0"/>' +
-    '</pivotAreas></conditionalFormat>')
+    '" scope="data" type="all"><pivotAreas count="1">' + $area + '</pivotAreas></conditionalFormat>')
   $script:pri++
 }
-# --- DinamicaPpto: valores (H:K) ---
-ReglaPivot "DinamicaPpto" "H4:I1609" $dxfOcul 'IF($G4="",FALSE,COUNTIF(BD!$E$2:$E$4000,$G4)=0)' $false
+# --- DinamicaPpto: ocultar SOLO cantidad (dato 0) y v.unitario (dato 1) ---
+$fOcul = 'IF($G4="",FALSE,COUNTIF(BD!$E$2:$E$4000,$G4)=0)'
+ReglaPivot "DinamicaPpto" "H4:H1609" $dxfOcul $fOcul $false 0
+ReglaPivot "DinamicaPpto" "I4:I1609" $dxfOcul $fOcul $false 1
+# --- DinamicaPpto: color en las CUATRO columnas de valor ---
 $colsBD = @("A", "B", "C", "D")
 for ($i = 0; $i -lt 4; $i++) {
   $f = 'IF($G4="",FALSE,COUNTIF(BD!$' + $colsBD[$i] + '$2:$' + $colsBD[$i] + '$4000,$G4)>0)'
-  ReglaPivot "DinamicaPpto" "H4:K1609" $dxfColor[$i] $f $true
+  ReglaPivot "DinamicaPpto" "H4:K1609" $dxfColor[$i] $f $true (-1)
 }
 # --- ResumenEtapas: valores (B), 3 niveles; el ultimo va sin color ---
 $colsR = @("M", "G", "A")
 for ($i = 0; $i -lt 3; $i++) {
   $f = 'IF($A4="",FALSE,COUNTIF(BD!$' + $colsR[$i] + '$2:$' + $colsR[$i] + '$4000,$A4)>0)'
-  ReglaPivot "ResumenEtapas" "B4:B452" $dxfColor[$i] $f $true
+  ReglaPivot "ResumenEtapas" "B4:B452" $dxfColor[$i] $f $true (-1)
 }
 "reglas con ambito de pivot: " + ($pri - 1)
 
