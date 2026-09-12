@@ -64,3 +64,39 @@ en otro PC ajustar la variable `$libro` al montaje local de SharePoint.
 > 2D a `Range.Value2` desde PowerShell falla con *InvalidCastException*: hay
 > que usar `Copy()` + `PasteSpecial(-4163/-4122)`. Y `$xl.CutCopyMode = 0` no
 > lo acepta el interop tipado (envolver en try/catch).
+
+## El color por nivel de las dinámicas (2026-09-12, tercera vuelta — LEER ESTO)
+
+Costó tres intentos porque Excel trata de forma distinta cada mecanismo de
+formato según si pisa el **área de valores** de una pivot o su **columna de
+rótulo**. Lo comprobado, abriendo el archivo y midiendo
+`DisplayFormat.Interior.Color` antes y después de que Excel guarde:
+
+| Mecanismo | Columna del rótulo | Columnas de valor |
+|---|---|---|
+| Formato condicional **normal** de hoja | **sobrevive** | Excel le **recorta** el rango al guardar |
+| Formato condicional con **ámbito de pivot** (`extLst` con `pivot="1"` + `<conditionalFormats>` en la definición de la pivot) | Excel lo **recorta** | **sobrevive** |
+| `<formats>` con `<pivotArea>` escrito a mano | solo el rótulo (con `defaultSubtotal`) | no pinta; y al guardar Excel le quita el `type="data"` |
+| Formato **directo** con `PreserveFormatting` | sobrevive | **no** persiste |
+| **Estilo** de tabla dinámica (`SubtotalRow1/2/3`) | sí | sí, pero **solo 3 niveles**: con 4 niveles de subtotal el 4º reusa el color del 2º. Y le **gana** al formato, así que debe ir sin relleno |
+
+**La solución (`cf_final.ps1`) usa los dos primeros a la vez**, que son
+complementarios: el normal para la columna del rótulo y el de ámbito de pivot
+para las columnas de valor. Con eso los 4 niveles quedan con su color en todas
+las columnas, el nivel 5 y el total general sin color, y CANTIDAD / V. UNITARIO
+solo con número en el nivel 5. Verificado con dos ciclos de *actualizar 3 veces
+y guardar*.
+
+> **No confiar en una verificación que no haya pasado por un `Save()` real de
+> Excel.** Un intento anterior parecía funcionar porque el script de control
+> fallaba justo antes de guardar: el archivo nunca se re-escribía y el formato
+> inyectado seguía intacto.
+
+| Script | Qué hace |
+|---|---|
+| `cf_final.ps1` | Aplica el color por nivel y el ocultamiento de CANTIDAD/V.UNITARIO en las dos dinámicas, con los dos mecanismos combinados. Idempotente: borra lo anterior antes de escribir. |
+| `auditar_colores.ps1` | Abre el libro **sin actualizar** y reporta, por nivel, el color de cada columna y si CANTIDAD está oculta. Es lo que ve el usuario al abrir. |
+| `auditoria_completa.ps1` | Auditoría con 3 muestras por nivel en las dos dinámicas + orden de columnas + hoja PPTOS EXTERNOS + columna ORIGEN. Cuenta FALLOS. |
+| `refrescar_guardar.ps1` | Actualiza las dos pivots 3 veces y **guarda**. Es el paso que hace válida cualquier verificación. |
+| `chk_nivel5.ps1` | Distingue el nivel 5 del ramo POR EJECUTAR (sí lleva cantidad) del ramo EJECUTADO (en la fuente no hay cantidad). |
+| `ver_formats_xml.ps1` | Lee del .xlsx los `<formats>` / `applyPatternFormats` de cada pivot: sirve para ver qué le dejó Excel después de guardar. |
