@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.97.0")
+(setq *urb-version* "4.98.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -3872,6 +3872,20 @@
 ;;; Si el patron no se puede usar en este dibujo se vuelve solo al metodo
 ;;; de circulos, sin perder el toperol.
 (setq *urb-toperol-pattern-state* nil)
+;; piezas en las que el patron fallo aunque SI estaba disponible (contornos
+;; de curva); se reporta al terminar para que se vea, en vez de degradar en
+;; silencio todo el anden a circulos.
+(setq *urb-toperol-fallos-pieza* 0)
+
+;; Decide que hacer cuando el patron de toperol falla en una pieza.
+(defun urb:toperol-degradar-si-primero ()
+  (if (null *urb-toperol-pattern-state*)
+    ;; primer intento del dibujo: el patron no esta disponible
+    (setq *urb-toperol-pattern-state* "NO")
+    ;; ya habia funcionado: el fallo es de ESTA pieza y no del dibujo
+    (setq *urb-toperol-fallos-pieza* (1+ *urb-toperol-fallos-pieza*)))
+  *urb-toperol-pattern-state*
+)
 
 (defun urb:add-toperol-hatch (boundary layer angle-value color / hatch res)
   (setq res
@@ -3889,7 +3903,15 @@
   (if (or (vl-catch-all-error-p res) (null res))
     (progn
       (if (and hatch (= (type hatch) 'VLA-OBJECT)) (urb:safe-delete hatch))
-      (setq *urb-toperol-pattern-state* "NO")
+      ;; 2026-09-12 (reporte del usuario: "un anden de 188 ml se demora
+      ;; muchisimo y no queda en bloque"). El estado se quedaba en "NO"
+      ;; con que UNA pieza fallara -- tipicamente un contorno de curva --
+      ;; y desde ahi TODO el resto del anden sembraba un circulo por domo:
+      ;; decenas de miles de entidades y el empaque en bloque no alcanzaba.
+      ;; Ahora "NO" solo se fija si el patron fallo en el PRIMER intento
+      ;; del dibujo (o sea, el patron no esta disponible). Si ya habia
+      ;; funcionado antes, el fallo es de esa pieza y no contamina el resto.
+      (urb:toperol-degradar-si-primero)
       nil)
     (progn (setq *urb-toperol-pattern-state* "SI") res))
 )
@@ -33436,6 +33458,27 @@
     ;; 2026-09-10: el punteado por patron es lo que evita sembrar miles de
     ;; circulos (y con ellos el empacado de minutos). Solo se salta el
     ;; sembrado cuando el patron QUEDO puesto; ante la duda se siembra.
+    ;; 2026-09-12: un fallo de patron en UNA pieza (contorno de curva) no
+    ;; puede degradar el resto del anden a un circulo por domo. Solo se
+    ;; declara "NO" si el patron fallo en el PRIMER intento del dibujo.
+    (list "Un fallo de patron en una pieza no contamina el resto del anden"
+      ((lambda (previo previoF / r)
+        (setq r
+          (and
+            ;; primer intento del dibujo y falla -> el patron no esta: NO
+            (progn (setq *urb-toperol-pattern-state* nil)
+              (urb:toperol-degradar-si-primero)
+              (= *urb-toperol-pattern-state* "NO"))
+            ;; ya habia funcionado y falla una pieza -> sigue en SI
+            (progn (setq *urb-toperol-pattern-state* "SI"
+                         *urb-toperol-fallos-pieza* 0)
+              (urb:toperol-degradar-si-primero)
+              (and (= *urb-toperol-pattern-state* "SI")
+                   (= *urb-toperol-fallos-pieza* 1)))))
+        (setq *urb-toperol-pattern-state* previo
+              *urb-toperol-fallos-pieza* previoF)
+        r)
+        *urb-toperol-pattern-state* *urb-toperol-fallos-pieza*))
     (list "Solo se salta el sembrado de domos si el patron quedo puesto"
       ((lambda (previo / r)
         (setq r

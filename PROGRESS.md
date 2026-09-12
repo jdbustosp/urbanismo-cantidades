@@ -1,5 +1,60 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-12, v4.98.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**.
+Reporte del usuario: *"al intentar crear un andén se demora muchísimo
+generándose, intenté crear un andén de 188 ml ... adicional verifica porque no
+queda en bloque"*.
+
+### Por qué un andén largo se volvía eterno y no quedaba en bloque
+
+`*urb-toperol-pattern-state*` es **global al dibujo**: si el hatch del patrón
+`URB_TOPEROL` falla en UNA pieza — típicamente un contorno de curva, el mismo
+tipo de fallo que ya se había visto en las bandas de v4.94 — el estado se
+quedaba en `"NO"` y **de ahí en adelante TODO el resto del andén sembraba un
+círculo por domo**. Medido en su día: 3.840 círculos en 24 m, o sea del orden
+de 30.000 en 188 m; `urb:package-anden` no alcanza a empacar eso y el material
+queda suelto. Es exactamente el modo de fallo que ya estaba documentado en la
+cabecera de la función.
+
+Ahora `"NO"` solo se fija si el patrón falla en el **primer** intento del
+dibujo (o sea, el patrón no está disponible). Si ya había funcionado, el fallo
+es de esa pieza: se cuenta en `*urb-toperol-fallos-pieza*` y el resto del andén
+sigue usando el patrón. Nueva función `urb:toperol-degradar-si-primero` y
+autoprueba **"Un fallo de patrón en una pieza no contamina el resto del
+andén"**.
+
+### Verificación
+
+- Suite headless **86 OK / 0 FALLOS** (una autoprueba más que en 4.97.0).
+- Regresiones E2E verdes: `run_acceso`, `run_veh3p`, `run_rampav`, `run_recorte`.
+- Instalado en el bundle, hash repo = hash instalado.
+
+### Lo que queda de ese mismo reporte (diagnosticado, sin arreglar)
+
+1. **El círculo gigante en las curvas.** No viene de `urb:add-circle-symbol`:
+   ese siempre usa `*urb-toperol-radio*` = 0,0125 m. Por la forma del disco de
+   la captura (radio de decenas de metros, con la textura de bandas dentro) lo
+   más probable es un **arco del contorno que se cierra sobre sí mismo** y
+   queda como círculo completo del radio de la curva, que luego se rellena.
+   Hay una autoprueba vecina ("Al invertir el bucle el arco no se voltea") que
+   cubre un caso parecido, así que esto es un caso no cubierto. **Falta
+   reproducirlo** con un andén curvo largo antes de tocar el código.
+2. **Guía y toperol que se pierden al final del tramo cuando cambia la
+   inclinación.** Sin diagnosticar todavía.
+3. **Vía — "Textos por capa" que se comporta como "Pendiente" al editar el
+   movimiento de tierras.** Localizado: en la edición se reconstruyen los
+   `records` releyendo la capa guardada; si salen menos de 2, entra el bloque
+   *"La vía es anterior a la rasante guardada"* y llama a
+   `urb:road-cota-reference "Textos por capa"`, que tiene un **auto-detect**:
+   si el clic no cae exactamente sobre un TEXT/MTEXT, cambia al picker del modo
+   Pendiente. La causa de que salgan menos de 2 cotas es, muy probablemente,
+   que la **calibración de la capa** (`urb:calibrate-cota-layer`, el desfase
+   que se calcula con el clic del usuario al crear) no se persiste en la vía y
+   se pierde entre sesiones. Hay que confirmarlo y guardarla en el bloque.
+
+
 ## Estado guardado — 2026-09-11, v4.97.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**.
