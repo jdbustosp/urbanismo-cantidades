@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.95.0")
+(setq *urb-version* "4.96.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -103,6 +103,13 @@
     ((wcmatch tipo "*CANUELA*")
       (list "Suministro de caÃ±uela prefabricada"
             "M.O. instalaciÃ³n de caÃ±uela prefabricada" "BORDILLO"))
+    ;; 2026-09-11 (pedido del usuario: capas y presupuesto de los
+    ;; prefabricados de las rampas): las aletas del acceso vehicular son la
+    ;; pieza de remate A-105 del plano, y en el libro se cuentan por UNIDAD
+    ;; (una por aleta), no por metro -- de ahi el cuarto elemento PIEZA.
+    ((wcmatch tipo "*A-105*")
+      (list "Suministro pieza remate A-105 para rampa"
+            "M.O. instalaciÃ³n pieza remate A-105" "BORDILLO" "PIEZA"))
     (T
       (list "Bordillo prefabricado A-80"
             "M.O. instalaciÃ³n de bordillo prefabricado" "BORDILLO"))))
@@ -8398,8 +8405,13 @@
           hatch))))
 )
 
-(defun urb:prefab-token (prefab)
-  (strcase (urb:safe-string prefab "Bordillo"))
+(defun urb:prefab-token (prefab / s)
+  ;; 2026-09-11: el token va a la CAPA, asi que los tipos con espacio
+  ;; ("Remate A-105") quedan con guion: URB-REMATE-A-105.
+  (setq s (strcase (urb:safe-string prefab "Bordillo")))
+  (while (vl-string-search " " s)
+    (setq s (vl-string-subst "-" " " s)))
+  s
 )
 
 ;; 4.18.0: una sola capa por tipo de prefabricado (antes 5: BLOQUE/
@@ -8414,6 +8426,7 @@
   (cond
     ((= (urb:prefab-token prefab) "SARDINEL") 30)
     ((= (urb:prefab-token prefab) "CANUELA") 4)
+    ((wcmatch (urb:prefab-token prefab) "*A-105*") 6)
     (T 1))
 )
 
@@ -20986,12 +20999,18 @@
 
 ;; Prefabricado de bordillo a lo largo de una referencia local. Devuelve la
 ;; referencia de bloque del prefabricado o nil.
-(defun urb:rampav-bordillo (base axis sign verts side-uv etapa sub / ref side r)
+;; 2026-09-11 (pedido del usuario: "agregame las capas correspondientes a
+;; los prefabricados"): cada pieza entra con SU tipo de prefabricado, y el
+;; tipo define capa, color y actividades del presupuesto. Las dos aletas
+;; son la pieza de remate A-105 del plano (capa URB-REMATE-A-105) y la
+;; banda del fondo es el bordillo A-80 (capa URB-BORDILLO).
+(defun urb:rampav-bordillo (base axis sign verts side-uv etapa sub tipo / ref side r)
+  (setq tipo (urb:safe-string tipo "Bordillo"))
   (setq ref (urb:ramp-bulge-poly base axis sign verts nil "URB-RAMPA"))
   (setq side (urb:ramp-local-point base axis sign (car side-uv) (cadr side-uv)))
   (setq r
     (vl-catch-all-apply 'urb:build-prefab-from-reference
-      (list ref (list (car side) (cadr side) 0.0) "Bordillo" *urb-rampav-banda*
+      (list ref (list (car side) (cadr side) 0.0) tipo *urb-rampav-banda*
             etapa sub "Exterior" "Anden")))
   (if (or (null r) (vl-catch-all-error-p r))
     (progn (if (and ref (entget ref)) (entdel ref)) nil)
@@ -20999,17 +21018,20 @@
 
 (defun urb:ramp-vehicular-objects
   (frame etapa sub depth / base axis sign L a f b bi objects obj hatch ent
-   u1 u2 lu lv tab-ml bol origin prefabs r fan-area vx txt)
+   u1 u2 lu lv tab-ml bol origin prefabs r fan-area vx txt a105 a80ml)
   (setq base (car frame) axis (cadr frame) sign (caddr frame) L (nth 3 frame))
   (setq a (urb:rampav-aleta L)
         f *urb-rampav-fondo*
         b *urb-rampav-banda*
         bi (max 0.0 (- a *urb-rampav-banda-ini*)))
-  (setq objects nil prefabs nil tab-ml 0.0 bol 0)
+  (setq objects nil prefabs nil tab-ml 0.0 bol 0 a105 0 a80ml 0.0)
   (urb:ensure-layer "URB-RAMPA" 4 T)
   (urb:ensure-layer "URB-RAMPA-BAJADA" 8 T)
   (urb:ensure-layer "URB-RAMPA-REMATE" 4 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
+  ;; 2026-09-11 (pedido del usuario): cada elemento prefabricado en SU capa
+  ;; -- el bolardo alto M-63 del ppto ya no comparte capa con el remate.
+  (urb:ensure-layer "URB-BOLARDO-M-63" 1 T)
   (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
 
   ;; ---- LA BAJADA: abanico entre las dos aletas, del bordillo de la via
@@ -21059,17 +21081,17 @@
   ;; ---- ALETAS = bordillos curvos de 0,20 (PREFABRICADOS) ----
   (setq r (urb:rampav-bordillo base axis sign
             (list (list 0.0 0.0 *urb-rampav-bulge*) (list a f 0.0))
-            (list -1.0 (* 0.5 f)) etapa sub))
-  (if r (setq prefabs (cons r prefabs)))
+            (list -1.0 (* 0.5 f)) etapa sub "Remate A-105"))
+  (if r (setq prefabs (cons r prefabs) a105 (1+ a105)))
   (setq r (urb:rampav-bordillo base axis sign
             (list (list L 0.0 (- *urb-rampav-bulge*)) (list (- L a) f 0.0))
-            (list (+ L 1.0) (* 0.5 f)) etapa sub))
-  (if r (setq prefabs (cons r prefabs)))
+            (list (+ L 1.0) (* 0.5 f)) etapa sub "Remate A-105"))
+  (if r (setq prefabs (cons r prefabs) a105 (1+ a105)))
   ;; ---- BANDA DEL FONDO = bordillo A-80 de 0,20 (PREFABRICADO) ----
   (setq r (urb:rampav-bordillo base axis sign
             (list (list bi (- f b) 0.0) (list (- L bi) (- f b) 0.0))
-            (list (* 0.5 L) (+ f 1.0)) etapa sub))
-  (if r (setq prefabs (cons r prefabs)))
+            (list (* 0.5 L) (+ f 1.0)) etapa sub "Bordillo"))
+  (if r (setq prefabs (cons r prefabs) a80ml (+ a80ml (- L (* 2.0 bi)))))
 
   ;; ---- tableta podotactil de ALERTA: fila al fondo y bajando por los
   ;;      costados (del bloque del plano) ----
@@ -21125,7 +21147,7 @@
           (setq ent
             (entmakex
               (list '(0 . "CIRCLE") '(100 . "AcDbEntity")
-                    '(8 . "URB-RAMPA-REMATE") '(62 . 8) '(100 . "AcDbCircle")
+                    '(8 . "URB-BOLARDO-M-63") '(62 . 256) '(100 . "AcDbCircle")
                     (cons 10 (list (car origin) (cadr origin) 0.0))
                     (cons 40 *urb-rampav-bolardo-r*))))
           (if ent
@@ -21133,8 +21155,9 @@
                    (setq bol (1+ bol))))))))
 
   ;; (objetos area-de-bajada tableta-ML bordillo-ML-en-el-bloque bolardos
-  ;;  prefabricados) -- el bordillo se cuenta en los PREFABRICADOS, no aqui
-  (list (reverse objects) fan-area tab-ml 0.0 bol (reverse prefabs))
+  ;;  prefabricados piezas-A105 bordillo-A80-ML) -- el bordillo y las piezas
+  ;;  A-105 se cuentan en los PREFABRICADOS; los ML van solo de informe
+  (list (reverse objects) fan-area tab-ml 0.0 bol (reverse prefabs) a105 a80ml)
 )
 
 ;; T si el paso da para llevar el desarrollo completo en los dos extremos
@@ -21186,6 +21209,11 @@
 ;; profundo (el del plano: 10 x 3,3 m) y su borde contra la via es un lado
 ;; largo. Aqui se prueban TODOS los bordes rectos: el mas cercano a una via
 ;; creada; sin vias en el dibujo, el mas largo. Devuelve (frame fondo).
+;; 2026-09-11: dibujado con TRES PUNTOS, el frente lo marca el usuario (el
+;; tramo 1 -> 2), asi que ese borde manda sobre cualquier deteccion
+;; automatica. El comando deja aqui el punto medio del frente.
+(setq *urb-rampav-frente* nil)
+
 (defun urb:vehicular-curb-frame (source / n i fr cands best pts mid p a s d fondo)
   (setq n (fix (+ 0.5 (vlax-curve-getEndParam source))) i 0 cands nil)
   (while (< i n)
@@ -21198,11 +21226,21 @@
     nil
     (progn
       (setq best
-        (if (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA"))))
-          (urb:frame-nearest-road cands)
+        (cond
+          ;; el frente marcado con los 3 puntos
+          ((and *urb-rampav-frente*
+                (progn
+                  (setq best nil d nil)
+                  (foreach fr cands
+                    (setq mid (distance (urb:ramp-frame-mid fr) *urb-rampav-frente*))
+                    (if (or (null d) (< mid d)) (setq d mid best fr)))
+                  (and best d (< d 0.30))))
+           best)
+          ((ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA"))))
+           (urb:frame-nearest-road cands))
           ;; el mas largo; en empate (bordes paralelos iguales) el que se
           ;; dibujo PRIMERO, que normalmente es el del bordillo
-          (progn
+          (T
             (setq best (car cands))
             (foreach fr (cdr cands)
               (if (> (nth 3 fr) (+ (nth 3 best) 0.01)) (setq best fr)))
@@ -21237,9 +21275,104 @@
 ;; cara de rampa, del lado de la via. El contorno dibujado solo marca la
 ;; extension del modulo (linea fina); no lleva relleno propio -- el patron
 ;; del anden se sigue viendo, igual que en el plano de detalles.
+;;; 2026-09-11 (reporte del usuario: "en la rampa vehicular no me aparece
+;;; detallada toda la rampa, tiene que verse como la imagen 2"). Dibujado
+;;; con TRES PUNTOS donde todavia no hay anden, el modulo se veia casi
+;;; vacio: las bandas que se ven en el plano son las del ANDEN y en la
+;;; superposicion (v4.94) aparecen por debajo. Ahora, si NO hay anden
+;;; debajo, el propio modulo pone su pavimento -- bandas del anden (gris
+;;; loseta 20x20 / blanco adoquin 20x10), franja de guia podotactil a 2,50 m
+;;; del bordillo (U-201) -- y las bandas se recortan debajo de los
+;;; prefabricados (aletas A-105, banda A-80) y de las tabletas de alerta.
+;;; Si SI hay anden debajo se mantiene la superposicion: el anden ya trae
+;;; su patron y su area.
+(defun urb:anden-under-p (source / ss i obj res)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK"))))
+        obj (urb:as-vla-object source) i 0 res nil)
+  (if (and ss obj)
+    (while (and (< i (sslength ss)) (not res))
+      (if (urb:objects-bbox-overlap-p obj (urb:as-vla-object (ssname ss i)) 0.05)
+        (setq res T))
+      (setq i (1+ i))))
+  res
+)
+
+;; franja de guia podotactil: relleno gris con las barras de la tableta
+(defun urb:guia-quad-objects (quad axis / obj out hatch)
+  (urb:ensure-layer "URB-ANDEN-LOSETA-GUIA-20X20" 8 T)
+  (setq obj (urb:as-vla-object quad) out (list obj))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
+                (list obj "URB-ANDEN-LOSETA-GUIA-20X20"
+                      (urb:tactile-fill-color "GUIA" T))))
+  (if (not (vl-catch-all-error-p hatch)) (setq out (cons hatch out)))
+  (setq hatch (vl-catch-all-apply 'urb:add-user-hatch
+                (list obj "URB-ANDEN-LOSETA-GUIA-20X20" 0.05 axis nil 7 nil)))
+  (if (not (vl-catch-all-error-p hatch)) (setq out (cons hatch out)))
+  (reverse out)
+)
+
+;; pavimento propio del modulo. Devuelve
+;; (objetos gris-m2 blanco-m2 guia-ml guia-m2 toperol-m2) o nil.
+(defun urb:vehicular-surface
+  (contorno frame depth objetos / region axis L base sign objects p reg
+   bandas gb guia guia-ml guia-m2 top-m2 quad ok)
+  (setq base (car frame) axis (cadr frame) sign (caddr frame) L (nth 3 frame))
+  (setq region (vl-catch-all-apply 'urb:add-region-from-object (list contorno)))
+  (if (or (null region) (vl-catch-all-error-p region))
+    nil
+    (progn
+      ;; prefabricados y contenedores: mismo recorte que usa el anden
+      (setq region (urb:apply-anden-cutouts region))
+      ;; las tabletas de alerta del modulo van ENCIMA: se restan del fondo
+      (setq top-m2 0.0 objects nil)
+      (foreach p objetos
+        (setq ok
+          (vl-catch-all-apply
+            '(lambda ()
+               (and (= (type p) 'VLA-OBJECT)
+                    (= (vla-get-ObjectName p) "AcDbPolyline")
+                    (= (vla-get-Layer p) "URB-ANDEN-LOSETA-TOPEROL-20X20")
+                    (= (vla-get-Closed p) :vlax-true)))))
+        (if (and ok (not (vl-catch-all-error-p ok)))
+          (progn
+            (setq reg (vl-catch-all-apply 'urb:add-region-from-object (list p)))
+            (if (and reg (not (vl-catch-all-error-p reg)))
+              (progn
+                (setq top-m2 (+ top-m2 (vla-get-Area reg)))
+                (vl-catch-all-apply 'urb:region-align-elevation (list reg region))
+                (if (vl-catch-all-error-p
+                      (vl-catch-all-apply 'vla-Boolean (list region 2 reg)))
+                  (urb:safe-delete reg)))))))
+      ;; franja de guia paralela al bordillo
+      (setq guia-ml 0.0 guia-m2 0.0)
+      (if (> depth (+ *urb-guide-offset* 0.45))
+        (progn
+          (setq quad (urb:ramp-quad-poly base axis sign 0.0 *urb-guide-offset*
+                       L (+ *urb-guide-offset* 0.40)
+                       "URB-ANDEN-LOSETA-GUIA-20X20"))
+          (setq reg (vl-catch-all-apply 'urb:add-region-from-object
+                      (list (urb:as-vla-object quad))))
+          (if (and reg (not (vl-catch-all-error-p reg)))
+            (progn
+              (vl-catch-all-apply 'urb:region-align-elevation (list reg region))
+              (if (vl-catch-all-error-p
+                    (vl-catch-all-apply 'vla-Boolean (list region 2 reg)))
+                (urb:safe-delete reg))))
+          (setq guia (urb:guia-quad-objects quad axis))
+          (setq guia-ml L guia-m2 (* L 0.40))
+          (setq objects (append objects guia))))
+      (setq bandas (vl-catch-all-apply 'urb:decorate-region-anden-bands
+                     (list region axis "URB-RAMPA")))
+      (if (vl-catch-all-error-p bandas) (setq bandas nil))
+      (setq gb (urb:band-areas bandas))
+      (urb:safe-delete region)
+      (list (append bandas objects) (car gb) (cadr gb) guia-ml guia-m2 top-m2)))
+)
+
 (defun urb:build-vehicular-access
   (source frames etapa sub / doc copy elevation frame other depth endres
-   objects name definition result attrs ref origin area prefabs n-rec)
+   objects name definition result attrs ref origin area prefabs n-rec surf
+   gris blanco guia-ml guia-m2 top-m2 top-ml area-pav)
   (setq doc (urb:doc))
   (urb:ensure-layer "URB-RAMPA" 4 T)
   ;; el borde que da a la via se busca entre TODOS los lados del contorno
@@ -21264,9 +21397,28 @@
     (progn (urb:safe-delete copy)
       (vl-exit-with-error (strcat "No se pudo dibujar el acceso vehicular: "
         (vl-catch-all-error-message endres)))))
-  (setq objects (append objects (car endres))
+  ;; sin anden debajo, el modulo pone su propio pavimento (bandas + guia);
+  ;; con anden debajo se queda como superposicion (el anden ya lo trae)
+  (setq surf
+    (if (urb:anden-under-p source)
+      nil
+      (vl-catch-all-apply 'urb:vehicular-surface
+        (list copy frame depth (car endres)))))
+  (if (vl-catch-all-error-p surf) (setq surf nil))
+  (setq objects (append objects (if surf (car surf)) (car endres))
         area (nth 1 endres)
-        prefabs (nth 5 endres))
+        prefabs (nth 5 endres)
+        top-ml (nth 2 endres))
+  (setq gris (if surf (nth 1 surf) 0.0)
+        blanco (if surf (nth 2 surf) 0.0)
+        guia-ml (if surf (nth 3 surf) 0.0)
+        guia-m2 (if surf (nth 4 surf) 0.0)
+        top-m2 (if surf (nth 5 surf) 0.0))
+  ;; AREA_M2 = lo pavimentado por el modulo cuando el pavimento es suyo;
+  ;; en superposicion sigue siendo el area de la bajada (el anden ya cuenta
+  ;; la suya y no se puede contar dos veces)
+  (setq area-pav (+ gris blanco guia-m2 top-m2))
+  (if (> area-pav 0.0) (setq area area-pav))
   (setq name (strcat "URB_RAMPA_" (vla-get-Handle copy))
         definition (vla-Add (vla-get-Blocks doc) (vlax-3d-point '(0 0 0)) name)
         result (vl-catch-all-apply 'vla-CopyObjects
@@ -21282,10 +21434,23 @@
       (cons "AREA_M2" (rtos area 2 6))
       (cons "TOPEROL_ML" (rtos (nth 2 endres) 2 3))
       (cons "A81_UND" "0")
-      (cons "BORDILLO_A80_ML" "0")
+      (cons "A105_UND" (itoa (nth 6 endres)))
+      (cons "BORDILLO_A80_ML" (rtos (nth 7 endres) 2 3))
       (cons "BORDILLO_PREFAB_UND" (itoa (length prefabs)))
       (cons "BOLARDO_UND" (itoa (nth 4 endres)))
       (cons "BORDILLO_ML" "0")
+      (cons "AREA_BAJADA_M2" (rtos (nth 1 endres) 2 6))
+      ;; acabados del pavimento propio (0 en superposicion)
+      (cons "LOSETA_LISA_M2" (rtos gris 2 3))
+      (cons "LOSETA_LISA_UND" (itoa (fix (+ 0.5 (/ gris 0.04)))))
+      (cons "ADOQUIN_M2" (rtos blanco 2 3))
+      (cons "ADOQUIN_20X10_UND" (itoa (fix (+ 0.5 (/ blanco 0.02)))))
+      (cons "LOSETA_GUIA_ML" (rtos guia-ml 2 3))
+      (cons "LOSETA_GUIA_UND" (itoa (fix (+ 0.5 (/ guia-m2 0.04)))))
+      (cons "LOSETA_TOPEROL_UND" (itoa (fix (+ 0.5 (/ top-m2 0.04)))))
+      (cons "SBG_M3" (rtos (* area-pav 0.50) 2 3))
+      (cons "ARENA_M3" (rtos (* area-pav 0.04) 2 3))
+      (cons "GEOTEXTIL_M2" (rtos (* area-pav 1.15) 2 3))
       (cons "MATERIAL" "Concreto")))
   (foreach obj attrs (urb:add-invisible-attribute definition origin (car obj) (car obj) (cdr obj)))
   (setq ref (vla-InsertBlock (urb:space) (vlax-3d-point (list 0.0 0.0 elevation)) name 1.0 1.0 1.0 0.0))
@@ -21296,8 +21461,13 @@
   ;; los bordillos curvos y la banda recortan el patron del anden de abajo
   (setq n-rec (if prefabs (urb:recut-andenes-under prefabs) 0))
   (prompt (strcat "\nAcceso vehicular: rampa del lado de la via, "
-    (itoa (length prefabs)) " bordillos prefabricados (aletas curvas + banda A-80), "
+    (itoa (nth 6 endres)) " piezas de remate A-105 + banda de bordillo A-80, "
     (itoa (nth 4 endres)) " bolardos."
+    (if surf
+      (strcat " Pavimento propio del modulo: " (rtos (+ gris blanco) 2 2)
+        " m2 de bandas (loseta " (rtos gris 2 2) " / adoquin " (rtos blanco 2 2)
+        ") y " (rtos guia-ml 2 2) " ml de guia.")
+      " Superposicion sobre el anden (el anden conserva su patron y su area).")
     (if (> n-rec 0) (strcat " Anden recortado bajo los bordillos: " (itoa n-rec) ".") "")))
   ref)
 
@@ -21612,6 +21782,7 @@
     (if msg (prompt (strcat "\nRAMPA: " msg))) (princ))
   (initget "Tres Dibujar")
   (setq mode (getkword "\nModelar con [Tres puntos/Dibujar contorno] <Tres>: "))
+  (setq *urb-rampav-frente* nil)
   (vla-StartUndoMark doc) (setq undo-open T)
   (urb:ensure-layer "URB-RAMPA" 4 T)
   (if (= mode "Dibujar")
@@ -21642,7 +21813,11 @@
                   (setq source (urb:ramp-quad-poly (car spec) axis sign 0.0 0.0 width depth "URB-RAMPA"))
                   (vla-put-Elevation (urb:as-vla-object source) (caddr (car spec)))
                   (setq p1 (trans (urb:ramp-local-point (car spec) axis sign (/ width 2.0) 0.0) 0 1)
-                        p2 (trans (urb:ramp-local-point (car spec) axis sign (/ width 2.0) depth) 0 1)))
+                        p2 (trans (urb:ramp-local-point (car spec) axis sign (/ width 2.0) depth) 0 1))
+                  ;; el frente (1 -> 2) es el borde de la via del acceso
+                  ;; vehicular, aunque no sea el lado mas largo del modulo
+                  (setq endp (urb:ramp-local-point (car spec) axis sign (/ width 2.0) 0.0)
+                        *urb-rampav-frente* (list (car endp) (cadr endp))))
                 (prompt "\nFondo insuficiente para los remates; no se ha creado el modulo."))))))))
   (if (and source (= (cdr (assoc 0 (entget source))) "LWPOLYLINE")
            (= 1 (logand 1 (cdr (assoc 70 (entget source))))))
@@ -25173,7 +25348,12 @@
     ("RED-GAS" . "red de gas")
     ("ELECTRICA-MT" . "red de media tension")
     ("ELECTRICA-BT-AP" . "red de baja tension")
-    ("SENDERO" . "parques y zonas verdes")))
+    ("SENDERO" . "parques y zonas verdes")
+    ;; 2026-09-11 (reporte del usuario: "la zona verde la dibuja pero no me
+    ;; la esta trayendo al presupuesto"): la zona verde no tenia red ni
+    ;; fuente de filas. Capitulo 2.2.7 ZONA VERDE de perfiles viales; en un
+    ;; parque la zona marcada la redirige al capitulo del parque.
+    ("ZONA-VERDE" . "zona verde")))
 
 ;; Capitulos ADICIONALES que tambien pertenecen a una red: presupuestos
 ;; que separan la misma disciplina en varios capitulos de nivel 3
@@ -25654,6 +25834,7 @@
     (urb:ppto-rows-mobiliario)
     (urb:ppto-rows-senderos)
     (urb:ppto-rows-bioswale)
+    (urb:ppto-rows-zonasverdes)
     (urb:ppto-rows-senalizacion)))
 
 (defun urb:track-words-match-p (termwords candwords / ok w)
@@ -27320,6 +27501,70 @@
 (defun urb:ppto-rows-bioswale ()
   (urb:ppto-rows-poly-elemento "URB_BIOSWALE"
     (list *urb-bioswale-tipo*) "BIOSWALE"))
+
+;; ---------- ZONAS VERDES (2026-09-11, reporte del usuario: "revisa que lo
+;; correspondiente a zona verde lo dibuje pero no me lo esta trayendo al
+;; presupuesto"). Causa: urb:track-collect-rows no tenia ninguna fuente de
+;; zonas verdes -- el bloque se creaba con su area, espesor de tierra negra
+;; y su corte/relleno, pero nadie los convertia en filas.
+;; El vocabulario es el EXACTO del libro y depende del contexto:
+;;   sin zona marcada  -> capitulo "ZONA VERDE" de perfiles viales (2.2.7):
+;;      Empradizacion y conformacion (M2) | Excavacion mecanica ... (M3) |
+;;      Suministro y colocacion de recebo B-200 (M3)
+;;   con zona marcada  -> "ZONAS VERDES" del parque (2.3.x.2):
+;;      Localizacion y replanteo (M2) | Relleno Manual Tierra Negra X 30CM
+;;      (M3) | Coberturas Zonas Verdes (M2)
+;; Ademas quedan las parametricas de la familia ZONA_VERDE (AREA,
+;; PERIMETRO, VOLUMEN, CORTE, RELLENO, UNIDAD).
+(defun urb:ppto-rows-zonasverdes (/ ss i be atts data etapa sub area per esp
+                                  vol corte relleno handle zona rows out r)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_GREEN_BLOCK")))) out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq be (ssname ss i)
+            data (urb:green-zone-data be)
+            atts (urb:block-attribute-values (vlax-ename->vla-object be))
+            etapa (urb:safe-string (nth 1 data) "1")
+            sub (urb:safe-string (nth 2 data) "GEN")
+            area (atof (urb:safe-string (nth 3 data)
+                   (urb:safe-string (cdr (assoc "AREA_M2" atts)) "0")))
+            per (atof (urb:safe-string (nth 4 data)
+                  (urb:safe-string (cdr (assoc "PERIMETRO_M" atts)) "0")))
+            esp (atof (urb:safe-string (nth 5 data) "0.20"))
+            vol (atof (urb:safe-string (nth 6 data) "0"))
+            corte (atof (urb:safe-string (cdr (assoc "CORTE_M3" atts)) "0"))
+            relleno (atof (urb:safe-string (cdr (assoc "RELLENO_M3" atts)) "0"))
+            handle (cdr (assoc 5 (entget be)))
+            zona (urb:ppto-zona-de be))
+      (if (<= vol 0.0) (setq vol (* area esp)))
+      (setq rows
+        (if (= zona "")
+          (list
+            (urb:ppto-row "ZONA-VERDE" "Empradizacion y conformacion"
+              "" "" "" etapa sub "M2" area handle)
+            (urb:ppto-row "ZONA-VERDE"
+              "Excavacion mecanica en material comun (Incluye cargue, transporte y disposicion externa)"
+              "" "" "" etapa sub "M3" corte handle)
+            (urb:ppto-row "ZONA-VERDE" "Suministro y colocacion de recebo B-200"
+              "" "" "" etapa sub "M3" relleno handle))
+          (list
+            (urb:ppto-row "ZONA-VERDE" "Localizacion y replanteo"
+              "" "" "" etapa sub "M2" area handle)
+            (urb:ppto-row "ZONA-VERDE" "Relleno Manual Tierra Negra X 30CM"
+              "" "" "" etapa sub "M3" vol handle)
+            (urb:ppto-row "ZONA-VERDE" "Coberturas Zonas Verdes"
+              "" "" "" etapa sub "M2" area handle))))
+      (setq rows
+        (append rows
+          (urb:ppto-param-rows "ZONA_VERDE" "ZONA-VERDE"
+            (list (cons "AREA" area) (cons "PERIMETRO" per)
+                  (cons "VOLUMEN" vol) (cons "CORTE" corte)
+                  (cons "RELLENO" relleno) (cons "UNIDAD" 1.0))
+            "" "" "" etapa sub handle)))
+      (setq rows (urb:ppto-rows+zona rows zona))
+      (foreach r rows (if r (setq out (cons r out))))
+      (setq i (1+ i))))
+  out)
 
 ;; ---------- SEÃ‘ALIZACION Y DEMARCACION (2026-09-06, pedido del
 ;; usuario: comando APARTE de anden/senderos). Tres clases:
@@ -29295,14 +29540,23 @@
             red (urb:prefab-destino-red destino tipo)
             conceptos (urb:prefab-conceptos tipo))
       (setq rows
-        (list
-          (urb:ppto-row red
-            (nth 0 conceptos)
-            "" "" "" etapa sub "UN"
-            (float (fix (+ 0.999999 (/ lng 0.8)))) handle)
-          (urb:ppto-row red
-            (nth 1 conceptos)
-            "" "" "" etapa sub "ML" lng handle)))
+        (if (= (urb:safe-string (nth 3 conceptos) "") "PIEZA")
+          ;; 2026-09-11: piezas sueltas (remate A-105 de las aletas del
+          ;; acceso vehicular): UNA unidad por pieza, no por metro, y sin
+          ;; fila de ML -- asi lo cuenta el libro (2.2.4.2.1 / 2.2.4.3.7)
+          (list
+            (urb:ppto-row red (nth 0 conceptos)
+              "" "" "" etapa sub "UN" 1.0 handle)
+            (urb:ppto-row red (nth 1 conceptos)
+              "" "" "" etapa sub "UN" 1.0 handle))
+          (list
+            (urb:ppto-row red
+              (nth 0 conceptos)
+              "" "" "" etapa sub "UN"
+              (float (fix (+ 0.999999 (/ lng 0.8)))) handle)
+            (urb:ppto-row red
+              (nth 1 conceptos)
+              "" "" "" etapa sub "ML" lng handle))))
       (setq rows
         (append rows
           (urb:ppto-param-rows
@@ -29314,68 +29568,118 @@
       (setq i (1+ i))))
   out)
 
-(defun urb:ppto-rows-rampas (/ ss i be atts data tipo red etapa sub handle rows out r)
+;; 2026-09-11 (pedido del usuario: "revisa que todo este conectado a lo del
+;; presupuesto"): las filas de rampa vehicular / rampa peatonal / paso
+;; peatonal salen con el TEXTO EXACTO de los capitulos 2.2.4, 2.2.5 y 2.2.6
+;; del libro. Lo que el modulo no modela todavia (sardineles A-85/A-86/A-100
+;; y transporte de prefabricados en KG) no se inventa: sale en 0, o sea no
+;; sale. Las aletas A-105 y la banda A-80 del acceso vehicular se cuentan
+;; como PREFABRICADOS aparte (urb:ppto-rows-prefabs), no aqui.
+(defun urb:ppto-rows-rampas (/ ss i be atts data mov tipo red etapa sub handle
+                             area corte relleno sbg arena geo adoq loseta
+                             top-ml top-und guia-ml guia-und bor-ml a80 a81
+                             bolardos rows out r)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_RAMPA_BLOCK")))) out nil i 0)
   (if ss
     (repeat (sslength ss)
       (setq be (ssname ss i)
             atts (urb:block-attribute-values (vlax-ename->vla-object be))
             data (urb:get-xdata-strings be "URB_RAMPA_BLOCK")
+            mov (urb:get-xdata-strings be "URB_RAMPA_MOV")
             tipo (urb:safe-string (cdr (assoc "TIPO" atts))
               (urb:safe-string (nth 0 data) "RAMPA-PEATONAL"))
             red (urb:rampa-red tipo)
             etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) "")
             sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) "")
             handle (cdr (assoc 5 (entget be))))
+      (defun urb:ra-num (clave defecto)
+        (atof (urb:safe-string (cdr (assoc clave atts)) defecto)))
+      (setq area (urb:ra-num "AREA_M2" "0")
+            corte (if (and mov (car mov)) (atof (car mov)) (* area *urb-anden-depth*))
+            relleno (if (and mov (cadr mov)) (atof (cadr mov)) 0.0)
+            sbg (urb:ra-num "SBG_M3" (rtos (* area 0.50) 2 6))
+            arena (urb:ra-num "ARENA_M3" (rtos (* area 0.04) 2 6))
+            geo (urb:ra-num "GEOTEXTIL_M2" (rtos (* area 1.15) 2 6))
+            adoq (urb:ra-num "ADOQUIN_20X10_UND" "0")
+            loseta (urb:ra-num "LOSETA_LISA_UND" "0")
+            top-ml (urb:ra-num "TOPEROL_ML" "0")
+            top-und (urb:ra-num "LOSETA_TOPEROL_UND" (rtos (/ top-ml 0.20) 2 6))
+            guia-ml (urb:ra-num "LOSETA_GUIA_ML" "0")
+            guia-und (urb:ra-num "LOSETA_GUIA_UND" (rtos (/ guia-ml 0.20) 2 6))
+            bor-ml (urb:ra-num "BORDILLO_ML" "0")
+            a80 (/ bor-ml 0.80)
+            a81 (urb:ra-num "A81_UND" "0")
+            bolardos (urb:ra-num "BOLARDO_UND" "0"))
       (setq rows
         (list
-          (urb:ppto-row red "Prefabricado A-81"
-            "" "" "" etapa sub "UN"
-            (atof (urb:safe-string (cdr (assoc "A81_UND" atts)) "0")) handle)
-          (urb:ppto-row red "Loseta toperol"
-            "" "" "" etapa sub "ML"
-            (atof (urb:safe-string (cdr (assoc "TOPEROL_ML" atts)) "0")) handle)
-          (urb:ppto-row red "Bordillo prefabricado"
-            "" "" "" etapa sub "ML"
-            (atof (urb:safe-string (cdr (assoc "BORDILLO_ML" atts)) "0")) handle)
-          ;; v4.95: acabados y estructura del paso (los bloques anteriores no
-          ;; traen estos atributos y sus filas salen en 0, o sea no salen)
-          (urb:ppto-row red "Loseta lisa 20x20x6"
-            "" "" "" etapa sub "UN"
-            (atof (urb:safe-string (cdr (assoc "LOSETA_LISA_UND" atts)) "0")) handle)
+          ;; descapote y nivelacion de subrasante
+          (urb:ppto-row red "Compactacion de subrasante (Incluye nivelacion)"
+            "" "" "" etapa sub "M2" area handle)
+          (urb:ppto-row red
+            "Descapote mecanico de material vegetal (Incluye cargue y retiro externo)"
+            "" "" "" etapa sub "M2" area handle)
+          ;; suministro
           (urb:ppto-row red "Adoquin gris 10x20x6"
-            "" "" "" etapa sub "UN"
-            (atof (urb:safe-string (cdr (assoc "ADOQUIN_20X10_UND" atts)) "0")) handle)
-          (urb:ppto-row red "Loseta guia"
-            "" "" "" etapa sub "ML"
-            (atof (urb:safe-string (cdr (assoc "LOSETA_GUIA_ML" atts)) "0")) handle)
-          (urb:ppto-row red "Subbase granular SBG"
-            "" "" "" etapa sub "M3"
-            (atof (urb:safe-string (cdr (assoc "SBG_M3" atts)) "0")) handle)
-          (urb:ppto-row red "Geotextil tejido 2100"
-            "" "" "" etapa sub "M2"
-            (atof (urb:safe-string (cdr (assoc "GEOTEXTIL_M2" atts)) "0")) handle)
+            "" "" "" etapa sub "UN" adoq handle)
+          (urb:ppto-row red "Loseta lisa 20x20x6"
+            "" "" "" etapa sub "UN" loseta handle)
+          (urb:ppto-row red "Loseta toperol 20x20x6"
+            "" "" "" etapa sub "UN" top-und handle)
+          (urb:ppto-row red "Loseta guia 20x20x6"
+            "" "" "" etapa sub "UN" guia-und handle)
+          (urb:ppto-row red "Bordillo prefabricado A-80"
+            "" "" "" etapa sub "UN" a80 handle)
           (urb:ppto-row red "Arena de nivelacion"
-            "" "" "" etapa sub "M3"
-            (atof (urb:safe-string (cdr (assoc "ARENA_M3" atts)) "0")) handle)))
+            "" "" "" etapa sub "M3" arena handle)
+          ;; instalacion (mano de obra)
+          (urb:ppto-row red "M.O. localizacion y replanteo"
+            "" "" "" etapa sub "M2" area handle)
+          (urb:ppto-row red "M.O. instalacion de adoquin y tabletas"
+            "" "" "" etapa sub "M2" area handle)
+          (urb:ppto-row red "M.O. nivelacion con arena"
+            "" "" "" etapa sub "M2" area handle)
+          (urb:ppto-row red "M.O. instalacion de bordillo prefabricado"
+            "" "" "" etapa sub "ML" bor-ml handle)
+          (urb:ppto-row red "M.O. instalacion de loseta guia y toperol"
+            "" "" "" etapa sub "ML" (+ guia-ml top-ml) handle)
+          ;; excavaciones, rellenos y granulares
+          (urb:ppto-row red
+            "Excavacion mecanica en material comun (Incluye cargue, transporte y disposicion externa)"
+            "" "" "" etapa sub "M3" corte handle)
+          (urb:ppto-row red "Suministro y colocacion de recebo B-200"
+            "" "" "" etapa sub "M3" relleno handle)
+          (urb:ppto-row red "Subbase granular SBG"
+            "" "" "" etapa sub "M3" sbg handle)
+          (urb:ppto-row red "Geotextil tejido 2100"
+            "" "" "" etapa sub "M2" geo handle)))
+      ;; propias de cada tipo
+      (if (= tipo "RAMPA-VEHICULAR")
+        (setq rows
+          (append rows
+            (list
+              (urb:ppto-row red
+                "Suministro e instalacion de bolardo alto en hierro Tipo M-63"
+                "" "" "" etapa sub "UN" bolardos handle))))
+        ;; en el paso y la rampa peatonal las cunas A-81 del modulo U-201
+        ;; son el remate de rampa fundido en sitio del libro (0,30 x 1,30
+        ;; cada una)
+        (setq rows
+          (append rows
+            (list
+              (urb:ppto-row red
+                "Suministro y construccion de remate de rampa en concreto fundido en sitio"
+                "" "" "" etapa sub "M2" (* a81 0.39) handle)))))
       (setq rows (vl-remove nil rows))
       (setq rows
         (append rows
           (urb:ppto-param-rows "RAMPA" red
             (list
-              (cons "AREA"
-                (atof (urb:safe-string (cdr (assoc "AREA_M2" atts)) "0")))
-              (cons "TOPEROL_ML"
-                (atof (urb:safe-string (cdr (assoc "TOPEROL_ML" atts)) "0")))
-              (cons "BORDILLO_ML"
-                (atof (urb:safe-string (cdr (assoc "BORDILLO_ML" atts)) "0")))
-              (cons "LOSETA_LISA_M2"
-                (atof (urb:safe-string (cdr (assoc "LOSETA_LISA_M2" atts)) "0")))
-              (cons "ADOQUIN_M2"
-                (atof (urb:safe-string (cdr (assoc "ADOQUIN_M2" atts)) "0")))
-              (cons "GUIA_ML"
-                (atof (urb:safe-string (cdr (assoc "LOSETA_GUIA_ML" atts)) "0")))
-              (cons "UNIDAD" 1.0))
+              (cons "AREA" area) (cons "TOPEROL_ML" top-ml)
+              (cons "BORDILLO_ML" bor-ml)
+              (cons "LOSETA_LISA_M2" (urb:ra-num "LOSETA_LISA_M2" "0"))
+              (cons "ADOQUIN_M2" (urb:ra-num "ADOQUIN_M2" "0"))
+              (cons "GUIA_ML" guia-ml) (cons "CORTE" corte)
+              (cons "RELLENO" relleno) (cons "UNIDAD" 1.0))
             "" "" "" etapa sub handle)))
       (setq rows (urb:ppto-rows+zona rows (urb:ppto-zona-de be)))
       (foreach r rows (if r (setq out (cons r out))))

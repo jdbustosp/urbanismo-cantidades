@@ -1,0 +1,53 @@
+motor 4.96.0 cargado
+OK   acceso vehicular creado sin anden | ok
+  AREA_M2 = 37.897559
+  AREA_BAJADA_M2 = 11.111948
+  LOSETA_LISA_M2 = 15.248
+  ADOQUIN_M2 = 16.969
+  LOSETA_GUIA_ML = 10.000
+  LOSETA_TOPEROL_UND = 42
+  A105_UND = 2
+  BORDILLO_A80_ML = 5.399
+  BOLARDO_UND = 4
+  SBG_M3 = 18.949
+OK   el modulo dibuja su propio pavimento (loseta y adoquin) | 15.248 / 16.969
+OK   lleva franja de guia podotactil a 2,50 m del bordillo | 10.000
+OK   dos piezas de remate A-105 | 2
+  prefabricados: 2 A-105 + 1 bordillo | capas: URB-BORDILLO 0 URB-REMATE-A-105
+OK   las aletas son prefabricado Remate A-105 con su capa | 2 piezas
+OK   los 4 bolardos M-63 van en la capa URB-BOLARDO-M-63 | 4
+OK   con 3 puntos el frente es el borde marcado, no el lado mas largo | mid (1.5 20.0) fondo 6.00
+OK   sin marca sigue el criterio de siempre (el lado mas largo) | 6.00
+OK   acceso vehicular sobre anden creado | 
+OK   sobre un anden NO duplica el pavimento (superposicion) | loseta 0.000 adoquin 0.000
+OK   zona verde creada | ok
+OK   la zona verde llega al presupuesto | 1 filas
+  ZV: ZONA-VERDE | Empradizacion y conformacion | M2 50.000
+OK   filas de rampa sin error | 23 filas
+  RV: Suministro e instalacion de bolardo alto en hierro Tipo M-63 | UN 4.000
+  RV: Geotextil tejido 2100 | M2 43.582
+  RV: Subbase granular SBG | M3 18.949
+  RV: Excavacion mecanica en material comun (Incluye cargue, transporte y disposicion externa) | M3 22.739
+  RV: M.O. instalacion de loseta guia y toperol | ML 18.402
+  RV: M.O. nivelacion con arena | M2 37.898
+  RV: M.O. instalacion de adoquin y tabletas | M2 37.898
+  RV: M.O. localizacion y replanteo | M2 37.898
+  RV: Arena de nivelacion | M3 1.516
+  RV: Loseta guia 20x20x6 | UN 100.000
+  RV: Loseta toperol 20x20x6 | UN 42.000
+  RV: Loseta lisa 20x20x6 | UN 381.000
+  RV: Adoquin gris 10x20x6 | UN 848.000
+  RV: Descapote mecanico de material vegetal (Incluye cargue y retiro externo) | M2 37.898
+  RV: Compactacion de subrasante (Incluye nivelacion) | M2 37.898
+  RV: Suministro e instalacion de bolardo alto en hierro Tipo M-63 | UN 4.000
+  RV: Excavacion mecanica en material comun (Incluye cargue, transporte y disposicion externa) | M3 6.667
+  RV: M.O. instalacion de loseta guia y toperol | ML 8.002
+  RV: M.O. nivelacion con arena | M2 11.112
+  RV: M.O. instalacion de adoquin y tabletas | M2 11.112
+  RV: M.O. localizacion y replanteo | M2 11.112
+  RV: Descapote mecanico de material vegetal (Incluye cargue y retiro externo) | M2 11.112
+  RV: Compactacion de subrasante (Incluye nivelacion) | M2 11.112
+OK   salen las actividades del capitulo 2.2.4 del libro | 
+OK   las piezas A-105 se cuentan por unidad | 12 filas de prefabricados
+RESULTADO 0 FALLOS
+DONE

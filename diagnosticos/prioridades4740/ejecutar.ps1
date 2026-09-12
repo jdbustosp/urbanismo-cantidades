@@ -30,7 +30,11 @@ Copy-Item -LiteralPath $Template -Destination (Join-Path $Lab 'fixture.dwg') -Fo
 $result=Join-Path $Lab 'verify_result.txt'
 if (Test-Path -LiteralPath $result) { Remove-Item -LiteralPath $result }
 $script=Join-Path $Lab 'verify.scr'
+# 2026-09-11: (setenv "URB_TEST_LAB" ...) de otra prueba queda GUARDADO en el
+# perfil de AutoCAD y le gana a la variable de entorno del proceso, asi que la
+# suite cargaba el verify.lsp de otro laboratorio. Se fija aqui explicitamente.
 Set-Content -LiteralPath $script -Encoding ASCII -Value @(
+  "(setenv `"URB_TEST_LAB`" `"$($Lab.Replace('\','/'))`")",
   '(load (strcat (getenv "URB_TEST_LAB") "/verify.lsp"))',
   '(command "_.QUIT" "_Y")'
 )

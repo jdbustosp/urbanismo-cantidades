@@ -1,5 +1,102 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-11, v4.96.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
+Pedido (3 partes): *"lo primero que quiero que verifiques es lo correspondiente
+a rampa vehicular, como puedes ver en la imagen 1, no me aparece detallada toda
+la rampa, tiene que verse como la imagen 2, eso si para su elaboracion con 3
+puntos"*, *"quiero que me agregues digamos las capas correspondientes a los
+prefabricados y revisa que todo este conectado a lo del presupuesto"* y
+*"revisa que lo correspondiente a zona verde lo dibuje pero no me lo esta
+trayendo al presupuesto"*.
+
+### 1. Rampa vehicular con TODO el detalle cuando no hay andén debajo
+
+La causa de la imagen 1: en v4.94 el acceso vehicular se diseñó como
+**superposición** sobre el andén — las bandas de adoquín/loseta que se ven en el
+plano son las del andén, que quedaban por debajo. Dibujado con **3 puntos**
+donde todavía no hay andén, el módulo salía casi vacío (solo la bajada, las
+aletas y los bolardos).
+
+- **`urb:anden-under-p`**: decide el modo mirando si hay un `URB_ANDEN_BLOCK`
+  solapado. Con andén debajo **no cambia nada** (sigue la superposición de
+  v4.94, el andén conserva su patrón y su área); sin andén, el módulo pone su
+  propio pavimento.
+- **`urb:vehicular-surface`**: región del contorno − prefabricados − tabletas de
+  alerta, decorada con las bandas del andén (`urb:decorate-region-anden-bands`,
+  gris loseta 20×20 / blanco adoquín 20×10) y con la **franja de guía podotáctil
+  de 0,40 a 2,50 m del bordillo** (U-201, `urb:guia-quad-objects`).
+- `AREA_M2` pasa a ser **lo pavimentado por el módulo** cuando el pavimento es
+  suyo (en superposición sigue siendo la bajada, que ahora también se guarda en
+  `AREA_BAJADA_M2`) — así el área nunca se cuenta dos veces.
+- **El frente marcado con los 3 puntos manda**: `*urb-rampav-frente*` guarda el
+  punto medio del tramo 1→2 y `urb:vehicular-curb-frame` lo prefiere sobre la
+  detección automática (que toma el lado más largo o el más cercano a una vía).
+  Antes, un acceso más profundo que ancho ponía la rampa contra el lado
+  equivocado.
+
+### 2. Capas por elemento prefabricado
+
+- Aletas del acceso = **pieza de remate A-105** prefabricada, en su capa
+  **`URB-REMATE-A-105`** (`urb:prefab-token` ya convierte el espacio en guion) y
+  con su concepto propio en el ppto (suministro + M.O., por UNIDAD).
+- Bolardo alto **M-63** en su capa **`URB-BOLARDO-M-63`** (antes compartía
+  `URB-RAMPA-REMATE` con el borde del predio).
+- Las demás ya tenían capa propia: `URB-BORDILLO` (A-80), `URB-RAMPA-A81`,
+  `URB-ANDEN-LOSETA-TOPEROL-20X20`, `URB-ANDEN-LOSETA-GUIA-20X20`.
+
+### 3. Vocabulario exacto del libro en rampas, pasos y accesos
+
+`urb:ppto-rows-rampas` rehecha con las actividades **tal como están escritas en
+el presupuesto** (capítulo 2.2.4 y los de parque): compactación de subrasante,
+descapote mecánico, adoquín gris 10x20x6, loseta lisa / toperol / guía 20x20x6,
+bordillo prefabricado A-80 (UN = ML/0,80), arena de nivelación, las 5 de M.O.,
+excavación mecánica, recebo B-200, SBG y geotextil tejido 2100. El vehicular
+suma el bolardo M-63; el paso y la rampa peatonal, el **remate de rampa en
+concreto fundido en sitio** (M2 = A-81 × 0,39 — la cuña A-81 del módulo U-201
+*es* ese remate, no un prefabricado aparte). `BORDILLO_A80_ML` es solo informe:
+lo que se cobra dentro del bloque es `BORDILLO_ML`, que en el vehicular queda en
+0 porque la banda ya va como prefabricado.
+
+### 4. Zona verde al presupuesto
+
+`urb:track-collect-rows` no tenía **ninguna** fuente de zonas verdes: el bloque
+se creaba con su área, espesor de tierra negra y corte/relleno, y nadie los
+convertía en filas. Nueva `urb:ppto-rows-zonasverdes` + `ZONA-VERDE` en
+`*urb-ppto-red-capitulo*`, con el vocabulario según el contexto: sin zona
+marcada, el capítulo de perfiles viales (empradización y conformación,
+excavación mecánica, recebo B-200); con zona marcada, el del parque
+(localización y replanteo, relleno manual tierra negra x 30 cm, coberturas zonas
+verdes), más las paramétricas de la familia `ZONA_VERDE`.
+
+### Verificación
+
+- Suite headless: **85 OK / 0 FALLOS** (`diagnosticos/prioridades4740/ejecutar.ps1`).
+  De paso se arregló la suite: un `(setenv "URB_TEST_LAB" ...)` de otra prueba
+  queda **guardado en el perfil de AutoCAD** y le ganaba a la variable del
+  proceso, así que cargaba el `verify.lsp` de otro laboratorio.
+- E2E nuevo en AutoCAD real, **15 OK / 0 FALLOS** (`diagnosticos/rampav4960/`):
+  el módulo sin andén pone loseta 15,25 m² + adoquín 16,97 m² + 10,00 ml de
+  guía + 42 toperoles y 2 piezas A-105 en `URB-REMATE-A-105`; sobre un andén
+  loseta y adoquín quedan en 0 (superposición intacta); los 4 bolardos en
+  `URB-BOLARDO-M-63`; el frente de los 3 puntos gana al lado más largo; la zona
+  verde llega al ppto; las filas de rampa traen el vocabulario del libro.
+- Render del módulo: `diagnosticos/rampav4960/r_veh3p.png` — se ve como la
+  imagen 2 (bandas en todo el módulo, guía, alerta, aletas, bolardos, bajada).
+- Regresiones verdes: `run_acceso`, `run_paso`, `run_rampav`, `run_recorte`.
+- Instalado en el bundle y hash repo = hash instalado.
+
+### Pendientes que quedaron a la vista
+
+- Del libro **no los produce el modelo**: sardineles A-85 / A-86 / A-100 y
+  "Transporte de prefabricados" (KG).
+- El capítulo del paso peatonal (2.2.6) **no tiene renglones** de loseta,
+  toperol ni guía: las cantidades que el módulo calcula no tienen dónde caer.
+- Presupuesto: las **7 filas viejas de IMPREVISTOS** siguen ahí y se traslapan
+  con el capítulo 2.13 nuevo (el usuario pidió dejarlas quietas).
+
+
 ## Estado guardado — 2026-09-11, v4.95.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.
