@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.99.0")
+(setq *urb-version* "5.0.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -3740,10 +3740,63 @@
   (> count 0)
 )
 
+;; 2026-09-12: cuanto gira una cadena entre su primera y su ultima arista.
+;; Sirve para saber si el anden es un corredor que cambia de rumbo (y por
+;; tanto no se puede modular con un solo eje) o es practicamente recto.
+(defun urb:chain-direction-drift (chain / edges e1 e2)
+  (if (null chain)
+    0.0
+    (progn
+      (setq edges (urb:open-chain-edges chain))
+      (if (< (length edges) 2)
+        0.0
+        (progn
+          (setq e1 (car edges) e2 (last edges))
+          (urb:axis-angle-distance (nth 3 e1) (nth 3 e2))))))
+)
+
+;; 2026-09-12: une aristas consecutivas que van casi en la misma direccion,
+;; para que un arco muestreado fino (decenas de aristas de 20 cm) se vuelva
+;; unos pocos TRAMOS RECTOS. Asi el material se modula por tramos -- cada
+;; tramo con su propia orientacion, como en el plano -- y no en un abanico
+;; continuo, que es lo que el usuario rechazo el 2026-08-09.
+(defun urb:chain-simplify-by-direction (chain tol / out ini prev dir d i p)
+  (if (< (length chain) 3)
+    chain
+    (progn
+      (setq out (list (car chain)) ini (car chain) prev (cadr chain))
+      (setq dir (angle ini prev))
+      (setq i 2)
+      (while (< i (length chain))
+        (setq p (nth i chain))
+        (setq d (angle ini p))
+        (if (> (urb:axis-angle-distance dir d) tol)
+          (progn
+            ;; el tramo se cierra en el punto anterior y arranca otro
+            (setq out (cons prev out))
+            (setq ini prev)
+            (setq dir (angle ini p))))
+        (setq prev p)
+        (setq i (1+ i)))
+      (setq out (cons (last chain) out))
+      (reverse out)))
+)
+
+;; Un anden se modula POR TRAMOS cuando es largo y gira: con un solo eje
+;; las losetas del final quedan torcidas respecto al eje del anden
+;; (medido en el master: 189,76 m que giran 23,3 grados).
+(defun urb:anden-needs-segmented-p (chain / largo)
+  (if (null chain)
+    nil
+    (progn
+      (setq largo (urb:chain-total-length chain))
+      (and (> largo 20.0)
+           (> (urb:chain-direction-drift chain) (* pi (/ 10.0 180.0)))))))
+
 (defun urb:create-composite-loseta
   (ename format / obj copy base-region points fine-points parent-handle clusters
    split-data zones zone success angle-value pattern-mode reverse-pattern
-   driving-chain forced-angle)
+   driving-chain forced-angle deriva tramos)
   (setq obj (vlax-ename->vla-object ename)
         parent-handle (vla-get-Handle obj)
         points (urb:lwpoly-points-with-arcs ename)
@@ -3783,6 +3836,39 @@
       ;; (urb:decorate-composite-region-segmented) queda solo como codigo
       ;; de respaldo, ya no se invoca para el material. La franja tactil
       ;; SI sigue el borde curvo (metodo offset), como en el plano.
+      ;;
+      ;; 2026-09-12 (reporte del usuario con el plano real: "comienza la
+      ;; inclinacion bien pero al final se distorsiona y las losetas y
+      ;; adoquines quedan torcidas con respecto al eje central del anden").
+      ;; Medido en el anden AFA98 del master: 189,76 m de costado que
+      ;; ARRANCA a 50,1 grados y TERMINA a 73,4 -- se desvia 23,3. Con UN
+      ;; solo eje (el que el usuario marca con 2 puntos al crearlo, aqui
+      ;; 50,1, o el automatico) las losetas del final quedan a 23 grados
+      ;; del eje del anden, que es justo lo que se ve en el plano.
+      ;; La decision de 2026-08-09 vale para un MODULO DE CURVA corto, que
+      ;; es de lo que hablaba el U-201. En un corredor LARGO que gira hay
+      ;; que modular POR TRAMOS: la cadena del costado se simplifica a unos
+      ;; pocos tramos rectos (5 grados de tolerancia) y cada tramo lleva su
+      ;; propia orientacion. Asi no es un abanico continuo -- cada tramo
+      ;; sigue recto, como el plano -- pero tampoco se va de 23 grados.
+      ;; Solo entra si el anden es largo (> 20 m) y gira (> 10 grados).
+      (setq driving-chain
+        (vl-catch-all-apply 'urb:anden-tactile-chain (list fine-points)))
+      (if (vl-catch-all-error-p driving-chain) (setq driving-chain nil))
+      (if (urb:anden-needs-segmented-p driving-chain)
+        (progn
+          (setq deriva (urb:chain-direction-drift driving-chain))
+          (setq tramos
+            (urb:chain-simplify-by-direction driving-chain (* pi (/ 5.0 180.0))))
+          (prompt
+            (strcat "\nANDEN: el costado gira "
+              (rtos (/ (* deriva 180.0) pi) 2 1)
+              " grados en " (rtos (urb:chain-total-length driving-chain) 2 1)
+              " m; el material se modula en "
+              (itoa (max 1 (1- (length tramos))))
+              " tramos para que no quede torcido al final."))
+          (urb:decorate-composite-region-segmented
+            base-region tramos format parent-handle reverse-pattern))
       (progn
         (progn
           ;; 2026-08-12: la particion en dos ejes SOLO aplica a andenes en
@@ -3841,7 +3927,7 @@
                   angle-value pattern-mode))
               (urb:decorate-composite-region
                 base-region angle-value format parent-handle
-                reverse-pattern 0.0 fine-points)))))))
+                reverse-pattern 0.0 fine-points))))))))
 )
 
 (defun urb:generated-xdata-fragment (parent-handle role)
@@ -18094,12 +18180,38 @@
   obj
 )
 
+;; 2026-09-12 (plano real URB_MASTER_GENERAL): SUP_TN tenia un punto con
+;; cota 60,84 m -- medido en (83642, 96236) -- en un terreno cuya media es
+;; 2.565,91. Con el estilo "Contours 2m" eso dibuja 1.252 curvas de nivel
+;; concentricas (el "circulo" que reporto el usuario) y, mas grave, si un
+;; elemento cae sobre esos triangulos su movimiento de tierras sale
+;; absurdo SIN avisar. Aqui no se corrige la superficie -- no es del
+;; plugin -- pero si se AVISA una vez por dibujo en cuanto una lectura se
+;; sale del rango del resto.
+(setq *urb-surface-ref-z* nil)
+(setq *urb-surface-aviso* nil)
+
 (defun urb:surface-elevation (surface x y / result)
   (setq result
     (vl-catch-all-apply
       'vlax-invoke
       (list surface 'FindElevationAtXY x y)))
-  (if (vl-catch-all-error-p result) nil result)
+  (if (vl-catch-all-error-p result)
+    nil
+    (progn
+      (if (numberp result)
+        (progn
+          (if (null *urb-surface-ref-z*) (setq *urb-surface-ref-z* result))
+          (if (and (not *urb-surface-aviso*)
+                   (> (abs (- result *urb-surface-ref-z*)) 100.0))
+            (progn
+              (setq *urb-surface-aviso* T)
+              (prompt
+                (strcat "\nAVISO: la superficie devuelve cotas incoherentes ("
+                  (rtos *urb-surface-ref-z* 2 2) " y " (rtos result 2 2)
+                  " m). Tiene puntos malos: revise sus curvas de nivel antes"
+                  " de confiar en el movimiento de tierras."))))))
+      result))
 )
 
 (defun urb:road-profile-depth (profile-name / profile total layer)
@@ -33621,6 +33733,51 @@
            ;; con el metodo Pendiente no se reusa nada
            (not (urb:road-cota-capa-reusable-p
                   "Pendiente" "Textos por capa" "COTAS VIA"))))
+    ;; 2026-09-12 (plano real): un anden que gira 23 grados en 190 m no se
+    ;; puede modular con un solo eje -- las losetas del final quedan
+    ;; torcidas. Se mide el giro del costado y, si es un corredor largo que
+    ;; gira, se modula por tramos rectos.
+    (list "Se detecta cuando el costado del anden gira"
+      (and
+        ;; costado recto: no gira
+        (equal 0.0
+          (urb:chain-direction-drift
+            '((0.0 0.0 0.0) (10.0 0.0 0.0) (20.0 0.0 0.0))) 1e-9)
+        ;; costado en L: gira 90 grados
+        (equal (* 0.5 pi)
+          (urb:chain-direction-drift
+            '((0.0 0.0 0.0) (10.0 0.0 0.0) (10.0 10.0 0.0))) 1e-9)
+        ;; recto largo: NO se modula por tramos
+        (not (urb:anden-needs-segmented-p
+               '((0.0 0.0 0.0) (30.0 0.0 0.0) (60.0 0.0 0.0))))
+        ;; corto aunque gire: tampoco (es el modulo de curva del U-201)
+        (not (urb:anden-needs-segmented-p
+               '((0.0 0.0 0.0) (5.0 0.0 0.0) (5.0 5.0 0.0))))
+        ;; largo y girando: SI
+        (urb:anden-needs-segmented-p
+          '((0.0 0.0 0.0) (30.0 0.0 0.0) (60.0 0.0 0.0) (90.0 30.0 0.0)))))
+    ;; 2026-09-12: un arco muestreado fino se reduce a pocos TRAMOS RECTOS,
+    ;; para que el material no quede en abanico continuo (lo que el usuario
+    ;; rechazo el 2026-08-09) ni torcido al final.
+    (list "Un arco fino se simplifica a pocos tramos rectos"
+      ((lambda (/ arco k simple)
+        ;; cuarto de circulo de radio 20 muestreado cada ~2 grados
+        (setq arco nil k 0)
+        (repeat 46
+          (setq arco
+            (cons (list (* 20.0 (cos (* k (/ pi 90.0))))
+                        (* 20.0 (sin (* k (/ pi 90.0)))) 0.0)
+                  arco))
+          (setq k (1+ k)))
+        (setq arco (reverse arco))
+        (setq simple (urb:chain-simplify-by-direction arco (* pi (/ 5.0 180.0))))
+        (and
+          ;; de 46 puntos a un punado
+          (< (length simple) 12)
+          (> (length simple) 2)
+          ;; los extremos se conservan
+          (equal (car arco) (car simple) 1e-6)
+          (equal (last arco) (last simple) 1e-6)))))
     ;; 2026-09-12: el simbolo que se pasa del centro de un arco apretado
     ;; (radio menor que la distancia perpendicular a la que va la franja)
     ;; NO se dibuja: apilados, esos simbolos forman el disco que el usuario

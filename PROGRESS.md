@@ -1,5 +1,119 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-12, v5.0.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**.
+Con el plano real `URB_MASTER_GENERAL.dwg` en la mano (copia de trabajo en
+`work\claude_20260912_master`, el original nunca se toca).
+
+### 1. El "círculo" NO era del plugin: es la superficie SUP_TN
+
+Censo completo del plano: **0 entidades CIRCLE o ARC de radio > 2 m** en todo
+el dibujo. El disco de la captura es el **anillado de curvas de nivel** de la
+superficie de Civil 3D:
+
+| Dato medido | Valor |
+|---|---|
+| Superficie | `SUP_TN` — "Terreno natural", handle 7523, capa C-TOPO |
+| Estilo | **Contours 2m and 10m (Background)** |
+| Puntos / triángulos | 436.988 / 868.248 |
+| Cota media | 2.565,91 m |
+| Caja de la superficie | z de **2,50** a **2.633,50** m |
+| Punto malo localizado | **(83642, 96236)** con cota **60,84 m** |
+| Curvas concéntricas que eso genera | **1.252** con el intervalo de 2 m |
+
+O sea: hay al menos un punto con la cota mal (60,84 m en un terreno de
+2.566 m, y el mínimo absoluto de la superficie es 2,50 m). Con curvas cada
+2 m, Civil 3D dibuja más de mil curvas concéntricas alrededor de ese punto —
+el disco exacto de la captura. **Se arregla en la superficie, no en el
+plugin**: borrar/corregir ese punto, o ponerle a la superficie un filtro de
+rango de cotas, o apagar las curvas de nivel de su estilo.
+
+Lo que sí se agregó en el plugin es un **aviso**: `urb:surface-elevation` es el
+único punto por donde el motor lee el terreno; ahora, si dos lecturas de la
+misma superficie difieren más de 100 m, avisa una vez por dibujo. Antes un
+elemento que cayera sobre esos triángulos calculaba su movimiento de tierras
+contra una cota absurda **en silencio**.
+
+### 2. Las losetas torcidas al final del tramo: medido y arreglado
+
+Auditoría del andén del plano (handle **AFA98**, el de 188 ml):
+
+| Dato | Valor |
+|---|---|
+| Área / perímetro | 680,20 m² / 385,22 m |
+| Vértices / con arco | 288 / 47 |
+| Costado más largo | **189,76 m** |
+| Rumbo al arrancar → al terminar | **50,1° → 73,4°** |
+| **Desviación** | **23,3°** |
+| Familias de eje (clusters) | 2 — 51,5° (262 m) y 67,3° (116 m) |
+| Eje forzado guardado (`URB_ANDEN_AXIS`) | 50,1° — el del arranque |
+
+El andén **gira 23,3° en sus 190 m** y el material se colocaba con **un solo
+eje**: el que el usuario marca con 2 puntos al crear un andén con curva (aquí
+50,1°, justo el del arranque). De ahí que "comience bien y al final se
+distorsione".
+
+La decisión de 2026-08-09 ("el material no se modula en abanico, conserva la
+orientación del tramo recto y la curva solo recorta") vale para un **módulo de
+curva corto**, que es de lo que hablaba el plano U-201. En un **corredor largo
+que gira** hay que modular **por tramos**: la cadena del costado se simplifica
+a unos pocos tramos rectos (tolerancia de 5°) y cada tramo lleva su propia
+orientación. Así no es un abanico continuo — cada tramo sigue recto, como el
+plano — pero tampoco se va 23°. Entra solo si el andén es **largo (> 20 m) y
+gira (> 10°)**; un módulo de curva corto o un andén en L con esquinas rectas
+siguen exactamente como antes.
+
+Funciones nuevas: `urb:chain-direction-drift`, `urb:chain-simplify-by-direction`
+y `urb:anden-needs-segmented-p`. La modulación por tramos usa
+`urb:decorate-composite-region-segmented`, que ya existía como respaldo.
+
+### Verificación
+
+| Medida | Antes (un eje) | Ahora (por tramos) |
+|---|---|---|
+| Desviación media del patrón respecto al eje | **11,5°** | **2,3°** |
+| Peor caso | **23,3°** (al final del andén) | **5,1°** |
+| Tiempo del acabado | 54,4 s | 59,2 s (+9 %) |
+| Losetas gris / bloque blanco | 312 / 412 | 324 / 428 |
+| Guía / toperol | 4.337 / 1.113 | 4.337 / 1.113 |
+
+El fixture `e2e_tramos.lsp` reproduce el andén real con precisión: 686,31 m²
+frente a 680,20 del plano, perímetro 388,5 frente a 385,2, costado de 189,91 m
+frente a 189,76 y giro de 23,1° frente a 23,3°. Con `URB_SIN_TRAMOS=1` mide el
+defecto; sin la variable, mide el arreglo. Renders del antes y el después en
+`r_tramos_sin.png` y `r_tramos_con.png`: en el primero las bandas cruzan el
+andén en diagonal al final, en el segundo quedan perpendiculares.
+
+- Suite headless **91 OK / 0 FALLOS**, con dos autopruebas nuevas: *"Se detecta
+  cuándo el costado del andén gira"* y *"Un arco fino se simplifica a pocos
+  tramos rectos"*.
+- Regresiones E2E: `curvo`, `c188`, `acceso`, `recorte`, `paso`, `veh3p`,
+  `rampav`, `apretado`, `semic`, `viacapa`.
+
+### Dos errores míos de medición, corregidos antes de dar cifras
+
+1. La retícula de loseta es **cuadrada** (`PatternDouble`), así que estar a 90°
+   del eje es estar bien puesta: medirla con `urb:axis-angle-distance` (módulo
+   180) daba 89,8° de "error" para una retícula perfecta. La medida correcta es
+   módulo 90.
+2. La primera medida incluía los rellenos **SOLID** de las bandas, que no
+   tienen ángulo de retícula y devuelven `PatternAngle` 0,0. Solo se miden los
+   hatch de patrón `USER`.
+
+Ninguno de los dos era un defecto del motor: eran defectos de mi prueba.
+
+### Herramientas de diagnóstico del plano real
+
+En `work\claude_20260912_master` (sobre una **copia**, el original intacto):
+`inspeccion.lsp` (inventario por capa y entidades grandes), `censo.lsp` (conteo
+por tipo, las 25 mayores, capas y objetos AECC), `afa98.lsp` (geometría de un
+andén concreto), `ejes.lsp` (auditoría del eje de modulación de cada andén),
+`superficie.lsp` (interrogatorio de la superficie TIN), `crater.lsp` (localiza
+los puntos malos muestreando cotas) y `cerca.lsp` (qué elementos del plugin
+caen cerca de un punto malo). El runner es `run_insp.ps1 -Script X -Result Y`.
+
+
 ## Estado guardado — 2026-09-12, v4.99.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**.
