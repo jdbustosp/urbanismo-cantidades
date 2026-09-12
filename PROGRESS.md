@@ -1,5 +1,131 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-12, v4.99.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**.
+Cierra los tres pendientes que quedaron abiertos en 4.98.0 y el punto de la vía.
+Pedido: *"ajusta y verifica de una vez todo al tiempo, pero antes de darme una
+respuesta, quiero que te cerciores que quedó bien"*.
+
+### 1. La guía y el toperol se perdían en el andén con curva (arreglado)
+
+Causa medida, no supuesta. En un andén en L de 151 ml (radio interior 20, ancho
+1,50) el contorno se partía **bien** en cuatro cadenas — costado de la vía
+151,41, costado exterior 153,77 y dos tapas de 1,50 — pero
+`urb:anden-tactile-chain` devolvía **una tapa de extremo**, por dos motivos:
+
+1. el filtro de tapas comparaba contra **0,5 m fijo**, y una tapa mide el ancho
+   del andén (1,50 m), así que lo pasaba;
+2. la cercanía al clic del usuario se medía con el **punto medio** de la cadena;
+   en un costado largo y curvo el medio queda a 75 m del clic y cualquier tapa
+   cercana ganaba.
+
+Con la tapa como cadena guía el llamador veía **1 sola arista**, no entraba a la
+ruta de offset y caía al método por proyección, que en un andén que gira deja el
+toperol en una esquina (medido: **5 entidades en 0,28 × 0,29 m**).
+
+Ahora el filtro se compara contra el **costado más largo** (25 %) y la cercanía
+usa la **distancia mínima real** de los puntos de la cadena al clic (nueva
+`urb:chain-min-distance`). Medido después: cadena de **34 aristas**, toperol de
+**674 entidades cubriendo los 151 ml**.
+
+Quedan además dos redes de seguridad que ya estaban escritas y ahora sí se
+alcanzan: el control de cobertura de `urb:build-offset-strip` (si la franja no
+cubre ni la mitad del área esperada se declara fallida) y el rescate por franja
+de `urb:create-accessibility-features-offset` (si falta la guía **o** el toperol
+se rehace solo esa por segmentos).
+
+### 2. El círculo de las curvas: NO reproducido, con dos redes puestas
+
+Honestidad primero: **no logré reproducir el círculo**. Se probaron cuatro
+geometrías — L de 151 ml (radio 20), L de 191 ml, esquina convexa de radio 1,00
+y cabeza cóncava de radio 1,00 con andén de 1,50 m por dentro — y en las cuatro
+el dibujo sale sin ningún círculo (`rmax = 0,0000`, 0 entidades CIRCLE) y sin
+nada fuera de la caja del contorno.
+
+La explicación más probable sigue siendo el **enjambre de domos de antes de
+4.98.0**: con el patrón degradado se sembraba un círculo por domo, del orden de
+30.000 solapados; en una curva eso se lee como un disco. Eso ya está arreglado.
+
+Quedan puestas dos redes de seguridad, las dos **verificadas como inocuas**
+(mismas 4.351/815 entidades y mismos 193,77 ml en el caso de 191 ml, con y sin
+ellas):
+
+1. `urb:offset-curve-sane-p` — `vla-Offset` de una cadena con un arco devuelve,
+   cuando la distancia se acerca al radio, una curva volteada sobre el centro
+   (lazo gigante). Esas curvas se conservan a propósito como líneas de junta de
+   la franja, así que quedaban dibujadas. Ahora se exige que la curva desplazada
+   siga pareciéndose a la cadena (largo del mismo orden, dentro de la caja del
+   andén) o la franja se rehace por segmentos.
+2. La ruta de offset ahora **valida cada símbolo contra la región** del andén,
+   como la ruta por segmentos ya hacía desde 2026-08-26 (*"toperol POR FUERA del
+   bloque"*). La guía además con sus dos extremos.
+
+Lo que sí se vio en el caso de radio 1,00: la fila de guía va a **2,50 m** del
+borde de la vía (`*urb-guide-offset*`, U-201), y en un arco de radio 1,00 esos
+2,50 m **se pasan del centro**, así que las barras se abren en abanico sobre el
+centro. En ese contorno concreto (un arco macizo de 4,57 m²) eso cae **dentro**
+del andén y es geométricamente correcto, así que la validación no lo descarta.
+Si en el plano real aparece un radio así de cerrado en el borde de la vía, esa
+convergencia es la candidata número uno a ser el disco del reporte — y para
+confirmarlo **hace falta el DWG**.
+
+### 2b. Andén de 188 ml lento
+
+Con el latch de 4.98.0 y la cadena guía correcta, un andén de **191 ml con
+curva** (288,89 m²) se construye en **13,9 s**, se empaca en **8,6 s**, deja
+**0 círculos** y queda **en bloque sin material suelto**.
+### 3. Vía: "Textos por capa" se comportaba como "Pendiente" al editar (arreglado)
+
+La causa real era más simple que la sospecha de 4.98.0 (la calibración **sí** se
+persiste en el dibujo desde 4.57.1, por capa, con `urb:cota-calib-key`). Lo que
+pasaba es que `urb:edit-road` volvía a pedir el texto de cota **siempre** que el
+modo fuera "Textos por capa", y ahí:
+
+- si el clic no caía exactamente en un TEXT/MTEXT — una etiqueta Civil 3D, un
+  proxy, el bloque de una vía ya creada — el **auto-detect** de
+  `urb:road-cota-reference` cambiaba a cotas seleccionadas, o sea al flujo de
+  **Pendiente**;
+- y `urb:clear-cota-calibration` borraba la calibración ya validada de la capa.
+
+Ahora la capa guardada se **reutiliza** (solo se vuelven a contar sus textos) y
+se pregunta únicamente si no hay capa guardada o si el usuario acaba de cambiar
+el método en la ventana (`urb:road-cota-capa-reusable-p`). Aparte, la pregunta
+*"¿editar también el movimiento de tierras?"* llamaba siempre al selector de
+cotas de Pendiente: ahora cada método rehace lo suyo — por capa se vuelve a
+marcar **la capa**, por pendiente se vuelven a tomar las cotas.
+
+### Verificación
+
+- Suite headless **89 OK / 0 FALLOS**, con tres autopruebas nuevas: *"La cadena
+  guía es el costado largo, no la tapa del extremo"*, *"Editar una vía por capa
+  reusa la capa guardada"* y *"Un símbolo fuera del andén no se dibuja"*.
+- `run_curvo` (151 ml con curva): **0 FALLOS**, 21,1 s en total (12,4 s el
+  acabado). Las dos redes cuestan ~1 s en 151 ml: sin ellas eran 11,4 s.
+- `run_c188` (191 ml con curva): **0 FALLOS**, 23,7 s; guía y toperol
+  cuantificados en 193,77 ml cada uno. Repetido con las dos redes de seguridad
+  puestas: **idéntico** (4.351/815 entidades, 193,77 ml, 25,1 s), o sea que no
+  cuestan nada ni cambian el resultado donde el offset sí sirve.
+- `run_apretado` (esquina de radio 1,00) y `run_semic` (cabeza cóncava de radio
+  1,00): **0 FALLOS**, nada se sale de la caja del contorno, con y sin la
+  validación de offset.
+- `run_viacapa` (nuevo, edición de vía con la ventana y los pasos de Civil 3D
+  sustituidos): **0 FALLOS** — no se vuelve a pedir la cota, no se cae a
+  Pendiente, la capa y el conteo se conservan, la calibración sobrevive, y al
+  pedir rehacer el movimiento se pide la capa y no las cotas.
+- Regresiones E2E: `run_acceso`, `run_recorte`, `run_paso`, `run_veh3p`,
+  `run_rampav`, `run_bandas`.
+
+### Nota de prueba
+
+La primera versión de la autoprueba de la cadena guía **falló** y tenía razón:
+en un rectángulo el costado largo es un solo segmento (2 puntos, 1 arista), así
+que exigirle más de una arista era incorrecto. El fixture se cambió a un costado
+con vértices intermedios, que es lo que realmente produce el muestreo fino de un
+arco. También `GUIA_ML` / `TOPEROL_ML` del E2E eran nombres inventados: los
+atributos reales son `LOSETA_GUIA_ML` y `LOSETA_TOPEROL_ML`.
+
+
 ## Estado guardado — 2026-09-12, v4.98.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**.

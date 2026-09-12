@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.98.0")
+(setq *urb-version* "4.99.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -3528,7 +3528,7 @@
     result)
 )
 
-(defun urb:anden-tactile-chain (points / clean corners chains ref best best-d chain mid d)
+(defun urb:anden-tactile-chain (points / clean corners chains ref best best-d chain mid d maxlargo largo cands)
   ;; Cadena del contorno MAS CERCANA al lado de la via marcado por el
   ;; usuario: la franja tactil debe seguir el borde de la via (p.ej. el
   ;; arco INTERIOR de un anden en abanico), no el lado mas largo del
@@ -3545,15 +3545,46 @@
   (if (or (null ref) (null chains))
     (if chains (urb:longest-chain chains) nil)
     (progn
-      (setq best nil best-d nil)
+      ;; 2026-09-12 (reporte del usuario: en un anden con curva "se pierde
+      ;; la guia y el toperol"). Medido en un anden en L de 151 ml: el
+      ;; contorno se partia bien en 4 cadenas -- costado de la via 151,41,
+      ;; costado exterior 153,77 y dos tapas de 1,50 -- pero esta funcion
+      ;; devolvia UNA TAPA. Dos motivos, los dos arreglados aqui:
+      ;;   1) el filtro de tapas comparaba contra 0,5 m FIJO, y una tapa
+      ;;      mide el ancho del anden (1,50 m), asi que lo pasaba. Ahora se
+      ;;      compara contra el costado mas largo: una tapa nunca llega al
+      ;;      25 % del costado.
+      ;;   2) la cercania al clic se media con el PUNTO MEDIO de la cadena.
+      ;;      En un costado largo y curvo el medio queda lejisimos del clic
+      ;;      y ganaba cualquier tapa cercana. Ahora se usa la distancia
+      ;;      MINIMA real de los puntos de la cadena al clic.
+      ;; Con la tapa como cadena guia, el caller veia 1 sola arista, no
+      ;; entraba a la ruta de offset y caia al metodo por proyeccion, que en
+      ;; un anden que gira deja el toperol en una esquina.
+      (setq maxlargo 0.0)
       (foreach chain chains
-        (setq mid (nth (/ (length chain) 2) chain))
-        (setq d (distance mid ref))
-        ;; ignorar remates cortos (tapas de extremo)
-        (if (and (> (urb:chain-total-length chain) 0.5)
-                 (or (null best-d) (< d best-d)))
+        (setq largo (urb:chain-total-length chain))
+        (if (> largo maxlargo) (setq maxlargo largo)))
+      (setq cands nil)
+      (foreach chain chains
+        (if (> (urb:chain-total-length chain) (max 0.5 (* 0.25 maxlargo)))
+          (setq cands (cons chain cands))))
+      (if (null cands) (setq cands chains))
+      (setq best nil best-d nil)
+      (foreach chain cands
+        (setq d (urb:chain-min-distance chain ref))
+        (if (or (null best-d) (< d best-d))
           (setq best chain best-d d)))
       (if best best (urb:longest-chain chains))))
+)
+
+;; distancia minima (en planta) de los puntos de una cadena a un punto
+(defun urb:chain-min-distance (chain ref / d best r)
+  (setq best nil r (list (car ref) (cadr ref)))
+  (foreach p chain
+    (setq d (distance (list (car p) (cadr p)) r))
+    (if (or (null best) (< d best)) (setq best d)))
+  (if best best 1e12)
 )
 
 (defun urb:anden-driving-chain (points / corners chains)
@@ -4354,11 +4385,21 @@
 )
 
 (defun urb:offset-strip-symbols
-  (chain-poly len d1 d2 perp-sign feature module layer parent-handle
+  (chain-poly len d1 d2 perp-sign feature module layer parent-handle loops
    / spacing margin half-length half-width radius tile-k tile-g sym-color
      su dist pt ang normal ro wpt u v cs sn joint-p1 joint-p2
-     symbol-result created)
+     symbol-result created e1 e2)
   ;; simbolos y juntas por tableta caminando la curva real
+  ;; 2026-09-12 (reporte del usuario: "me salio un circulo, eso pasa es en
+  ;; las curvas"). Los simbolos se colocan a una distancia PERPENDICULAR
+  ;; fija del borde; en un arco cuyo radio es menor que esa distancia el
+  ;; punto se pasa del CENTRO del arco y todos los simbolos del tramo se
+  ;; apilan ahi en abanico -- con domos cada 5 cm, un disco. Medido en un
+  ;; anden de 1,50 m por dentro de una curva de radio 1,00.
+  ;; La ruta por segmentos ya validaba cada simbolo contra el contorno
+  ;; desde 2026-08-26 ("toperol POR FUERA del bloque"); esta no. Ahora
+  ;; tambien: todo simbolo (y la junta radial de cada tableta) tiene que
+  ;; caer DENTRO de la region del anden.
   (setq spacing 0.05 margin 0.025)
   (if (= feature "GUIA")
     (setq half-length 0.075 half-width 0.012)
@@ -4380,11 +4421,14 @@
                   joint-p2
               (list (+ (car pt) (* perp-sign d2 (cos normal)))
                     (+ (cadr pt) (* perp-sign d2 (sin normal)))))
-            (entmake
-              (list (cons 0 "LINE") (cons 8 layer) (cons 62 8)
-                    (cons 10 (list (car joint-p1) (cadr joint-p1) 0.0))
-                    (cons 11 (list (car joint-p2) (cadr joint-p2) 0.0))
-                    (urb:generated-xdata-fragment parent-handle "FEATURE")))))))
+            (if (or (null loops)
+                    (and (urb:point-in-region-polygons-p joint-p1 loops)
+                         (urb:point-in-region-polygons-p joint-p2 loops)))
+              (entmake
+                (list (cons 0 "LINE") (cons 8 layer) (cons 62 8)
+                      (cons 10 (list (car joint-p1) (cadr joint-p1) 0.0))
+                      (cons 11 (list (car joint-p2) (cadr joint-p2) 0.0))
+                      (urb:generated-xdata-fragment parent-handle "FEATURE"))))))))
     ;; tono opuesto a la banda de esta tableta
     (setq sym-color
       (urb:tactile-symbol-color feature
@@ -4413,12 +4457,26 @@
                 ;; helpers de simbolo
                 (setq u (+ (* (car wpt) cs) (* (cadr wpt) sn))
                       v (+ (* (- (car wpt)) sn) (* (cadr wpt) cs)))
-                (setq symbol-result
-                  (if (= feature "GUIA")
-                    (urb:add-capsule-symbol
-                      u v half-length half-width ang layer parent-handle sym-color)
-                    (urb:add-circle-symbol
-                      u v radius ang layer parent-handle sym-color)))
+                ;; fuera de la region no se dibuja (ver la nota de arriba):
+                ;; la guia, ademas, con sus dos extremos, para no dejar
+                ;; barras colgando del borde
+                (setq symbol-result nil)
+                (if (or (null loops)
+                        (and (urb:point-in-region-polygons-p wpt loops)
+                             (or (/= feature "GUIA")
+                                 (progn
+                                   (setq e1 (list (- (car wpt) (* half-length cs))
+                                                  (- (cadr wpt) (* half-length sn)))
+                                         e2 (list (+ (car wpt) (* half-length cs))
+                                                  (+ (cadr wpt) (* half-length sn))))
+                                   (and (urb:point-in-region-polygons-p e1 loops)
+                                        (urb:point-in-region-polygons-p e2 loops))))))
+                  (setq symbol-result
+                    (if (= feature "GUIA")
+                      (urb:add-capsule-symbol
+                        u v half-length half-width ang layer parent-handle sym-color)
+                      (urb:add-circle-symbol
+                        u v radius ang layer parent-handle sym-color))))
                 (if symbol-result (setq created (1+ created)))
                 (setq ro (+ ro spacing)))))))
       (setq su (+ su spacing)))
@@ -4426,15 +4484,58 @@
   (or (urb:toperol-by-pattern-p feature) (> created 0))
 )
 
+;; 2026-09-12 (reporte del usuario: "ya despues que lo creo me salio un
+;; circulo, eso pasa es en las curvas"). vla-Offset de una cadena que trae
+;; un arco devuelve, cuando la distancia se acerca o pasa del radio del
+;; arco, una curva que se voltea sobre el centro del arco y se vuelve un
+;; LAZO GIGANTE. Ese lazo se quedaba DIBUJADO, porque las dos curvas
+;; desplazadas se conservan a proposito como lineas de junta de la franja
+;; (ver el foreach de c1/c2 mas abajo) -- ese es el "circulo" del reporte.
+;; Aqui se exige que la curva desplazada siga pareciendose a la cadena:
+;; largo del mismo orden de magnitud y sin salirse de la caja del anden.
+;; Si no, la franja se declara fallida y el llamador la rehace por
+;; segmentos, que con radios pequenos es el metodo que sirve.
+(defun urb:offset-curve-sane-p (c base-region len / lc bc bb tol)
+  (setq lc (urb:curve-length c))
+  (setq tol 1.0)
+  (cond
+    ((<= lc 1e-6) nil)
+    ((and (> len 1e-6) (> lc (* 3.0 len))) nil)
+    ((and (> len 1e-6) (< lc (* 0.3 len))) nil)
+    (T
+      (setq bc (urb:object-box-points (vlax-ename->vla-object c)))
+      (setq bb (urb:object-box-points base-region))
+      (if (and bc bb)
+        (and (>= (car  (nth 0 bc)) (- (car  (nth 0 bb)) tol))
+             (>= (cadr (nth 0 bc)) (- (cadr (nth 0 bb)) tol))
+             (<= (car  (nth 2 bc)) (+ (car  (nth 2 bb)) tol))
+             (<= (cadr (nth 2 bc)) (+ (cadr (nth 2 bb)) tol)))
+        T)))
+)
+
 (defun urb:build-offset-strip
   (base-region chain-poly d1 d2 off-sign perp-sign layer feature module
    parent-handle elevation span
-   / c1 c2 band strip len booleaned tone-count symbols-ok)
+   / c1 c2 band strip len booleaned tone-count symbols-ok area-real area-esp
+     loops)
+  (setq len (urb:curve-length chain-poly))
   (setq c1
     (if (< (abs d1) 1e-9)
       (urb:as-ename (vla-Copy (vlax-ename->vla-object chain-poly)))
       (urb:offset-poly chain-poly (* off-sign d1))))
   (setq c2 (urb:offset-poly chain-poly (* off-sign d2)))
+  ;; offset degenerado (el lazo gigante de las curvas cerradas): se
+  ;; descarta antes de que quede dibujado
+  (foreach c (list c1 c2)
+    (if (and c (not (urb:offset-curve-sane-p c base-region len)))
+      (progn
+        (prompt
+          (strcat "\nANDEN: el desplazamiento de "
+            (rtos (if (equal c c1) d1 d2) 2 2)
+            " m se voltea en una curva de este contorno; esa franja se"
+            " rehace por segmentos."))
+        (entdel c)
+        (if (equal c c1) (setq c1 nil) (setq c2 nil)))))
   (if (or (null c1) (null c2))
     (progn
       (if c1 (entdel c1))
@@ -4456,9 +4557,26 @@
               nil)
             (progn
               (setq len (urb:curve-length chain-poly))
-              (setq tone-count
-                (urb:offset-strip-tones
-                  strip chain-poly len layer parent-handle elevation span))
+              ;; 2026-09-12 (reporte del usuario: "verifica lo referente al
+              ;; toperol que no se ve"). En un contorno CON CURVA la franja
+              ;; del toperol (d1 = 0, o sea su borde es la cadena misma y no
+              ;; un offset) salia reducida a una sola tableta -- medido: 0,04
+              ;; m2 de los 30 m2 del tramo -- y aun asi se daba por buena.
+              ;; Ahora se compara el area real contra la esperada
+              ;; (longitud x ancho de la franja): si no cubre ni la mitad,
+              ;; el offset no sirvio en este contorno y se declara FALLO
+              ;; para que el llamador la complete por segmentos.
+              (setq area-real (vl-catch-all-apply 'vla-get-Area (list strip)))
+              (if (not (numberp area-real)) (setq area-real 0.0))
+              (setq area-esp (* len (abs (- d2 d1))))
+              ;; OJO: c1 y c2 los borra abajo la rama de fallo. No hay que
+              ;; borrarlos aqui tambien -- entdel es un interruptor y una
+              ;; segunda llamada los REVIVE.
+              (if (and (> area-esp 1e-6) (< area-real (* 0.5 area-esp)))
+                (setq tone-count 0)
+                (setq tone-count
+                  (urb:offset-strip-tones
+                    strip chain-poly len layer parent-handle elevation span)))
               (urb:safe-delete strip)
               (if (<= tone-count 0)
                 (progn
@@ -4472,10 +4590,15 @@
                     (vla-put-Color (vlax-ename->vla-object c) 8)
                     (urb:tag-generated-role
                       (vlax-ename->vla-object c) parent-handle "FEATURE"))
+                  ;; contornos del anden, para que ningun simbolo se dibuje
+                  ;; fuera (vla-Explode no destruye la region original)
+                  (setq loops
+                    (vl-catch-all-apply 'urb:region-polygons (list base-region)))
+                  (if (vl-catch-all-error-p loops) (setq loops nil))
                   (setq symbols-ok
                     (urb:offset-strip-symbols
                       chain-poly len d1 d2 perp-sign feature module
-                      layer parent-handle))
+                      layer parent-handle loops))
                   ;; Un strip sin domos/capsulas no cuenta como terminado;
                   ;; el caller puede activar su metodo segmentado de respaldo.
                   symbols-ok))))))))
@@ -4484,7 +4607,8 @@
 (defun urb:create-accessibility-features-offset
   (base-region points driving-chain guia toperol format parent-handle
    / module goff chain-poly len box elevation off-sign perp-sign
-     mid-d mid-pt mid-ang cand test-off count layer span)
+     mid-d mid-pt mid-ang cand test-off count layer span
+     ok-top ok-gui rescate)
   (setq module (urb:loseta-module format))
   (setq goff *urb-guide-offset*)
   (setq box (urb:object-box-points base-region)
@@ -4518,7 +4642,13 @@
             (setq off-sign -1.0))
           (entdel test-off))
         (setq off-sign -1.0))
-      (setq count 0)
+      ;; 2026-09-12 (reporte del usuario: el anden curvo salia sin toperol).
+      ;; Antes bastaba con que UNA de las dos franjas saliera para dar el
+      ;; trabajo por terminado: con la guia hecha y el toperol fallado, el
+      ;; llamador nunca activaba su respaldo y el anden quedaba sin toperol.
+      ;; Ahora se lleva cuenta POR FRANJA y la que falle se completa aqui
+      ;; mismo con el metodo segmentado, sin repetir la que si salio.
+      (setq count 0 ok-top (not (urb:yes-p toperol)) ok-gui (not (urb:yes-p guia)))
       (if (urb:yes-p toperol)
         (progn
           (setq layer
@@ -4527,7 +4657,7 @@
           (if (urb:build-offset-strip
                 base-region chain-poly 0.0 module off-sign perp-sign
                 layer "TOPEROL" module parent-handle elevation span)
-            (setq count (1+ count)))))
+            (setq count (1+ count) ok-top T))))
       (if (urb:yes-p guia)
         (progn
           (setq layer
@@ -4536,8 +4666,23 @@
           (if (urb:build-offset-strip
                 base-region chain-poly goff (+ goff module) off-sign perp-sign
                 layer "GUIA" module parent-handle elevation span)
-            (setq count (1+ count)))))
+            (setq count (1+ count) ok-gui T))))
       (entdel chain-poly)
+      (if (or (not ok-top) (not ok-gui))
+        (progn
+          (prompt
+            (strcat "\nANDEN: la franja de "
+              (cond ((and (not ok-top) (not ok-gui)) "guia y toperol")
+                    ((not ok-top) "toperol")
+                    (T "guia"))
+              " no se pudo desplazar sobre este contorno; se rehace por segmentos."))
+          (setq rescate
+            (vl-catch-all-apply 'urb:create-accessibility-features-segmented
+              (list base-region points driving-chain
+                    (if ok-gui "No" guia) (if ok-top "No" toperol)
+                    format parent-handle)))
+          (if (and (not (vl-catch-all-error-p rescate)) rescate)
+            (setq count (1+ count)))))
       (> count 0)))
 )
 
@@ -16438,6 +16583,19 @@
               (setq result (cons (list d (car item)) result))))))))
   (vl-sort result '(lambda (a b) (< (car a) (car b)))))
 
+;; 2026-09-12: al EDITAR una via, decide si la capa de cotas ya guardada
+;; se puede reusar (T) o si hay que volver a pedirla (nil). Se reusa solo
+;; si el metodo sigue siendo "Textos por capa", ya lo era antes y hay una
+;; capa guardada. Volver a pedirla siempre era lo que tumbaba la edicion
+;; al flujo de PENDIENTE (ver la nota en urb:edit-road).
+(defun urb:road-cota-capa-reusable-p (modo-dialogo modo-viejo capa-vieja)
+  (if (and (urb:string-equal-p modo-dialogo "Textos por capa")
+           (urb:string-equal-p (urb:safe-string modo-viejo "") "Textos por capa")
+           (/= (urb:safe-string capa-vieja "") ""))
+    T
+    nil)
+)
+
 (defun urb:road-cota-reference
   (mode / selected ename edata layer texts count obj txt via-cota picks)
   (cond
@@ -17597,7 +17755,7 @@
 (defun urb:edit-road
   (boundary / old dialog axis surface data obj area range axis-start
    axis-length label start interval handle via-id block-ref original-block
-   edit-completed cota-info picks)
+   edit-completed cota-info picks cota-capa cota-textos)
   ;; Si la via ya esta empacada en un bloque (atributos visibles en
   ;; Properties), se desempaca primero: se recupera el contorno crudo
   ;; con su xdata intacta y se sigue el mismo flujo de siempre; al
@@ -17640,10 +17798,46 @@
               (if axis
                 (progn
                   (setq surface (urb:resolve-road-surface (nth 5 dialog)))
+                  ;; 2026-09-12 (reporte del usuario: "si elijo la opcion de
+                  ;; texto por capas me reconoce todas las capas del
+                  ;; alineamiento, pero al momento de edicion de movimiento
+                  ;; de tierras me pone como si lo fuera a calcular por
+                  ;; pendiente"). Al EDITAR una via que YA tenia el modo
+                  ;; "Textos por capa" se volvia a pedir el texto de cota
+                  ;; siempre, y ahi pasaba lo del reporte: si el clic no caia
+                  ;; exactamente en un TEXT/MTEXT -- una etiqueta Civil 3D,
+                  ;; el bloque de una via ya creada, un proxy -- el
+                  ;; auto-detect cambiaba el metodo a cotas seleccionadas, o
+                  ;; sea al flujo de PENDIENTE. De paso
+                  ;; urb:clear-cota-calibration borraba la calibracion de la
+                  ;; capa que ya estaba validada contra el eje.
+                  ;; Ahora la capa guardada (indice 8) se REUSA -- solo se
+                  ;; vuelven a contar sus textos, que es lo que puede haber
+                  ;; cambiado -- y la calibracion persistida en el dibujo
+                  ;; (urb:cota-calib-key) se aprovecha tal cual. Solo se
+                  ;; vuelve a preguntar si no hay capa guardada o si el
+                  ;; usuario acaba de cambiar el metodo en la ventana.
+                  (setq cota-capa (urb:safe-string (nth 8 old) ""))
                   (setq cota-info
-                    (if (urb:string-equal-p (nth 6 dialog) "Textos por capa")
-                      (urb:road-cota-reference (nth 6 dialog))
-                      (list (nth 8 old) (nth 9 old) "DETECTADAS")))
+                    (cond
+                      ((not (urb:string-equal-p (nth 6 dialog) "Textos por capa"))
+                        (list (nth 8 old) (nth 9 old) "DETECTADAS"))
+                      ((not (urb:road-cota-capa-reusable-p
+                              (nth 6 dialog) (nth 7 old) cota-capa))
+                        (urb:road-cota-reference (nth 6 dialog)))
+                      (T
+                        (setq cota-textos
+                          (vl-catch-all-apply 'urb:collect-cota-texts
+                            (list cota-capa)))
+                        (if (vl-catch-all-error-p cota-textos)
+                          (setq cota-textos nil))
+                        (prompt
+                          (strcat "\nCotas por capa " cota-capa ": "
+                            (itoa (length cota-textos))
+                            " textos (se conserva la capa y su calibracion;"
+                            " no hay que volver a marcarla)."))
+                        (list cota-capa (itoa (length cota-textos))
+                          (if cota-textos "DETECTADAS" "PENDIENTE")))))
                   ;; auto-detect: el primer clic fue una via creada o una
                   ;; etiqueta -> cotas seleccionadas (como modo Pendiente)
                   (if (urb:string-equal-p
@@ -17700,18 +17894,54 @@
                       ;; 2026-09-10 (pedido del usuario): despues de aceptar
                       ;; la ventana se puede rehacer la rasante. Con Enter
                       ;; (No) la edicion sigue exactamente como antes.
+                      ;; 2026-09-12: esta pregunta llamaba SIEMPRE al selector
+                      ;; de cotas del modo Pendiente, aunque la via este
+                      ;; configurada con "Textos por capa" -- la otra mitad
+                      ;; del reporte ("al momento de edicion de movimiento de
+                      ;; tierras me pone como si lo fuera a calcular por
+                      ;; pendiente"). Ahora cada metodo rehace lo suyo: por
+                      ;; capa se vuelve a marcar LA CAPA de cotas (y se
+                      ;; recalibra contra el eje), por pendiente se vuelven a
+                      ;; tomar las cotas como antes.
                       (if (urb:ask-edit-movimiento "la via")
-                        (progn
-                          (setq picks (urb:pick-road-cotas))
-                          (cond
-                            ((null picks) nil)
-                            ((<= (length picks) 2)
-                              (setq *urb-road-picked-stations* nil)
-                              (setq *urb-road-picked-cotas* (mapcar 'car picks)))
-                            (T
-                              (setq *urb-road-picked-cotas* nil)
-                              (setq *urb-road-picked-stations*
-                                (urb:picked-cotas-to-stations picks axis))))))
+                        (if (urb:string-equal-p (nth 6 dialog) "Textos por capa")
+                          (progn
+                            (setq cota-info
+                              (urb:road-cota-reference (nth 6 dialog)))
+                            (if (urb:string-equal-p
+                                  (urb:safe-string (car cota-info) "") "PICKED")
+                              (progn
+                                (setq *urb-road-picked-cotas* nil
+                                      *urb-road-picked-stations* nil
+                                      *urb-road-picked-slope* nil)
+                                (if (<= (length (cadr cota-info)) 2)
+                                  (setq *urb-road-picked-cotas*
+                                    (mapcar 'car (cadr cota-info)))
+                                  (setq *urb-road-picked-stations*
+                                    (urb:picked-cotas-to-stations
+                                      (cadr cota-info) axis)))
+                                (setq cota-info (list "" "0" "PENDIENTE"))))
+                            ;; la capa nueva (o la rasante marcada) tiene que
+                            ;; quedar guardada: se reescribe la xdata
+                            (urb:set-road-data boundary
+                              (nth 0 dialog) (nth 1 dialog) (nth 2 dialog) (nth 3 dialog)
+                              (vla-get-Handle (vlax-ename->vla-object axis))
+                              surface (nth 6 dialog) (nth 0 cota-info) (nth 1 cota-info)
+                              label (nth 8 dialog) (nth 12 old) (nth 9 dialog)
+                              (nth 10 dialog) (nth 11 dialog) (nth 12 dialog)
+                              (rtos area 2 6) (rtos axis-length 2 6) (nth 19 old)
+                              (nth 4 dialog) (rtos axis-start 2 6) via-id))
+                          (progn
+                            (setq picks (urb:pick-road-cotas))
+                            (cond
+                              ((null picks) nil)
+                              ((<= (length picks) 2)
+                                (setq *urb-road-picked-stations* nil)
+                                (setq *urb-road-picked-cotas* (mapcar 'car picks)))
+                              (T
+                                (setq *urb-road-picked-cotas* nil)
+                                (setq *urb-road-picked-stations*
+                                  (urb:picked-cotas-to-stations picks axis)))))))
                       (urb:store-selected-road-grade
                         boundary axis-start axis-length (nth 12 old))
                       (setq interval (atof (nth 8 dialog)))
@@ -33376,6 +33606,56 @@
         (urb:costado-tip-segments
           '((0.0 0.0 0.0) (20.0 0.0 0.0) (20.0 2.0 0.0) (0.0 2.0 0.0))
           nil)))
+    ;; 2026-09-12: editar una via con "Textos por capa" volvia a pedir el
+    ;; texto de cota siempre; si el clic no caia en un TEXT/MTEXT exacto,
+    ;; el auto-detect tumbaba la edicion al flujo de PENDIENTE.
+    (list "Editar una via por capa reusa la capa guardada"
+      (and (urb:road-cota-capa-reusable-p
+             "Textos por capa" "Textos por capa" "COTAS VIA|V-NODE-TEXT")
+           ;; sin capa guardada si hay que preguntarla
+           (not (urb:road-cota-capa-reusable-p
+                  "Textos por capa" "Textos por capa" ""))
+           ;; y tambien si el metodo viene de Pendiente
+           (not (urb:road-cota-capa-reusable-p
+                  "Textos por capa" "Pendiente" "COTAS VIA"))
+           ;; con el metodo Pendiente no se reusa nada
+           (not (urb:road-cota-capa-reusable-p
+                  "Pendiente" "Textos por capa" "COTAS VIA"))))
+    ;; 2026-09-12: el simbolo que se pasa del centro de un arco apretado
+    ;; (radio menor que la distancia perpendicular a la que va la franja)
+    ;; NO se dibuja: apilados, esos simbolos forman el disco que el usuario
+    ;; vio como "un circulo" en las curvas.
+    (list "Un simbolo fuera del anden no se dibuja"
+      ((lambda (contorno / dentro fuera)
+        (setq dentro (urb:point-in-region-polygons-p '(0.5 0.5) (list contorno)))
+        (setq fuera (urb:point-in-region-polygons-p '(5.0 5.0) (list contorno)))
+        (and dentro (not fuera)))
+        '((0.0 0.0) (2.0 0.0) (2.0 2.0) (0.0 2.0))))
+    ;; 2026-09-12: en un anden LARGO la cadena guia (la que marca por
+    ;; donde corren la guia y el toperol) salia siendo una TAPA de
+    ;; extremo. La tapa mide el ancho del anden (1,5 m) y pasaba el
+    ;; filtro fijo de 0,5 m, y como la cercania al clic se medía con el
+    ;; PUNTO MEDIO de la cadena, en 60 m de costado el medio quedaba a
+    ;; 30 m del clic y la tapa ganaba. Con 1 sola arista el motor no
+    ;; entraba a la ruta de offset y el toperol quedaba en una esquina.
+    (list "La cadena guia es el costado largo, no la tapa del extremo"
+      ((lambda (anillo clic / prev-pt prev-ch cadena)
+        (setq prev-pt *urb-current-tactile-side-point*
+              prev-ch *urb-current-tactile-side-choice*)
+        (setq *urb-current-tactile-side-choice* nil)
+        (setq *urb-current-tactile-side-point* clic)
+        (setq cadena (urb:anden-tactile-chain anillo))
+        (setq *urb-current-tactile-side-point* prev-pt)
+        (setq *urb-current-tactile-side-choice* prev-ch)
+        (and cadena
+             ;; el costado (60 m), no la tapa (1,5 m)
+             (equal 60.0 (urb:chain-total-length cadena) 0.01)
+             ;; y con sus vertices intermedios, que es lo que necesita la
+             ;; ruta de offset: con 1 sola arista se cae a la proyeccion
+             (> (length (urb:open-chain-edges cadena)) 1)))
+        '((0.0 0.0 0.0) (30.0 0.0 0.0) (60.0 0.0 0.0)
+          (60.0 1.5 0.0) (30.0 1.5 0.0) (0.0 1.5 0.0))
+        '(2.0 -3.0)))
     ;; 2026-09-08: alrededor del contenedor no va prefabricado. El
     ;; costado del lado con entrante (22 m) se parte en 10,0 m + 7,8 m:
     ;; se quitan los 2,2 m que ocupa el contenedor sobre el borde, tanto
