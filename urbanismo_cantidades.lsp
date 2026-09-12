@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "4.96.0")
+(setq *urb-version* "4.97.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -78,7 +78,12 @@
 (setq *urb-anden-grade-source-list*
   '("Via creada" "Cotas seleccionadas" "Alineamiento + cotas"))
 (setq *urb-prefab-list* '("Bordillo" "Sardinel" "Canuela"))
-(setq *urb-prefab-destinos* '("Anden" "Via"))
+;; 2026-09-11 (pedido del usuario: "define lo referente a los materiales"):
+;; los prefabricados que nacen dentro de un modulo de rampa se cobran en EL
+;; CAPITULO DE ESE MODULO, no en andenes -- "Suministro sardinel bajo A-85
+;; para rampa" solo existe en 2.2.4 (vehicular) y 2.2.5 (peatonal).
+(setq *urb-prefab-destinos*
+  '("Anden" "Via" "Rampa vehicular" "Rampa peatonal" "Paso peatonal"))
 
 (defun urb:prefab-destino-default (prefab)
   ;; Compatibilidad con bloques anteriores a 4.74.0: conserva la regla
@@ -91,12 +96,66 @@
   (cond
     ((member value '("VIA")) "VIA")
     ((member value '("ANDEN" "ANDENES")) "ANDEN")
+    ((member value '("RAMPA VEHICULAR" "RAMPA-VEHICULAR")) "RAMPA-VEHICULAR")
+    ((member value '("RAMPA PEATONAL" "RAMPA-PEATONAL")) "RAMPA-PEATONAL")
+    ((member value '("PASO PEATONAL" "PASO-PEATONAL" "PASO PEATONAL SEGURO"))
+      "PASO-PEATONAL")
     (T (strcase (urb:prefab-destino-default prefab)))))
+
+;; Largo de la pieza por tipo de prefabricado (m). El libro compra por
+;; UNIDAD y mide la instalacion por ML, asi que UN = ML / largo.
+;; A-80 = bordillo de 0,80; los sardineles de rampa IDU son de 1,00.
+(setq *urb-prefab-largos*
+  '(("A-80" . 0.80) ("A-85" . 1.00) ("A-86" . 1.00) ("A-100" . 1.00)
+    ("A-10" . 1.00)))
+
+(defun urb:prefab-largo (prefab / tipo res)
+  (setq tipo (strcase (urb:safe-string prefab "")) res nil)
+  (foreach e *urb-prefab-largos*
+    (if (and (null res) (wcmatch tipo (strcat "*" (car e) "*")))
+      (setq res (cdr e))))
+  (if res res 0.80))
+
+;; Peso por pieza (kg) para la actividad "Transporte de prefabricados" (KG)
+;; de los capitulos 2.2.1.2.5 / 2.2.5.2.13 / 2.2.6.2.3. Calculado con el
+;; volumen real de cada pieza x 2.400 kg/m3:
+;;   adoquin 20x10x6 = 0,20 x 0,10 x 0,06 = 0,0012 m3 ->  2,88 kg
+;;   loseta  20x20x6 = 0,20 x 0,20 x 0,06 = 0,0024 m3 ->  5,76 kg
+;;   bordillo A-80   = 0,80 x 0,20 x 0,35 = 0,0560 m3 -> 134,40 kg
+;;   sardinel A-85   = 1,00 x 0,25 x 0,20 = 0,0500 m3 -> 120,00 kg
+;;   sardinel A-86   = 1,00 x 0,35 x 0,20 = 0,0700 m3 -> 168,00 kg
+;; Si el proveedor da otros pesos, se cambian SOLO aqui.
+(setq *urb-prefab-pesos*
+  '(("ADOQUIN" . 2.88) ("LOSETA" . 5.76) ("A-80" . 134.40)
+    ("A-85" . 120.00) ("A-86" . 168.00) ("A-100" . 150.00)
+    ("A-105" . 100.00)))
+
+(defun urb:prefab-peso (clave / tipo res)
+  (setq tipo (strcase (urb:safe-string clave "")) res nil)
+  (foreach e *urb-prefab-pesos*
+    (if (and (null res) (wcmatch tipo (strcat "*" (car e) "*")))
+      (setq res (cdr e))))
+  (if res res 0.0))
 
 (defun urb:prefab-conceptos (prefab / tipo)
   ;; Textos contractuales verificados contra urbanismo maipore.xlsx.
   (setq tipo (strcase (urb:safe-string prefab "")))
   (cond
+    ;; 2026-09-11 (foto acotada del usuario): los sardineles de rampa del
+    ;; libro. En el acceso vehicular el A-85 va en la LONGITUD MAYOR (el
+    ;; frente, sobre el bordillo de la via) y el A-80 en las curvas y en la
+    ;; longitud menor. Van ANTES del comodin *SARDINEL* para que no se los
+    ;; lleve el A-10 generico. La M.O. de los tres es la generica de
+    ;; sardinel prefabricado (2.2.4.7.3 / 2.2.2.7.1).
+    ((wcmatch tipo "*A-85*")
+      (list "Suministro sardinel bajo A-85 para rampa"
+            "M.O. instalacion de sardinel prefabricado" "SARDINEL"))
+    ((wcmatch tipo "*A-86*")
+      (list "Suministro sardinel alto A-86 para rampas"
+            "M.O. instalacion de sardinel prefabricado" "SARDINEL"))
+    ((wcmatch tipo "*A-100*")
+      (list "Suministro sardinel especial A-100 para rampa"
+            "M.O. instalacion de sardinel prefabricado" "SARDINEL"))
     ((wcmatch tipo "*SARDINEL*")
       (list "Sardinel prefabricado A-10"
             "M.O. instalaciÃ³n de sardinel prefabricado" "SARDINEL"))
@@ -8427,6 +8486,11 @@
     ((= (urb:prefab-token prefab) "SARDINEL") 30)
     ((= (urb:prefab-token prefab) "CANUELA") 4)
     ((wcmatch (urb:prefab-token prefab) "*A-105*") 6)
+    ;; 2026-09-11: los sardineles de rampa se distinguen del bordillo A-80
+    ;; (rojo) para poder leer en planta que material va en cada longitud
+    ((wcmatch (urb:prefab-token prefab) "*A-85*") 5)
+    ((wcmatch (urb:prefab-token prefab) "*A-86*") 3)
+    ((wcmatch (urb:prefab-token prefab) "*A-100*") 2)
     (T 1))
 )
 
@@ -20934,8 +20998,15 @@
 ;;;     cada costado
 ;;;   4 bolardos, a 2,20 y 3,00 m de fondo
 ;;; ---------------------------------------------------------------------
-(setq *urb-rampav-aleta* 2.369)     ; ancho de la aleta sobre el bordillo
-(setq *urb-rampav-aleta-int* 2.156) ; su borde interior, ya al fondo
+;;; 2026-09-11 (foto acotada del usuario): el modulo mide 10,00 m en la
+;;; LONGITUD MAYOR (el frente, sobre el bordillo de la via) y 5,80 m en la
+;;; LONGITUD MENOR (la banda del fondo, entre las dos aletas). De ahi salen
+;;; la aleta (10,00 - 5,80) / 2 = 2,10 y el arranque de la banda en la
+;;; misma abscisa que el final del arco.
+(setq *urb-rampav-mayor* 10.00)     ; referencia: longitud mayor del plano
+(setq *urb-rampav-menor* 5.80)      ; referencia: longitud menor del plano
+(setq *urb-rampav-aleta* 2.10)      ; ancho de la aleta sobre el bordillo
+(setq *urb-rampav-aleta-int* 2.10)  ; su borde interior, ya al fondo
 (setq *urb-rampav-fondo* 1.70)      ; profundidad de la rampa
 (setq *urb-rampav-banda* 0.20)      ; banda de fondo (bordillo A-80)
 (setq *urb-rampav-tableta* 0.20)    ; tableta podotactil 20 x 20
@@ -20979,7 +21050,9 @@
 ;;; tono translucido, las lineas en V del plano y una flecha "BAJA".
 ;;; ---------------------------------------------------------------------
 (setq *urb-rampav-bulge* 0.32172)   ; arco de la aleta (del plano)
-(setq *urb-rampav-banda-ini* 0.0685) ; la banda arranca 6,85 cm antes del arco
+;; 2026-09-11: la banda del fondo arranca donde termina el arco, para que
+;; su longitud sea exactamente la LONGITUD MENOR (10,00 - 2 x 2,10 = 5,80).
+(setq *urb-rampav-banda-ini* 0.0)
 
 ;; Polilinea en coordenadas LOCALES de la rampa con arcos: verts = (u v
 ;; bulge). El marco local puede ser un reflejo (side-sign = -1) y en ese
@@ -21004,27 +21077,35 @@
 ;; tipo define capa, color y actividades del presupuesto. Las dos aletas
 ;; son la pieza de remate A-105 del plano (capa URB-REMATE-A-105) y la
 ;; banda del fondo es el bordillo A-80 (capa URB-BORDILLO).
-(defun urb:rampav-bordillo (base axis sign verts side-uv etapa sub tipo / ref side r)
-  (setq tipo (urb:safe-string tipo "Bordillo"))
+(defun urb:rampav-bordillo
+  (base axis sign verts side-uv etapa sub tipo destino / ref side r)
+  (setq tipo (urb:safe-string tipo "Bordillo")
+        destino (urb:safe-string destino "Rampa vehicular"))
   (setq ref (urb:ramp-bulge-poly base axis sign verts nil "URB-RAMPA"))
   (setq side (urb:ramp-local-point base axis sign (car side-uv) (cadr side-uv)))
   (setq r
     (vl-catch-all-apply 'urb:build-prefab-from-reference
       (list ref (list (car side) (cadr side) 0.0) tipo *urb-rampav-banda*
-            etapa sub "Exterior" "Anden")))
+            etapa sub "Exterior" destino)))
   (if (or (null r) (vl-catch-all-error-p r))
     (progn (if (and ref (entget ref)) (entdel ref)) nil)
     r))
 
+;; ML reales de un prefabricado ya creado (los guarda su atributo, y en un
+;; arco no son la distancia entre extremos).
+(defun urb:prefab-longitud-de (ref)
+  (atof (urb:safe-string
+          (cdr (assoc "LONGITUD_M" (urb:block-attribute-values ref))) "0")))
+
 (defun urb:ramp-vehicular-objects
   (frame etapa sub depth / base axis sign L a f b bi objects obj hatch ent
-   u1 u2 lu lv tab-ml bol origin prefabs r fan-area vx txt a105 a80ml)
+   u1 u2 lu lv tab-ml bol origin prefabs r fan-area vx txt a105 a80ml a85ml)
   (setq base (car frame) axis (cadr frame) sign (caddr frame) L (nth 3 frame))
   (setq a (urb:rampav-aleta L)
         f *urb-rampav-fondo*
         b *urb-rampav-banda*
         bi (max 0.0 (- a *urb-rampav-banda-ini*)))
-  (setq objects nil prefabs nil tab-ml 0.0 bol 0 a105 0 a80ml 0.0)
+  (setq objects nil prefabs nil tab-ml 0.0 bol 0 a105 0 a80ml 0.0 a85ml 0.0)
   (urb:ensure-layer "URB-RAMPA" 4 T)
   (urb:ensure-layer "URB-RAMPA-BAJADA" 8 T)
   (urb:ensure-layer "URB-RAMPA-REMATE" 4 T)
@@ -21078,20 +21159,29 @@
       (vla-put-Rotation txt (+ axis (if (< sign 0) (- (/ pi 2.0)) (/ pi 2.0))))
       (setq objects (cons txt objects))))
 
-  ;; ---- ALETAS = bordillos curvos de 0,20 (PREFABRICADOS) ----
+  ;; ---- ALETAS = bordillos A-80 CURVOS de 0,20 (PREFABRICADOS) ----
+  ;; 2026-09-11 (foto acotada del usuario): "el bordillo A-80 va en las
+  ;; curvas y en la longitud menor". El largo del arco se mide de verdad
+  ;; sobre la polilinea del prefabricado, no en linea recta.
   (setq r (urb:rampav-bordillo base axis sign
             (list (list 0.0 0.0 *urb-rampav-bulge*) (list a f 0.0))
-            (list -1.0 (* 0.5 f)) etapa sub "Remate A-105"))
-  (if r (setq prefabs (cons r prefabs) a105 (1+ a105)))
+            (list -1.0 (* 0.5 f)) etapa sub "Bordillo" "Rampa vehicular"))
+  (if r (setq prefabs (cons r prefabs) a80ml (+ a80ml (urb:prefab-longitud-de r))))
   (setq r (urb:rampav-bordillo base axis sign
             (list (list L 0.0 (- *urb-rampav-bulge*)) (list (- L a) f 0.0))
-            (list (+ L 1.0) (* 0.5 f)) etapa sub "Remate A-105"))
-  (if r (setq prefabs (cons r prefabs) a105 (1+ a105)))
-  ;; ---- BANDA DEL FONDO = bordillo A-80 de 0,20 (PREFABRICADO) ----
+            (list (+ L 1.0) (* 0.5 f)) etapa sub "Bordillo" "Rampa vehicular"))
+  (if r (setq prefabs (cons r prefabs) a80ml (+ a80ml (urb:prefab-longitud-de r))))
+  ;; ---- LONGITUD MENOR (5,80 en el modulo de 10) = bordillo A-80 ----
   (setq r (urb:rampav-bordillo base axis sign
             (list (list bi (- f b) 0.0) (list (- L bi) (- f b) 0.0))
-            (list (* 0.5 L) (+ f 1.0)) etapa sub "Bordillo"))
+            (list (* 0.5 L) (+ f 1.0)) etapa sub "Bordillo" "Rampa vehicular"))
   (if r (setq prefabs (cons r prefabs) a80ml (+ a80ml (- L (* 2.0 bi)))))
+  ;; ---- LONGITUD MAYOR (10,00) = sardinel BAJO A-85, sobre el bordillo
+  ;;      de la via: es el sardinel rebajado por donde cruza el vehiculo ----
+  (setq r (urb:rampav-bordillo base axis sign
+            (list (list 0.0 0.0 0.0) (list L 0.0 0.0))
+            (list (* 0.5 L) -1.0) etapa sub "Sardinel A-85" "Rampa vehicular"))
+  (if r (setq prefabs (cons r prefabs) a85ml (+ a85ml L)))
 
   ;; ---- tableta podotactil de ALERTA: fila al fondo y bajando por los
   ;;      costados (del bloque del plano) ----
@@ -21155,9 +21245,11 @@
                    (setq bol (1+ bol))))))))
 
   ;; (objetos area-de-bajada tableta-ML bordillo-ML-en-el-bloque bolardos
-  ;;  prefabricados piezas-A105 bordillo-A80-ML) -- el bordillo y las piezas
-  ;;  A-105 se cuentan en los PREFABRICADOS; los ML van solo de informe
-  (list (reverse objects) fan-area tab-ml 0.0 bol (reverse prefabs) a105 a80ml)
+  ;;  prefabricados piezas-A105 bordillo-A80-ML sardinel-A85-ML) -- los
+  ;;  bordillos y el sardinel se cobran como PREFABRICADOS; los ML aqui van
+  ;;  solo de informe (atributos del bloque)
+  (list (reverse objects) fan-area tab-ml 0.0 bol (reverse prefabs) a105 a80ml
+        a85ml)
 )
 
 ;; T si el paso da para llevar el desarrollo completo en los dos extremos
@@ -21436,6 +21528,13 @@
       (cons "A81_UND" "0")
       (cons "A105_UND" (itoa (nth 6 endres)))
       (cons "BORDILLO_A80_ML" (rtos (nth 7 endres) 2 3))
+      (cons "SARDINEL_A85_ML" (rtos (nth 8 endres) 2 3))
+      (cons "LONGITUD_MAYOR_M" (rtos (nth 3 frame) 2 3))
+      (cons "LONGITUD_MENOR_M"
+        (rtos (max 0.0 (- (nth 3 frame)
+                          (* 2.0 (max 0.0 (- (urb:rampav-aleta (nth 3 frame))
+                                             *urb-rampav-banda-ini*)))))
+              2 3))
       (cons "BORDILLO_PREFAB_UND" (itoa (length prefabs)))
       (cons "BOLARDO_UND" (itoa (nth 4 endres)))
       (cons "BORDILLO_ML" "0")
@@ -21461,7 +21560,13 @@
   ;; los bordillos curvos y la banda recortan el patron del anden de abajo
   (setq n-rec (if prefabs (urb:recut-andenes-under prefabs) 0))
   (prompt (strcat "\nAcceso vehicular: rampa del lado de la via, "
-    (itoa (nth 6 endres)) " piezas de remate A-105 + banda de bordillo A-80, "
+    (rtos (nth 7 endres) 2 2) " ml de bordillo A-80 (curvas + longitud menor "
+    (rtos (max 0.0 (- (nth 3 frame)
+                      (* 2.0 (max 0.0 (- (urb:rampav-aleta (nth 3 frame))
+                                         *urb-rampav-banda-ini*)))))
+          2 2)
+    " m), " (rtos (nth 8 endres) 2 2)
+    " ml de sardinel bajo A-85 en la longitud mayor, "
     (itoa (nth 4 endres)) " bolardos."
     (if surf
       (strcat " Pavimento propio del modulo: " (rtos (+ gris blanco) 2 2)
@@ -27508,9 +27613,14 @@
 ;; zonas verdes -- el bloque se creaba con su area, espesor de tierra negra
 ;; y su corte/relleno, pero nadie los convertia en filas.
 ;; El vocabulario es el EXACTO del libro y depende del contexto:
-;;   sin zona marcada  -> capitulo "ZONA VERDE" de perfiles viales (2.2.7):
-;;      Empradizacion y conformacion (M2) | Excavacion mecanica ... (M3) |
-;;      Suministro y colocacion de recebo B-200 (M3)
+;;   sin zona marcada  -> capitulo 2.2.7 ZONA VERDE de perfiles viales, que
+;;      SOLO tiene dos actividades: 2.2.7.1.1 Empradizacion y conformacion
+;;      (M2) y 2.2.7.2.1 Suministro e instalacion de arbol (UN, la pone el
+;;      comando de arborizacion, no la zona). 2026-09-11, segunda ronda del
+;;      usuario ("recuerda que quiero que este conectado a la zona verde
+;;      del capitulo de 2.2.7"): las filas de excavacion y de recebo que
+;;      salian antes NO existen en 2.2.7 y quedaban sin capitulo; el corte
+;;      y el relleno de la zona verde van por las parametricas.
 ;;   con zona marcada  -> "ZONAS VERDES" del parque (2.3.x.2):
 ;;      Localizacion y replanteo (M2) | Relleno Manual Tierra Negra X 30CM
 ;;      (M3) | Coberturas Zonas Verdes (M2)
@@ -27541,12 +27651,7 @@
         (if (= zona "")
           (list
             (urb:ppto-row "ZONA-VERDE" "Empradizacion y conformacion"
-              "" "" "" etapa sub "M2" area handle)
-            (urb:ppto-row "ZONA-VERDE"
-              "Excavacion mecanica en material comun (Incluye cargue, transporte y disposicion externa)"
-              "" "" "" etapa sub "M3" corte handle)
-            (urb:ppto-row "ZONA-VERDE" "Suministro y colocacion de recebo B-200"
-              "" "" "" etapa sub "M3" relleno handle))
+              "" "" "" etapa sub "M2" area handle))
           (list
             (urb:ppto-row "ZONA-VERDE" "Localizacion y replanteo"
               "" "" "" etapa sub "M2" area handle)
@@ -29549,11 +29654,13 @@
               "" "" "" etapa sub "UN" 1.0 handle)
             (urb:ppto-row red (nth 1 conceptos)
               "" "" "" etapa sub "UN" 1.0 handle))
+          ;; 2026-09-11: el largo de la pieza depende del tipo (A-80 de
+          ;; 0,80; sardineles de rampa de 1,00), no siempre 0,80.
           (list
             (urb:ppto-row red
               (nth 0 conceptos)
               "" "" "" etapa sub "UN"
-              (float (fix (+ 0.999999 (/ lng 0.8)))) handle)
+              (float (fix (+ 0.999999 (/ lng (urb:prefab-largo tipo))))) handle)
             (urb:ppto-row red
               (nth 1 conceptos)
               "" "" "" etapa sub "ML" lng handle))))
@@ -29568,17 +29675,40 @@
       (setq i (1+ i))))
   out)
 
-;; 2026-09-11 (pedido del usuario: "revisa que todo este conectado a lo del
-;; presupuesto"): las filas de rampa vehicular / rampa peatonal / paso
-;; peatonal salen con el TEXTO EXACTO de los capitulos 2.2.4, 2.2.5 y 2.2.6
-;; del libro. Lo que el modulo no modela todavia (sardineles A-85/A-86/A-100
-;; y transporte de prefabricados en KG) no se inventa: sale en 0, o sea no
-;; sale. Las aletas A-105 y la banda A-80 del acceso vehicular se cuentan
-;; como PREFABRICADOS aparte (urb:ppto-rows-prefabs), no aqui.
+
+;; 2026-09-11 (pedido del usuario: "define lo referente a los materiales y
+;; longitudes ... asi mismo quiero que eso lo conectes al presupuesto, pasa
+;; lo mismo con el paso peatonal y la rampa peatonal").
+;;
+;; Cada modulo sale con el TEXTO EXACTO de SU capitulo, y solo con las
+;; actividades que ESE capitulo tiene -- se leyeron los tres del libro:
+;;
+;;   2.2.4 RAMPA VEHICULAR: subrasante, los 4 suministros de sardinel/remate
+;;     (A-105, A-86, A-85, A-100), excavacion, recebo B-200, geotextil, SBG,
+;;     M.O. de adoquin y tabletas / bordillo / sardinel / loseta guia y
+;;     toperol, y el bolardo M-63. NO tiene suministro de adoquin, losetas,
+;;     arena ni A-80: esos materiales los compra el capitulo de ANDENES
+;;     (2.2.1), que es donde caen.
+;;   2.2.5 RAMPA PEATONAL: lo tiene todo en su propio capitulo.
+;;   2.2.6 PASO PEATONAL SEGURO: tiene adoquin, A-80, transporte, arena,
+;;     excavacion, recebo (sin "B-200" en el nombre), SBG, geotextil y sus
+;;     M.O.; NO tiene losetas ni M.O. de loseta guia y toperol -> esas van a
+;;     ANDENES, y el remate de rampa fundido en sitio va a 2.2.5, el unico
+;;     capitulo que lo tiene.
+;;
+;; Los bordillos y sardineles del acceso vehicular son PREFABRICADOS
+;; (urb:ppto-rows-prefabs los cobra con su suministro y su M.O. en el
+;; capitulo de la rampa), asi que aqui no se repiten.
+;;
+;; Acceso vehicular en SUPERPOSICION sobre un anden: el anden ya cobra su
+;; subrasante, su excavacion, sus granulares y su pavimento, asi que el
+;; modulo solo aporta los prefabricados, los bolardos y su tableta de
+;; alerta. Con pavimento propio aporta todo.
 (defun urb:ppto-rows-rampas (/ ss i be atts data mov tipo red etapa sub handle
-                             area corte relleno sbg arena geo adoq loseta
-                             top-ml top-und guia-ml guia-und bor-ml a80 a81
-                             bolardos rows out r)
+                             area corte relleno sbg arena geo adoq-und adoq-m2
+                             loseta-und loseta-m2 top-ml top-und guia-ml
+                             guia-und bor-ml a80 a81 bolardos a85 propio
+                             kg-prefab base rows out r)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_RAMPA_BLOCK")))) out nil i 0)
   (if ss
     (repeat (sslength ss)
@@ -29595,80 +29725,121 @@
       (defun urb:ra-num (clave defecto)
         (atof (urb:safe-string (cdr (assoc clave atts)) defecto)))
       (setq area (urb:ra-num "AREA_M2" "0")
-            corte (if (and mov (car mov)) (atof (car mov)) (* area *urb-anden-depth*))
-            relleno (if (and mov (cadr mov)) (atof (cadr mov)) 0.0)
-            sbg (urb:ra-num "SBG_M3" (rtos (* area 0.50) 2 6))
-            arena (urb:ra-num "ARENA_M3" (rtos (* area 0.04) 2 6))
-            geo (urb:ra-num "GEOTEXTIL_M2" (rtos (* area 1.15) 2 6))
-            adoq (urb:ra-num "ADOQUIN_20X10_UND" "0")
-            loseta (urb:ra-num "LOSETA_LISA_UND" "0")
+            adoq-m2 (urb:ra-num "ADOQUIN_M2" "0")
+            loseta-m2 (urb:ra-num "LOSETA_LISA_M2" "0")
+            adoq-und (urb:ra-num "ADOQUIN_20X10_UND" "0")
+            loseta-und (urb:ra-num "LOSETA_LISA_UND" "0")
             top-ml (urb:ra-num "TOPEROL_ML" "0")
             top-und (urb:ra-num "LOSETA_TOPEROL_UND" (rtos (/ top-ml 0.20) 2 6))
             guia-ml (urb:ra-num "LOSETA_GUIA_ML" "0")
             guia-und (urb:ra-num "LOSETA_GUIA_UND" (rtos (/ guia-ml 0.20) 2 6))
             bor-ml (urb:ra-num "BORDILLO_ML" "0")
             a80 (/ bor-ml 0.80)
+            a85 (urb:ra-num "SARDINEL_A85_ML" "0")
             a81 (urb:ra-num "A81_UND" "0")
             bolardos (urb:ra-num "BOLARDO_UND" "0"))
+      ;; el acceso vehicular sin anden debajo trae su propio pavimento
+      (setq propio (or (/= tipo "RAMPA-VEHICULAR")
+                       (> (+ loseta-m2 adoq-m2) 0.0)))
+      (setq base (if propio area 0.0))
+      (setq corte (if (and mov (car mov)) (atof (car mov)) (* base *urb-anden-depth*))
+            relleno (if (and mov (cadr mov)) (atof (cadr mov)) 0.0)
+            sbg (urb:ra-num "SBG_M3" (rtos (* base 0.50) 2 6))
+            arena (urb:ra-num "ARENA_M3" (rtos (* base 0.04) 2 6))
+            geo (urb:ra-num "GEOTEXTIL_M2" (rtos (* base 1.15) 2 6)))
+      (if (not propio) (setq corte 0.0 relleno 0.0 sbg 0.0 arena 0.0 geo 0.0))
+      ;; KG de transporte de prefabricados: pesos de catalogo por pieza
+      (setq kg-prefab
+        (+ (* adoq-und (urb:prefab-peso "ADOQUIN"))
+           (* (+ loseta-und top-und guia-und) (urb:prefab-peso "LOSETA"))
+           (* a80 (urb:prefab-peso "A-80"))))
+      (defun rr (r c um q) (urb:ppto-row r c "" "" "" etapa sub um q handle))
+      ;; ---------- lo que comparten los tres capitulos ----------
       (setq rows
         (list
-          ;; descapote y nivelacion de subrasante
-          (urb:ppto-row red "Compactacion de subrasante (Incluye nivelacion)"
-            "" "" "" etapa sub "M2" area handle)
-          (urb:ppto-row red
+          (rr red "Compactacion de subrasante (Incluye nivelacion)" "M2" base)
+          (rr red
             "Descapote mecanico de material vegetal (Incluye cargue y retiro externo)"
-            "" "" "" etapa sub "M2" area handle)
-          ;; suministro
-          (urb:ppto-row red "Adoquin gris 10x20x6"
-            "" "" "" etapa sub "UN" adoq handle)
-          (urb:ppto-row red "Loseta lisa 20x20x6"
-            "" "" "" etapa sub "UN" loseta handle)
-          (urb:ppto-row red "Loseta toperol 20x20x6"
-            "" "" "" etapa sub "UN" top-und handle)
-          (urb:ppto-row red "Loseta guia 20x20x6"
-            "" "" "" etapa sub "UN" guia-und handle)
-          (urb:ppto-row red "Bordillo prefabricado A-80"
-            "" "" "" etapa sub "UN" a80 handle)
-          (urb:ppto-row red "Arena de nivelacion"
-            "" "" "" etapa sub "M3" arena handle)
-          ;; instalacion (mano de obra)
-          (urb:ppto-row red "M.O. localizacion y replanteo"
-            "" "" "" etapa sub "M2" area handle)
-          (urb:ppto-row red "M.O. instalacion de adoquin y tabletas"
-            "" "" "" etapa sub "M2" area handle)
-          (urb:ppto-row red "M.O. nivelacion con arena"
-            "" "" "" etapa sub "M2" area handle)
-          (urb:ppto-row red "M.O. instalacion de bordillo prefabricado"
-            "" "" "" etapa sub "ML" bor-ml handle)
-          (urb:ppto-row red "M.O. instalacion de loseta guia y toperol"
-            "" "" "" etapa sub "ML" (+ guia-ml top-ml) handle)
-          ;; excavaciones, rellenos y granulares
-          (urb:ppto-row red
+            "M2" base)
+          (rr red
             "Excavacion mecanica en material comun (Incluye cargue, transporte y disposicion externa)"
-            "" "" "" etapa sub "M3" corte handle)
-          (urb:ppto-row red "Suministro y colocacion de recebo B-200"
-            "" "" "" etapa sub "M3" relleno handle)
-          (urb:ppto-row red "Subbase granular SBG"
-            "" "" "" etapa sub "M3" sbg handle)
-          (urb:ppto-row red "Geotextil tejido 2100"
-            "" "" "" etapa sub "M2" geo handle)))
-      ;; propias de cada tipo
-      (if (= tipo "RAMPA-VEHICULAR")
-        (setq rows
-          (append rows
-            (list
-              (urb:ppto-row red
-                "Suministro e instalacion de bolardo alto en hierro Tipo M-63"
-                "" "" "" etapa sub "UN" bolardos handle))))
-        ;; en el paso y la rampa peatonal las cunas A-81 del modulo U-201
-        ;; son el remate de rampa fundido en sitio del libro (0,30 x 1,30
-        ;; cada una)
-        (setq rows
-          (append rows
-            (list
-              (urb:ppto-row red
-                "Suministro y construccion de remate de rampa en concreto fundido en sitio"
-                "" "" "" etapa sub "M2" (* a81 0.39) handle)))))
+            "M3" corte)
+          (rr red "Subbase granular SBG" "M3" sbg)
+          (rr red "Geotextil tejido 2100" "M2" geo)
+          (rr red "M.O. instalacion de adoquin y tabletas" "M2" base)))
+      ;; ---------- lo propio de cada capitulo ----------
+      (cond
+        ;; ===== 2.2.4 RAMPA VEHICULAR =====
+        ((= tipo "RAMPA-VEHICULAR")
+          (setq rows
+            (append rows
+              (list
+                (rr red "Suministro y colocacion de recebo B-200" "M3" relleno)
+                ;; la M.O. de bordillo y de sardinel las cobra el
+                ;; prefabricado con su propia fila; aqui solo la tactil
+                (rr red "M.O. instalacion de loseta guia y toperol" "ML"
+                  (+ guia-ml top-ml))
+                (rr red
+                  "Suministro e instalacion de bolardo alto en hierro Tipo M-63"
+                  "UN" bolardos)
+                ;; 2.2.4 no compra materiales de pavimento: van a ANDENES
+                (rr "ANDEN" "Adoquin gris 10x20x6" "UN" adoq-und)
+                (rr "ANDEN" "Loseta lisa 20x20x6" "UN" loseta-und)
+                (rr "ANDEN" "Loseta toperol 20x20x6" "UN" top-und)
+                (rr "ANDEN" "Loseta guia 20x20x6" "UN" guia-und)
+                (rr "ANDEN" "Arena de nivelacion" "M3" arena)
+                (rr "ANDEN" "Transporte de prefabricados" "KG" kg-prefab)
+                (rr "ANDEN" "M.O. localizacion y replanteo" "M2" base)
+                (rr "ANDEN" "M.O. nivelacion con arena" "M2" base)))))
+        ;; ===== 2.2.6 PASO PEATONAL SEGURO =====
+        ((= tipo "PASO-PEATONAL")
+          (setq rows
+            (append rows
+              (list
+                (rr red "Suministro y colocacion de recebo" "M3" relleno)
+                (rr red "Adoquin gris 10x20x6" "UN" adoq-und)
+                (rr red "Bordillo prefabricado A-80" "UN" a80)
+                (rr red "Arena de nivelacion" "M3" arena)
+                (rr red "Transporte de prefabricados" "KG" kg-prefab)
+                (rr red "M.O. localizacion y replanteo" "M2" base)
+                (rr red "M.O. nivelacion con arena" "M2" base)
+                (rr red "M.O. instalacion de bordillo prefabricado" "ML" bor-ml)
+                ;; 2.2.6 no tiene losetas ni su M.O.: van a ANDENES
+                (rr "ANDEN" "Loseta lisa 20x20x6" "UN" loseta-und)
+                (rr "ANDEN" "Loseta toperol 20x20x6" "UN" top-und)
+                (rr "ANDEN" "Loseta guia 20x20x6" "UN" guia-und)
+                (rr "ANDEN" "M.O. instalacion de loseta guia y toperol" "ML"
+                  (+ guia-ml top-ml))
+                ;; el remate de rampa fundido en sitio solo existe en 2.2.5
+                (rr "RAMPA-PEATONAL"
+                  "Suministro y construccion de remate de rampa en concreto fundido en sitio"
+                  "M2" (* a81 0.39))))))
+        ;; ===== 2.2.5 RAMPA PEATONAL =====
+        (T
+          (setq rows
+            (append rows
+              (list
+                (rr red "Suministro y colocacion de recebo B-200" "M3" relleno)
+                (rr red "Adoquin gris 10x20x6" "UN" adoq-und)
+                (rr red "Loseta lisa 20x20x6" "UN" loseta-und)
+                (rr red "Loseta toperol 20x20x6" "UN" top-und)
+                (rr red "Loseta guia 20x20x6" "UN" guia-und)
+                (rr red "Bordillo prefabricado A-80" "UN" a80)
+                (rr red "Arena de nivelacion" "M3" arena)
+                (rr red "Transporte de prefabricados" "KG" kg-prefab)
+                (rr red "Suministro sardinel bajo A-85 para rampa" "UN"
+                  (if (> a85 0.0) (float (fix (+ 0.999999 a85))) 0.0))
+                (rr red
+                  "Suministro y construccion de remate de rampa en concreto fundido en sitio"
+                  "M2" (* a81 0.39))
+                (rr red "M.O. localizacion y replanteo" "M2" base)
+                (rr red "M.O. nivelacion con arena" "M2" base)
+                (rr red "M.O. instalacion de bordillo prefabricado" "ML" bor-ml)
+                (rr red "M.O. instalacion de loseta guia y toperol" "ML"
+                  (+ guia-ml top-ml))
+                (rr red
+                  "Suministro e instalacion de bolardo alto en hierro Tipo M-63"
+                  "UN" bolardos))))))
       (setq rows (vl-remove nil rows))
       (setq rows
         (append rows
@@ -29676,8 +29847,9 @@
             (list
               (cons "AREA" area) (cons "TOPEROL_ML" top-ml)
               (cons "BORDILLO_ML" bor-ml)
-              (cons "LOSETA_LISA_M2" (urb:ra-num "LOSETA_LISA_M2" "0"))
-              (cons "ADOQUIN_M2" (urb:ra-num "ADOQUIN_M2" "0"))
+              (cons "SARDINEL_A85_ML" a85)
+              (cons "LOSETA_LISA_M2" loseta-m2)
+              (cons "ADOQUIN_M2" adoq-m2)
               (cons "GUIA_ML" guia-ml) (cons "CORTE" corte)
               (cons "RELLENO" relleno) (cons "UNIDAD" 1.0))
             "" "" "" etapa sub handle)))
@@ -29685,7 +29857,6 @@
       (foreach r rows (if r (setq out (cons r out))))
       (setq i (1+ i))))
   out)
-
 (defun urb:ppto-tramo-red (atts / red tipo)
   (setq red (strcase (urb:safe-string (cdr (assoc "RED" atts)) ""))
         tipo (strcase (urb:safe-string (cdr (assoc "TIPO_RED" atts)) "")))
@@ -33300,8 +33471,8 @@
         (equal 1.70 (urb:ramp-end-min-width "PASO-PEATONAL") 1e-9)
         ;; v4.95: el extremo suma la fila de alerta (1,30 + 0,20 + 0,20)
         (equal 3.90 (urb:ramp-end-min-length "PASO-PEATONAL") 1e-9)
-        ;; 2026-09-10: el acceso vehicular pide MAS frente (dos aletas de
-        ;; 2,369) -- esa misma tapa de 3,00 m ya no le sirve
+        ;; 2026-09-10: el acceso vehicular pide MAS frente (dos aletas de 2,10
+        ;; mas 1,00 de cara) -- esa misma tapa de 3,00 m ya no le sirve
         (not (urb:ramp-ends-fit-p
           (list (list '(0.0 0.0) 0.0 1.0 3.0 0)
                 (list '(8.0 0.0) pi 1.0 3.0 2)) "RAMPA-VEHICULAR"))
@@ -33309,7 +33480,7 @@
         (urb:ramp-ends-fit-p
           (list (list '(0.0 0.0) 0.0 1.0 6.0 0)
                 (list '(12.0 0.0) pi 1.0 6.0 2)) "RAMPA-VEHICULAR")
-        (equal 5.738 (urb:ramp-end-min-width "RAMPA-VEHICULAR") 1e-6)
+        (equal 5.20 (urb:ramp-end-min-width "RAMPA-VEHICULAR") 1e-6)
         (equal 4.30 (urb:ramp-end-min-length "RAMPA-VEHICULAR") 1e-6)))
     ;; 2026-09-10: con UNA sola cota de referencia la rasante se completa
     ;; con la pendiente ("tengo via al principio pero no al final").

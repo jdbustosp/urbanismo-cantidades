@@ -1,5 +1,79 @@
 # Progress — urbanismo_cantidades.lsp
 
+## Estado guardado — 2026-09-11, v4.97.0 (Claude, BOG085CD119BDQN)
+
+Agente: **Claude**. Equipo: **BOG085CD119BDQN**.
+Pedido (foto acotada de la rampa vehicular): *"la longitud mayor de la rampa es
+10 metros y la longitud menor es de 5.80 ... el bordillo A-80 va en las curvas y
+en la longitud menor, y en la longitud mayor sí va es el A-85 ... así mismo
+quiero que eso lo conectes al presupuesto, pasa lo mismo con el paso peatonal y
+la rampa peatonal"* + *"la zona verde conectada al capítulo 2.2.7"*.
+
+### Longitudes y materiales del acceso vehicular
+
+| Elemento | Material | Cantidad en el módulo de 10 m |
+|---|---|---|
+| Longitud MAYOR (frente sobre la vía) | **sardinel bajo A-85** | 10,00 ml = 10 UN |
+| Longitud MENOR (banda del fondo) | **bordillo A-80** | 5,80 ml |
+| Las dos curvas (aletas) | **bordillo A-80** | 2 × 2,88 = 5,76 ml |
+| Guía podotáctil (amarillo) | loseta guía 20x20 | 10,00 ml a 2,50 m del bordillo |
+| Alerta (verde en la foto) | loseta toperol 20x20 | 45 und |
+| Bolardos | M-63 | 4 UN |
+
+- `*urb-rampav-aleta*` pasa de 2,369 a **2,10** = (10,00 − 5,80) / 2, y
+  `*urb-rampav-banda-ini*` a **0,0**, para que la banda del fondo mida
+  exactamente la longitud menor. Nuevos atributos `LONGITUD_MAYOR_M`,
+  `LONGITUD_MENOR_M` y `SARDINEL_A85_ML`.
+- Las aletas dejan de ser la pieza A-105 (el usuario definió A-80) y aparece un
+  cuarto prefabricado: el A-85 de la longitud mayor, sobre el lado de la vía
+  (no come área de la rampa). Capa **`URB-SARDINEL-A-85`**, color 5 para
+  distinguirlo del A-80 (rojo).
+
+### Cada módulo con el vocabulario de SU capítulo
+
+Se leyeron los tres capítulos del libro y **solo se piden las actividades que
+cada uno tiene** (antes el vehicular pedía adoquín, losetas, arena y M.O. de
+replanteo, que 2.2.4 no tiene: quedaban sin capítulo):
+
+- **2.2.4 RAMPA VEHICULAR**: subrasante, excavación, recebo B-200, SBG,
+  geotextil, M.O. de adoquín y tabletas, M.O. de loseta guía y toperol, bolardo
+  M-63, y por el prefabricado el A-85 (suministro UN + M.O. de sardinel) y el
+  A-80 (suministro UN + M.O. de bordillo).
+- **2.2.5 RAMPA PEATONAL**: lo tiene todo en su capítulo (incluye el remate de
+  rampa fundido en sitio = A-81 × 0,39 M2 y el A-85).
+- **2.2.6 PASO PEATONAL**: adoquín, A-80, transporte, arena, recebo (sin
+  "B-200"), SBG, geotextil y sus M.O.
+- Lo que un capítulo no compra cae donde el libro sí lo compra: los materiales
+  de pavimento (adoquín, losetas, arena, transporte) en **2.2.1 ANDENES**, y el
+  remate fundido en sitio del paso en **2.2.5**.
+- **Sin doble conteo**: el acceso vehicular en superposición sobre un andén solo
+  aporta prefabricados, bolardos y su tableta de alerta — el andén ya cobra
+  subrasante, excavación, granulares y pavimento.
+- **Transporte de prefabricados (KG)** ya sale: `*urb-prefab-pesos*` con el peso
+  por pieza (volumen real × 2.400 kg/m³) — adoquín 2,88 / loseta 5,76 /
+  A-80 134,40 / A-85 120 kg. **Es lo único a verificar con el proveedor.**
+- `*urb-prefab-largos*`: el suministro por UNIDAD usa el largo real de la pieza
+  (A-80 0,80; sardineles de rampa 1,00), antes siempre 0,80.
+- Prefabricados nacidos dentro de un módulo llevan `DESTINO_PPTO` = el módulo
+  (`Rampa vehicular` / `Rampa peatonal` / `Paso peatonal`), así su suministro y
+  su M.O. caen en el capítulo de la rampa y no en andenes.
+
+### Zona verde al capítulo 2.2.7
+
+2.2.7 ZONA VERDE solo tiene **Empradización y conformación (M2)** y *Suministro
+e instalación de árbol (UN)*. Se quitaron las filas de excavación y de recebo
+que salían antes: no existen en 2.2.7 y quedaban sin capítulo. El corte y el
+relleno de la zona verde siguen por las paramétricas.
+
+### Verificación
+
+- Suite headless **85 OK / 0 FALLOS**; E2E `veh3p` **20 OK / 0 FALLOS**;
+  regresiones `run_acceso`, `run_paso`, `run_rampav`, `run_recorte` verdes.
+- Render `diagnosticos/rampav4960/r_veh3p.png`: rojo = A-80 (curvas + 5,80),
+  azul = A-85 (10,00), amarillo = guía.
+- Instalado en el bundle, hash repo = hash instalado.
+
+
 ## Estado guardado — 2026-09-11, v4.96.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**. Usuario local: `juanbusper`.

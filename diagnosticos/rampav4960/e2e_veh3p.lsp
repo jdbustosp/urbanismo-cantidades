@@ -37,34 +37,57 @@
       (if (vl-catch-all-error-p v1) (vl-catch-all-error-message v1) "ok"))
     (if (and v1 (not (vl-catch-all-error-p v1)))
       (progn
-        (foreach tg '("AREA_M2" "AREA_BAJADA_M2" "LOSETA_LISA_M2" "ADOQUIN_M2"
-                      "LOSETA_GUIA_ML" "LOSETA_TOPEROL_UND" "A105_UND"
-                      "BORDILLO_A80_ML" "BOLARDO_UND" "SBG_M3")
+        (foreach tg '("AREA_M2" "AREA_BAJADA_M2" "LONGITUD_MAYOR_M"
+                      "LONGITUD_MENOR_M" "LOSETA_LISA_M2" "ADOQUIN_M2"
+                      "LOSETA_GUIA_ML" "LOSETA_TOPEROL_UND"
+                      "BORDILLO_A80_ML" "SARDINEL_A85_ML" "BOLARDO_UND" "SBG_M3")
           (elog (strcat "  " tg " = " (att v1 tg))))
+        ;; longitudes de la foto acotada: mayor 10,00 / menor 5,80
+        (echk "longitud mayor 10,00 y longitud menor 5,80"
+          (and (equal (atof (att v1 "LONGITUD_MAYOR_M")) 10.0 0.01)
+               (equal (atof (att v1 "LONGITUD_MENOR_M")) 5.80 0.01))
+          (strcat (att v1 "LONGITUD_MAYOR_M") " / " (att v1 "LONGITUD_MENOR_M")))
+        (echk "el sardinel A-85 cubre la longitud mayor"
+          (equal (atof (att v1 "SARDINEL_A85_ML")) 10.0 0.01)
+          (att v1 "SARDINEL_A85_ML"))
+        (echk "el bordillo A-80 son las dos curvas mas la longitud menor"
+          (> (atof (att v1 "BORDILLO_A80_ML")) 5.80)
+          (att v1 "BORDILLO_A80_ML"))
         (echk "el modulo dibuja su propio pavimento (loseta y adoquin)"
           (and (> (atof (att v1 "LOSETA_LISA_M2")) 3.0)
                (> (atof (att v1 "ADOQUIN_M2")) 3.0))
           (strcat (att v1 "LOSETA_LISA_M2") " / " (att v1 "ADOQUIN_M2")))
         (echk "lleva franja de guia podotactil a 2,50 m del bordillo"
           (> (atof (att v1 "LOSETA_GUIA_ML")) 9.0) (att v1 "LOSETA_GUIA_ML"))
-        (echk "dos piezas de remate A-105" (= "2" (att v1 "A105_UND")) (att v1 "A105_UND"))
         (setq ssp (ssget "_X" '((0 . "INSERT") (-3 ("URB_PREFAB_BLOCK")))) i 0
-              n105 0 nbor 0 capas "")
+              n85 0 nbor 0 capas "" dest "")
         (repeat (if ssp (sslength ssp) 0)
           (setq bd (vla-Item (vla-get-Blocks (urb:doc))
                      (vla-get-Name (urb:as-vla-object (ssname ssp i)))))
           (vlax-for o bd
             (if (not (vl-string-search (vla-get-Layer o) capas))
               (setq capas (strcat capas " " (vla-get-Layer o)))))
-          (setq tp (urb:safe-string (cdr (assoc "TIPO"
-                     (urb:block-attribute-values (ssname ssp i)))) ""))
-          (if (wcmatch (strcase tp) "*A-105*") (setq n105 (1+ n105)) (setq nbor (1+ nbor)))
+          (setq atp (urb:block-attribute-values (ssname ssp i)))
+          (setq tp (urb:safe-string (cdr (assoc "TIPO" atp)) ""))
+          (if (not (vl-string-search
+                     (urb:safe-string (cdr (assoc "DESTINO_PPTO" atp)) "?") dest))
+            (setq dest (strcat dest " ["
+              (urb:safe-string (cdr (assoc "DESTINO_PPTO" atp)) "?") "]")))
+          (if (wcmatch (strcase tp) "*A-85*") (setq n85 (1+ n85)) (setq nbor (1+ nbor)))
           (setq i (1+ i)))
-        (elog (strcat "  prefabricados: " (itoa n105) " A-105 + " (itoa nbor)
-                " bordillo | capas:" capas))
-        (echk "las aletas son prefabricado Remate A-105 con su capa"
-          (and (= n105 2) (vl-string-search "URB-REMATE-A-105" capas))
-          (strcat (itoa n105) " piezas"))
+        (elog (strcat "  prefabricados: " (itoa n85) " sardinel A-85 + "
+                (itoa nbor) " bordillo A-80 | capas:" capas
+                " | destinos:" dest))
+        (echk "las curvas y la longitud menor son bordillo A-80 (3 piezas)"
+          (and (= nbor 3) (vl-string-search "URB-BORDILLO" capas))
+          (strcat (itoa nbor) " piezas A-80"))
+        (echk "la longitud mayor es un sardinel A-85 en su capa"
+          (and (= n85 1) (vl-string-search "URB-SARDINEL-A-85" capas))
+          (strcat (itoa n85) " pieza A-85"))
+        (echk "los prefabricados del modulo se cobran en el capitulo de la rampa"
+          (and (vl-string-search "Rampa vehicular" dest)
+               (not (vl-string-search "Anden" dest)))
+          dest)
         ;; los bolardos M-63 en su propia capa
         (setq bd (vla-Item (vla-get-Blocks (urb:doc)) (vla-get-Name v1)) nbol 0)
         (vlax-for o bd
@@ -110,6 +133,18 @@
         (and (= 0.0 (atof (att v2 "LOSETA_LISA_M2")))
              (= 0.0 (atof (att v2 "ADOQUIN_M2"))))
         (strcat "loseta " (att v2 "LOSETA_LISA_M2") " adoquin " (att v2 "ADOQUIN_M2"))))
+    ;; en superposicion el anden ya cobra subrasante/excavacion/granulares:
+    ;; el modulo NO las puede volver a cobrar
+    (setq frs (vl-catch-all-apply 'urb:ppto-rows-rampas) sup nil)
+    (if (and frs (not (vl-catch-all-error-p frs)))
+      (foreach f frs
+        (if (and f (= (nth 9 f) (cdr (assoc 5 (entget (urb:as-ename v2)))))
+                 (member (nth 1 f)
+                   '("Compactacion de subrasante (Incluye nivelacion)"
+                     "Subbase granular SBG" "Geotextil tejido 2100")))
+          (setq sup (cons (nth 1 f) sup)))))
+    (echk "en superposicion el modulo no repite la estructura del anden"
+      (null sup) (if sup (vl-princ-to-string sup) "ninguna fila repetida"))
 
     ;; ---- 3) zona verde en el presupuesto ----
     (setq zv (vl-catch-all-apply 'urb:build-green-from-points
@@ -134,22 +169,44 @@
         (strcat (itoa (length fr)) " filas")))
     (if (and fr (not (vl-catch-all-error-p fr)))
       (progn
-        (setq conc nil)
-        (foreach f fr (if (and f (= (car f) "RAMPA-VEHICULAR"))
-          (progn (elog (strcat "  RV: " (nth 1 f) " | " (nth 7 f) " "
-                   (rtos (nth 8 f) 2 3)))
-                 (setq conc (cons (nth 1 f) conc)))))
-        (echk "salen las actividades del capitulo 2.2.4 del libro"
-          (and (member "Loseta toperol 20x20x6" conc)
-               (member "Adoquin gris 10x20x6" conc)
-               (member "Subbase granular SBG" conc)) "")))
+        (setq conc nil cand nil)
+        (foreach f fr
+          (if f (progn
+            (elog (strcat "  " (nth 0 f) ": " (nth 1 f) " | " (nth 7 f) " "
+                    (rtos (nth 8 f) 2 3)))
+            (if (= (car f) "RAMPA-VEHICULAR") (setq conc (cons (nth 1 f) conc)))
+            (if (= (car f) "ANDEN") (setq cand (cons (nth 1 f) cand))))))
+        ;; 2.2.4 solo tiene subrasante, excavacion, granulares, M.O. y bolardo
+        (echk "el vehicular solo pide de 2.2.4 lo que 2.2.4 tiene"
+          (and (member "Compactacion de subrasante (Incluye nivelacion)" conc)
+               (member "Subbase granular SBG" conc)
+               (member "M.O. instalacion de loseta guia y toperol" conc)
+               (member "Suministro e instalacion de bolardo alto en hierro Tipo M-63" conc)
+               (not (member "Adoquin gris 10x20x6" conc))
+               (not (member "Loseta lisa 20x20x6" conc))
+               (not (member "Arena de nivelacion" conc)))
+          (strcat (itoa (length conc)) " actividades en 2.2.4"))
+        ;; los materiales de pavimento los compra ANDENES
+        (echk "los materiales que 2.2.4 no compra caen en ANDENES"
+          (and (member "Adoquin gris 10x20x6" cand)
+               (member "Loseta lisa 20x20x6" cand)
+               (member "Arena de nivelacion" cand)
+               (member "Transporte de prefabricados" cand))
+          (strcat (itoa (length cand)) " actividades en ANDENES"))))
     (setq fp (vl-catch-all-apply 'urb:ppto-rows-prefabs))
     (if (and fp (not (vl-catch-all-error-p fp)))
       (progn
-        (setq c2 nil)
-        (foreach f fp (if f (setq c2 (cons (nth 1 f) c2))))
-        (echk "las piezas A-105 se cuentan por unidad"
-          (member "Suministro pieza remate A-105 para rampa" c2)
+        (setq c2 nil c3 nil)
+        (foreach f fp
+          (if f (progn
+            (elog (strcat "  PREF " (nth 0 f) ": " (nth 1 f) " | " (nth 7 f)
+                    " " (rtos (nth 8 f) 2 3)))
+            (setq c2 (cons (nth 1 f) c2))
+            (if (= (nth 0 f) "RAMPA-VEHICULAR") (setq c3 (cons (nth 1 f) c3))))))
+        (echk "el sardinel A-85 y el bordillo A-80 se cobran en 2.2.4"
+          (and (member "Suministro sardinel bajo A-85 para rampa" c3)
+               (member "M.O. instalacion de sardinel prefabricado" c3)
+               (member "Bordillo prefabricado A-80" c3))
           (strcat (itoa (length fp)) " filas de prefabricados"))))
 
     ;; ---- 5) volcado para el render ----
