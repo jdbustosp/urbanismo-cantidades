@@ -6,35 +6,45 @@ Agente: **Claude**. Equipo: **BOG085CD119BDQN**.
 Con el plano real `URB_MASTER_GENERAL.dwg` en la mano (copia de trabajo en
 `work\claude_20260912_master`, el original nunca se toca).
 
-### 1. El "círculo" NO era del plugin: es la superficie SUP_TN
+### 1. El "círculo" NO es del plugin: es la superficie SUP_TN
 
-Censo completo del plano: **0 entidades CIRCLE o ARC de radio > 2 m** en todo
-el dibujo. El disco de la captura es el **anillado de curvas de nivel** de la
-superficie de Civil 3D:
+Tres medidas independientes sobre el plano real:
 
-| Dato medido | Valor |
-|---|---|
-| Superficie | `SUP_TN` — "Terreno natural", handle 7523, capa C-TOPO |
-| Estilo | **Contours 2m and 10m (Background)** |
-| Puntos / triángulos | 436.988 / 868.248 |
-| Cota media | 2.565,91 m |
-| Caja de la superficie | z de **2,50** a **2.633,50** m |
-| Punto malo localizado | **(83642, 96236)** con cota **60,84 m** |
-| Curvas concéntricas que eso genera | **1.252** con el intervalo de 2 m |
+1. **Censo completo del dibujo**: 4.034 entidades en el espacio modelo
+   (3.255 INSERT, 541 HATCH, 212 REGION, 15 LWPOLYLINE, 1 AECC_TIN_SURFACE,
+   1 ACAD_TABLE, 1 LINE, 8 ATTDEF). **Cero entidades CIRCLE o ARC de radio
+   mayor que 2 m en todo el plano**: el disco no es un círculo dibujado.
+2. **Un raster del plano** (PNGOUT desde un script nativo) muestra el disco
+   **al oeste del urbanismo**, tocando su borde izquierdo — igual que en su
+   captura.
+3. **Sondeo con ventana de selección dentro del disco**, en (82650, 95300):
+   la **única** entidad que hay ahí es
+   `AECC_TIN_SURFACE`, handle **7523**, capa **C-TOPO** — la superficie
+   `SUP_TN` "Terreno natural", con estilo **"Contours 2m and 10m
+   (Background)"** y 436.988 puntos / 868.248 triángulos.
 
-O sea: hay al menos un punto con la cota mal (60,84 m en un terreno de
-2.566 m, y el mínimo absoluto de la superficie es 2,50 m). Con curvas cada
-2 m, Civil 3D dibuja más de mil curvas concéntricas alrededor de ese punto —
-el disco exacto de la captura. **Se arregla en la superficie, no en el
-plugin**: borrar/corregir ese punto, o ponerle a la superficie un filtro de
-rango de cotas, o apagar las curvas de nivel de su estilo.
+O sea: el disco es **el dibujo de la propia superficie de Civil 3D**. Se quita
+congelando la capa `C-TOPO`, o poniéndole a `SUP_TN` un estilo sin curvas de
+nivel, o dejándola en "no display". Nada que ver con el plugin.
+
+Aparte, la superficie tiene un **punto malo** que conviene corregir: su caja va
+de z = **2,50** a z = **2.633,50** m con cota media 2.565,91, y el muestreo lo
+localiza en **(83642, 96236)** con cota **60,84 m**. El cono que forma mide unos
+40 m de diámetro (radio medio del hundimiento 19,4 m) y con curvas cada 2 m
+dibuja del orden de **1.252 curvas concéntricas** ahí mismo. **No contamina
+cantidades**: el elemento del plugin más cercano está a **314 m** y la cota del
+terreno bajo el andén y las vías sale sana (2.558,6 / 2.561,5 / 2.565,2 m).
 
 Lo que sí se agregó en el plugin es un **aviso**: `urb:surface-elevation` es el
-único punto por donde el motor lee el terreno; ahora, si dos lecturas de la
-misma superficie difieren más de 100 m, avisa una vez por dibujo. Antes un
-elemento que cayera sobre esos triángulos calculaba su movimiento de tierras
-contra una cota absurda **en silencio**.
+único punto por donde el motor lee el terreno; ahora avisa una vez por dibujo si
+dos lecturas de la misma superficie difieren más de 100 m. Antes, un elemento
+que cayera sobre esos triángulos calculaba su movimiento de tierras contra una
+cota absurda **en silencio**.
 
+De paso, dos entidades de redes quedaron con geometría **en el origen** del
+dibujo — `MP_PUNTO_SUBESTACION_E` (handle 5C364) y `MP_TRAMO_ACU_93_32`
+(handle 593D9) — y son las que estiran `EXTMIN` a (0, -12,1), o sea las que
+hacen que un ZOOM EXTENTS se vaya a 80 km. Higiene del dibujo, no del motor.
 ### 2. Las losetas torcidas al final del tramo: medido y arreglado
 
 Auditoría del andén del plano (handle **AFA98**, el de 188 ml):
