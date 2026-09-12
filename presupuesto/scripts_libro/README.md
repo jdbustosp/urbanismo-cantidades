@@ -43,3 +43,24 @@ Antes de cualquier corrida sobre el vigente: **backup a
 
 Rutas quemadas al libro vigente de este PC (`C:\Users\juanbusper\colsubsidio.com\...`);
 en otro PC ajustar la variable `$libro` al montaje local de SharePoint.
+
+## Tanda 2026-09-12 (tarde)
+
+| Script | Qué hace |
+|---|---|
+| `pivot_formats.ps1` | **Lo importante de esta tanda.** Inyecta en `xl/pivotTables/*.xml` los `<formats>` con `<pivotArea>` que pintan el color por nivel en **toda la fila** y ocultan CANTIDAD/V.UNITARIO fuera del nivel 5. Es el ÚNICO mecanismo que sobrevive a actualizar: un formato condicional de la hoja lo recorta Excel donde pisa el área de valores de la pivot. Hacen falta **dos entradas por nivel** (con `defaultSubtotal` solo se pinta el rótulo; las celdas de valor van con `type="data" collapsedLevelsAreSubtotals="1"`), y hay que poner `applyPatternFormats="1"` y `applyNumberFormats="1"` en la definición de la pivot. |
+| `estilo_sin_color.ps1` | Deja el estilo `URB_NIVELES` sin relleno en `SubtotalRow1/2/3` y `RowSubheading1/2/3`: con relleno le gana al formato de área y el nivel 4 salía del color del 2 (un estilo solo expone 3 niveles de subtotal). |
+| `restaurar_columnas.ps1` | Devuelve CANTIDAD y V. UNITARIO al área de valores de la dinámica, en su orden de siempre, y limpia las columnas de fórmula que se habían usado como alternativa. |
+| `chequeo2.ps1` | Control: abre, actualiza, y reporta los colores de las 5 columnas por nivel y si CANTIDAD sale solo en el nivel 5. |
+| `hoja_externos.ps1` | Arma la hoja **`PPTOS EXTERNOS`**: por cada tercero, una banda con el capítulo del libro que alimenta y el archivo fuente, y debajo su presupuesto y sus memorias pegados como valores. Re-correr cuando aparezca el xlsx del colector. |
+| `columna_origen.ps1` | Escribe la columna **`ORIGEN`** en POR EJECUTAR (columna **AQ**, fuera de `PE_RANGO`, así BD_PE no la ve): AUTOCAD / EXTERNO: … / PORCENTAJE / MANUAL, cruzando contra la tabla de memorias del DWG. **Regla: los scripts que escriben cantidades desde las memorias solo pueden tocar las filas con `ORIGEN = AUTOCAD`.** |
+| `barrido_idu.ps1` / `idu_ok_detalle.ps1` | Barrido de nombres y precios contra el catálogo IDU 2026-I. Salidas en `diagnosticos\barrido_precios_idu_20260912.tsv` y `diagnosticos\idu_match_confiable_20260912.tsv`. |
+| `sacar_colector2.ps1` | Saca el xlsx adjunto del correo del colector por Outlook. **Hoy se queda colgado**: guardar el adjunto a mano. |
+
+> **Límites de Excel topados aquí, para no repetirlos**: `FormatConditions.Add`
+> por COM rechaza cualquier fórmula que mire otra hoja (`BD!...`), incluso a
+> través de un nombre definido. `PivotSelect` no sabe aislar filas de subtotal
+> (`'N1'[All;Total]` lo rechaza; solo acepta `'N1'[All]`). Asignar un arreglo
+> 2D a `Range.Value2` desde PowerShell falla con *InvalidCastException*: hay
+> que usar `Copy()` + `PasteSpecial(-4163/-4122)`. Y `$xl.CutCopyMode = 0` no
+> lo acepta el interop tipado (envolver en try/catch).
