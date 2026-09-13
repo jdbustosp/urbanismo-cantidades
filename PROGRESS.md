@@ -1,5 +1,33 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 15:50 America/Bogota — MT/entibados/pozos 5.0.5 (Codex/Luna), NO INSTALADO
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Rama: `codex/anden504-verificacion`.
+En copia local de `URB_MASTER_GENERAL.dwg`, Civil 3D encontró `SUP_TN` y cargó el
+motor sin errores. Movimiento de tierras: huella curva neta 123.603 m2 y ampliada
+194.234 m2; el invariante de subir 1 m una rasante cambió el balance exactamente
+194.234 m3. La lectura de la huella empaquetada, girada y escalada quedó corregida
+(OCS explícito; `TRANS` por entidad de definición devolvía nil). La pendiente con
+dos cotas colineales también fue verificada.
+
+Entibados: se agregó integración por segmento con cortes en 2 y 3 m. Prueba nativa
+10 m, profundidades 1->4 y 4->1: (16.6667, 23.3333, 10.0000) m2, suma 50 m2;
+casos constantes y cruce de profundidad cero verificados. El tramo ahora usa la
+misma división, no la profundidad media.
+
+Pozos: la copia tiene 83 sanitarios; 75 profundidades positivas suman 2,829.86 ML,
+con 2,582.83 ML en 4E. DOM41 (handle 4B951) conserva el dato del DWG
+`PROFUNDIDAD=2559.65` y `COTA_CLAVE_INI=2.00`; no se inventó un intercambio.
+Hay además 4 negativas y 4 vacías. Se agregó diagnóstico solo lectura y bloqueo
+antes de abrir/escribir Excel para valores no positivos o >30 m; los faltantes quedan
+pendientes. DOM41 contamina el tramo 9761C DOM41-55 (6.06 m), cuyos valores guardados
+son 9.317 m3 de excavación y 15.528 m2 de entibado; debe editarse al confirmar cota.
+
+Se corrigió que un MT `PENDIENTE` no se sustituyera por area x espesor al exportar.
+Manifiesto y motor subidos a 5.0.5; `instalar_bundle.ps1 -ValidateOnly` OK. No se
+instaló porque primero hay que confirmar las cotas de los 9 registros problemáticos.
+Detalle: `MT_POZOS_AUDITORIA_2026-09-13.md`. El DWG principal y el Excel no fueron tocados.
+
 ## 2026-09-13 13:20 America/Bogota — verificación nativa 5.0.4 (Codex/Luna), NO INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Rama: `codex/anden504-verificacion`.

@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.0.4")
+(setq *urb-version* "5.0.5")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -6750,6 +6750,12 @@
 (defun urb:mark-anden-earthworks-status (block-ref status / obj)
   (if (setq obj (urb:as-vla-object block-ref))
     (progn
+      (if (wcmatch (strcase status) "PENDIENTE*")
+        (progn
+          (urb:set-block-attribute obj "ANDEN_CORTE_M3" "")
+          (urb:set-block-attribute obj "ANDEN_RELLENO_M3" "")
+          (urb:set-xdata-strings (urb:as-ename obj) "URB_ANDEN_MOV"
+            (list "ANDEN_MOV" status "0" "0"))))
       (urb:set-block-attribute obj "ANDEN_METODO" status)
       (vla-Update obj)))
   nil
@@ -6761,14 +6767,16 @@
    edge-offset p terrain finish-result finish delta cut-depth fill-depth
    count corte relleno method coverage required coverage-text via-id via-name
    slope-result long-slope long-min long-max total-slope total-min total-max
-   slope-count transverse-percent pend-long-text pend-trans-text pend-total-text)
+   slope-count transverse-percent pend-long-text pend-trans-text pend-total-text
+   edge-points sample weight total-weight)
   (setq *urb-anden-earthwork-stage* "validacion del bloque")
   (setq block-object (urb:as-vla-object block-ref))
   (setq ename (urb:as-ename block-object))
+  (setq edge-points points)
   (if block-object
     (progn
-      (setq points (urb:anden-earthwork-points2 block-object))
-      (setq area (if points (abs (urb:polygon-signed-area points)) 0.0))))
+      (setq points (urb:anden-earthwork-points block-object))
+      (setq area (if points (urb:anden-earthwork-area block-object) 0.0))))
   (cond
     ((or (not block-object) (not ename))
       (prompt
@@ -6802,11 +6810,12 @@
               nil)
             (progn
               (setq *urb-anden-earthwork-stage* "generacion de malla interior")
-              (setq samples (urb:anden-sample-points points area))
+              (setq samples (urb:earthwork-area-samples points)
+                    total-weight (apply '+ (mapcar 'cadr samples)))
               (setq total (length samples))
               (setq edge-result
                 (vl-catch-all-apply
-                  'urb:anden-axis-edge-offset (list points axis)))
+                  'urb:anden-axis-edge-offset (list (if edge-points edge-points points) axis)))
               (setq edge-offset
                 (if (vl-catch-all-error-p edge-result) nil edge-result))
               (if (or (null edge-offset) (= total 0))
@@ -6820,7 +6829,8 @@
                   (setq *urb-anden-earthwork-stage* "muestreo de superficie y rasante")
                   (setq cut-depth 0.0 fill-depth 0.0 count 0 slope-count 0
                         transverse-percent (* 100.0 *urb-anden-crossfall*))
-                  (foreach p samples
+                  (foreach sample samples
+                    (setq p (car sample) weight (cadr sample))
                     (setq terrain
                       (urb:surface-elevation surface (car p) (cadr p)))
                     (setq finish-result
@@ -6835,8 +6845,8 @@
                       (progn
                         (setq delta (- terrain (- finish *urb-anden-depth*)))
                         (if (> delta 0.0)
-                          (setq cut-depth (+ cut-depth delta))
-                          (setq fill-depth (+ fill-depth (- delta))))
+                          (setq cut-depth (+ cut-depth (* weight delta)))
+                          (setq fill-depth (+ fill-depth (* weight (- delta)))))
                         (setq count (1+ count))
                         (setq slope-result
                           (vl-catch-all-apply
@@ -6863,13 +6873,11 @@
                             (setq slope-count (1+ slope-count)))))))
                   (setq coverage
                     (if (> total 0) (/ (float count) (float total)) 0.0))
-                  (setq required
-                    (max *urb-anden-min-samples*
-                      (fix (+ 0.999999
-                        (* (float total) *urb-anden-min-coverage*)))))
+                  (setq required total)
                   (setq coverage-text
                     (strcat (rtos (* 100.0 coverage) 2 1) "%"))
-                  (if (< count required)
+                  (if (or (< count required)
+                          (> (abs (- total-weight area)) (max 0.001 (* area 0.0001))))
                     (progn
                       (urb:set-block-attribute
                         block-object "ANDEN_MUESTRAS"
@@ -6886,8 +6894,8 @@
                       nil)
                     (progn
                       (setq *urb-anden-earthwork-stage* "guardado de resultados")
-                      (setq corte (* area (/ cut-depth count)))
-                      (setq relleno (* area (/ fill-depth count)))
+                      (setq corte (* area (/ cut-depth total-weight)))
+                      (setq relleno (* area (/ fill-depth total-weight)))
                       (setq pend-long-text
                         (urb:percent-range-text long-min long-max))
                       (setq pend-trans-text
@@ -6895,8 +6903,8 @@
                       (setq pend-total-text
                         (urb:percent-range-text total-min total-max))
                       (setq method
-                        (strcat (urb:safe-string (nth 6 reference) "Rasante")
-                          " - malla interior"
+                        (strcat "OK - " (urb:safe-string (nth 6 reference) "Rasante")
+                          " - triangulos ponderados con sobreancho"
                           " | pendientes automaticas"
                           " | estructura " (rtos *urb-anden-depth* 2 2) " m"))
                       (setq via-id
@@ -6949,28 +6957,74 @@
 ;; sobre su contorno. La superficie es automatica (SUP_TN); 1 cota =
 ;; plano horizontal, 2 = rasante lineal, 3+ = plano ajustado. Enter sin
 ;; cotas = queda PENDIENTE (se puede recalcular con EDITAR).
-(defun urb:anden-earthwork-raw-points (item / en data pair out)
-  (setq en (vl-catch-all-apply 'vlax-vla-object->ename (list item)))
-  (if (or (vl-catch-all-error-p en) (null en))
-    nil
+;; Muestrear los arcos en coordenadas del bloque y transformar a WCS.
+;; En AutoLISP OR retorna T: nunca usarlo como alternativa entre puntos.
+(defun urb:anden-earthwork-raw-points
+  (item / en data pair verts pt bulge tail v next p q b chord theta center start k n out normal elevation)
+  (setq en (urb:as-ename item) data (entget en))
+  (setq normal (cdr (assoc 210 data)) elevation (cdr (assoc 38 data)))
+  (if (not normal) (setq normal '(0.0 0.0 1.0)))
+  (if (not elevation) (setq elevation 0.0))
+  (foreach pair data
+    (cond
+      ((= (car pair) 10)
+        (if pt (setq verts (cons (list pt bulge) verts)))
+        (setq pt (list (cadr pair) (caddr pair) elevation) bulge 0.0))
+      ((= (car pair) 42) (setq bulge (cdr pair)))))
+  (if pt (setq verts (reverse (cons (list pt bulge) verts))))
+  (setq tail verts)
+  (while tail
+    (setq v (car tail) next (if (cdr tail) (cadr tail) (car verts))
+          p (car v) q (car next) b (cadr v) chord (distance p q))
+    ;; TRANS por ename devuelve nil para entidades dentro de una definicion.
+    ;; Su normal OCS explicita funciona en ModelSpace y dentro del bloque.
+    (setq out (cons (trans p normal 0) out))
+    (if (and (> (abs b) 1e-10) (> chord 1e-10))
+      (progn
+        (setq theta (* 4.0 (atan b))
+              center (polar (mapcar '(lambda (x y) (/ (+ x y) 2.0)) p q)
+                            (+ (angle p q) (/ pi 2.0))
+                            (/ (* chord (- 1.0 (* b b))) (* 4.0 b)))
+              start (angle center p)
+              n (max 8 (fix (+ 1.0 (/ (abs theta) 0.01)))) k 1)
+        (repeat (1- n)
+          (setq out (cons
+            (trans (polar center (+ start (* theta (/ (float k) n)))
+                          (distance center p)) normal 0) out) k (1+ k)))))
+    (setq tail (cdr tail)))
+  (reverse out))
+
+(defun urb:anden-earthwork-points (block-ref / obj def item transform raw base)
+  (setq obj (urb:as-vla-object block-ref))
+  (if obj
     (progn
-      (setq data (entget en))
-      (while data
-        (setq pair (car data) data (cdr data))
-        (if (= (car pair) 10)
-          (setq out (cons (list (cadr pair) (caddr pair) 0.0) out))))
-      (reverse out))))
+      (setq def (vla-Item (vla-get-Blocks (urb:doc)) (vla-get-Name obj))
+            transform (urb:block-instance-transform obj)
+            base (cdr (assoc 10 (tblsearch "BLOCK" (vla-get-Name obj)))))
+      (if (not base) (setq base '(0.0 0.0 0.0)))
+      (vlax-for item def
+        (if (= (urb:generated-role item) "EARTHWORK_BOUNDARY")
+          (setq raw (urb:anden-earthwork-raw-points item))))
+      (mapcar '(lambda (p)
+        (urb:xref-local-to-world (mapcar '- (urb:point3d-list p) base) transform))
+        raw))))
 
-(defun urb:anden-earthwork-points (block-ref)
-  (urb:anden-earthwork-points2 block-ref))
+(defun urb:anden-earthwork-area (block-ref / obj def item area)
+  (setq obj (urb:as-vla-object block-ref)
+        def (vla-Item (vla-get-Blocks (urb:doc)) (vla-get-Name obj)))
+  (vlax-for item def
+    (if (= (urb:generated-role item) "EARTHWORK_BOUNDARY")
+      (setq area (* (vla-get-Area item)
+        (abs (* (vla-get-XScaleFactor obj) (vla-get-YScaleFactor obj)))))))
+  (if area area 0.0))
 
-(defun urb:anden-earthworks-por-cotas (block-ref points / picks pts pl mov)
+(defun urb:anden-earthworks-por-cotas (block-ref points / picks pts pl mov exact-area sampled-area)
   (prompt (strcat "\nCotas de IMPLANTACION del anden"
     " (via/pozo/etiqueta o Digitar; Enter sin cotas = pendiente):"))
   (setq picks (urb:pick-design-cotas))
   (if (and picks (>= (length picks) 1))
     (progn
-      (setq points (urb:anden-earthwork-points2 block-ref))
+      (setq points (urb:anden-earthwork-points block-ref))
       (if (not points)
         (vl-exit-with-error "ANDEN: falta la huella de sobreancho; regenere el bloque antes de calcular tierras."))
       (setq pts (mapcar '(lambda (p) (list (car p) (cadr p))) points))
@@ -6979,12 +7033,18 @@
               '(100 . "AcDbPolyline") (cons 90 (length pts)) '(70 . 1))
         (mapcar '(lambda (p) (cons 10 p)) pts)))
       (setq pl (entlast))
+      (setq exact-area (urb:anden-earthwork-area block-ref)
+            sampled-area (vla-get-Area (vlax-ename->vla-object pl)))
       ;; anden: se excava hasta la subrasante (terminado - 0.60 de estructura)
       (setq mov (vl-catch-all-apply 'urb:earthworks-from-picks
         (list pl picks *urb-anden-depth*)))
       (if (and pl (entget pl)) (entdel pl))
       (if (and mov (not (vl-catch-all-error-p mov)))
         (progn
+          (setq mov (mapcar '(lambda (v) (* v (/ exact-area sampled-area))) mov))
+          (urb:set-xdata-strings (urb:as-ename block-ref) "URB_ANDEN_MOV"
+            (list "ANDEN_MOV" "OK - cotas con sobreancho"
+              (rtos (car mov) 2 6) (rtos (cadr mov) 2 6)))
           (urb:set-block-attribute block-ref "ANDEN_CORTE_M3"
             (rtos (car mov) 2 2))
           (urb:set-block-attribute block-ref "ANDEN_RELLENO_M3"
@@ -7997,10 +8057,15 @@
 ;; Malla de muestreo 2.5 m dentro del contorno; corte = TN sobre diseno,
 ;; relleno = diseno sobre TN.
 (defun urb:design-z-from-picks (picks x y / n sx sy sz sxx syy sxy sxz syz
-   det a b c p1 p2 z1 z2 dx dy len2 t0)
+   det a b c p p1 p2 z1 z2 dx dy len2 t0 ox oy)
   (setq n (length picks))
   (cond
     ((>= n 3)
+      ;; Coordenadas locales evitan cancelacion numerica en coordenadas DWG.
+      (setq ox (car (cadr (car picks))) oy (cadr (cadr (car picks)))
+            x (- x ox) y (- y oy)
+            picks (mapcar '(lambda (v) (list (car v)
+                      (list (- (car (cadr v)) ox) (- (cadr (cadr v)) oy)))) picks))
       (setq sx 0.0 sy 0.0 sz 0.0 sxx 0.0 syy 0.0 sxy 0.0 sxz 0.0 syz 0.0)
       (foreach p picks
         (setq sx (+ sx (car (cadr p))) sy (+ sy (cadr (cadr p)))
@@ -8016,7 +8081,7 @@
                    (* sx (- (* sxy sy) (* syy sx)))))
       (if (< (abs det) 1e-9)
         ;; puntos colineales: caer a la rasante lineal de los 2 extremos
-        (urb:design-z-from-picks (list (car picks) (last picks)) x y)
+        (urb:design-z-from-picks (list (car picks) (car (last picks))) x y)
         (progn
           (setq a (/ (+ (* sxz (- (* syy n) (* sy sy)))
                         (* (- sxy) (- (* syz n) (* sy sz)))
@@ -8055,49 +8120,64 @@
 ;;   zona verde    -> espesor de tierra negra de la zona
 ;;   sendero       -> espesor de su tipo (Ajustes)
 ;; La estructura en si (granular, tierra negra) se sigue cantidando aparte.
-(defun urb:earthworks-from-picks (ename picks depth / surface poly step minx maxx
-   miny maxy x y ztn zdis corte relleno cell area obj zsub)
+;; Cuadratura por triangulos: cada muestra tiene su area real. No contar
+;; celdas completas de una malla que exceden o pierden el borde del contorno.
+(defun urb:earthwork-area-samples (points / pending tri a b c ab bc ca mid w out)
+  (setq pending (urb:triangulate-polygon points))
+  (while pending
+    (setq tri (car pending) pending (cdr pending)
+          a (car tri) b (cadr tri) c (caddr tri)
+          ab (distance a b) bc (distance b c) ca (distance c a))
+    (if (> (max ab bc ca) 2.5)
+      (progn
+        (cond ((and (>= ab bc) (>= ab ca))
+               (setq mid (mapcar '(lambda (x y) (/ (+ x y) 2.0)) a b))
+               (setq pending (cons (list a mid c) (cons (list mid b c) pending))))
+              ((>= bc ca)
+               (setq mid (mapcar '(lambda (x y) (/ (+ x y) 2.0)) b c))
+               (setq pending (cons (list b mid a) (cons (list mid c a) pending))))
+              (T
+               (setq mid (mapcar '(lambda (x y) (/ (+ x y) 2.0)) c a))
+               (setq pending (cons (list c mid b) (cons (list mid a b) pending))))))
+      (progn
+        (setq w (* 0.5 (abs (urb:triangle-cross a b c))))
+        (if (> w 1e-10)
+          (setq out (cons (list
+            (mapcar '(lambda (x y z) (/ (+ x y z) 3.0)) a b c) w) out))))))
+  out)
+
+(defun urb:earthworks-from-picks
+  (ename picks depth / surface poly area samples sample p weight total covered cut fill ztn zdis delta scale)
   (if (not (numberp depth)) (setq depth 0.0))
   (setq surface (mp:current-terrain-surface))
-  (if (null surface)
+  (if surface
     (progn
-      (prompt (strcat "\nNo se encontro la superficie " *mp-terrain-surface-name*
-        "; no se puede calcular corte/relleno."))
-      nil)
-    (progn
-      (setq poly (urb:curve-sample-points ename 0.50))
-      (if (or (null poly) (< (length poly) 3))
-        nil
+      (setq poly (urb:anden-earthwork-raw-points ename)
+            area (vla-get-Area (vlax-ename->vla-object ename))
+            samples (urb:earthwork-area-samples poly)
+            total 0.0 covered 0.0 cut 0.0 fill 0.0)
+      (foreach sample samples
+        (setq p (car sample) weight (cadr sample) total (+ total weight)
+              ztn (urb:surface-elevation surface (car p) (cadr p))
+              zdis (urb:design-z-from-picks picks (car p) (cadr p)))
+        (if (and (numberp ztn) (numberp zdis))
+          (progn
+            (setq covered (+ covered weight) delta (- ztn (- zdis depth)))
+            (if (> delta 0.0)
+              (setq cut (+ cut (* weight delta)))
+              (setq fill (+ fill (* weight (- delta))))))))
+      (if (and (> total 1e-9) (> area 1e-9)
+               (<= (abs (- area total)) (max 0.001 (* area 0.0001)))
+               (>= covered (* total 0.999999)))
         (progn
-          (setq obj (vlax-ename->vla-object ename))
-          (setq area (vl-catch-all-apply 'vla-get-Area (list obj)))
-          (if (vl-catch-all-error-p area) (setq area 0.0))
-          ;; paso adaptativo: zonas chicas con malla mas fina
-          (setq step (max 0.50 (min 2.50 (/ (sqrt (max area 1.0)) 12.0))))
-          (setq cell (* step step))
-          (setq minx (apply 'min (mapcar 'car poly))
-                maxx (apply 'max (mapcar 'car poly))
-                miny (apply 'min (mapcar 'cadr poly))
-                maxy (apply 'max (mapcar 'cadr poly)))
-          (setq corte 0.0 relleno 0.0)
-          (setq x (+ minx (* 0.5 step)))
-          (while (< x maxx)
-            (setq y (+ miny (* 0.5 step)))
-            (while (< y maxy)
-              (if (urb:point-in-poly-2d (list x y) poly)
-                (progn
-                  (setq ztn (urb:surface-elevation surface x y))
-                  (setq zdis (urb:design-z-from-picks picks x y))
-                  (if (and ztn zdis)
-                    (progn
-                      ;; se compara contra la SUBRASANTE, no contra el terminado
-                      (setq zsub (- zdis depth))
-                      (if (> ztn zsub)
-                        (setq corte (+ corte (* (- ztn zsub) cell)))
-                        (setq relleno (+ relleno (* (- zsub ztn) cell))))))))
-              (setq y (+ y step)))
-            (setq x (+ x step)))
-          (list corte relleno))))))
+          (setq scale (/ area total))
+          (list (* scale cut) (* scale fill)))
+        (progn
+          (prompt "\nTierras PENDIENTES: contorno incompleto o puntos fuera de SUP_TN; no se guarda un volumen parcial.")
+          nil)))
+    (progn
+      (prompt (strcat "\nNo se encontro la superficie " *mp-terrain-surface-name* "."))
+      nil)))
 
 (defun urb:green-zone-data (ename / data object attributes)
   (setq data (urb:get-xdata-strings ename "URB_GREEN_BLOCK"))
@@ -9628,57 +9708,6 @@
   "\nComandos principales: URBANISMO y EDITAR.")
 (princ)
 
-;; Alias final fuera del modulo integrado: asegura que la funcion publica se
-;; registre como SUBR en todos los cargadores de Civil 3D.
-(defun urb:anden-earthwork-points2
-  (block-ref / obj def item raw out pos rot sx sy sz co si)
-  (setq obj (urb:as-vla-object block-ref)
-        pos (if obj (urb:point3d-list (vlax-get obj 'InsertionPoint)))
-        rot (if obj (vla-get-Rotation obj) 0.0)
-        sx (if obj (vla-get-XScaleFactor obj) 1.0)
-        sy (if obj (vla-get-YScaleFactor obj) 1.0)
-        sz (if obj (vla-get-ZScaleFactor obj) 1.0)
-        co (cos rot) si (sin rot))
-  (if (and obj pos)
-    (progn
-      (setq def (vla-Item (vla-get-Blocks (urb:doc)) (vla-get-Name obj)))
-      (vlax-for item def
-        (if (= (urb:generated-role item) "EARTHWORK_BOUNDARY")
-          (setq raw (urb:anden-earthwork-raw-points item))))
-       (if raw
-         (setq out (mapcar '(lambda (p) p) raw)))
-      out)
-    nil))
-(defun urb:anden-earthwork-points-final (block-ref)
-  (urb:anden-earthwork-points2 block-ref))
-
-;; Definicion final (fuera de los bloques de migracion) para que el lector de
-;; huella quede disponible incluso si una version antigua del cargador evalua
-;; parcialmente el archivo.  Usa exclusivamente DXF 10 y tolera referencias
-;; COM no disponibles en Core Console.
-(defun urb:anden-earthwork-points
-  (block-ref / obj def item transform raw out)
-  (setq obj (urb:as-vla-object block-ref)
-        transform (if obj
-                    (vl-catch-all-apply 'urb:block-instance-transform (list obj))))
-  (if (or (null obj) (vl-catch-all-error-p transform))
-    nil
-    (progn
-      (setq def (vl-catch-all-apply 'vla-Item
-        (list (vla-get-Blocks (urb:doc)) (vla-get-Name obj))))
-      (if (or (vl-catch-all-error-p def) (null def))
-        nil
-        (progn
-          (vlax-for item def
-            (if (= (urb:generated-role item) "EARTHWORK_BOUNDARY")
-              (setq raw (urb:anden-earthwork-raw-points item))))
-          (if raw
-            (setq out (mapcar
-              '(lambda (p)
-                 (list (+ (car pos) (- (* (* (car p) sx) co) (* (* (cadr p) sy) si)))
-                       (+ (cadr pos) (+ (* (* (car p) sx) si) (* (* (cadr p) sy) co)))
-                       (+ (caddr pos) (* (caddr p) sz)))) raw)))
-          out)))))
 
 ;;; ============================================================
 ;;; MODULO INTEGRADO MAIPORE REDES V13
@@ -12305,6 +12334,25 @@
 (setq *mp-triturado-sobre-clave* 0.30)
 (setq *mp-entibado-umbral* 3.0)
 
+;; Integra ambas caras y divide en los cruces de profundidad 0/2/3 m.
+;; Clasificar toda la longitud por su profundidad media pierde tipologias.
+(defun mp:entibado-segment-areas (lng d1 d2 / cuts h u lo hi dm ar out idx)
+  (setq cuts '(0.0 1.0) out '(0.0 0.0 0.0))
+  (if (> (abs (- d2 d1)) 1e-12)
+    (foreach h '(0.0 2.0 3.0)
+      (setq u (/ (- h d1) (- d2 d1)))
+      (if (and (> u 0.0) (< u 1.0)) (setq cuts (cons u cuts)))))
+  (setq cuts (vl-sort cuts '<))
+  (while (cdr cuts)
+    (setq lo (car cuts) hi (cadr cuts)
+          dm (+ d1 (* (- d2 d1) (/ (+ lo hi) 2.0)))
+          ar (* 2.0 (max 0.0 lng) (- hi lo) (max 0.0 dm))
+          idx (cond ((<= dm 2.0) 0) ((<= dm 3.0) 1) (T 2)))
+    (setq out (list (+ (car out) (if (= idx 0) ar 0.0))
+                    (+ (cadr out) (if (= idx 1) ar 0.0))
+                    (+ (caddr out) (if (= idx 2) ar 0.0))) cuts (cdr cuts)))
+  out)
+
 (defun mp:derive-tramo-values
   (base p1 p2 vals
    / length-2d length-3d length-center-2d length-center-3d length-value
@@ -12314,7 +12362,7 @@
    entered-slope excavation bedding-volume element-volume fill surplus
    replacement duct-diameter surface depth-profile depths max-depth-sampled
    critical-depth sample-count env-height env-vol triturado recebo
-   ent-le3 ent-gt3 seg-len seg-index d1 d2 dmid
+   ent-le3 ent-gt3 seg-len seg-index d1 d2 dmid ent-parts
    recub-e envb-e arena-e baseg-e)
   (setq *mp-last-tramo-memory-samples* nil)
   (setq length-center-2d (if (and p1 p2) (mp:distance-2d p1 p2)
@@ -12532,17 +12580,18 @@
                       (/ length-value (float (1- (length depths))))
                     seg-index 0)
               (repeat (1- (length depths))
-                (setq d1 (max 0.0 (nth seg-index depths))
-                      d2 (max 0.0 (nth (1+ seg-index) depths))
-                      dmid (* 0.5 (+ d1 d2)))
-                (if (<= dmid *mp-entibado-umbral*)
-                  (setq ent-le3 (+ ent-le3 (* 2.0 seg-len dmid)))
-                  (setq ent-gt3 (+ ent-gt3 (* 2.0 seg-len dmid))))
+                (setq d1 (nth seg-index depths)
+                      d2 (nth (1+ seg-index) depths)
+                      ent-parts (mp:entibado-segment-areas seg-len d1 d2)
+                      ent-le3 (+ ent-le3 (car ent-parts) (cadr ent-parts))
+                      ent-gt3 (+ ent-gt3 (caddr ent-parts)))
                 (setq seg-index (1+ seg-index))))
             (if (> depth-mean 0.0)
-              (if (<= depth-mean *mp-entibado-umbral*)
-                (setq ent-le3 (* 2.0 length-value depth-mean))
-                (setq ent-gt3 (* 2.0 length-value depth-mean)))))
+              (progn
+                (setq ent-parts (mp:entibado-segment-areas length-value
+                  (if depth-ini depth-ini depth-mean) (if depth-fin depth-fin depth-mean)))
+                (setq ent-le3 (+ (car ent-parts) (cadr ent-parts))
+                      ent-gt3 (caddr ent-parts)))))
           (setq vals (mp:alist-set vals "TRITURADO_M3" (rtos triturado 2 3))
                 vals (mp:alist-set vals "RECEBO_M3" (rtos recebo 2 3))
                 vals (mp:alist-set vals "ENTIBADO_LE3_M2" (rtos ent-le3 2 3))
@@ -30135,11 +30184,13 @@
         (cdr (assoc "AREA_CON_SOBREANCHO_M2" atts)) "")))
       ;; Bloques viejos conservan su valor anterior hasta regeneracion.
       (if (not over-area) (setq over-area area))
-      ;; Un corte medido igual a cero es valido: no convertirlo en excavacion.
-      (if (and (<= corte 0.0)
-               (not (wcmatch (strcase (urb:safe-string
-                 (cdr (assoc "ANDEN_METODO" atts)) "")) "OK*")))
-        (setq corte (* over-area *urb-anden-depth*)))
+      ;; No sustituir un MT pendiente por area x espesor: no es un corte
+      ;; contra SUP_TN. Se conserva como pendiente, nunca como volumen medido.
+      (if (wcmatch (strcase (urb:safe-string
+            (cdr (assoc "ANDEN_METODO" atts)) "PENDIENTE")) "PENDIENTE*")
+        (progn
+          (setq corte 0.0 relleno 0.0)
+          (prompt (strcat "\nMT pendiente en anden " handle ": corte/relleno no exportados."))))
       (setq rows
         (list
           (urb:ppto-row "ANDEN" "Descapote mecanico de material vegetal"
@@ -30523,20 +30574,18 @@
 ;; repartido con el perfil guardado MP_TRAMO_MEMORIA (frac tn key depth);
 ;; sin perfil: toda la pared a la banda de la profundidad media.
 (defun urb:ppto-entibado-3 (be lng prof-media / samples prev e1a e1b e2
-                            frac depth ds dmid item)
+                            frac depth ds dmid item parts)
   (setq samples (mp:read-tramo-memory-samples be)
         e1a 0.0 e1b 0.0 e2 0.0 prev nil)
   (if (and samples (> (length samples) 1))
     (foreach item samples
-      (setq frac (nth 0 item) depth (max 0.0 (nth 3 item)))
+      (setq frac (nth 0 item) depth (nth 3 item))
       (if prev
         (progn
           (setq ds (* (- frac (car prev)) lng)
-                dmid (* 0.5 (+ depth (cadr prev))))
-          (cond
-            ((<= dmid 2.0) (setq e1a (+ e1a (* 2.0 ds dmid))))
-            ((<= dmid 3.0) (setq e1b (+ e1b (* 2.0 ds dmid))))
-            (T (setq e2 (+ e2 (* 2.0 ds dmid)))))))
+                parts (mp:entibado-segment-areas ds (cadr prev) depth)
+                e1a (+ e1a (car parts)) e1b (+ e1b (cadr parts))
+                e2 (+ e2 (caddr parts)))))
       (setq prev (list frac depth)))
     (if (> prof-media 0.0)
       (cond
@@ -30810,6 +30859,49 @@
           (foreach r rows (if r (setq out (cons r out))))))
       (setq i (1+ i))))
   out)
+
+;; Umbral de REVISION de datos, no profundidad maxima normativa de diseno.
+;; No intercambiar cotas ni inferir profundidades automaticamente.
+(if (not (boundp '*mp-pozo-depth-review-limit*)) (setq *mp-pozo-depth-review-limit* 30.0))
+(defun mp:pozo-depth-issue (atts / raw d)
+  (setq raw (vl-string-trim " " (mp:getval "PROFUNDIDAD" atts ""))
+        d (distof raw 2))
+  (cond ((= raw "") "FALTA PROFUNDIDAD")
+        ((not d) "PROFUNDIDAD NO NUMERICA")
+        ((<= d 0.0) "PROFUNDIDAD NO POSITIVA")
+        ((> d *mp-pozo-depth-review-limit*) "PROFUNDIDAD EXCEDE UMBRAL DE REVISION")
+        (T nil)))
+
+(defun urb:audit-pozo-depths (/ ss i en atts issue out)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_POZO_*"))) i 0)
+  (if ss (repeat (sslength ss)
+    (setq en (ssname ss i) atts (mp:att-alist en)
+          issue (mp:pozo-depth-issue atts))
+    (if issue (setq out (cons (list (cdr (assoc 5 (entget en)))
+      (mp:getval "ID" atts "") (mp:getval "SUBETAPA" atts "")
+      (mp:getval "PROFUNDIDAD" atts "") issue) out)))
+    (setq i (1+ i))))
+  (reverse out))
+
+(defun urb:print-pozo-depth-audit (/ issues row)
+  (setq issues (urb:audit-pozo-depths))
+  (foreach row issues (prompt (strcat "\n" (vl-princ-to-string row))))
+  (prompt (strcat "\nPozos con datos por revisar: " (itoa (length issues))
+    ". Solo lectura; no se modificaron cotas."))
+  (princ))
+
+(defun urb:ppto-check-pozo-depths (/ issues bad row)
+  (setq issues (urb:audit-pozo-depths))
+  (foreach row issues
+    (if (/= (nth 4 row) "FALTA PROFUNDIDAD") (setq bad (cons row bad))))
+  (foreach row bad (prompt (strcat "\nPOZO: " (vl-princ-to-string row))))
+  (if bad
+    (prompt (strcat "\nExportacion bloqueada ANTES de escribir: "
+      (itoa (length bad)) " pozos con profundidad invalida o pendiente de revision."
+      " Revise los IDs/handles indicados; confirme cotas con EDITAR y recalcule tramos conectados.")))
+  (if issues (prompt (strcat "\nAVISO: " (itoa (length issues))
+    " pozos sin profundidad: sus anillos quedan PENDIENTES, no medidos.")))
+  (not bad))
 
 (defun urb:ppto-rows-puntos (/ ss i be base atts red id etapa sub handle prof
                              rows out r)
@@ -32733,6 +32825,9 @@
 (defun urb:ppto-run (wb / lo vocab raw rows item m final huerfanas dwg total
                      borradas por-red red-count espec result resdlg
                      decisiones d app calc-prev pe-old res-pe)
+  (if (not (urb:ppto-check-pozo-depths))
+    (setq *urb-ppto-last-summary* '(DATOS-POZOS-INVALIDOS))
+    (progn
   (setq lo (urb:ppto-memorias-table wb))
   (setq vocab (if lo (urb:ppto-read-vocab wb) nil))
   (if (and lo vocab)
@@ -33012,6 +33107,7 @@
       (list 'SIN-TABLA-O-VOCAB
         (if lo 'tabla-ok 'sin-tabla)
         (if vocab 'vocab-ok 'sin-vocab))))
+    ))
   *urb-ppto-last-summary*)
 
 ;; ---------- comando unico ----------
@@ -33026,7 +33122,8 @@
 (defun c:PPTOEXPORTAR (/ path attach app wb propia result seguir gestion
                        mensaje nuevo)
   (vl-load-com)
-  (setq seguir T)
+  (setq seguir (urb:ppto-check-pozo-depths))
+  (if (not seguir) (setq *urb-ppto-last-summary* '(DATOS-POZOS-INVALIDOS)))
   (setq *urb-ppto-headless*
     (and (boundp '*urb-ppto-sin-dialogo*) *urb-ppto-sin-dialogo*))
   (while seguir
