@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.0.5")
+(setq *urb-version* "5.0.6")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -3895,7 +3895,7 @@
             (setq dir (angle ini p))))
         (setq prev p)
         (setq i (1+ i)))
-      (setq out (cons (last chain) out))
+      (setq out (cons (car (last chain)) out))
       (reverse out)))
 )
 
@@ -4338,52 +4338,20 @@
   (vla-put-Layer region layer)
   (vla-put-Color region (urb:tactile-fill-color feature T))
   (urb:tag-generated-role region parent-handle "FILL")
-  ;; TONO POR BANDA (U-201): las tabletas tactiles toman el color de la
-  ;; banda gris/blanca del patron donde caen (alternando con la MISMA fase
-  ;; 0.80/1.00 global), no un color propio -- la franja queda integrada al
-  ;; patron y se distingue solo por la textura (domos/barras). La capa
-  ;; sigue siendo la de guia/toperol (las cantidades no cambian).
-  (setq band-ok nil)
-  (setq points (urb:region-outline-points region))
-  (if (null points) (setq points (urb:object-box-points region)))
-  (if points
-    (progn
-      (setq bounds (urb:project-bounds points angle-value)
-            umin (nth 0 bounds) umax (nth 1 bounds)
-            vmin (- (nth 2 bounds) 1.0) vmax (+ (nth 3 bounds) 1.0))
-      (setq phase-state (urb:composite-phase-state (if phase-offset phase-offset 0.0)))
-      (setq gray (car phase-state) first-band T cursor umin iter 0)
-      (while (and (< cursor (- umax 1e-6)) (< iter 20000))
-        (setq iter (1+ iter))
-        (setq bw (if first-band (cdr phase-state) (if gray 0.80 1.00)))
-        (if (< bw 0.001) (setq bw 0.001))
-        (setq nxt (min umax (+ cursor bw)))
-        (setq band (urb:clip-stripe region cursor nxt vmin vmax angle-value))
-        (if band
-          (progn
-            (vla-put-Layer band layer)
-            (vla-put-Color band (urb:tactile-fill-color feature gray))
-            (urb:tag-generated-role band parent-handle "FILL")
-            (setq fill
-              (vl-catch-all-apply
-                'urb:add-solid-hatch
-                (list band layer (urb:tactile-fill-color feature gray))))
-            (if (not (vl-catch-all-error-p fill))
-              (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))
-            (urb:toperol-texture band feature layer angle-value parent-handle)
-            (setq band-ok T)))
-        (setq cursor nxt gray (not gray) first-band nil))))
-  ;; respaldo: si el particionado por bandas no produjo nada (region
-  ;; degenerada), relleno uniforme como antes
-  (if (not band-ok)
-    (progn
-      (setq fill
-        (vl-catch-all-apply
-          'urb:add-solid-hatch
-          (list region layer (urb:tactile-fill-color feature T))))
-      (if (not (vl-catch-all-error-p fill))
-        (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))
-      (urb:toperol-texture region feature layer angle-value parent-handle)))
+  ;; La franja es una sola region continua. Partirla en bandas de 0.80/1.00 m
+  ;; creaba cientos de booleans y hatches por cada anden largo; la reticula
+  ;; USER y la textura tactil se aplican una vez sobre el contorno completo.
+  (vla-put-Layer region layer)
+  (vla-put-Color region (urb:tactile-fill-color feature T))
+  (urb:tag-generated-role region parent-handle "FILL")
+  (setq fill
+    (vl-catch-all-apply
+      'urb:add-solid-hatch
+      (list region layer (urb:tactile-fill-color feature T))))
+  (if (not (vl-catch-all-error-p fill))
+    (urb:tag-generated-role fill parent-handle "FEATURE_FILL"))
+  (if (= feature "TOPEROL")
+    (urb:toperol-texture region feature layer angle-value parent-handle))
   (setq grid
     (urb:add-user-hatch
       region layer module angle-value T 9 origin))
@@ -4538,33 +4506,27 @@
 
 (defun urb:offset-strip-tones
   (strip chain-poly len layer parent-handle elevation span feature
-   / s nxt bw gray first-band phase-state piece p1 p2 a1 a2 count iter)
-  ;; La cuna se limita antes del cruce de normales. El cuadrilatero
-  ;; ilimitado anterior se autointersectaba y omitia toda la curva.
-  (setq s 0.0 count 0 iter 0 phase-state (urb:composite-phase-state 0.0)
-        gray (car phase-state) first-band T)
-  (while (and (< s (- len 1e-6)) (< iter 20000))
-    (setq iter (1+ iter) bw (if first-band (cdr phase-state) (if gray 0.80 1.00))
-          nxt (min len (+ s (max bw 0.001)))
-          p1 (urb:curve-pt chain-poly s) p2 (urb:curve-pt chain-poly nxt)
-          a1 (urb:curve-tangent chain-poly s) a2 (urb:curve-tangent chain-poly nxt))
-    (if (and p1 p2)
-      (progn
-        (setq piece (urb:clip-edge-wedge strip p1 p2
-          (+ a1 (* 0.5 pi)) (+ a2 (* 0.5 pi)) span))
-        (if piece
-          (progn
-            (vla-put-Layer piece layer)
-            (vla-put-Color piece (urb:tactile-fill-color feature gray))
-            (urb:tag-generated-role piece parent-handle "FILL")
-            (urb:tag-generated-role
-              (urb:add-solid-hatch piece layer (urb:tactile-fill-color feature gray))
-              parent-handle "FEATURE_FILL")
-            (urb:toperol-texture piece feature layer
-              (urb:curve-tangent chain-poly (* 0.5 (+ s nxt))) parent-handle)
-            (setq count (1+ count))))))
-    (setq s nxt gray (not gray) first-band nil))
-  count
+   / color hatch)
+  ;; Una franja accesible es una sola region continua. La version anterior
+  ;; la partia en bandas de 0.80/1.00 m y creaba dos HATCH por banda; en un
+  ;; anden de 188 m eso eran cientos de booleans/hatches y el bloque quedaba
+  ;; a medio empaquetar. La reticula de loseta ya se dibuja en un unico USER
+  ;; hatch y el toperol en un unico hatch de textura; las juntas/simbolos se
+  ;; generan aparte, asi que no se pierde la lectura del acabado.
+  (setq color (urb:tactile-fill-color feature T))
+  (vla-put-Layer strip layer)
+  (vla-put-Color strip color)
+  (urb:tag-generated-role strip parent-handle "FILL")
+  (setq hatch
+    (vl-catch-all-apply 'urb:add-solid-hatch (list strip layer color)))
+  (if (not (vl-catch-all-error-p hatch))
+    (progn
+      (urb:tag-generated-role hatch parent-handle "FEATURE_FILL")
+      (if (= feature "TOPEROL")
+        (urb:toperol-texture strip feature layer
+          (urb:curve-tangent chain-poly (* 0.5 len)) parent-handle))
+      1)
+    0)
 )
 
 (defun urb:offset-strip-symbols
@@ -4861,7 +4823,9 @@
               " no se pudo desplazar sobre este contorno; se rehace por segmentos."))
           (setq rescate
             (vl-catch-all-apply 'urb:create-accessibility-features-segmented
-              (list base-region points driving-chain
+              (list base-region points
+                    (urb:chain-simplify-by-direction driving-chain
+                      (* pi (/ 5.0 180.0)))
                     (if ok-gui "No" guia) (if ok-top "No" toperol)
                     format parent-handle)))
           (if (and (not (vl-catch-all-error-p rescate)) rescate)
@@ -5084,7 +5048,10 @@
               (if (and (not (vl-catch-all-error-p offset-result)) offset-result)
                 offset-result
                 (urb:create-accessibility-features-segmented
-                  base-region points driving-chain guia toperol format parent-handle)))
+                  base-region points
+                  (urb:chain-simplify-by-direction driving-chain
+                    (* pi (/ 5.0 180.0)))
+                  guia toperol format parent-handle)))
             (progn
               (setq angle-value (urb:anden-axis-angle points))
               (setq bounds (urb:project-bounds points angle-value))
@@ -5320,6 +5287,11 @@
   (setq toperol (urb:safe-string toperol "No"))
   (setq format (urb:safe-string format "40 x 40 cm"))
   (setq obj (vlax-ename->vla-object ename))
+  ;; El estado del patron solo es valido para este anden. Si quedo "SI" de
+  ;; una generacion anterior, un fallo del primer hatch de este anden podia
+  ;; ocultar la degradacion y dejar la franja sin textura.
+  (setq *urb-toperol-pattern-state* nil
+        *urb-toperol-fallos-pieza* 0)
   ;; Los booleanos REGION y los HATCH son mucho mas estables y rapidos en
   ;; el plano Z=0. Se conserva la elevacion en URB_ANDEN y el bloque final
   ;; se inserta nuevamente en esa cota.

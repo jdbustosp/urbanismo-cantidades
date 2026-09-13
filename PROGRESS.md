@@ -1,5 +1,21 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 16:35 America/Bogota — optimización generación anden 5.0.6 (Codex/Luna), INSTALADO
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Rama: `codex/anden504-verificacion`.
+Se confirmó el cuello de botella en el código: el camino de franjas guía/toperol
+creaba un solid hatch y una textura por cada banda de 0.80/1.00 m; al fallar el
+patrón podía además sembrar un círculo por domo. Se reemplazó por una región/hatch
+continuo por franja, se reinicia el estado del patrón por cada andén y el respaldo
+de curvas simplifica la cadena a 5 grados. Esto conserva la retícula y juntas, pero
+evita cientos de booleans/hatches que impedían empaquetar el bloque.
+
+El LSP y manifiesto quedaron en 5.0.6; validación estática y `instalar_bundle.ps1
+-ValidateOnly` OK. Se instaló y el SHA-256 del LSP instalado coincide con el repo.
+La medición E2E final quedó pendiente porque el laboratorio nativo estaba ejecutando
+trabajos históricos de arranque; no se toma esa corrida contaminada como tiempo válido.
+La instalación queda lista para probar tras reiniciar Civil 3D. El DWG y Excel no se tocaron.
+
 ## 2026-09-13 15:50 America/Bogota — MT/entibados/pozos 5.0.5 (Codex/Luna), INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Rama: `codex/anden504-verificacion`.
