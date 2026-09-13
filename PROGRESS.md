@@ -3,6 +3,10 @@
 ## 2026-09-13 12:00 America/Bogota — borrador 5.0.4, NO INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Partida 59463f0 (5.0.3 instalado).
+Commit borrador: 1165fe5, rama codex/anden504-verificacion publicada.
+Focal final: PIP 3422->1062 ms en 300 consultas/500 vertices; 200
+comparaciones sin diferencias; deteccion S=T; 32 casos de arcos sin fallo.
+No es medicion de generacion E2E. No instalar hasta prueba nativa.
 Solicitud: circulos en cualquier curva, bloque obligatorio, orientacion local,
 guia/toperol completos, rapidez y cantidades. Usuario confirma sobreancho
 de 1 m POR CADA LADO. Este calculo aun NO esta implementado.
