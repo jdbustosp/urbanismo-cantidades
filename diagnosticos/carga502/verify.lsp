@@ -1,0 +1,18 @@
+(setq testpath (getenv "URB_LOAD_TEST_PATH"))
+(setq outf (open (getenv "URB_LOAD_TEST_OUT") "w"))
+(setq r (vl-catch-all-apply 'load (list testpath)))
+(write-line (strcat "FILE " testpath) outf)
+(write-line (if (vl-catch-all-error-p r) (strcat "LOAD_ERROR " (vl-catch-all-error-message r)) "LOAD_OK") outf)
+(write-line (strcat "ANDEN_TYPE " (vl-princ-to-string (type c:ANDEN))) outf)
+(write-line (strcat "RAMPA_TYPE " (vl-princ-to-string (type c:RAMPA))) outf)
+(write-line (strcat "ENGINE " (if *urb-version* *urb-version* "NONE")) outf)
+(if (not (vl-catch-all-error-p r))
+  (progn
+    ;; Solo verificar el enlace publico: no abrir DCL ni modelar.
+    (defun urb:create-sidewalk-command () (setq called502 T))
+    (setq called502 nil)
+    (c:ANDEN)
+    (write-line (strcat "ANDEN_DISPATCH " (if called502 "OK" "FAIL")) outf)
+    (write-line (strcat "PURGE_EMPTY_DRAWING " (itoa (urb:purge-empty-hatches))) outf)))
+(close outf)
+(princ)

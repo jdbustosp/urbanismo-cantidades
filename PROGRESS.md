@@ -1,5 +1,34 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 11:02 America/Bogota — 5.0.2: reparacion de carga ANDEN
+
+Agente: Codex. Equipo: BOG085CD119BDQN.
+Reproducido en el archivo INSTALADO 5.0.1: `malformed list on input`,
+C:ANDEN y C:RAMPA nil. Faltaba cerrar una lista en purge-empty-hatches.
+La afirmacion anterior de carga OK era incorrecta: el harness load.lsp
+apuntaba a baseline500.lsp. El valor de *urb-version* NO demuestra carga
+completa: se establece al inicio aunque el archivo falle despues.
+
+5.0.2 corrige esa funcion. Motor/manifiesto instalados; SHA256 de motor,
+XML y DLL 2023 coinciden con repo. El instalador aviso DLL bloqueada por
+Civil abierto, pero esa DLL no cambio y se verifico identica, no requiere
+recompilacion. Sesion del usuario PID 23676 y maestro NO tocados.
+
+Prueba FINAL instalada: Core Console 2023 y 2024, LOAD_OK, C:ANDEN y
+C:RAMPA SUBR, despacho de ANDEN a testigo OK, purga en dibujo vacio=0.
+Esto no prueba DCL, modelacion ni rendimiento. 2021 cancelo carga del
+harness por seguridad; 2025/2026 no disponibles. Manifiesto corregido:
+SeriesMax R24.2 excluia 2024 (R24.3). Rango declarado ahora 2019-2026;
+no confundir rango declarado con pruebas E2E de todas las versiones.
+
+Lentitud NO solucionada ni medida E2E en esta entrega. Siguen en motor la
+llamada a offset-strip-tones sin feature y PIP con nth repetido; los cambios
+experimentales de la ronda anterior fueron retirados, no instalados.
+Orientacion/circulo al crear nuevos andenes: pendientes de prueba geometrica;
+no afirmar que purgar al cargar evita generar nuevos HATCH vacios.
+Harness reproducible en diagnosticos/carga502; logs en work/carga502.
+
+
 ## 2026-09-13 10:55 America/Bogota — v5.0.1: elimina HATCH vacíos que generan disco
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Se aisló el maestro y se comprobó
