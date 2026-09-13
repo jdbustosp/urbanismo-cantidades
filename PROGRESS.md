@@ -1,5 +1,35 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 11:23 America/Bogota — 5.0.3: disco curvo reproducido y eliminado
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit: el de esta entrada.
+RECTIFICACION: el diagnostico de 5.0.1 sobre 20 HATCH vacios era incorrecto;
+ocultarlos NO elimina el disco. Tampoco era SUP_TN.
+El caso real contiene arcos cortos de radio grande en los limites HATCH.
+La aproximacion anterior interpreto mal los angulos horarios DXF (negados).
+5.0.3 convierte solo arcos cortos R>50 m de HATCH URB-ANDEN-* a cuerdas con
+flecha <0.1 mm. Conserva fuentes REGION/LWPOLYLINE y XDATA; desasocia
+exclusivamente el relleno reparado para no regenerar los arcos problematicos.
+No modifica circulos genuinos, elipses/splines ni fuentes de cantidades.
+
+En copia local extraida del maestro: antes.png muestra disco; after.png lo
+elimina con 238 rellenos reparados. La PRIMERA integracion no reparaba Modelo:
+tblnext BLOCK omite Model/PaperSpace. Corregido usando coleccion Blocks COM.
+Prueba FINAL final2 en Civil 3D 2023 real: carga completa 5.0.3, ANDEN SUBR,
+227 fuentes identicas, 0 rellenos pendientes, segunda reparacion=0,
+212 rellenos NUEVOS creados desde REGION reales; final2_verified.png SIN disco.
+Carga + reparacion: 3485 ms en fixture; NO equivale a generar 188 ml.
+Core 2023: extremos CW/CCW y cruce 2*pi OK, circulo genuino intacto,
+41 regresiones, 0 fallos. No confundir asserts con apariencia: ambas revisadas.
+Scripts en diagnosticos/disco503, evidencias locales work/disco503.
+Instalado 5.0.3; SHA256 repo=instalado A23D4DF4CD1B589BE26CEFC5E4E47D3DAFC9EE74FA9115EAFDF8757032A69131.
+Carga del archivo INSTALADO en Core 2023: LOAD_OK, ANDEN/RAMPA SUBR,
+ANDEN_DISPATCH OK (testigo, no modelacion ni dialogo).
+Maestro y Excel originales intactos; reparacion automatica en proxima carga
+del motor instalado. Lentitud de generacion E2E sigue SIN corregir/medir.
+No se certifican todas las versiones: validacion geometrica nativa solo 2023.
+
+
 ## 2026-09-13 11:02 America/Bogota — 5.0.2: reparacion de carga ANDEN
 
 Agente: Codex. Equipo: BOG085CD119BDQN.

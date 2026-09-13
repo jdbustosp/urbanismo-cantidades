@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.0.2")
+(setq *urb-version* "5.0.3")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -1801,7 +1801,7 @@
           (vlax-property-available-p hatch 'PatternScale T))
       (vla-put-PatternScale hatch scale))
   )
-  (vla-Evaluate hatch)
+  (urb:evaluate-render-hatch hatch)
   hatch
 )
 
@@ -2527,6 +2527,120 @@
   (reverse points)
 )
 
+;; 5.0.3 Codex / BOG085CD119BDQN. Solo limites graficos del HATCH:
+;; fuente ACIS, contorno, cantidades y XDATA permanecen intactos.
+;; Error de cuerda <0.1 mm. Caso reproducido: arcos CW de R=260.714 m.
+(defun urb:hatch-arc-lines (edge / c r a b ccw sweep n j p q out)
+  (setq c (cdr (assoc 10 edge)) r (cdr (assoc 40 edge))
+        a (cdr (assoc 50 edge)) b (cdr (assoc 51 edge))
+        ccw (= 1 (cdr (assoc 73 edge))))
+  (if (and c (numberp r) (> r 50.0) (numberp a) (numberp b))
+    (progn
+      (setq sweep (- b a))
+      (if (not ccw) (setq a (- a) b (- b)))
+      (while (< sweep 0.0) (setq sweep (+ sweep (* 2.0 pi))))
+      ;; DXF horario guarda angulos negados; no confundirlo con un giro
+      ;; de casi 2*pi. No tocar circulos genuinos ni arcos mayores:
+      ;; en las pequenas piezas obtenidas al recortar las bandas.
+      (if (and (> sweep 1e-12) (< sweep 0.25))
+        (progn
+          (setq n (1+ (fix (/ sweep (sqrt (/ 0.0008 r))))))
+          (setq j 0 p (polar c a r))
+          (repeat n
+            (setq j (1+ j)
+                  q (polar c (+ a (* (if ccw 1.0 -1.0) sweep (/ (float j) n))) r)
+                  out (append out (list '(72 . 1) (cons 10 p) (cons 11 q)))
+                  p q))
+          out)))))
+
+(defun urb:hatch-linearized-data (data / tail item flag count edge flat edges out changed refs)
+  (setq tail data flag 0)
+  (while tail
+    (setq item (car tail) tail (cdr tail))
+    (if (= (car item) 92) (setq flag (cdr item)))
+    (if (and (= (car item) 93) (= 0 (logand flag 2)))
+      (progn
+        (setq count 0 edges nil)
+        (while (and tail (= (caar tail) 72))
+          (setq edge (list (car tail)) tail (cdr tail))
+          (while (and tail (not (member (caar tail) '(72 97))))
+            (setq edge (append edge (list (car tail))) tail (cdr tail)))
+          (setq flat (if (= (cdar edge) 2) (urb:hatch-arc-lines edge)))
+          (if flat
+            (setq changed T count (+ count (/ (length flat) 3)) edges (append edges flat))
+            (setq count (1+ count) edges (append edges edge))))
+        (setq out (append out (cons (cons 93 count) edges))))
+      (setq out (append out (list item)))))
+  (if changed
+    (progn
+      ;; Desasociar el HATCH aproximado para que Evaluate no restaure los
+      ;; arcos. Los objetos fuente conservan geometria y etiquetas intactas.
+      (setq tail out out nil)
+      (while tail
+        (setq item (car tail) tail (cdr tail))
+        (cond
+          ((= (car item) 71) (setq out (cons '(71 . 0) out)))
+          ((= (car item) 97)
+            (setq refs (cdr item) out (cons '(97 . 0) out))
+            (repeat refs (if (= (caar tail) 330) (setq tail (cdr tail)))))
+          (T (setq out (cons item out)))))
+      (reverse out))))
+
+(defun urb:hatch-render-data (data)
+  ;; No reescribir el formato de splines/elipses (sus grupos 97 difieren).
+  (if (not (vl-some
+      '(lambda (v) (and (= (car v) 72) (> (cdr v) 2))) data))
+    (urb:hatch-linearized-data data)))
+
+(defun urb:stabilize-curved-hatch (hatch / en data fixed result)
+  (setq en (urb:as-ename hatch) data (if en (entget en '("*"))))
+  (if (and data (= (cdr (assoc 0 data)) "HATCH")
+           (wcmatch (strcase (cdr (assoc 8 data))) "URB-ANDEN-*")
+           (setq fixed (urb:hatch-render-data data)))
+    (progn
+      (setq result (vl-catch-all-apply
+        '(lambda ()
+           (if (not (entmod fixed)) (vl-exit-with-error "HATCH: no se pudo reparar el contorno grafico"))
+           (vla-Evaluate (vlax-ename->vla-object en))
+           (entupd en)
+           T)))
+      (if (vl-catch-all-error-p result)
+        (progn (entmod data) (entupd en) nil)
+        result))))
+
+(defun urb:evaluate-render-hatch (hatch / data)
+  (vla-Evaluate hatch)
+  (urb:stabilize-curved-hatch hatch)
+  (setq data (entget (vlax-vla-object->ename hatch)))
+  (if (and (wcmatch (cdr (assoc 8 data)) "URB-ANDEN-*")
+           (urb:hatch-render-data data))
+    (progn
+      (urb:safe-delete hatch)
+      (vl-exit-with-error "HATCH curvo: no se pudo garantizar el relleno; se descarta la pieza.")))
+  hatch)
+
+(defun urb:repair-anden-hatches (/ block obj en data result n failed)
+  ;; Incluye rellenos sueltos y empaquetados, nunca XREF.
+  ;; tblnext BLOCK omite Model/PaperSpace: usar la coleccion completa.
+  (setq n 0 failed 0)
+  (vlax-for block (vla-get-Blocks (urb:doc))
+    (if (= :vlax-false (vla-get-IsXRef block))
+      (vlax-for obj block
+          (setq en (vlax-vla-object->ename obj) data (entget en))
+          (if (and (= (cdr (assoc 0 data)) "HATCH")
+                   (wcmatch (cdr (assoc 8 data)) "URB-ANDEN-*"))
+            (progn
+              (setq result (vl-catch-all-apply 'urb:stabilize-curved-hatch (list en)))
+              (cond
+                ((vl-catch-all-error-p result) (setq failed (1+ failed)))
+                (result (setq n (1+ n)))
+                ((urb:hatch-render-data data) (setq failed (1+ failed)))))))))
+  (if (> n 0)
+    (prompt (strcat "\nANDEN: " (itoa n) " rellenos curvos estabilizados; contornos y cantidades conservados.")))
+  (if (> failed 0)
+    (prompt (strcat "\nANDEN: " (itoa failed) " rellenos pendientes de revision.")))
+  n)
+
 (defun urb:add-solid-hatch (boundary layer color / hatch)
   (setq layer (urb:safe-string layer "0"))
   (setq hatch
@@ -2538,7 +2652,7 @@
   (vla-AppendOuterLoop hatch (urb:make-loop-array boundary))
   (vla-put-Layer hatch layer)
   (vla-put-Color hatch color)
-  (vla-Evaluate hatch)
+  (urb:evaluate-render-hatch hatch)
   hatch
 )
 
@@ -2563,7 +2677,7 @@
     (if double-lines :vlax-true :vlax-false))
   (vla-put-PatternSpace hatch spacing)
   (vla-put-PatternAngle hatch pattern-angle)
-  (vla-Evaluate hatch)
+  (urb:evaluate-render-hatch hatch)
   (if origin
     (urb:set-hatch-origin-dxf hatch origin))
   hatch
@@ -2912,7 +3026,7 @@
              (vla-AppendOuterLoop hatch (urb:make-loop-array boundary))
              (vla-put-Layer hatch layer)
              (vla-put-Color hatch color)
-             (vla-Evaluate hatch)
+             (urb:evaluate-render-hatch hatch)
              hatch)))
       (if (vl-catch-all-error-p result)
         (progn (urb:safe-delete hatch) nil)
@@ -2939,7 +3053,7 @@
                (if double-lines :vlax-true :vlax-false))
              (vla-put-PatternSpace hatch spacing)
              (vla-put-PatternAngle hatch pattern-angle)
-             (vla-Evaluate hatch)
+             (urb:evaluate-render-hatch hatch)
              (if origin (urb:set-hatch-origin-dxf hatch origin))
              hatch)))
       (if (vl-catch-all-error-p result)
@@ -3119,7 +3233,7 @@
              (vla-AppendOuterLoop hatch (urb:make-loop-array boundary))
              (vla-put-Layer hatch (urb:safe-string layer "0"))
              (vla-put-Color hatch color)
-             (vla-Evaluate hatch)
+             (urb:evaluate-render-hatch hatch)
              hatch)))
       (if (vl-catch-all-error-p result)
         (progn (urb:safe-delete hatch) nil)
@@ -4015,7 +4129,7 @@
         (vla-put-PatternScale hatch 1.0)
         (vla-put-PatternAngle hatch
           (urb:wcs-angle-to-current-ucs (if angle-value angle-value 0.0)))
-        (vla-Evaluate hatch)
+        (urb:evaluate-render-hatch hatch)
         hatch)))
   (if (or (vl-catch-all-error-p res) (null res))
     (progn
@@ -8713,7 +8827,7 @@
         (progn
           (vla-put-Layer hatch layer)
           (vla-put-Color hatch color)
-          (vla-Evaluate hatch)
+          (urb:evaluate-render-hatch hatch)
           hatch))))
 )
 
@@ -8991,7 +9105,7 @@
                   (urb:object-array-variant (list inner)))
                 (vla-put-Layer hatch layer)
                 (vla-put-Color hatch color)
-                (vla-Evaluate hatch)
+                (urb:evaluate-render-hatch hatch)
                 hatch)))
           (if (vl-catch-all-error-p hatch)
             (setq hatch nil)
@@ -15566,7 +15680,7 @@
           (if (vlax-property-available-p hatch 'EntityTransparency T)
             (vl-catch-all-apply 'vlax-put-property
               (list hatch 'EntityTransparency "75")))
-          (vla-Evaluate hatch)
+          (urb:evaluate-render-hatch hatch)
           (setq handle
             (vla-get-Handle (vlax-ename->vla-object boundary)))
           (urb:tag-road-generated hatch handle)))))
@@ -25976,7 +26090,7 @@
                 (setq hatch (vla-AddHatch bdef 1 "SOLID" :vlax-true))
                 (vla-AppendOuterLoop hatch (urb:make-loop-array interior))
                 (vla-put-Color hatch 121)
-                (vla-Evaluate hatch)
+                (urb:evaluate-render-hatch hatch)
                 hatch)))
           (setq etiqueta
             (cond
@@ -27695,7 +27809,7 @@
             (setq hatch (vla-AddHatch (urb:space) 1 "SOLID" :vlax-true)))
           (vla-AppendOuterLoop hatch (urb:make-loop-array obj))
           (vla-put-Layer hatch capa)
-          (vla-Evaluate hatch)
+          (urb:evaluate-render-hatch hatch)
           hatch)))
     (if (not (vl-catch-all-error-p hatch))
       (progn
@@ -34506,6 +34620,7 @@
 (vl-catch-all-apply 'mp:load-tramo-appearance-settings nil)
 (vl-catch-all-apply 'urb:load-geometric-settings nil)
 (vl-catch-all-apply 'urb:purge-empty-hatches nil)
+(vl-catch-all-apply 'urb:repair-anden-hatches nil)
 (if (and (not *urb-suppress-auto-migration*)
          (/= (getenv "URB_TEST_SUPPRESS_AUTO_MIGRATION") "1"))
   (vl-catch-all-apply 'urb:migrate-current-drawing nil))
