@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.0.6")
+(setq *urb-version* "5.0.7")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -1148,9 +1148,13 @@
 )
 
 (defun urb:get-xdata-strings (ename app / item section)
-  (setq ename (urb:as-ename ename))
+  ;; Para ENAME no pedir primero TODO el DXF solo para validarlo y luego
+  ;; pedirlo otra vez con el APPID. Una sola lectura filtrada y protegida.
+  (if (/= (type ename) 'ENAME) (setq ename (urb:as-ename ename)))
   (if ename
-    (setq item (assoc -3 (entget ename (list app)))))
+    (progn
+      (setq item (vl-catch-all-apply 'entget (list ename (list app))))
+      (setq item (if (vl-catch-all-error-p item) nil (assoc -3 item)))))
   (if item
     (progn
       (setq section (cadr item))
@@ -1571,8 +1575,23 @@
 
 (defun urb:generated-objects
   (parent-handle / ss index ename data objects)
-  ;; Filtra por XData en el ssget: evita recorrer todo el dibujo.
-  (if (setq ss (ssget "_X" '((-3 ("URB_ANDEN_GEN")))))
+  ;; Durante BUILD/PACKAGE solo se crearon piezas despues del marcador.
+  ;; No revisar otra vez todos los acabados historicos del DWG maestro.
+  ;; Fuera de esa operacion (edicion vieja, reapertura, padre empaquetado)
+  ;; conservar la busqueda completa por XDATA.
+  (if (and (boundp '*urb-generation-parent*)
+           (= parent-handle *urb-generation-parent*)
+           (boundp '*urb-generation-start*) *urb-generation-start*
+           (entget *urb-generation-start*)
+           (handent parent-handle) (entget (handent parent-handle)))
+    (progn
+      (setq ename (entnext *urb-generation-start*))
+      (while ename
+        (setq data (urb:get-xdata-strings ename "URB_ANDEN_GEN"))
+        (if (and data (= (car data) parent-handle))
+          (setq objects (cons (vlax-ename->vla-object ename) objects)))
+        (setq ename (entnext ename))))
+    (if (setq ss (ssget "_X" '((-3 ("URB_ANDEN_GEN")))))
     (progn
       (setq index 0)
       (repeat (sslength ss)
@@ -1582,7 +1601,7 @@
         (if (and data (= (car data) parent-handle))
           (setq objects
             (cons (vlax-ename->vla-object ename) objects)))
-        (setq index (1+ index)))))
+        (setq index (1+ index))))))
   (reverse objects)
 )
 
@@ -2507,7 +2526,11 @@
                 (list ename)))
             (if (and (numberp start-param) (numberp end-param))
               (progn
-                (setq steps 16 index 0)
+                ;; En una recta los extremos son exactos: las 15 muestras
+                ;; interiores repetian trabajo en cada borde de cada banda.
+                ;; Los arcos/curvas conservan su muestreo anterior.
+                (setq steps (if (= "LINE" (cdr (assoc 0 (entget ename)))) 1 16)
+                      index 0)
                 (repeat (1+ steps)
                   (setq parameter
                     (+ start-param
@@ -3117,6 +3140,15 @@
   (base-region p1 p2 bis1 bis2 span
    / d1 d2 q1 q2 q3 q4 clipped wedge result box elevation
    den t1 t2 ix iy s1p s1n s2p s2n)
+  ;; Extremos abiertos: la tapa la decide el contorno real, no la normal
+  ;; a su primera/ultima CUERDA. Esa normal amputaba dos cunas en curvas.
+  ;; Las bisectrices INTERIORES se conservan para empatar sin traslapes.
+  (if (null bis1)
+    (setq bis1 (+ (angle p1 p2) (* 0.5 pi))
+          p1 (polar p1 (angle p2 p1) span)))
+  (if (null bis2)
+    (setq bis2 (+ (angle p1 p2) (* 0.5 pi))
+          p2 (polar p2 (angle p1 p2) span)))
   ;; Recorta base-region con un cuadrilatero cuyos lados extremos son las
   ;; BISECTRICES en los dos extremos de la arista (junta a inglete): las
   ;; franjas de aristas vecinas empatan exactamente en la bisectriz, sin
@@ -3832,7 +3864,8 @@
     (setq slice
       (urb:clip-edge-wedge
         base-region (nth 0 edge) (nth 1 edge)
-        (nth 0 bis) (nth 1 bis) span))
+        (if (= edge-index 0) nil (nth 0 bis))
+        (if (= edge-index (1- (length edges))) nil (nth 1 bis)) span))
     (if (null slice)
       (progn
         (setq bounds-all (urb:project-bounds points-all angle-value)
@@ -3895,7 +3928,8 @@
             (setq dir (angle ini p))))
         (setq prev p)
         (setq i (1+ i)))
-      (setq out (cons (car (last chain)) out))
+      ;; AutoLISP LAST devuelve el punto completo, no una lista envolvente.
+      (setq out (cons (last chain) out))
       (reverse out)))
 )
 
@@ -4282,6 +4316,7 @@
         (setq sym-color
           (urb:tactile-symbol-color feature
             (car (urb:composite-phase-state (+ tile-g (* 0.5 module))))))
+        (if (= feature "GUIA") (setq sym-color 7))
         (setq su (if (= feature "GUIA") (/ module 2.0) margin))
         (setq su-step (if (= feature "GUIA") module spacing))
         (while (<= su (+ (- module margin) 1e-6))
@@ -4579,7 +4614,9 @@
       (urb:tactile-symbol-color feature
         (car (urb:composite-phase-state
                (min (- len 1e-6) (+ tile-g (* 0.5 module)))))))
-    (setq su margin)
+    (if (= feature "GUIA") (setq sym-color 7))
+    ;; Una barra longitudinal por tableta, no cuatro capsulas solapadas.
+    (setq su (if (= feature "GUIA") (/ module 2.0) margin))
     ;; con el punteado ya resuelto por patron no se siembra un circulo por
     ;; domo: solo quedan las juntas de tableta (v4.86)
     (while (and (not (urb:toperol-by-pattern-p feature))
@@ -4624,7 +4661,7 @@
                         u v radius ang layer parent-handle sym-color))))
                 (if symbol-result (setq created (1+ created)))
                 (setq ro (+ ro spacing)))))))
-      (setq su (+ su spacing)))
+      (setq su (+ su (if (= feature "GUIA") module spacing))))
     (setq tile-k (1+ tile-k)))
   (or (urb:toperol-by-pattern-p feature) (> created 0))
 )
@@ -4722,7 +4759,9 @@
                 (setq tone-count
                   (urb:offset-strip-tones
                     strip chain-poly len layer parent-handle elevation span feature)))
-              (urb:safe-delete strip)
+              ;; La franja continua es limite del hatch y area medida.
+              ;; Conservarla solo si la decoracion tuvo exito.
+              (if (<= tone-count 0) (urb:safe-delete strip))
               (if (<= tone-count 0)
                 (progn
                   (entdel c1) (entdel c2)
@@ -4885,7 +4924,8 @@
     (setq full-slice
       (urb:clip-edge-wedge
         base-region (nth 0 edge) (nth 1 edge)
-        (nth 0 bis) (nth 1 bis) span))
+        (if (= edge-index 0) nil (nth 0 bis))
+        (if (= edge-index (1- (length edges))) nil (nth 1 bis)) span))
     (if (null full-slice)
       (progn
         (setq bounds-wide (urb:project-bounds points angle-value)
@@ -5291,7 +5331,9 @@
   ;; una generacion anterior, un fallo del primer hatch de este anden podia
   ;; ocultar la degradacion y dejar la franja sin textura.
   (setq *urb-toperol-pattern-state* nil
-        *urb-toperol-fallos-pieza* 0)
+        *urb-toperol-fallos-pieza* 0
+        *urb-generation-parent* (vla-get-Handle obj)
+        *urb-generation-start* (entlast))
   ;; Los booleanos REGION y los HATCH son mucho mas estables y rapidos en
   ;; el plano Z=0. Se conserva la elevacion en URB_ANDEN y el bloque final
   ;; se inserta nuevamente en esa cota.
@@ -5906,18 +5948,27 @@
         (progn (entdel result) nil)
         result))))
 
-(defun urb:regions-union-copy (items / result item copy err)
+(defun urb:regions-union-copy (items / result item copy err pending next)
+  ;; Unir por pares equilibrados: no reconstruir una region creciente por
+  ;; cada banda (coste cuadratico en andenes largos). Solo tocar copias.
   (foreach item items
     (if (> (vla-get-Area item) 1e-8)
-      (if result
+      (setq pending (cons (vla-Copy item) pending))))
+  (while (cdr pending)
+    (setq next nil)
+    (while pending
+      (setq result (car pending) copy (cadr pending) pending (cddr pending))
+      (if copy
         (progn
-          (setq copy (vla-Copy item)
-                err (vl-catch-all-apply 'vla-Boolean (list result 0 copy)))
+          (setq err (vl-catch-all-apply 'vla-Boolean (list result 0 copy)))
           (urb:safe-delete copy)
           (if (vl-catch-all-error-p err)
-            (progn (urb:safe-delete result) (vl-exit-with-error "ANDEN: union de cantidades fallida."))))
-        (setq result (vla-Copy item)))))
-  result)
+            (progn
+              (foreach item (append (list result) pending next) (urb:safe-delete item))
+              (vl-exit-with-error "ANDEN: union de cantidades fallida.")))))
+      (setq next (cons result next)))
+    (setq pending (reverse next)))
+  (car pending))
 
 (defun urb:anden-measured-finish (ename area format / objects obj layer gray white guia top g w u t0 remaining cut a b c d module err)
   ;; Medir las regiones realmente modeladas, eliminando las superposiciones
@@ -5948,7 +5999,12 @@
             module (urb:loseta-module format))
       (foreach obj (list g w u t0) (urb:safe-delete obj))
       (if (> (abs (- area (+ a b c d))) (max 0.00001 (* area 0.000001)))
-        (vl-exit-with-error "ANDEN: el area de acabados modelados no cierra con el contorno neto."))
+        (progn
+          (prompt (strcat "\nANDEN: area neta=" (rtos area 2 6)
+            "; acabados=" (rtos (+ a b c d) 2 6)
+            " (lisa/adoquin/guia/toperol: " (rtos a 2 6) "/"
+            (rtos b 2 6) "/" (rtos c 2 6) "/" (rtos d 2 6) ")."))
+          (vl-exit-with-error "ANDEN: el area de acabados modelados no cierra con el contorno neto.")))
       (list a (urb:unit-count-ceiling a (* module module)) (/ c module) (/ d module)
         b (urb:unit-count-ceiling b 0.02)))))
 
@@ -6138,7 +6194,7 @@
         block-definition point "LOSETA_TOPEROL" "Loseta toperol" toperol)
       (urb:add-invisible-attribute
         block-definition point "LOSETA_LISA_M2" "Area loseta lisa m2"
-        (rtos (nth 0 finish-qty) 2 2))
+        (rtos (nth 0 finish-qty) 2 6))
       (urb:add-invisible-attribute
         block-definition point "LOSETA_LISA_UND" "Loseta lisa unidades"
         (itoa (nth 1 finish-qty)))
@@ -6158,7 +6214,7 @@
         (itoa (fix (+ 0.5 (/ (nth 3 finish-qty) 0.20)))))
       (urb:add-invisible-attribute
         block-definition point "ADOQUIN_20X10_M2" "Area adoquin blanco 20x10 m2"
-        (rtos (nth 4 finish-qty) 2 2))
+        (rtos (nth 4 finish-qty) 2 6))
       (urb:add-invisible-attribute
         block-definition point "ADOQUIN_20X10_UND" "Adoquin blanco 20x10 unidades"
         (itoa (nth 5 finish-qty)))
@@ -6669,7 +6725,7 @@
   (if (> (length ordered) 1)
     (progn
       (setq first-record (car ordered)
-            last-record (car (last ordered)))
+            last-record (last ordered))
       (cond
         ((<= axis-distance (car first-record))
           (setq p1 first-record p2 (cadr ordered)))
@@ -8053,7 +8109,7 @@
                    (* sx (- (* sxy sy) (* syy sx)))))
       (if (< (abs det) 1e-9)
         ;; puntos colineales: caer a la rasante lineal de los 2 extremos
-        (urb:design-z-from-picks (list (car picks) (car (last picks))) x y)
+        (urb:design-z-from-picks (list (car picks) (last picks)) x y)
         (progn
           (setq a (/ (+ (* sxz (- (* syy n) (* sy sy)))
                         (* (- sxy) (- (* syz n) (* sy sz)))
@@ -13693,6 +13749,31 @@
       (if found (mp:merge-endpoint-data base vals found is-final) vals))
     vals))
 
+(defun mp:save-edited-claves (en before edits / stored out suffix idtag tag oldid id key pair)
+  ;; Cotas de conexion propias del tramo: EDITAR prevalece sobre el pozo.
+  ;; XDATA persiste la eleccion durante regeneraciones y posteriores aperturas.
+  ;; Campo vacio vuelve a heredar; cambiar de pozo invalida la excepcion anterior.
+  (setq stored (urb:get-xdata-strings en "MP_CLAVES_EDITADAS") out nil)
+  (foreach suffix '("INI" "FIN")
+    (setq idtag (strcat "POZO_" suffix) tag (strcat "COTA_CLAVE_" suffix)
+          oldid (mp:getval idtag before "") id (mp:getval idtag edits oldid)
+          key (if (= id (car stored)) (cadr stored) "")
+          pair (assoc tag edits))
+    (if (and pair (or (/= (cdr pair) (mp:getval tag before "")) (/= id oldid)))
+      (setq key (cdr pair)))
+    (setq out (append out (list id (urb:safe-string key ""))) stored (cddr stored)))
+  (urb:set-xdata-strings en "MP_CLAVES_EDITADAS" out))
+
+(defun mp:apply-edited-claves (en vals / stored suffix key)
+  (setq stored (urb:get-xdata-strings en "MP_CLAVES_EDITADAS"))
+  (foreach suffix '("INI" "FIN")
+    (setq key (cadr stored))
+    (if (and (= (car stored) (mp:getval (strcat "POZO_" suffix) vals ""))
+             (= (type key) 'STR) (/= key ""))
+      (setq vals (mp:alist-set vals (strcat "COTA_CLAVE_" suffix) key)))
+    (setq stored (cddr stored)))
+  vals)
+
 (defun mp:sync-tramo-values
   (ename obj base vals
    / reference p1 p2 span handle-ini handle-fin endpoint-ini endpoint-fin
@@ -13740,6 +13821,7 @@
               (vla-put-Rotation obj (angle p1 p2))
               (vla-put-XScaleFactor obj (float scale))))))
       (setq vals (mp:auto-terrain-values vals p1 p2)
+            vals (mp:apply-edited-claves ename vals)
             derived (mp:derive-tramo-values base p1 p2 vals))
       (mp:store-tramo-memory-samples
         ename *mp-last-tramo-memory-samples*)
@@ -13787,6 +13869,7 @@
           ;; valores recalculados tengan donde guardarse.
           (if (> (mp:ensure-block-schema bname base T) 0)
             (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bname)))
+          (if (mp:hydro-tramo-p base) (mp:save-edited-claves en atts vals))
           (setq merged (mp:sync-tramo-values en obj base merged)
                 saved (mp:setatts en merged))
           (setq lab (mp:label-tramo base merged))

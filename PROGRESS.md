@@ -1,5 +1,29 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 17:58 America/Bogota — 5.0.7, andenes curvos y guardado, INSTALADO
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base: cd09304; commit de entrega
+registrado en Git como `v5.0.7`. Cambios de presupuesto de Claude preservados.
+Corregidos LAST (punto82806.4), cotas editadas que sync sobrescribia, region
+tactil eliminada antes de medir y cunas faltantes en extremos curvos.
+Los remates ahora llegan al contorno real; las bisectrices internas no cambian.
+
+Civil3D2023 real, copia local: curva188m final genera en19.500s y empaqueta
+en26.000s, total45.500s; un bloque con6065 internas y0 piezas sueltas.
+6040 HANDLE coinciden exactamente entre busqueda rapida y completa.
+Sin HATCH/REGION fuera; suma de acabados cumple3e-6m2. S80m tambien pasa
+geometria/bloque, total18.515s en la ronda previa al ultimo ajuste de lectura.
+Ocho regresiones focales finales OK. Guardado/reapertura/resync del tramo9761C
+verificados en copia; no se asumio la cota real de DOM41.
+
+Rendimiento: seleccion global21.359s frente a union224regiones0.547s.
+Rango de piezas nuevas, lectura XDATA unica, dos extremos para LINE,
+union equilibrada y menos capsulas redundantes. Generacion188 antes77.344s;
+ahora19.500s (-74.8% en esa fase, sin confundir con total anterior no completado).
+Instalador completo sin aviso de DLL bloqueada; hash repo=instalado42C16A04...
+No modificados DWG/Excel originales. Ver diagnosticos/fix507/RESULTADO.md.
+Limites: no todas las versiones, no todos los contornos, interfaz manual pendiente.
+
 ## 2026-09-13 16:35 America/Bogota — optimización generación anden 5.0.6 (Codex/Luna), INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Rama: `codex/anden504-verificacion`.
