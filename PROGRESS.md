@@ -1,5 +1,42 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 12:00 America/Bogota — borrador 5.0.4, NO INSTALADO
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Partida 59463f0 (5.0.3 instalado).
+Solicitud: circulos en cualquier curva, bloque obligatorio, orientacion local,
+guia/toperol completos, rapidez y cantidades. Usuario confirma sobreancho
+de 1 m POR CADA LADO. Este calculo aun NO esta implementado.
+
+Cambios de borrador: proteccion HATCH extendida a radios positivos y arcos
+no completos (antes R>50 y barrido<0.25); giro maximo durante la cadena
+(detecta S), segmentacion a 2 grados, comparacion contra tangente y no cuerda;
+argumento feature faltante en offset-strip-tones; PIP lineal sin nth;
+limpieza de acabado no empaquetado al fallar el comando, conserva contorno.
+No afirmar garantia universal: falta validar geometria real multicurva.
+
+Core 2023: carga completa, pruebas extremos CW/CCW y circulo genuino OK,
+41 regresiones/0 fallos tras adaptar expectativas al criterio local nuevo.
+Dos tests anteriores exigian eje fijo en curva corta y simplificacion con
+desviacion acumulada mayor; ahora curva corta se segmenta y arco de prueba
+produce 16 vertices, no menos de 12. No se han validado imagen ni bloques.
+
+Civil 3D nativo no ejecuto harness ni genero archivo de resultados dentro
+de 90 s: se cerraron solo PID propios 3884 y 23560. No repetir ese arranque
+sin diagnosticar infraestructura. No equivaler Core puro a ActiveX.
+Laboratorio work/anden504, native.lsp mide construccion/empaquetado de
+curva corta y recto 188 m, cobertura 37.6 m2 por franja de 0.20 m.
+Rendimiento E2E NO medido. No instalar este borrador antes de prueba nativa.
+
+Cantidades pendientes: hoy package-anden calcula tactiles por longitud
+nominal, no por union real; ppto-rows-andenes usa AREA_M2 neta en SBG/arena;
+earthworks-por-cotas crea contorno sin expansion. Hay que construir huella
+1 m por costado, separar AREA_SIN_SOBREANCHO de AREA_CON_SOBREANCHO, medir
+acabados recortados mutuamente exclusivos y usar huella ampliada en ambos
+motores MT y colectores de estructura/presupuesto. NO inventar A+2L para
+curvas/codos/autointersecciones ni aplicar sobreancho de vias.
+Originales DWG/Excel intactos. Instalado sigue siendo 5.0.3.
+
+
 ## 2026-09-13 11:23 America/Bogota — 5.0.3: disco curvo reproducido y eliminado
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Commit: el de esta entrada.

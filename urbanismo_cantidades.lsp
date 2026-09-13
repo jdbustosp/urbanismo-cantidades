@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.0.3")
+(setq *urb-version* "5.0.4")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -2534,7 +2534,7 @@
   (setq c (cdr (assoc 10 edge)) r (cdr (assoc 40 edge))
         a (cdr (assoc 50 edge)) b (cdr (assoc 51 edge))
         ccw (= 1 (cdr (assoc 73 edge))))
-  (if (and c (numberp r) (> r 50.0) (numberp a) (numberp b))
+  (if (and c (numberp r) (> r 1e-8) (numberp a) (numberp b))
     (progn
       (setq sweep (- b a))
       (if (not ccw) (setq a (- a) b (- b)))
@@ -2542,7 +2542,7 @@
       ;; DXF horario guarda angulos negados; no confundirlo con un giro
       ;; de casi 2*pi. No tocar circulos genuinos ni arcos mayores:
       ;; en las pequenas piezas obtenidas al recortar las bandas.
-      (if (and (> sweep 1e-12) (< sweep 0.25))
+      (if (and (> sweep 1e-12) (< sweep (- (* 2.0 pi) 1e-10)))
         (progn
           (setq n (1+ (fix (/ sweep (sqrt (/ 0.0008 r))))))
           (setq j 0 p (polar c a r))
@@ -3857,7 +3857,7 @@
 ;; 2026-09-12: cuanto gira una cadena entre su primera y su ultima arista.
 ;; Sirve para saber si el anden es un corredor que cambia de rumbo (y por
 ;; tanto no se puede modular con un solo eje) o es practicamente recto.
-(defun urb:chain-direction-drift (chain / edges e1 e2)
+(defun urb:chain-direction-drift (chain / edges e1 edge drift)
   (if (null chain)
     0.0
     (progn
@@ -3865,8 +3865,11 @@
       (if (< (length edges) 2)
         0.0
         (progn
-          (setq e1 (car edges) e2 (last edges))
-          (urb:axis-angle-distance (nth 3 e1) (nth 3 e2))))))
+          (setq e1 (car edges) drift 0.0)
+          (foreach edge (cdr edges)
+            (setq drift (max drift
+              (urb:axis-angle-distance (nth 3 e1) (nth 3 edge)))))
+          drift))))
 )
 
 ;; 2026-09-12: une aristas consecutivas que van casi en la misma direccion,
@@ -3883,7 +3886,7 @@
       (setq i 2)
       (while (< i (length chain))
         (setq p (nth i chain))
-        (setq d (angle ini p))
+        (setq d (angle prev p))
         (if (> (urb:axis-angle-distance dir d) tol)
           (progn
             ;; el tramo se cierra en el punto anterior y arranca otro
@@ -3904,8 +3907,8 @@
     nil
     (progn
       (setq largo (urb:chain-total-length chain))
-      (and (> largo 20.0)
-           (> (urb:chain-direction-drift chain) (* pi (/ 10.0 180.0)))))))
+      (and (> largo 0.40)
+           (> (urb:chain-direction-drift chain) (* pi (/ 2.0 180.0)))))))
 
 (defun urb:create-composite-loseta
   (ename format / obj copy base-region points fine-points parent-handle clusters
@@ -3973,7 +3976,7 @@
         (progn
           (setq deriva (urb:chain-direction-drift driving-chain))
           (setq tramos
-            (urb:chain-simplify-by-direction driving-chain (* pi (/ 5.0 180.0))))
+            (urb:chain-simplify-by-direction driving-chain (* pi (/ 2.0 180.0))))
           (prompt
             (strcat "\nANDEN: el costado gira "
               (rtos (/ (* deriva 180.0) pi) 2 1)
@@ -4437,16 +4440,15 @@
 ;; caminan la curva real con vlax-curve (posicion y tangente exactas).
 ;; ============================================================
 
-(defun urb:point-in-poly-p (pt pts / n i j inside xi yi xj yj x y)
-  ;; ray casting estandar sobre el contorno (lista de puntos 2D)
-  (setq x (car pt) y (cadr pt) n (length pts) inside nil j (1- n) i 0)
-  (while (< i n)
-    (setq xi (car (nth i pts)) yi (cadr (nth i pts))
-          xj (car (nth j pts)) yj (cadr (nth j pts)))
+(defun urb:point-in-poly-p (pt pts / prev p inside xi yi xj yj x y)
+  ;; Mismo ray casting y tratamiento del borde, recorrido lineal (sin nth).
+  (setq x (car pt) y (cadr pt) inside nil prev (last pts))
+  (foreach p pts
+    (setq xi (car p) yi (cadr p) xj (car prev) yj (cadr prev))
     (if (and (not (eq (> yi y) (> yj y)))
              (< x (+ xj (/ (* (- xi xj) (- y yj)) (- yi yj)))))
       (setq inside (not inside)))
-    (setq j i i (1+ i)))
+    (setq prev p))
   inside
 )
 
@@ -4776,7 +4778,7 @@
                 (setq tone-count 0)
                 (setq tone-count
                   (urb:offset-strip-tones
-                    strip chain-poly len layer parent-handle elevation span)))
+                    strip chain-poly len layer parent-handle elevation span feature)))
               (urb:safe-delete strip)
               (if (<= tone-count 0)
                 (progn
@@ -5381,6 +5383,13 @@
     (vla-put-Elevation obj elevation))
   result
 )
+
+(defun urb:discard-unpacked-anden (ename / obj item)
+  ;; No dejar un acabado suelto tras un fallo; conservar el contorno editable.
+  (if (setq obj (urb:as-vla-object ename))
+    (foreach item (urb:generated-objects (vla-get-Handle obj))
+      (urb:safe-delete item)))
+  nil)
 
 (defun urb:add-invisible-attribute
   (block point tag prompt-text value / attribute)
@@ -6955,6 +6964,8 @@
    costados-res anillo-refs clip-area)
   (setq doc (urb:doc) old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
+    (if (and ename (not block-ref))
+      (vl-catch-all-apply 'urb:discard-unpacked-anden (list ename)))
     (setq *urb-current-tactile-side-point* nil
           *urb-current-tactile-side-choice* nil)
     (if old-fillmode
@@ -7134,7 +7145,9 @@
               (if (and (urb:yes-p calculate) (not earthworks-ok))
                 " | Movimiento de tierras PENDIENTE."
                 "."))))
-        (prompt "\nNo fue posible crear el achurado del anden.")))
+        (progn
+          (urb:discard-unpacked-anden ename)
+          (prompt "\nNo se creo el bloque del anden. Se retira el acabado incompleto y se conserva el contorno para reintentar."))))
     (if data
       (prompt "\nNo se creo una polilinea valida.")
         (prompt "\nComando cancelado.")))
@@ -33864,9 +33877,12 @@
         ;; recto largo: NO se modula por tramos
         (not (urb:anden-needs-segmented-p
                '((0.0 0.0 0.0) (30.0 0.0 0.0) (60.0 0.0 0.0))))
-        ;; corto aunque gire: tampoco (es el modulo de curva del U-201)
-        (not (urb:anden-needs-segmented-p
-               '((0.0 0.0 0.0) (5.0 0.0 0.0) (5.0 5.0 0.0))))
+        ;; 2026-09-13: tambien los cortos deben respetar el eje local.
+        (urb:anden-needs-segmented-p
+               '((0.0 0.0 0.0) (5.0 0.0 0.0) (5.0 5.0 0.0)))
+        ;; Curva S: mismo rumbo inicial/final no implica costado recto.
+        (urb:anden-needs-segmented-p
+               '((0.0 0.0) (20.0 0.0) (30.0 10.0) (40.0 0.0) (60.0 0.0)))
         ;; largo y girando: SI
         (urb:anden-needs-segmented-p
           '((0.0 0.0 0.0) (30.0 0.0 0.0) (60.0 0.0 0.0) (90.0 30.0 0.0)))))
@@ -33886,8 +33902,9 @@
         (setq arco (reverse arco))
         (setq simple (urb:chain-simplify-by-direction arco (* pi (/ 5.0 180.0))))
         (and
-          ;; de 46 puntos a un punado
-          (< (length simple) 12)
+          ;; 5 grados contra tangente, no contra cuerda acumulada (~10).
+          ;; En este muestreo de 2 grados resultan 16 vertices.
+          (= (length simple) 16)
           (> (length simple) 2)
           ;; los extremos se conservan
           (equal (car arco) (car simple) 1e-6)
