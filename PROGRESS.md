@@ -1,5 +1,19 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 13:20 America/Bogota — verificación nativa 5.0.4 (Codex/Luna), NO INSTALADO
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Rama: `codex/anden504-verificacion`.
+Civil 3D 2023 sobre copia local `Documents/URBANISMO/work/anden504/final504.dwg`.
+Curva: empaquetado OK en 33.500 ms; recta de 188 m: 84.438 ms. Ambos generan
+un bloque único, sin círculo visible; guía y toperol cubren 188.00 ml en la
+recta. Cierre de áreas: 658.000 m2 netos y 1,034.000 m2 con 1 m por lado.
+PPTO usa area con sobreancho para descapote, compactacion, subbase, geotextil,
+excavacion y rellenos; conserva area neta para acabados. Carga Core 2023 OK.
+La huella `EARTHWORK_BOUNDARY` existe en ambos bloques y el lector DXF devuelve
+4/8 puntos en la prueba aislada; falta probar el calculo final con cotas reales
+de superficie SUP_TN. Por eso la version no se instala aun y queda pendiente
+manual/nativa: una corrida de corte-relleno con superficie y una prueba DCL.
+
 ## 2026-09-13 12:00 America/Bogota — borrador 5.0.4, NO INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Partida 59463f0 (5.0.3 instalado).

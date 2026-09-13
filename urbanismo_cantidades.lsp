@@ -4538,50 +4538,31 @@
 
 (defun urb:offset-strip-tones
   (strip chain-poly len layer parent-handle elevation span feature
-   / s nxt bw gray first-band phase-state piece wedge p1 p2 a1 a2 n1 n2 count iter)
-  ;; parte la franja lisa en tramos de tono gris/blanco con la MISMA fase
-  ;; 0.80/1.00 del patron, cortando con cunas normales a la curva real
-  (setq s 0.0 count 0 iter 0)
-  (setq phase-state (urb:composite-phase-state 0.0))
-  (setq gray (car phase-state) first-band T)
+   / s nxt bw gray first-band phase-state piece p1 p2 a1 a2 count iter)
+  ;; La cuna se limita antes del cruce de normales. El cuadrilatero
+  ;; ilimitado anterior se autointersectaba y omitia toda la curva.
+  (setq s 0.0 count 0 iter 0 phase-state (urb:composite-phase-state 0.0)
+        gray (car phase-state) first-band T)
   (while (and (< s (- len 1e-6)) (< iter 20000))
-    (setq iter (1+ iter))
-    (setq bw (if first-band (cdr phase-state) (if gray 0.80 1.00)))
-    (if (< bw 0.001) (setq bw 0.001))
-    (setq nxt (min len (+ s bw)))
-    (setq p1 (urb:curve-pt chain-poly s)
-          p2 (urb:curve-pt chain-poly nxt)
-          a1 (urb:curve-tangent chain-poly s)
-          a2 (urb:curve-tangent chain-poly nxt))
+    (setq iter (1+ iter) bw (if first-band (cdr phase-state) (if gray 0.80 1.00))
+          nxt (min len (+ s (max bw 0.001)))
+          p1 (urb:curve-pt chain-poly s) p2 (urb:curve-pt chain-poly nxt)
+          a1 (urb:curve-tangent chain-poly s) a2 (urb:curve-tangent chain-poly nxt))
     (if (and p1 p2)
       (progn
-        (setq n1 (+ a1 (* 0.5 pi)) n2 (+ a2 (* 0.5 pi)))
-        (setq wedge
-          (vl-catch-all-apply
-            'urb:quad-region
-            (list
-              (list (+ (car p1) (* span (cos n1))) (+ (cadr p1) (* span (sin n1))))
-              (list (+ (car p2) (* span (cos n2))) (+ (cadr p2) (* span (sin n2))))
-              (list (- (car p2) (* span (cos n2))) (- (cadr p2) (* span (sin n2))))
-              (list (- (car p1) (* span (cos n1))) (- (cadr p1) (* span (sin n1))))
-              elevation)))
-        (if (not (vl-catch-all-error-p wedge))
+        (setq piece (urb:clip-edge-wedge strip p1 p2
+          (+ a1 (* 0.5 pi)) (+ a2 (* 0.5 pi)) span))
+        (if piece
           (progn
-            (setq piece (vla-Copy strip))
-            (if (vl-catch-all-error-p
-                  (vl-catch-all-apply 'vla-Boolean (list piece 1 wedge)))
-              (progn (urb:safe-delete piece) (urb:safe-delete wedge))
-              (progn
-                (vla-put-Layer piece layer)
-                (vla-put-Color piece (urb:tactile-fill-color feature gray))
-                (urb:tag-generated-role piece parent-handle "FILL")
-                (urb:tag-generated-role
-                  (vl-catch-all-apply
-                    'urb:add-solid-hatch (list piece layer (urb:tactile-fill-color feature gray)))
-                  parent-handle "FEATURE_FILL")
-                (urb:toperol-texture piece feature layer
-                  (urb:curve-tangent chain-poly (* 0.5 (+ s nxt))) parent-handle)
-                (setq count (1+ count))))))))
+            (vla-put-Layer piece layer)
+            (vla-put-Color piece (urb:tactile-fill-color feature gray))
+            (urb:tag-generated-role piece parent-handle "FILL")
+            (urb:tag-generated-role
+              (urb:add-solid-hatch piece layer (urb:tactile-fill-color feature gray))
+              parent-handle "FEATURE_FILL")
+            (urb:toperol-texture piece feature layer
+              (urb:curve-tangent chain-poly (* 0.5 (+ s nxt))) parent-handle)
+            (setq count (1+ count))))))
     (setq s nxt gray (not gray) first-band nil))
   count
 )
@@ -5919,6 +5900,86 @@
                 nil
                 (progn (entupd ename) best-a)))))))))
 
+(defun urb:anden-overwidth-contour (ename width / chains chain pl off a b polygon pts mid normal test sign all result check)
+  ;; Dos costados desplazados; las tapas solo unen sus extremos, sin
+  ;; prolongar longitudinalmente el anden. Conservar bulges verdaderos.
+  (setq chains (urb:poly-costado-chains ename)
+        polygon (urb:lwpoly-points-with-arcs-fine ename))
+  (foreach chain chains
+    (setq pl (urb:poly-chain-polyline chain))
+    (setq mid (* 0.5 (urb:curve-length pl))
+          pts (urb:curve-pt pl mid) normal (+ (urb:curve-tangent pl mid) (* 0.5 pi))
+          test (polar pts normal 0.05))
+    ;; vla-Offset no tiene signo universal por normal: comprobar ambos.
+    (setq off (urb:offset-poly pl width))
+    (if off
+      (progn
+        (setq test (urb:curve-pt off (* 0.5 (urb:curve-length off))))
+        (if (urb:point-in-poly-p test polygon)
+          (progn (entdel off) (setq off (urb:offset-poly pl (- width)))))))
+    (if off
+      (progn
+        (setq pts (urb:lwpoly-vertex-bulges off) a (car pts) b (cadr pts))
+        (setq all (append all (mapcar '(lambda (p q) (list (car p) (cadr p) q)) a b)))
+        (entdel off))
+      (setq check T))
+    (entdel pl))
+  (if (and (= (length chains) 2) (not check) (> (length all) 3))
+    (progn
+      (setq result (urb:poly-chain-polyline all))
+      (vla-put-Closed (vlax-ename->vla-object result) :vlax-true)
+      (if (or (<= (vla-get-Area (vlax-ename->vla-object result))
+                  (vla-get-Area (vlax-ename->vla-object ename)))
+              (urb:polygon-self-intersects-p (urb:lwpoly-points-with-arcs result)))
+        (progn (entdel result) nil)
+        result))))
+
+(defun urb:regions-union-copy (items / result item copy err)
+  (foreach item items
+    (if (> (vla-get-Area item) 1e-8)
+      (if result
+        (progn
+          (setq copy (vla-Copy item)
+                err (vl-catch-all-apply 'vla-Boolean (list result 0 copy)))
+          (urb:safe-delete copy)
+          (if (vl-catch-all-error-p err)
+            (progn (urb:safe-delete result) (vl-exit-with-error "ANDEN: union de cantidades fallida."))))
+        (setq result (vla-Copy item)))))
+  result)
+
+(defun urb:anden-measured-finish (ename area format / objects obj layer gray white guia top g w u t0 remaining cut a b c d module err)
+  ;; Medir las regiones realmente modeladas, eliminando las superposiciones
+  ;; de sus bandas. Nunca sumar el padre tactil y sus piezas dos veces.
+  (setq objects (urb:generated-objects (cdr (assoc 5 (entget ename)))))
+  (foreach obj objects
+    (if (and (= (vla-get-ObjectName obj) "AcDbRegion") (= (urb:generated-role obj) "FILL"))
+      (progn
+        (setq layer (vla-get-Layer obj))
+        (cond ((wcmatch layer "*TOPEROL*") (setq top (cons obj top)))
+              ((wcmatch layer "*GUIA*") (setq guia (cons obj guia)))
+              ((wcmatch layer "*GRIS*,*40X40*") (setq gray (cons obj gray)))
+              ((wcmatch layer "*BLANCO*") (setq white (cons obj white)))))))
+  (if (or gray white)
+    (progn
+      (setq g (urb:regions-union-copy gray) w (urb:regions-union-copy white)
+            u (urb:regions-union-copy guia) t0 (urb:regions-union-copy top))
+      ;; Prioridad tactil: toperol, guia; despues acabados principales.
+      (if (and u t0) (vla-Boolean u 2 (vla-Copy t0)))
+      (foreach cut (list u t0)
+        (if cut
+          (progn
+            (if g (vla-Boolean g 2 (vla-Copy cut)))
+            (if w (vla-Boolean w 2 (vla-Copy cut))))))
+      (if (and g w) (vla-Boolean g 2 (vla-Copy w)))
+      (setq a (if g (vla-get-Area g) 0.0) b (if w (vla-get-Area w) 0.0)
+            c (if u (vla-get-Area u) 0.0) d (if t0 (vla-get-Area t0) 0.0)
+            module (urb:loseta-module format))
+      (foreach obj (list g w u t0) (urb:safe-delete obj))
+      (if (> (abs (- area (+ a b c d))) (max 0.00001 (* area 0.000001)))
+        (vl-exit-with-error "ANDEN: el area de acabados modelados no cierra con el contorno neto."))
+      (list a (urb:unit-count-ceiling a (* module module)) (/ c module) (/ d module)
+        b (urb:unit-count-ceiling b 0.02)))))
+
 (defun urb:package-anden
   (ename / boundary metadata material etapa subetapa guia toperol format
    calculate surface grade-source elevation pattern-mode area area-bruta
@@ -5926,7 +5987,7 @@
    quantity-pattern-angle
    handle objects filtered obj block-name blocks block-definition
    copy-result point block-ref insert-result block-ename xdata-result
-   fast-ok ss en cmd-result old-attreq)
+   fast-ok ss en cmd-result old-attreq over-poly over-area measured-qty)
   (setq boundary (vlax-ename->vla-object ename))
   (urb:ensure-layer "URB-ANDEN" 7 T)
   (setq metadata (urb:get-xdata-strings ename "URB_ANDEN"))
@@ -5974,13 +6035,22 @@
   (setq area-bruta (vla-get-Area boundary))
   (setq area (urb:anden-area-neta ename area-bruta))
   (setq perimeter (urb:poly-perimeter boundary))
+  (setq over-poly (urb:anden-overwidth-contour ename 1.0))
+  (if (not over-poly)
+    (vl-exit-with-error "ANDEN: no se pudo construir el sobreancho lateral de 1 m."))
+  (setq over-area (vla-get-Area (vlax-ename->vla-object over-poly)))
+  (urb:tag-generated-role (vlax-ename->vla-object over-poly)
+    (vla-get-Handle boundary) "EARTHWORK_BOUNDARY")
+  (vla-put-Visible (vlax-ename->vla-object over-poly) :vlax-false)
   ;; Con arcos reales (PLINE opcion Arc) hay que usar la version que sigue
   ;; el arco, no la cuerda recta: corridor-length (y por lo tanto los
   ;; metros lineales de guia/toperol) salen cortos en un anden curvo si no.
   (setq points (urb:lwpoly-points-with-arcs-fine ename))
   (setq quantity-pattern-angle
     (urb:anden-quantity-pattern-angle ename points pattern-mode))
+  (setq measured-qty (urb:anden-measured-finish ename area format))
   (setq finish-qty
+    (if measured-qty measured-qty
     (cond
       ((urb:string-equal-p material "Loseta")
         (urb:anden-finish-quantities
@@ -5989,7 +6059,7 @@
       ((urb:string-equal-p material "Adoquin")
         (urb:adoquin-finish-quantities points area format guia toperol))
       (T
-        (list 0.0 0 0.0 0.0 0.0 0))))
+        (list 0.0 0 0.0 0.0 0.0 0)))))
   (setq handle (vla-get-Handle boundary))
   (setq objects
     (cons boundary (urb:generated-objects handle)))
@@ -6075,6 +6145,13 @@
       (urb:add-invisible-attribute
         block-definition point "AREA_BRUTA_M2" "Area del contorno m2"
         (rtos area-bruta 2 2))
+      (foreach pair
+        (list (cons "AREA_SIN_SOBREANCHO_M2" area)
+              (cons "AREA_CON_SOBREANCHO_M2" over-area)
+              (cons "SOBREANCHO_IZQ_M" 1.0) (cons "SOBREANCHO_DER_M" 1.0)
+              (cons "LOSETA_GUIA_M2" (* (urb:loseta-module format) (nth 2 finish-qty)))
+              (cons "LOSETA_TOPEROL_M2" (* (urb:loseta-module format) (nth 3 finish-qty))))
+        (urb:add-invisible-attribute block-definition point (car pair) (car pair) (rtos (cdr pair) 2 6)))
       ;; marca de esquema: el colector NO vuelve a descontar en estos
       ;; bloques (los anteriores a 2026-09-08 no la traen)
       (urb:add-invisible-attribute
@@ -6688,6 +6765,10 @@
   (setq *urb-anden-earthwork-stage* "validacion del bloque")
   (setq block-object (urb:as-vla-object block-ref))
   (setq ename (urb:as-ename block-object))
+  (if block-object
+    (progn
+      (setq points (urb:anden-earthwork-points2 block-object))
+      (setq area (if points (abs (urb:polygon-signed-area points)) 0.0))))
   (cond
     ((or (not block-object) (not ename))
       (prompt
@@ -6868,12 +6949,30 @@
 ;; sobre su contorno. La superficie es automatica (SUP_TN); 1 cota =
 ;; plano horizontal, 2 = rasante lineal, 3+ = plano ajustado. Enter sin
 ;; cotas = queda PENDIENTE (se puede recalcular con EDITAR).
+(defun urb:anden-earthwork-raw-points (item / en data pair out)
+  (setq en (vl-catch-all-apply 'vlax-vla-object->ename (list item)))
+  (if (or (vl-catch-all-error-p en) (null en))
+    nil
+    (progn
+      (setq data (entget en))
+      (while data
+        (setq pair (car data) data (cdr data))
+        (if (= (car pair) 10)
+          (setq out (cons (list (cadr pair) (caddr pair) 0.0) out))))
+      (reverse out))))
+
+(defun urb:anden-earthwork-points (block-ref)
+  (urb:anden-earthwork-points2 block-ref))
+
 (defun urb:anden-earthworks-por-cotas (block-ref points / picks pts pl mov)
   (prompt (strcat "\nCotas de IMPLANTACION del anden"
     " (via/pozo/etiqueta o Digitar; Enter sin cotas = pendiente):"))
   (setq picks (urb:pick-design-cotas))
   (if (and picks (>= (length picks) 1))
     (progn
+      (setq points (urb:anden-earthwork-points2 block-ref))
+      (if (not points)
+        (vl-exit-with-error "ANDEN: falta la huella de sobreancho; regenere el bloque antes de calcular tierras."))
       (setq pts (mapcar '(lambda (p) (list (car p) (cadr p))) points))
       (entmake (append
         (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity")
@@ -9528,6 +9627,58 @@
 (prompt
   "\nComandos principales: URBANISMO y EDITAR.")
 (princ)
+
+;; Alias final fuera del modulo integrado: asegura que la funcion publica se
+;; registre como SUBR en todos los cargadores de Civil 3D.
+(defun urb:anden-earthwork-points2
+  (block-ref / obj def item raw out pos rot sx sy sz co si)
+  (setq obj (urb:as-vla-object block-ref)
+        pos (if obj (urb:point3d-list (vlax-get obj 'InsertionPoint)))
+        rot (if obj (vla-get-Rotation obj) 0.0)
+        sx (if obj (vla-get-XScaleFactor obj) 1.0)
+        sy (if obj (vla-get-YScaleFactor obj) 1.0)
+        sz (if obj (vla-get-ZScaleFactor obj) 1.0)
+        co (cos rot) si (sin rot))
+  (if (and obj pos)
+    (progn
+      (setq def (vla-Item (vla-get-Blocks (urb:doc)) (vla-get-Name obj)))
+      (vlax-for item def
+        (if (= (urb:generated-role item) "EARTHWORK_BOUNDARY")
+          (setq raw (urb:anden-earthwork-raw-points item))))
+       (if raw
+         (setq out (mapcar '(lambda (p) p) raw)))
+      out)
+    nil))
+(defun urb:anden-earthwork-points-final (block-ref)
+  (urb:anden-earthwork-points2 block-ref))
+
+;; Definicion final (fuera de los bloques de migracion) para que el lector de
+;; huella quede disponible incluso si una version antigua del cargador evalua
+;; parcialmente el archivo.  Usa exclusivamente DXF 10 y tolera referencias
+;; COM no disponibles en Core Console.
+(defun urb:anden-earthwork-points
+  (block-ref / obj def item transform raw out)
+  (setq obj (urb:as-vla-object block-ref)
+        transform (if obj
+                    (vl-catch-all-apply 'urb:block-instance-transform (list obj))))
+  (if (or (null obj) (vl-catch-all-error-p transform))
+    nil
+    (progn
+      (setq def (vl-catch-all-apply 'vla-Item
+        (list (vla-get-Blocks (urb:doc)) (vla-get-Name obj))))
+      (if (or (vl-catch-all-error-p def) (null def))
+        nil
+        (progn
+          (vlax-for item def
+            (if (= (urb:generated-role item) "EARTHWORK_BOUNDARY")
+              (setq raw (urb:anden-earthwork-raw-points item))))
+          (if raw
+            (setq out (mapcar
+              '(lambda (p)
+                 (list (+ (car pos) (- (* (* (car p) sx) co) (* (* (cadr p) sy) si)))
+                       (+ (cadr pos) (+ (* (* (car p) sx) si) (* (* (cadr p) sy) co)))
+                       (+ (caddr pos) (* (caddr p) sz)))) raw)))
+          out)))))
 
 ;;; ============================================================
 ;;; MODULO INTEGRADO MAIPORE REDES V13
@@ -17259,15 +17410,14 @@
         (setq i (1+ i)))
       (reverse pts))))
 
-(defun urb:point-in-poly-2d (pt pts / x y n i j xi yi xj yj inside)
-  (setq x (car pt) y (cadr pt) n (length pts) inside nil i 0 j (1- n))
-  (while (< i n)
-    (setq xi (car (nth i pts)) yi (cadr (nth i pts))
-          xj (car (nth j pts)) yj (cadr (nth j pts)))
+(defun urb:point-in-poly-2d (pt pts / x y prev p xi yi xj yj inside)
+  (setq x (car pt) y (cadr pt) inside nil prev (last pts))
+  (foreach p pts
+    (setq xi (car p) yi (cadr p) xj (car prev) yj (cadr prev))
     (if (and (/= (> yi y) (> yj y))
              (< x (+ xi (/ (* (- xj xi) (- y yi)) (- yj yi)))))
       (setq inside (not inside)))
-    (setq j i i (1+ i)))
+    (setq prev p))
   inside)
 
 (defun urb:create-road-sardineles (boundary etapa subetapa
@@ -29933,7 +30083,7 @@
 
 (defun urb:ppto-rows-andenes (/ ss i be d atts area material etapa sub handle
                               corte relleno loseta-und adoq-und rows out r
-                              cont-usados area-cont poly area-neta-p)
+                              cont-usados area-cont poly area-neta-p over-area)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) out nil i 0)
   (setq cont-usados nil)
   (if ss
@@ -29981,23 +30131,31 @@
       (setq area-cont (urb:anden-area-prefabs-solapados be poly))
       (if (> area-cont 0.0)
         (setq area (max 0.0 (- area area-cont))))))
-      (if (<= corte 0.0) (setq corte (* area *urb-anden-depth*)))
+      (setq over-area (urb:parse-real (urb:safe-string
+        (cdr (assoc "AREA_CON_SOBREANCHO_M2" atts)) "")))
+      ;; Bloques viejos conservan su valor anterior hasta regeneracion.
+      (if (not over-area) (setq over-area area))
+      ;; Un corte medido igual a cero es valido: no convertirlo en excavacion.
+      (if (and (<= corte 0.0)
+               (not (wcmatch (strcase (urb:safe-string
+                 (cdr (assoc "ANDEN_METODO" atts)) "")) "OK*")))
+        (setq corte (* over-area *urb-anden-depth*)))
       (setq rows
         (list
           (urb:ppto-row "ANDEN" "Descapote mecanico de material vegetal"
-            "" "" "" etapa sub "M2" area handle)
+            "" "" "" etapa sub "M2" over-area handle)
           (urb:ppto-row "ANDEN" "Compactacion de subrasante"
-            "" "" "" etapa sub "M2" area handle)
+            "" "" "" etapa sub "M2" over-area handle)
           (urb:ppto-row "ANDEN" "Excavacion mecanica en material comun"
             "" "" "" etapa sub "M3" corte handle)
           (urb:ppto-row "ANDEN" "Relleno con material seleccionado"
             "" "" "" etapa sub "M3" relleno handle)
           (urb:ppto-row "ANDEN" "Subbase granular SBG"
-            "" "" "" etapa sub "M3" (* area 0.50) handle)
+            "" "" "" etapa sub "M3" (* over-area 0.50) handle)
           (urb:ppto-row "ANDEN" "Geotextil tejido 2100"
-            "" "" "" etapa sub "M2" (* area 1.15) handle)
+            "" "" "" etapa sub "M2" (* over-area 1.15) handle)
           (urb:ppto-row "ANDEN" "Arena de nivelacion"
-            "" "" "" etapa sub "M3" (* area 0.04) handle)
+            "" "" "" etapa sub "M3" (* over-area 0.04) handle)
           (urb:ppto-row "ANDEN" "M.O. localizacion y replanteo"
             "" "" "" etapa sub "M2" area handle)
           (urb:ppto-row "ANDEN" "M.O. nivelacion con arena"
@@ -30032,7 +30190,9 @@
       (setq rows
         (append rows
           (urb:ppto-param-rows "ANDEN" "ANDEN"
-            (list (cons "AREA" area)
+            (list (cons "AREA" over-area)
+              (cons "AREA_SIN_SOBREANCHO" area)
+              (cons "AREA_CON_SOBREANCHO" over-area)
               (cons "TOPEROL_ML"
                 (atof (urb:safe-string
                   (cdr (assoc "LOSETA_TOPEROL_ML" atts)) "0")))
