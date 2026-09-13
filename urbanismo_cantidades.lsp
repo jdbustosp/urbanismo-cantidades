@@ -1,6 +1,14 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
+;;; 5.1.0: la auditoria de cotas deja de BLOQUEAR la exportacion (cinco
+;;;   puntos malos impedian actualizar todo el libro); ahora avisa, y los
+;;;   elementos con cota invalida no se miden en vez de meter volumenes
+;;;   absurdos. La auditoria cubre pozos, sumideros, cabezales y camaras
+;;;   (antes solo MP_PUNTO_POZO_*) y reporta LAS DOS COTAS para saber cual
+;;;   corregir. Nuevo urb:q-refresh-puntos: la profundidad se rederiva de
+;;;   tapa - clave dentro de la preactualizacion que ya corria para los
+;;;   tramos, asi que corregir una cota ajusta lo que cuelga de ella.
 ;;; 4.59.1: fix de raiz -- mp:normalize-tramo-graphics (llamada SIEMPRE
 ;;;   tras crear un tramo) deshacia el gap correcto de borde de caja en
 ;;;   MT/BT-AP; usaba el predicado viejo hydro-tramo-p en vez de
@@ -54,7 +62,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.0.7")
+(setq *urb-version* "5.1.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -24914,6 +24922,73 @@
               (if (mp:base-is-tramo base)
                 (progn (mp:update-block-after-edit ename nil) T)))))))))
 
+;; ---------- preactualizacion de PUNTOS (2026-09-13) ----------
+;; Los tramos ya se recalculaban solos antes de cada exportacion, pero los
+;; puntos no entraban en la barrida: corregir la cota de un pozo no
+;; recalculaba su profundidad, y tocaba rehacerla a mano uno por uno.
+;; Ahora la profundidad se REDERIVA de las dos cotas (tapa - clave).
+;; Condicion estricta a proposito: solo cuando AMBAS son elevaciones
+;; validas y la diferencia es positiva y razonable. Si falta una cota, o
+;; alguna trae una profundidad escrita donde va la elevacion, NO se
+;; inventa nada -- se deja como esta y la auditoria de cotas lo reporta.
+;; Esto respeta la regla de no intercambiar cotas ni inferirlas solas.
+(defun urb:q-refresh-punto-one (ename / base atts tapa clave dif nueva actual)
+  (if (urb:q-modelspace-p ename)
+    (progn
+      (setq atts (mp:att-alist ename))
+      ;; mismo filtro barato que la auditoria: sin las dos casillas de
+      ;; cota no hay nada que rederivar
+      (if (and (assoc "COTA_CLAVE_INI" atts) (assoc "COTA_TN_INI" atts)
+               (mp:base-con-cota-p (setq base (mp:point-reference-base ename))))
+        (progn
+          (setq tapa (mp:numeric-real (mp:getval "COTA_TN_INI" atts ""))
+                clave (mp:numeric-real (mp:getval "COTA_CLAVE_INI" atts "")))
+          (if (and tapa clave
+                   (>= (abs tapa) *mp-cota-elevacion-minima*)
+                   (>= (abs clave) *mp-cota-elevacion-minima*))
+            (progn
+              (setq dif (- tapa clave))
+              (if (and (> dif 0.0) (<= dif *mp-pozo-depth-review-limit*))
+                (progn
+                  (setq nueva (rtos dif 2 3)
+                        actual (vl-string-trim " "
+                          (mp:getval "PROFUNDIDAD" atts "")))
+                  (if (/= nueva actual)
+                    (progn
+                      (mp:update-block-after-edit ename
+                        (list (cons "PROFUNDIDAD" nueva)))
+                      T)))))))))))
+
+(defun urb:q-refresh-puntos (/ ss i ename result updated failed
+                             doc undo-open old-suppress)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_*")))
+        doc (urb:doc) updated 0 failed 0)
+  (if ss
+    (progn
+      (if (not
+            (vl-catch-all-error-p
+              (vl-catch-all-apply 'vla-StartUndoMark (list doc))))
+        (setq undo-open T))
+      (setq old-suppress *mp-suppress-regen*
+            *mp-suppress-regen* T)
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq ename (ssname ss i)
+              result (vl-catch-all-apply 'urb:q-refresh-punto-one (list ename)))
+        (cond
+          ((vl-catch-all-error-p result) (setq failed (1+ failed)))
+          (result (setq updated (1+ updated))))
+        (setq i (1+ i)))
+      (if undo-open
+        (vl-catch-all-apply 'vla-EndUndoMark (list doc)))
+      (setq *mp-suppress-regen* old-suppress)))
+  (if (or (> updated 0) (> failed 0))
+    (prompt
+      (strcat "\nPreactualizacion de puntos: " (itoa updated)
+        " profundidad(es) rederivadas de sus cotas | "
+        (itoa failed) " con error.")))
+  (list updated failed))
+
 (defun urb:q-refresh-network-segments
   (/ ss index ename result updated failed doc undo-open old-suppress)
   (setq ss (ssget "_X"
@@ -24977,6 +25052,9 @@
 )
 
 (defun urb:q-collect-all (/ refreshed)
+  ;; los puntos primero: si una cota se corrigio, la profundidad queda al
+  ;; dia ANTES de que se recalculen los tramos y se recojan cantidades
+  (urb:q-refresh-puntos)
   (setq refreshed (urb:q-refresh-network-segments))
   ;; No exportar valores anteriores como validos tras fallar el recalculo.
   (if (> (cadr refreshed) 0)
@@ -30918,45 +30996,131 @@
 ;; Umbral de REVISION de datos, no profundidad maxima normativa de diseno.
 ;; No intercambiar cotas ni inferir profundidades automaticamente.
 (if (not (boundp '*mp-pozo-depth-review-limit*)) (setq *mp-pozo-depth-review-limit* 30.0))
-(defun mp:pozo-depth-issue (atts / raw d)
-  (setq raw (vl-string-trim " " (mp:getval "PROFUNDIDAD" atts ""))
-        d (distof raw 2))
-  (cond ((= raw "") "FALTA PROFUNDIDAD")
-        ((not d) "PROFUNDIDAD NO NUMERICA")
-        ((<= d 0.0) "PROFUNDIDAD NO POSITIVA")
-        ((> d *mp-pozo-depth-review-limit*) "PROFUNDIDAD EXCEDE UMBRAL DE REVISION")
-        (T nil)))
+;; 2026-09-13 (pedido del usuario): la auditoria ya no mira solo el pozo
+;; sanitario. Cubre TODO punto que lleve cotas -- pozos, sumideros,
+;; cabezales de descole y camaras electricas -- y reporta LAS DOS COTAS,
+;; no solo la profundidad, para saber CUAL corregir sin abrir el dialogo
+;; de cada elemento uno por uno.
+(setq *mp-bases-con-cota*
+  '("POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO" "CABEZAL_PLUVIAL"
+    "CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280"
+    "CAJA_BARRAJE_CS281"))
 
-(defun urb:audit-pozo-depths (/ ss i en atts issue out)
-  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_POZO_*"))) i 0)
+(defun mp:base-con-cota-p (base)
+  (if (and base (member (strcase base) *mp-bases-con-cota*)) T nil))
+
+;; En este proyecto una cota es una ELEVACION (~2540-2580 msnm). Un valor
+;; chico en una casilla de cota es una PROFUNDIDAD escrita donde va la
+;; elevacion. Caso real DOM41 (handle 4B951): COTA_CLAVE_INI = 2.00 contra
+;; tapa 2561.65 -> "profundidad" 2559.65. El caso espejo son los TRAT-01/
+;; 05/08, con la clave correcta y la tapa en 0 porque el punto cae fuera
+;; de SUP_TN: tapa - clave = -2547.
+(if (not (boundp '*mp-cota-elevacion-minima*))
+  (setq *mp-cota-elevacion-minima* 100.0))
+
+(defun mp:punto-cota-issue (atts / raw d tapa clave)
+  (setq raw (vl-string-trim " " (mp:getval "PROFUNDIDAD" atts ""))
+        d (distof raw 2)
+        tapa (mp:numeric-real (mp:getval "COTA_TN_INI" atts ""))
+        clave (mp:numeric-real (mp:getval "COTA_CLAVE_INI" atts "")))
+  (cond
+    ;; la cota chica delata el dato mal digitado: se nombra primero
+    ;; porque dice exactamente CUAL de las dos hay que arreglar
+    ((and tapa clave
+          (>= (abs tapa) *mp-cota-elevacion-minima*)
+          (< (abs clave) *mp-cota-elevacion-minima*))
+      "COTA CLAVE NO ES ELEVACION")
+    ((and tapa clave
+          (>= (abs clave) *mp-cota-elevacion-minima*)
+          (< (abs tapa) *mp-cota-elevacion-minima*))
+      "COTA TERRENO NO ES ELEVACION")
+    ((and tapa clave (<= (- tapa clave) 0.0)) "COTAS INVERTIDAS")
+    ((= raw "") "FALTA PROFUNDIDAD")
+    ((not d) "PROFUNDIDAD NO NUMERICA")
+    ((<= d 0.0) "PROFUNDIDAD NO POSITIVA")
+    ((> d *mp-pozo-depth-review-limit*) "PROFUNDIDAD EXCEDE UMBRAL DE REVISION")
+    (T nil)))
+
+;; nombre viejo conservado: lo usaban las versiones 5.0.6/5.0.7
+(defun mp:pozo-depth-issue (atts) (mp:punto-cota-issue atts))
+
+(defun urb:audit-punto-cotas (/ ss i en base atts issue out)
+  (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_*"))) i 0)
   (if ss (repeat (sslength ss)
-    (setq en (ssname ss i) atts (mp:att-alist en)
-          issue (mp:pozo-depth-issue atts))
-    (if issue (setq out (cons (list (cdr (assoc 5 (entget en)))
-      (mp:getval "ID" atts "") (mp:getval "SUBETAPA" atts "")
-      (mp:getval "PROFUNDIDAD" atts "") issue) out)))
+    (setq en (ssname ss i)
+          atts (mp:att-alist en))
+    ;; el filtro barato primero: sin casillas de cota no hay nada que
+    ;; auditar, y asi no se crea el objeto ActiveX de cada luminaria,
+    ;; poste o accesorio (el barrido corre dos veces por exportacion)
+    (if (or (assoc "COTA_CLAVE_INI" atts) (assoc "COTA_TN_INI" atts))
+      (progn
+        (setq base (mp:point-reference-base en))
+        (if (mp:base-con-cota-p base)
+          (setq issue (mp:punto-cota-issue atts))
+          (setq issue nil))
+        (if issue (setq out (cons (list (cdr (assoc 5 (entget en)))
+          (mp:getval "ID" atts "") (mp:getval "SUBETAPA" atts "") base
+          (mp:getval "COTA_TN_INI" atts "")
+          (mp:getval "COTA_CLAVE_INI" atts "")
+          (mp:getval "PROFUNDIDAD" atts "") issue) out)))))
     (setq i (1+ i))))
   (reverse out))
 
-(defun urb:print-pozo-depth-audit (/ issues row)
-  (setq issues (urb:audit-pozo-depths))
-  (foreach row issues (prompt (strcat "\n" (vl-princ-to-string row))))
-  (prompt (strcat "\nPozos con datos por revisar: " (itoa (length issues))
+(defun urb:audit-pozo-depths () (urb:audit-punto-cotas))
+
+;; una linea legible: el problema, el elemento y las TRES cifras que hay
+;; que mirar para corregirlo
+(defun urb:punto-cota-txt (v) (if (= v "") "(vacia)" v))
+(defun urb:punto-cota-linea (row)
+  (strcat (nth 7 row) " | " (nth 3 row) " " (nth 1 row)
+    " (sub " (nth 2 row) ", handle " (nth 0 row) ")"
+    " terreno=" (urb:punto-cota-txt (nth 4 row))
+    " clave=" (urb:punto-cota-txt (nth 5 row))
+    " prof=" (urb:punto-cota-txt (nth 6 row))))
+
+(defun urb:print-punto-cota-audit (/ issues row)
+  (setq issues (urb:audit-punto-cotas))
+  (foreach row issues
+    (prompt (strcat "\n  " (urb:punto-cota-linea row))))
+  (prompt (strcat "\nPuntos con cotas por revisar: " (itoa (length issues))
     ". Solo lectura; no se modificaron cotas."))
   (princ))
 
-(defun urb:ppto-check-pozo-depths (/ issues bad row)
-  (setq issues (urb:audit-pozo-depths))
+(defun urb:print-pozo-depth-audit () (urb:print-punto-cota-audit))
+
+;; 2026-09-13: ANTES esto BLOQUEABA la exportacion, y cinco puntos malos
+;; dejaban al usuario sin poder actualizar ninguna cantidad del libro.
+;; Ahora avisa y deja seguir. No es una relajacion del control: los
+;; elementos con cota invalida NO SE MIDEN (su anillo sale en cero, el
+;; mismo trato que ya tenian los que no tienen profundidad), asi que
+;; ningun volumen absurdo entra al presupuesto. Devuelve siempre T.
+;; la exportacion pasa por aqui dos veces (c:PPTOEXPORTAR y urb:ppto-run).
+;; Con el bloqueo ya no existe, repetir el barrido solo costaba tiempo y
+;; le imprimia al usuario la misma lista dos veces: se avisa una sola vez
+;; por corrida. c:PPTOEXPORTAR reinicia la bandera.
+(defun urb:ppto-warn-punto-cotas (/ issues graves faltan row)
+  (if (and (boundp '*urb-cotas-avisado*) *urb-cotas-avisado*)
+    T
+    (progn
+  (setq *urb-cotas-avisado* T)
+  (setq issues (urb:audit-punto-cotas))
   (foreach row issues
-    (if (/= (nth 4 row) "FALTA PROFUNDIDAD") (setq bad (cons row bad))))
-  (foreach row bad (prompt (strcat "\nPOZO: " (vl-princ-to-string row))))
-  (if bad
-    (prompt (strcat "\nExportacion bloqueada ANTES de escribir: "
-      (itoa (length bad)) " pozos con profundidad invalida o pendiente de revision."
-      " Revise los IDs/handles indicados; confirme cotas con EDITAR y recalcule tramos conectados.")))
-  (if issues (prompt (strcat "\nAVISO: " (itoa (length issues))
-    " pozos sin profundidad: sus anillos quedan PENDIENTES, no medidos.")))
-  (not bad))
+    (if (= (nth 7 row) "FALTA PROFUNDIDAD")
+      (setq faltan (cons row faltan))
+      (setq graves (cons row graves))))
+  (setq graves (reverse graves))
+  (foreach row graves (prompt (strcat "\nCOTA: " (urb:punto-cota-linea row))))
+  (if graves
+    (prompt (strcat "\nAVISO: " (itoa (length graves))
+      " punto(s) con cotas invalidas. NO se miden (quedan en cero) pero la"
+      " exportacion CONTINUA. Corrijalos con EDITAR y vuelva a exportar:"
+      " al hacerlo, la profundidad se rederiva sola de las dos cotas.")))
+  (if faltan
+    (prompt (strcat "\nAVISO: " (itoa (length faltan))
+      " punto(s) sin profundidad: sus anillos quedan PENDIENTES, no medidos.")))
+  T)))
+
+(defun urb:ppto-check-pozo-depths () (urb:ppto-warn-punto-cotas))
 
 (defun urb:ppto-rows-puntos (/ ss i be base atts red id etapa sub handle prof
                              rows out r)
@@ -30969,8 +31133,15 @@
             id (urb:safe-string (cdr (assoc "ID" atts)) "")
             etapa (urb:safe-string (cdr (assoc "ETAPA" atts)) "")
             sub (urb:safe-string (cdr (assoc "SUBETAPA" atts)) "")
-            prof (atof (urb:safe-string
-              (cdr (assoc "PROFUNDIDAD" atts)) "0"))
+            ;; 2026-09-13: si las cotas del punto no son confiables la
+            ;; profundidad NO se mide (queda en cero). Es lo que permite
+            ;; que la exportacion ya no se bloquee: sigue de largo sin
+            ;; meter al libro un anillo de 2.559 m.
+            prof (if (and (mp:base-con-cota-p base)
+                          (mp:punto-cota-issue atts))
+                   0.0
+                   (atof (urb:safe-string
+                     (cdr (assoc "PROFUNDIDAD" atts)) "0")))
             handle (cdr (assoc 5 (entget be)))
             rows nil)
       (cond
@@ -33177,6 +33348,7 @@
 (defun c:PPTOEXPORTAR (/ path attach app wb propia result seguir gestion
                        mensaje nuevo)
   (vl-load-com)
+  (setq *urb-cotas-avisado* nil)
   (setq seguir (urb:ppto-check-pozo-depths))
   (if (not seguir) (setq *urb-ppto-last-summary* '(DATOS-POZOS-INVALIDOS)))
   (setq *urb-ppto-headless*

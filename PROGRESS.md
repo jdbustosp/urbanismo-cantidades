@@ -1,5 +1,55 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 18:40 America/Bogota — 5.1.0, cotas de puntos: avisar en vez de bloquear, INSTALADO
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base: 8ae6780 (v5.0.7).
+Motivo: el usuario no podia actualizar NINGUNA cantidad del libro porque
+la guarda de 5.0.6/5.0.7 abortaba `PPTOEXPORTAR` por 5 pozos malos
+(TRAT-08/05/01 en -2547.x, DOM41 en 2559.65, DOM02 en -1.08).
+
+Diagnostico del bloqueo: `PROFUNDIDAD = COTA_TN_INI - COTA_CLAVE_INI`
+(l.12844) y solo se deriva cuando esta VACIA, por eso un valor malo se
+queda pegado. Los cinco casos son cotas absolutas mezcladas con
+profundidades relativas: DOM41 tiene COTA_CLAVE_INI=2.00 (una profundidad
+escrita donde va la elevacion ~2561) y los TRAT tienen la clave correcta
+con la tapa en 0 porque el punto cae fuera de SUP_TN.
+
+Cambios:
+- `urb:ppto-warn-punto-cotas` reemplaza al bloqueo: avisa y DEJA SEGUIR.
+  No relaja el control -- `urb:ppto-rows-puntos` fuerza `prof = 0` cuando
+  el punto tiene cota invalida, asi que no se mide en vez de meter un
+  anillo de 2.559 m. Se avisa una sola vez por corrida (antes el barrido
+  corria dos veces y repetia la lista).
+- La auditoria pasa de `MP_PUNTO_POZO_*` a todo punto con cotas: pozos
+  sanitarios y pluviales, sumideros, cabezales de descole y camaras
+  electricas (`*mp-bases-con-cota*`), y reporta LAS DOS COTAS mas la
+  profundidad para saber cual corregir sin abrir cada dialogo.
+- `mp:punto-cota-issue` agrega tres diagnosticos nuevos que nombran la
+  casilla culpable: COTA CLAVE NO ES ELEVACION, COTA TERRENO NO ES
+  ELEVACION (umbral `*mp-cota-elevacion-minima*` = 100, porque aqui toda
+  cota real ronda 2540-2580 msnm) y COTAS INVERTIDAS.
+- `urb:q-refresh-puntos` / `urb:q-refresh-punto-one`: los puntos entran a
+  la preactualizacion que ya corria para los tramos, y la profundidad se
+  rederiva de tapa - clave. Condicion estricta a proposito: solo si AMBAS
+  son elevaciones validas y la diferencia es positiva y <= 30 m. Si falta
+  una cota no se inventa nada, se deja y la auditoria lo reporta. Respeta
+  la regla de no intercambiar cotas ni inferirlas solas.
+- Se corre antes del refresco de tramos, para que estos vean los datos al dia.
+
+Verificado: balance de parentesis 0, UTF-8 sin BOM, todas las referencias
+a las funciones viejas redirigidas (nombres conservados como envoltorios),
+instalado con hash SHA256 identico al del repo
+(A5502626A5734A81CA6168D4785FEAA9A6ACD2DBA1693A74B539E4860F64924D).
+NO ejecutado dentro de Civil 3D: la logica de las cinco filas se verifico
+por trazado contra los valores reales del reporte, no por corrida real.
+Falta que el usuario confirme con un `PPTOEXPORTAR`.
+
+Limite conocido: los tramos NO leen las cotas del pozo conectado
+(POZO_INI/POZO_FIN son etiquetas de texto, no vinculos a entidad), asi que
+corregir un pozo rederiva su propia profundidad pero no reescribe las
+cotas del tramo. Inferirlo seria justo lo que la regla prohibe.
+
+
 ## 2026-09-13 17:57 America/Bogota — 5.0.7, andenes curvos y guardado, INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base: cd09304; commit de entrega
