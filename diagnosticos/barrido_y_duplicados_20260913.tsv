@@ -1,0 +1,744 @@
+TOTAL POR EJECUTAR al empezar = 0
+
+1) precios duplicados eliminados: 722
+   f8 (dup de f4)  0  DEMOLICIONES UM
+   f10 (dup de f6)  0  M2 UM
+   f12 (dup de f4)  0  DEMOLICIONES UM
+   f14 (dup de f6)  0  M2 UM
+   f16 (dup de f4)  0  DEMOLICIONES UM
+   f20 (dup de f4)  0  DEMOLICIONES UM
+   f22 (dup de f6)  0  M2 UM
+   f24 (dup de f4)  0  DEMOLICIONES UM
+   f26 (dup de f6)  0  M2 UM
+   f28 (dup de f4)  0  DEMOLICIONES UM
+   f30 (dup de f18)  0  ML UM
+   f34 (dup de f6)  0  M2 UM
+   f36 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f38 (dup de f6)  0  M2 UM
+   f40 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f44 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f46 (dup de f42)  0  M3 UM
+   f47 (dup de f43)  0  79829.3512 UM
+   f48 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f50 (dup de f42)  0  M3 UM
+   f52 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f54 (dup de f42)  0  M3 UM
+   f56 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f58 (dup de f42)  0  M3 UM
+   f60 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f62 (dup de f42)  0  M3 UM
+   f63 (dup de f59)  0  223251.402045504 UM
+   f64 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f66 (dup de f42)  0  M3 UM
+   f68 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f70 (dup de f42)  0  M3 UM
+   f72 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f74 (dup de f42)  0  M3 UM
+   f75 (dup de f71)  0  217337.457620457 UM
+   f76 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f78 (dup de f42)  0  M3 UM
+   f80 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f82 (dup de f42)  0  M3 UM
+   f84 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f86 (dup de f42)  0  M3 UM
+   f87 (dup de f83)  0  211423.513195411 UM
+   f88 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f90 (dup de f42)  0  M3 UM
+   f92 (dup de f32)  0  EXCAVACIONES Y RELLENOS UM
+   f94 (dup de f42)  0  M3 UM
+   f98 (dup de f42)  0  M3 UM
+   f100 (dup de f96)  0  ASFALTOS UM
+   f102 (dup de f42)  0  M3 UM
+   f104 (dup de f96)  0  ASFALTOS UM
+   f106 (dup de f42)  0  M3 UM
+   f108 (dup de f96)  0  ASFALTOS UM
+   f110 (dup de f42)  0  M3 UM
+   f112 (dup de f96)  0  ASFALTOS UM
+   f114 (dup de f6)  0  M2 UM
+   f116 (dup de f96)  0  ASFALTOS UM
+   f118 (dup de f6)  0  M2 UM
+   f120 (dup de f96)  0  ASFALTOS UM
+   f126 (dup de f18)  0  ML UM
+   f128 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f130 (dup de f18)  0  ML UM
+   f132 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f134 (dup de f18)  0  ML UM
+   f136 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f138 (dup de f6)  0  M2 UM
+   f140 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f142 (dup de f18)  0  ML UM
+   f144 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f146 (dup de f18)  0  ML UM
+   f147 (dup de f143)  0  53978.3736626223 UM
+   f148 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f152 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f154 (dup de f18)  0  ML UM
+   f156 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f158 (dup de f18)  0  ML UM
+   f160 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f162 (dup de f150)  0  UN UM
+   f164 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f166 (dup de f6)  0  M2 UM
+   f168 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f170 (dup de f6)  0  M2 UM
+   f172 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f174 (dup de f6)  0  M2 UM
+   f178 (dup de f6)  0  M2 UM
+   f180 (dup de f176)  0  GEOTEXTILES UM
+   f182 (dup de f6)  0  M2 UM
+   f184 (dup de f176)  0  GEOTEXTILES UM
+   f186 (dup de f6)  0  M2 UM
+   f190 (dup de f6)  0  M2 UM
+   f192 (dup de f188)  0  GEOMEMBRANAS UM
+   f194 (dup de f6)  0  M2 UM
+   f196 (dup de f188)  0  GEOMEMBRANAS UM
+   f198 (dup de f6)  0  M2 UM
+   f202 (dup de f18)  0  ML UM
+   f204 (dup de f200)  0  FILTRO UM
+   f206 (dup de f18)  0  ML UM
+   f210 (dup de f150)  0  UN UM
+   f212 (dup de f208)  0  MOBILIARIO UM
+   f214 (dup de f150)  0  UN UM
+   f216 (dup de f208)  0  MOBILIARIO UM
+   f218 (dup de f150)  0  UN UM
+   f220 (dup de f208)  0  MOBILIARIO UM
+   f222 (dup de f150)  0  UN UM
+   f224 (dup de f208)  0  MOBILIARIO UM
+   f226 (dup de f150)  0  UN UM
+   f228 (dup de f208)  0  MOBILIARIO UM
+   f230 (dup de f150)  0  UN UM
+   f234 (dup de f6)  0  M2 UM
+   f236 (dup de f232)  0  PERFILES VIALES UM
+   f238 (dup de f6)  0  M2 UM
+   f240 (dup de f232)  0  PERFILES VIALES UM
+   f242 (dup de f6)  0  M2 UM
+   f244 (dup de f232)  0  PERFILES VIALES UM
+   f246 (dup de f6)  0  M2 UM
+   f248 (dup de f232)  0  PERFILES VIALES UM
+   f250 (dup de f6)  0  M2 UM
+   f252 (dup de f232)  0  PERFILES VIALES UM
+   f254 (dup de f6)  0  M2 UM
+   f256 (dup de f232)  0  PERFILES VIALES UM
+   f258 (dup de f6)  0  M2 UM
+   f260 (dup de f232)  0  PERFILES VIALES UM
+   f262 (dup de f6)  0  M2 UM
+   f264 (dup de f232)  0  PERFILES VIALES UM
+   f266 (dup de f6)  0  M2 UM
+   f268 (dup de f232)  0  PERFILES VIALES UM
+   f270 (dup de f6)  0  M2 UM
+   f271 (dup de f263)  0  252330.943586567 UM
+   f272 (dup de f232)  0  PERFILES VIALES UM
+   f274 (dup de f6)  0  M2 UM
+   f276 (dup de f232)  0  PERFILES VIALES UM
+   f278 (dup de f6)  0  M2 UM
+   f280 (dup de f232)  0  PERFILES VIALES UM
+   f282 (dup de f6)  0  M2 UM
+   f284 (dup de f232)  0  PERFILES VIALES UM
+   f286 (dup de f6)  0  M2 UM
+   f288 (dup de f232)  0  PERFILES VIALES UM
+   f290 (dup de f6)  0  M2 UM
+   f292 (dup de f232)  0  PERFILES VIALES UM
+   f294 (dup de f6)  0  M2 UM
+   f296 (dup de f232)  0  PERFILES VIALES UM
+   f298 (dup de f6)  0  M2 UM
+   f300 (dup de f232)  0  PERFILES VIALES UM
+   f302 (dup de f6)  0  M2 UM
+   f304 (dup de f232)  0  PERFILES VIALES UM
+   f306 (dup de f6)  0  M2 UM
+   f308 (dup de f232)  0  PERFILES VIALES UM
+   f310 (dup de f6)  0  M2 UM
+   f312 (dup de f232)  0  PERFILES VIALES UM
+   f314 (dup de f6)  0  M2 UM
+   f315 (dup de f295)  0  34697.3687906929 UM
+   f316 (dup de f232)  0  PERFILES VIALES UM
+   f318 (dup de f6)  0  M2 UM
+   f320 (dup de f232)  0  PERFILES VIALES UM
+   f322 (dup de f6)  0  M2 UM
+   f324 (dup de f232)  0  PERFILES VIALES UM
+   f326 (dup de f6)  0  M2 UM
+   f327 (dup de f307)  0  302545.340478097 UM
+   f328 (dup de f232)  0  PERFILES VIALES UM
+   f330 (dup de f6)  0  M2 UM
+   f331 (dup de f311)  0  349252.227872035 UM
+   f332 (dup de f232)  0  PERFILES VIALES UM
+   f334 (dup de f6)  0  M2 UM
+   f335 (dup de f295)  0  34697.3687906929 UM
+   f336 (dup de f232)  0  PERFILES VIALES UM
+   f338 (dup de f6)  0  M2 UM
+   f340 (dup de f232)  0  PERFILES VIALES UM
+   f342 (dup de f6)  0  M2 UM
+   f344 (dup de f232)  0  PERFILES VIALES UM
+   f346 (dup de f6)  0  M2 UM
+   f348 (dup de f232)  0  PERFILES VIALES UM
+   f350 (dup de f6)  0  M2 UM
+   f352 (dup de f232)  0  PERFILES VIALES UM
+   f354 (dup de f6)  0  M2 UM
+   f355 (dup de f291)  0  220699.435157635 UM
+   f356 (dup de f232)  0  PERFILES VIALES UM
+   f358 (dup de f6)  0  M2 UM
+   f359 (dup de f295)  0  34697.3687906929 UM
+   f360 (dup de f232)  0  PERFILES VIALES UM
+   f362 (dup de f6)  0  M2 UM
+   f364 (dup de f232)  0  PERFILES VIALES UM
+   f366 (dup de f6)  0  M2 UM
+   f367 (dup de f343)  0  443020.754055132 UM
+   f368 (dup de f232)  0  PERFILES VIALES UM
+   f370 (dup de f6)  0  M2 UM
+   f371 (dup de f347)  0  350398.827596513 UM
+   f372 (dup de f232)  0  PERFILES VIALES UM
+   f374 (dup de f6)  0  M2 UM
+   f375 (dup de f351)  0  496467.74447813 UM
+   f376 (dup de f232)  0  PERFILES VIALES UM
+   f378 (dup de f6)  0  M2 UM
+   f379 (dup de f291)  0  220699.435157635 UM
+   f380 (dup de f232)  0  PERFILES VIALES UM
+   f382 (dup de f6)  0  M2 UM
+   f383 (dup de f295)  0  34697.3687906929 UM
+   f384 (dup de f232)  0  PERFILES VIALES UM
+   f386 (dup de f6)  0  M2 UM
+   f388 (dup de f232)  0  PERFILES VIALES UM
+   f390 (dup de f6)  0  M2 UM
+   f392 (dup de f232)  0  PERFILES VIALES UM
+   f394 (dup de f6)  0  M2 UM
+   f396 (dup de f232)  0  PERFILES VIALES UM
+   f398 (dup de f6)  0  M2 UM
+   f400 (dup de f232)  0  PERFILES VIALES UM
+   f402 (dup de f6)  0  M2 UM
+   f404 (dup de f232)  0  PERFILES VIALES UM
+   f406 (dup de f6)  0  M2 UM
+   f410 (dup de f18)  0  ML UM
+   f412 (dup de f408)  0  SUMINISTRO Y APLICACIÓN DE IMPRIMANTE UM
+   f414 (dup de f6)  0  M2 UM
+   f418 (dup de f18)  0  ML UM
+   f420 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f422 (dup de f18)  0  ML UM
+   f424 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f426 (dup de f18)  0  ML UM
+   f427 (dup de f419)  0  2611.49376129736 UM
+   f428 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f430 (dup de f18)  0  ML UM
+   f431 (dup de f423)  0  8845.38209471687 UM
+   f432 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f434 (dup de f18)  0  ML UM
+   f436 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f438 (dup de f18)  0  ML UM
+   f440 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f442 (dup de f18)  0  ML UM
+   f443 (dup de f435)  0  3264.3672016217 UM
+   f444 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f446 (dup de f18)  0  ML UM
+   f447 (dup de f439)  0  10083.7355879772 UM
+   f448 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f450 (dup de f18)  0  ML UM
+   f452 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f454 (dup de f18)  0  ML UM
+   f456 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f458 (dup de f18)  0  ML UM
+   f459 (dup de f451)  0  4361.19458136659 UM
+   f460 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f462 (dup de f18)  0  ML UM
+   f463 (dup de f455)  0  13444.9807839696 UM
+   f464 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f466 (dup de f18)  0  ML UM
+   f468 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f470 (dup de f18)  0  ML UM
+   f472 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f474 (dup de f18)  0  ML UM
+   f476 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f478 (dup de f18)  0  ML UM
+   f480 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f482 (dup de f6)  0  M2 UM
+   f484 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f486 (dup de f6)  0  M2 UM
+   f488 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f490 (dup de f6)  0  M2 UM
+   f492 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f494 (dup de f6)  0  M2 UM
+   f495 (dup de f483)  0  73290.3087847969 UM
+   f496 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f498 (dup de f6)  0  M2 UM
+   f499 (dup de f491)  0  27799.7722976816 UM
+   f500 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f502 (dup de f6)  0  M2 UM
+   f503 (dup de f483)  0  73290.3087847969 UM
+   f504 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f506 (dup de f6)  0  M2 UM
+   f507 (dup de f491)  0  27799.7722976816 UM
+   f508 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f510 (dup de f6)  0  M2 UM
+   f511 (dup de f483)  0  73290.3087847969 UM
+   f512 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f514 (dup de f6)  0  M2 UM
+   f515 (dup de f491)  0  27799.7722976816 UM
+   f516 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f518 (dup de f6)  0  M2 UM
+   f519 (dup de f483)  0  73290.3087847969 UM
+   f520 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f522 (dup de f6)  0  M2 UM
+   f523 (dup de f491)  0  27799.7722976816 UM
+   f524 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f526 (dup de f6)  0  M2 UM
+   f527 (dup de f483)  0  73290.3087847969 UM
+   f528 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f530 (dup de f6)  0  M2 UM
+   f531 (dup de f491)  0  27799.7722976816 UM
+   f532 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f534 (dup de f6)  0  M2 UM
+   f535 (dup de f483)  0  73290.3087847969 UM
+   f536 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f538 (dup de f6)  0  M2 UM
+   f539 (dup de f491)  0  27799.7722976816 UM
+   f540 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f542 (dup de f6)  0  M2 UM
+   f543 (dup de f483)  0  73290.3087847969 UM
+   f544 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f546 (dup de f6)  0  M2 UM
+   f547 (dup de f491)  0  27799.7722976816 UM
+   f548 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f550 (dup de f6)  0  M2 UM
+   f551 (dup de f483)  0  73290.3087847969 UM
+   f552 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f554 (dup de f6)  0  M2 UM
+   f555 (dup de f491)  0  27799.7722976816 UM
+   f556 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f558 (dup de f6)  0  M2 UM
+   f559 (dup de f483)  0  73290.3087847969 UM
+   f560 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f562 (dup de f6)  0  M2 UM
+   f563 (dup de f491)  0  27799.7722976816 UM
+   f564 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f566 (dup de f6)  0  M2 UM
+   f567 (dup de f483)  0  73290.3087847969 UM
+   f568 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f570 (dup de f6)  0  M2 UM
+   f571 (dup de f491)  0  27799.7722976816 UM
+   f572 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f574 (dup de f6)  0  M2 UM
+   f575 (dup de f483)  0  73290.3087847969 UM
+   f576 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f578 (dup de f6)  0  M2 UM
+   f579 (dup de f491)  0  27799.7722976816 UM
+   f580 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f582 (dup de f6)  0  M2 UM
+   f583 (dup de f483)  0  73290.3087847969 UM
+   f584 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f586 (dup de f6)  0  M2 UM
+   f587 (dup de f491)  0  27799.7722976816 UM
+   f588 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f590 (dup de f6)  0  M2 UM
+   f591 (dup de f483)  0  73290.3087847969 UM
+   f592 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f594 (dup de f6)  0  M2 UM
+   f595 (dup de f491)  0  27799.7722976816 UM
+   f596 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f598 (dup de f6)  0  M2 UM
+   f599 (dup de f483)  0  73290.3087847969 UM
+   f600 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f602 (dup de f6)  0  M2 UM
+   f603 (dup de f491)  0  27799.7722976816 UM
+   f604 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f606 (dup de f6)  0  M2 UM
+   f607 (dup de f483)  0  73290.3087847969 UM
+   f608 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f610 (dup de f6)  0  M2 UM
+   f611 (dup de f491)  0  27799.7722976816 UM
+   f612 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f614 (dup de f6)  0  M2 UM
+   f615 (dup de f483)  0  73290.3087847969 UM
+   f616 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f618 (dup de f6)  0  M2 UM
+   f619 (dup de f491)  0  27799.7722976816 UM
+   f620 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f622 (dup de f6)  0  M2 UM
+   f623 (dup de f483)  0  73290.3087847969 UM
+   f624 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f626 (dup de f6)  0  M2 UM
+   f627 (dup de f491)  0  27799.7722976816 UM
+   f628 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f630 (dup de f6)  0  M2 UM
+   f631 (dup de f483)  0  73290.3087847969 UM
+   f632 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f634 (dup de f6)  0  M2 UM
+   f635 (dup de f491)  0  27799.7722976816 UM
+   f636 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f638 (dup de f6)  0  M2 UM
+   f639 (dup de f483)  0  73290.3087847969 UM
+   f640 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f642 (dup de f6)  0  M2 UM
+   f643 (dup de f491)  0  27799.7722976816 UM
+   f644 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f646 (dup de f6)  0  M2 UM
+   f647 (dup de f483)  0  73290.3087847969 UM
+   f648 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f650 (dup de f6)  0  M2 UM
+   f651 (dup de f491)  0  27799.7722976816 UM
+   f652 (dup de f416)  0  SUMINISTRO Y APLICACIÓN DE PINTURA VIAL UM
+   f654 (dup de f6)  0  M2 UM
+   f655 (dup de f483)  0  73290.3087847969 UM
+   f658 (dup de f18)  0  ML UM
+   f660 (dup de f656)  0  SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL UM
+   f662 (dup de f18)  0  ML UM
+   f663 (dup de f659)  0  2176.24480108113 UM
+   f664 (dup de f656)  0  SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL UM
+   f666 (dup de f18)  0  ML UM
+   f668 (dup de f656)  0  SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL UM
+   f670 (dup de f18)  0  ML UM
+   f671 (dup de f667)  0  725.414933693712 UM
+   f672 (dup de f656)  0  SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL UM
+   f674 (dup de f6)  0  M2 UM
+   f675 (dup de f491)  0  27799.7722976816 UM
+   f676 (dup de f656)  0  SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL UM
+   f678 (dup de f6)  0  M2 UM
+   f679 (dup de f491)  0  27799.7722976816 UM
+   f680 (dup de f656)  0  SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL UM
+   f682 (dup de f6)  0  M2 UM
+   f683 (dup de f491)  0  27799.7722976816 UM
+   f684 (dup de f656)  0  SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL UM
+   f686 (dup de f6)  0  M2 UM
+   f687 (dup de f491)  0  27799.7722976816 UM
+   f688 (dup de f656)  0  SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL UM
+   f690 (dup de f6)  0  M2 UM
+   f691 (dup de f491)  0  27799.7722976816 UM
+   f694 (dup de f6)  0  M2 UM
+   f696 (dup de f692)  0  SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS UM
+   f698 (dup de f150)  0  UN UM
+   f700 (dup de f692)  0  SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS UM
+   f702 (dup de f150)  0  UN UM
+   f703 (dup de f699)  0  13141.7105407222 UM
+   f704 (dup de f692)  0  SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS UM
+   f706 (dup de f150)  0  UN UM
+   f707 (dup de f699)  0  13141.7105407222 UM
+   f708 (dup de f692)  0  SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS UM
+   f710 (dup de f150)  0  UN UM
+   f712 (dup de f692)  0  SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS UM
+   f714 (dup de f150)  0  UN UM
+   f716 (dup de f692)  0  SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS UM
+   f718 (dup de f150)  0  UN UM
+   f720 (dup de f692)  0  SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS UM
+   f722 (dup de f150)  0  UN UM
+   f724 (dup de f692)  0  SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS UM
+   f726 (dup de f18)  0  ML UM
+   f728 (dup de f692)  0  SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS UM
+   f730 (dup de f18)  0  ML UM
+   f734 (dup de f6)  0  M2 UM
+   f736 (dup de f732)  0  RETIRO DE SEÑALIZACIÓN HORIZONTAL UM
+   f738 (dup de f150)  0  UN UM
+   f742 (dup de f150)  0  UN UM
+   f744 (dup de f740)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL UM
+   f746 (dup de f150)  0  UN UM
+   f748 (dup de f740)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL UM
+   f750 (dup de f150)  0  UN UM
+   f752 (dup de f740)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL UM
+   f754 (dup de f150)  0  UN UM
+   f756 (dup de f740)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL UM
+   f758 (dup de f150)  0  UN UM
+   f759 (dup de f743)  0  650076.614747725 UM
+   f760 (dup de f740)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL UM
+   f762 (dup de f150)  0  UN UM
+   f764 (dup de f740)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL UM
+   f766 (dup de f150)  0  UN UM
+   f767 (dup de f763)  0  765134.422667676 UM
+   f768 (dup de f740)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL UM
+   f770 (dup de f150)  0  UN UM
+   f772 (dup de f740)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL UM
+   f774 (dup de f150)  0  UN UM
+   f778 (dup de f150)  0  UN UM
+   f780 (dup de f776)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA UM
+   f782 (dup de f150)  0  UN UM
+   f784 (dup de f776)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA UM
+   f786 (dup de f150)  0  UN UM
+   f787 (dup de f779)  0  656243.109693756 UM
+   f788 (dup de f776)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA UM
+   f790 (dup de f150)  0  UN UM
+   f791 (dup de f779)  0  656243.109693756 UM
+   f792 (dup de f776)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA UM
+   f794 (dup de f150)  0  UN UM
+   f795 (dup de f783)  0  800296.475236288 UM
+   f796 (dup de f776)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA UM
+   f798 (dup de f150)  0  UN UM
+   f799 (dup de f783)  0  800296.475236288 UM
+   f800 (dup de f776)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA UM
+   f802 (dup de f150)  0  UN UM
+   f803 (dup de f779)  0  656243.109693756 UM
+   f804 (dup de f776)  0  SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA UM
+   f806 (dup de f150)  0  UN UM
+   f807 (dup de f779)  0  656243.109693756 UM
+   f810 (dup de f150)  0  UN UM
+   f812 (dup de f124)  0  ACABADOS Y PREFABRICADOS UM
+   f814 (dup de f6)  0  M2 UM
+   f818 (dup de f6)  0  M2 UM
+   f820 (dup de f816)  0  EMPRADIZACIÓN Y ARBORIZACIÓN UM
+   f822 (dup de f150)  0  UN UM
+   f825 (dup de f824)  0  Drenaje UM
+   f826 (dup de f6)  0  M2 UM
+   f830 (dup de f6)  0  M2 UM
+   f832 (dup de f828)  0  ZONAS VERDES Y PARQUES UM
+   f834 (dup de f6)  0  M2 UM
+   f835 (dup de f831)  0  347210.914872589 UM
+   f836 (dup de f828)  0  ZONAS VERDES Y PARQUES UM
+   f838 (dup de f6)  0  M2 UM
+   f839 (dup de f831)  0  347210.914872589 UM
+   f840 (dup de f828)  0  ZONAS VERDES Y PARQUES UM
+   f842 (dup de f6)  0  M2 UM
+   f843 (dup de f831)  0  347210.914872589 UM
+   f844 (dup de f828)  0  ZONAS VERDES Y PARQUES UM
+   f846 (dup de f6)  0  M2 UM
+   f850 (dup de f6)  0  M2 UM
+   f851 (dup de f311)  0  349252.227872035 UM
+   f852 (dup de f848)  0  CONTROLES AMBIENTALES UM
+   f854 (dup de f6)  0  M2 UM
+   f858 (dup de f6)  0  M2 UM
+   f860 (dup de f856)  0  ZMPA UM
+   f862 (dup de f6)  0  M2 UM
+   f863 (dup de f859)  0  603423.425899566 UM
+   f866 (dup de f42)  0  M3 UM
+   f868 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f870 (dup de f42)  0  M3 UM
+   f872 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f874 (dup de f42)  0  M3 UM
+   f876 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f878 (dup de f42)  0  M3 UM
+   f880 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f882 (dup de f42)  0  M3 UM
+   f883 (dup de f91)  0  101915.14034583 UM
+   f884 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f886 (dup de f42)  0  M3 UM
+   f888 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f890 (dup de f42)  0  M3 UM
+   f892 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f896 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f898 (dup de f894)  0  PULG UM
+   f900 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f902 (dup de f894)  0  PULG UM
+   f904 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f906 (dup de f6)  0  M2 UM
+   f908 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f910 (dup de f6)  0  M2 UM
+   f912 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f914 (dup de f18)  0  ML UM
+   f916 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f918 (dup de f18)  0  ML UM
+   f920 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f922 (dup de f18)  0  ML UM
+   f924 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f926 (dup de f18)  0  ML UM
+   f928 (dup de f864)  0  CIMENTACIÓN REDES HIDROSANITARIAS UM
+   f934 (dup de f150)  0  UN UM
+   f936 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f938 (dup de f150)  0  UN UM
+   f940 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f942 (dup de f18)  0  ML UM
+   f944 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f946 (dup de f150)  0  UN UM
+   f948 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f950 (dup de f150)  0  UN UM
+   f952 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f954 (dup de f150)  0  UN UM
+   f956 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f958 (dup de f150)  0  UN UM
+   f960 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f962 (dup de f150)  0  UN UM
+   f964 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f966 (dup de f150)  0  UN UM
+   f968 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f970 (dup de f150)  0  UN UM
+   f971 (dup de f967)  0  1220574.03567587 UM
+   f972 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f974 (dup de f18)  0  ML UM
+   f976 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f978 (dup de f150)  0  UN UM
+   f980 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f982 (dup de f150)  0  UN UM
+   f984 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f986 (dup de f18)  0  ML UM
+   f988 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f990 (dup de f42)  0  M3 UM
+   f992 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f994 (dup de f930)  0  KG UM
+   f996 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f998 (dup de f930)  0  KG UM
+   f1000 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f1002 (dup de f18)  0  ML UM
+   f1004 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f1006 (dup de f18)  0  ML UM
+   f1008 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f1010 (dup de f18)  0  ML UM
+   f1012 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f1014 (dup de f18)  0  ML UM
+   f1016 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f1018 (dup de f18)  0  ML UM
+   f1020 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f1022 (dup de f18)  0  ML UM
+   f1024 (dup de f932)  0  ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA UM
+   f1026 (dup de f150)  0  UN UM
+   f1030 (dup de f150)  0  UN UM
+   f1032 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1034 (dup de f150)  0  UN UM
+   f1036 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1038 (dup de f150)  0  UN UM
+   f1040 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1042 (dup de f150)  0  UN UM
+   f1044 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1046 (dup de f150)  0  UN UM
+   f1048 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1050 (dup de f150)  0  UN UM
+   f1052 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1054 (dup de f150)  0  UN UM
+   f1056 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1058 (dup de f150)  0  UN UM
+   f1060 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1062 (dup de f150)  0  UN UM
+   f1064 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1066 (dup de f150)  0  UN UM
+   f1068 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1070 (dup de f150)  0  UN UM
+   f1072 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1074 (dup de f150)  0  UN UM
+   f1076 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1078 (dup de f150)  0  UN UM
+   f1079 (dup de f1075)  0  9652085.9915016 UM
+   f1080 (dup de f1028)  0  RED DE ACUEDUCTO UM
+   f1082 (dup de f18)  0  ML UM
+   f1086 (dup de f18)  0  ML UM
+   f1088 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1090 (dup de f18)  0  ML UM
+   f1092 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1094 (dup de f18)  0  ML UM
+   f1096 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1098 (dup de f18)  0  ML UM
+   f1100 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1102 (dup de f18)  0  ML UM
+   f1104 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1106 (dup de f18)  0  ML UM
+   f1108 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1110 (dup de f18)  0  ML UM
+   f1112 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1114 (dup de f18)  0  ML UM
+   f1116 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1118 (dup de f18)  0  ML UM
+   f1120 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1122 (dup de f18)  0  ML UM
+   f1124 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1126 (dup de f18)  0  ML UM
+   f1128 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1130 (dup de f18)  0  ML UM
+   f1132 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1134 (dup de f18)  0  ML UM
+   f1136 (dup de f1084)  0  SUMINISTRO RED DE AGUA POTABLE PVC UM
+   f1138 (dup de f18)  0  ML UM
+   f1142 (dup de f18)  0  ML UM
+   f1144 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1146 (dup de f18)  0  ML UM
+   f1148 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1150 (dup de f18)  0  ML UM
+   f1152 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1154 (dup de f18)  0  ML UM
+   f1156 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1158 (dup de f18)  0  ML UM
+   f1160 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1162 (dup de f18)  0  ML UM
+   f1164 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1166 (dup de f18)  0  ML UM
+   f1168 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1170 (dup de f18)  0  ML UM
+   f1172 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1174 (dup de f18)  0  ML UM
+   f1176 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1178 (dup de f18)  0  ML UM
+   f1180 (dup de f1140)  0  SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC UM
+   f1182 (dup de f18)  0  ML UM
+   f1186 (dup de f18)  0  ML UM
+   f1188 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1190 (dup de f18)  0  ML UM
+   f1192 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1194 (dup de f18)  0  ML UM
+   f1196 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1198 (dup de f18)  0  ML UM
+   f1200 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1202 (dup de f18)  0  ML UM
+   f1204 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1206 (dup de f18)  0  ML UM
+   f1208 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1210 (dup de f18)  0  ML UM
+   f1212 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1214 (dup de f18)  0  ML UM
+   f1216 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1218 (dup de f18)  0  ML UM
+   f1220 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1222 (dup de f18)  0  ML UM
+   f1224 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1226 (dup de f18)  0  ML UM
+   f1228 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1230 (dup de f18)  0  ML UM
+   f1232 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1234 (dup de f18)  0  ML UM
+   f1236 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1238 (dup de f18)  0  ML UM
+   f1240 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1242 (dup de f18)  0  ML UM
+   f1244 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1246 (dup de f18)  0  ML UM
+   f1248 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1250 (dup de f18)  0  ML UM
+   f1252 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1254 (dup de f18)  0  ML UM
+   f1256 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1258 (dup de f18)  0  ML UM
+   f1260 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1262 (dup de f18)  0  ML UM
+   f1264 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1266 (dup de f18)  0  ML UM
+   f1268 (dup de f1184)  0  SUMINISTRO RED DE ALCANTARILLADO PVC UM
+   f1270 (dup de f18)  0  ML UM
+   f1274 (dup de f18)  0  ML UM
+   f1276 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1278 (dup de f18)  0  ML UM
+   f1280 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1282 (dup de f18)  0  ML UM
+   f1284 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1286 (dup de f18)  0  ML UM
+   f1288 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1290 (dup de f18)  0  ML UM
+   f1292 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1294 (dup de f18)  0  ML UM
+   f1296 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1298 (dup de f18)  0  ML UM
+   f1300 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1302 (dup de f18)  0  ML UM
+   f1304 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1306 (dup de f18)  0  ML UM
+   f1308 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1310 (dup de f18)  0  ML UM
+   f1312 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1314 (dup de f18)  0  ML UM
+   f1316 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1318 (dup de f18)  0  ML UM
+   f1320 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1322 (dup de f18)  0  ML UM
+   f1324 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1326 (dup de f18)  0  ML UM
+   f1328 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1330 (dup de f18)  0  ML UM
+   f1332 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1334 (dup de f18)  0  ML UM
+   f1336 (dup de f1272)  0  SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC UM
+   f1338 (dup de f18)  0  ML UM
+   efecto: 0
+
+2) barrido IDU 2026-I
+   alineados (fiable + misma unidad) : 0
+   unidad distinta, sin tocar        : 0
+   marcados REVISAR, sin tocar       : 0
+   efecto: 0
+
+TOTAL POR EJECUTAR al terminar = 0
+cambio de esta pasada           = 0
+
+== A) precios alineados al IDU ==
+fila	actividad	UM	cantidad	VU antes	VU IDU	delta
+
+== B) unidad distinta (revisar a mano) ==
+fila	actividad	UM libro	UM IDU	VU libro	VU IDU	empato con
+
+== C) REVISAR (muy lejos del IDU), por plata ==
+fila	actividad	UM	cant	VU libro	VU IDU	delta	bandera	empato con

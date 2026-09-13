@@ -140,3 +140,44 @@ en "General" esperando que herede.
 > dejó el archivo ilegible para Excel (el borrado del `<ext>` previo por regex
 > corta mal si hay varios). Para reaplicar: restaurar del backup
 > `antes_cf_final` y correr `formatos_datos.ps1` + `cf_final.ps1` una sola vez.
+
+## Trampas de automatización (2026-09-13, cazadas en carne propia)
+
+> **`| Select-Object -First N` MATA el script a media ejecución.** PowerShell
+> corta la tubería en cuanto llegan N objetos, y el script muere **antes** de
+> `$wb.Save()`, dejando el libro a medio modificar. Cada `Retry { ... }` que
+> devuelve algo cuenta como objeto (`Rows.Delete()` devuelve `True`). En un
+> intento así se borraron **722 filas** de PRECIOS_UNITARIOS y el total se fue
+> de 217.183.958.999 a 62.131.802.616; hubo que restaurar del backup.
+> **Regla**: un script que ESCRIBE nunca se canaliza truncado — redirigir todo
+> a un log con `*> archivo` y filtrar después.
+
+> **Acentos en los `.ps1`.** PowerShell 5.1 lee el archivo como ANSI, así que
+> un literal con tilde llega roto a Excel ("instalaciÃ³n") y el `SUMIF` que
+> busca el precio por nombre devuelve **$0**. **Regla**: no escribir acentos en
+> los scripts — leer el texto exacto desde el propio libro
+> (`PRECIOS_UNITARIOS!B`) y reutilizarlo.
+
+> **Bucles de 1.700 llamadas COM** (`Cells.Item` fila por fila) provocan
+> `RPC_E_CALL_REJECTED`. Leer el rango completo en un array con `.Value2` (una
+> sola llamada) y recorrer el array.
+
+> **Rendimiento del libro.** El `forceFullCalc="1"` de `<calcPr>` obliga a
+> recalcular todo en cada edición (3,3 s por celda). Se apaga con
+> `$wb.ForceFullCalculation = $false`. Y ojo: la apertura lenta (25 s) **no es
+> del libro** — en disco local abre en 8,8 s; el resto es la sincronización de
+> la carpeta de colsubsidio.com.
+
+| Script | Qué hace |
+|---|---|
+| `diag_rendimiento.ps1` (en scratchpad) | Despieza el OOXML: tamaño por hoja, nº de fórmulas, SUMPRODUCT/LET/XMATCH, nombres definidos rotos, conexiones y pivot caches. Sin abrir Excel. |
+| `duplicados.ps1` (en scratchpad) | Detecta nombres repetidos en PRECIOS_UNITARIOS y cuantifica el sobrecosto, porque el precio se busca con `SUMIF` y **suma** las coincidencias. |
+
+### El SUMIF de los precios suma los duplicados
+
+`VR_UNITARIO` en POR EJECUTAR es
+`=SUMIF(PRECIOS_UNITARIOS!$B:$B, $D<fila>, PRECIOS_UNITARIOS!$D:$D)`. Si un
+nombre aparece **dos veces** en el catálogo, el precio unitario que cobra el
+libro es **la suma de los dos**. Medido 2026-09-13: 17 nombres repetidos con el
+mismo precio en ambas filas, **$3.377.978.258 de sobrecosto**. Detalle en
+`diagnosticos\precios_duplicados_20260913.tsv`.
