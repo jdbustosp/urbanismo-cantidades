@@ -181,3 +181,44 @@ nombre aparece **dos veces** en el catálogo, el precio unitario que cobra el
 libro es **la suma de los dos**. Medido 2026-09-13: 17 nombres repetidos con el
 mismo precio en ambas filas, **$3.377.978.258 de sobrecosto**. Detalle en
 `diagnosticos\precios_duplicados_20260913.tsv`.
+
+## La trampa que costó media tarde (2026-09-13)
+
+> **La caché de tipos COM de PowerShell es POR PROCESO.** Si un proceso de
+> PowerShell escribe un **texto** en `Range.Value2`, queda enlazada la firma
+> `String` y a partir de ahí **toda** escritura de un **número** en `Value2`
+> falla con *"No se puede convertir un objeto de tipo 'System.Double' al tipo
+> 'System.String'"* — aunque se abra otra instancia de Excel, otro libro y otra
+> hoja dentro del mismo proceso.
+>
+> Se cazó así: el script que solo escribía precios funcionó (182/182), el mismo
+> código dentro del script que antes marcaba textos falló (0/182), y una sonda
+> aislada demostró que las cinco formas de escribir (`Cells.Item`, `Range`,
+> `.Value`, `.Formula`, rango) funcionan todas en un proceso limpio.
+>
+> **Regla**: las escrituras de texto y las de número van en **procesos de
+> PowerShell distintos** (no basta con instancias distintas de Excel). De ahí
+> que el trabajo esté partido en `marcar_dups.ps1` (textos) y
+> `aplicar_precios.ps1` (números).
+
+### Cómo trabajar rápido este libro
+
+Abrirlo desde la carpeta de colsubsidio.com cuesta **25 s**; desde disco local,
+**8,8 s**. El flujo rápido, medido, es:
+
+1. copiar el libro a `work\prueba_libro\trabajo.xlsx`;
+2. `marcar_dups.ps1` (proceso propio) — **17 s**;
+3. `aplicar_precios.ps1` (proceso propio) — **49 s**;
+4. `recalcular.ps1` (recalcula, informa y guarda) — **19 s**;
+5. copiar el resultado de vuelta.
+
+Total: **~1,5 minutos** contra los 3–6 minutos de UNA sola pasada haciéndolo
+directo sobre la carpeta sincronizada. Y para **leer** (inventarios, informes,
+comprobaciones) no hace falta Excel: `diag_rendimiento.ps1` lee el XML del
+.xlsx y tarda segundos.
+
+| Script | Qué hace |
+|---|---|
+| `marcar_dups.ps1` | Marca `[DUPLICADO NO USAR]` en el nombre repetido de PRECIOS_UNITARIOS para que el `SUMIF` deje de sumarlo dos veces. Solo escribe TEXTO. |
+| `aplicar_precios.ps1` | Aplica precios a la columna D desde la sección A) del informe del barrido. Solo escribe NÚMEROS. Proceso aparte. |
+| `recalcular.ps1` | Recalcula a fondo, imprime niveles 1 y 2 y guarda. |
