@@ -1,5 +1,29 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 10:30 America/Bogota — diagnostico del disco, NO corregido
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Version instalada conservada: 5.0.0.
+La conclusion anterior sobre SUP_TN queda REFUTADA por aislamiento visual:
+en copia del maestro guardado 2026-09-13 10:15:05, ocultar SUP_TN no elimina
+el disco; ocultar HATCH si; ocultar REGION no. No modificar el terreno para
+intentar arreglarlo. Laboratorio local: Documents/URBANISMO/work/codex5001.
+
+Se intento linearizar unicamente arcos cortos de HATCH (238 objetos), con
+flecha 0.1 mm, conservando los 227 REGION/LWPOLYLINE y SUP_TN identicos.
+Carga, nuevo hatch, idempotencia y tests puros CCW/CW/cruce de cero/huecos
+pasaron, PERO el raster aun muestra el disco: no es una solucion validada.
+Se retiro el borrador del motor; queda solo en el laboratorio como
+draft_NOT_VALIDATED.lsp. NO instalarlo ni publicar como v5.0.1.
+
+Evaluate sobre los hatches detecto 20 errores `Mandatory field missing`:
+ver isolate.txt. Falta aislar esos 20 objetos (sus handles estan en el log),
+inspeccionar bucles/XDATA y reconstruir solo los responsables; no borrar
+todos los rellenos ni dar por reparado por un LOAD-OK. Comparaciones:
+01_original/02_no_surface, 05_evaluated/06_no_hatches/07_no_regions.png.
+Master DWG y Excel originales NO modificados. No nueva instalacion.
+Tiempo ~15 min; se corta la ronda segun TESTING_CIVIL3D.md, pendiente correccion.
+
+
 ## Estado guardado — 2026-09-12, v5.0.0 (Claude, BOG085CD119BDQN)
 
 Agente: **Claude**. Equipo: **BOG085CD119BDQN**.
