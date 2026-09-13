@@ -54,7 +54,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.0.0")
+(setq *urb-version* "5.0.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -34200,6 +34200,17 @@
     (list (if andenes (sslength andenes) 0)
           (if prefabs (sslength prefabs) 0))))
 
+(defun urb:purge-empty-hatches (/ ss i e d n layer)
+  ;; Un HATCH sin bucles (DXF 91=0) no representa area y en Civil 3D puede
+  ;; renderizarse como un disco gigante. Solo se elimina ese objeto invalido;
+  ;; regiones, polilineas y hatches con contorno quedan intactos.
+  (setq ss (ssget "_X" '((0 . "HATCH"))) i 0 n 0)
+  (if ss (repeat (sslength ss)
+    (setq e (ssname ss i) i (1+ i) d (entget e) layer (cdr (assoc 8 d)))
+    (if (and (= 0 (cond ((assoc 91 d) (cdr (assoc 91 d))) (T 1)))
+             (entdel e)) (setq n (1+ n))))
+  n)
+
 (defun urb:migrate-current-drawing
   (/ ss i count hydro-rings road-properties road-upgrade pruned
      appearance-refresh tramo-refresh draworder-refresh)
@@ -34493,6 +34504,7 @@
 (vl-catch-all-apply 'urb:refresh-etapas-catalog nil)
 (vl-catch-all-apply 'mp:load-tramo-appearance-settings nil)
 (vl-catch-all-apply 'urb:load-geometric-settings nil)
+(vl-catch-all-apply 'urb:purge-empty-hatches nil)
 (if (and (not *urb-suppress-auto-migration*)
          (/= (getenv "URB_TEST_SUPPRESS_AUTO_MIGRATION") "1"))
   (vl-catch-all-apply 'urb:migrate-current-drawing nil))

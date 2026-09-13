@@ -1,5 +1,16 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 10:55 America/Bogota — v5.0.1: elimina HATCH vacíos que generan disco
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Se aisló el maestro y se comprobó
+que el disco desaparece al ocultar exactamente 20 HATCH con DXF 91=0 (sin
+contorno); no era SUP_TN ni REGION. v5.0.1 elimina únicamente esos objetos
+inválidos al cargar/migrar el dibujo. Carga headless OK en copia aislada.
+El maestro y Excel no se modificaron. La orientación por tramos queda sin
+cambios en esta entrega para no mezclar riesgos; la optimización medida de
+PIP se conserva como pendiente separada.
+
+
 ## 2026-09-13 10:30 America/Bogota — diagnostico del disco, NO corregido
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Version instalada conservada: 5.0.0.
