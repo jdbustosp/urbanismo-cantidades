@@ -1,9 +1,9 @@
 # Progress — urbanismo_cantidades.lsp
 
-## 2026-09-13 17:58 America/Bogota — 5.0.7, andenes curvos y guardado, INSTALADO
+## 2026-09-13 17:57 America/Bogota — 5.0.7, andenes curvos y guardado, INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base: cd09304; commit de entrega
-registrado en Git como `v5.0.7`. Cambios de presupuesto de Claude preservados.
+`8ae6780` (v5.0.7). Cambios de presupuesto de Claude preservados.
 Corregidos LAST (punto82806.4), cotas editadas que sync sobrescribia, region
 tactil eliminada antes de medir y cunas faltantes en extremos curvos.
 Los remates ahora llegan al contorno real; las bisectrices internas no cambian.

@@ -1,7 +1,7 @@
 # Entrega 5.0.7 — andenes curvos y guardado de cotas
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Fecha: 2026-09-13 17:56 America/Bogota.
-El historial de Git identifica el commit de entrega. Base al retomar: cd09304;
+Commit de entrega: `8ae6780`. Base al retomar: cd09304;
 se preservaron los cambios de presupuesto de Claude.
 
 ## Resultado
