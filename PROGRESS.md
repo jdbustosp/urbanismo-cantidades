@@ -1,6 +1,6 @@
 # Progress — urbanismo_cantidades.lsp
 
-## 2026-09-13 15:50 America/Bogota — MT/entibados/pozos 5.0.5 (Codex/Luna), NO INSTALADO
+## 2026-09-13 15:50 America/Bogota — MT/entibados/pozos 5.0.5 (Codex/Luna), INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Rama: `codex/anden504-verificacion`.
 En copia local de `URB_MASTER_GENERAL.dwg`, Civil 3D encontró `SUP_TN` y cargó el
@@ -24,8 +24,9 @@ pendientes. DOM41 contamina el tramo 9761C DOM41-55 (6.06 m), cuyos valores guar
 son 9.317 m3 de excavación y 15.528 m2 de entibado; debe editarse al confirmar cota.
 
 Se corrigió que un MT `PENDIENTE` no se sustituyera por area x espesor al exportar.
-Manifiesto y motor subidos a 5.0.5; `instalar_bundle.ps1 -ValidateOnly` OK. No se
-instaló porque primero hay que confirmar las cotas de los 9 registros problemáticos.
+Manifiesto y motor subidos a 5.0.5; `instalar_bundle.ps1 -ValidateOnly` OK. Se instaló
+después de la verificación nativa en este equipo; el hash SHA-256 del LSP instalado
+coincide con el del repositorio. La protección de pozos queda activa.
 Detalle: `MT_POZOS_AUDITORIA_2026-09-13.md`. El DWG principal y el Excel no fueron tocados.
 
 ## 2026-09-13 13:20 America/Bogota — verificación nativa 5.0.4 (Codex/Luna), NO INSTALADO
