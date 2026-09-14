@@ -1,5 +1,50 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 22:30 America/Bogota — 5.3.0, anchos de zanja y motor desde el repo, INSTALADO
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base: 5f4e345 (v5.2.0).
+
+CORRECCION de lo que afirme en 5.2.0: dije que un diametro fuera de la
+tabla dejaba la excavacion "en CERO". ES FALSO. `mp:default-trench-width`
+tiene un respaldo generico `(max 0.60 (+ diametro 0.40))`. El problema no
+era cero, era que se queda CORTO: el 15" daba 0,78 m contra 1,05 de norma
+y el 64" daba 2,03 contra 2,70. Para excavacion quedarse corto es peor que
+quedarse largo, pero no es lo mismo que no medir. El texto del alert del
+gestor de diametros decia lo mismo y quedo corregido.
+
+- ANCHOS DE ZANJA PARA CUALQUIER DIAMETRO: `mp:pvc-trench-width` ya no
+  devuelve nil. Nuevo `mp:trench-width-at`: interpola linealmente entre
+  los dos diametros vecinos de `*mp-pvc-trench-width-table*`, tramo de
+  profundidad por tramo, redondea al siguiente multiplo de 0,05 m y
+  recorta al vecino mayor para no romper el orden creciente. Por encima
+  del ultimo diametro extrapola con la pendiente del ultimo par; por
+  debajo del primero usa la primera fila.
+  Verificado simulando el algoritmo sobre la misma tabla para los enteros
+  4..70: monotono, 15 -> 1,05 / 46 -> 2,15 / 64 -> 2,70.
+  Huecos que tapaba: la lista de diametros trae 15" y 64" y la tabla NO
+  los tiene (salta 14->16 y termina en 60).
+- El gestor de diametros ya no avisa de un problema: informa el ancho que
+  le quedo al diametro recien agregado y si fue de tabla o interpolado.
+
+- MULTI-PC SIN REINSTALAR (pedido del usuario): el `acaddoc.lsp` que
+  genera `instalar_bundle.ps1` ahora carga el motor desde el REPO en Drive
+  (`findfile` + `load` con vl-catch-all) y solo cae a la copia del bundle
+  si el repo no esta disponible o si el load no dejo definido C:URBANISMO.
+  Se instala UNA VEZ por maquina; de ahi en adelante cualquier cambio del
+  .lsp lo reconoce cualquier PC con solo reiniciar Civil 3D. Imprime
+  `urbcant <version> (repo|bundle local)` al arrancar. CLAUDE.md
+  actualizado: INSTALAR.bat solo hace falta para DLL/manifiesto/iconos.
+
+- CRUCE DE PERFILES VIALES CON EL PRESUPUESTO (informe en
+  presupuesto/diagnosticos/perfiles_viales_20260913.md): 2.2.4, 2.2.5 y
+  2.2.6 tienen fila para TODO lo que emiten. El hueco real es 2.2.7 ZONA
+  VERDE: de los cuatro conceptos que emite, TRES no tienen fila destino
+  -- "Localizacion y replanteo", "Relleno Manual Tierra Negra X 30CM" y
+  "Coberturas Zonas Verdes" -- y son justo los que se emiten cuando la
+  zona verde esta DENTRO DE UN PARQUE. Las zonas verdes de parque estan
+  calculando tres actividades que no caen en ninguna parte.
+
+
 ## 2026-09-13 21:10 America/Bogota — 5.2.0, diametros editables desde Configuracion, INSTALADO
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base: 4d5573f (v5.1.2 + filas GRP).
