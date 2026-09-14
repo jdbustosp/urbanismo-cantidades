@@ -1,0 +1,25 @@
+(defun ep:run (/ ss i en obj reg region other x b items source role)
+ (setq ss (ssget "_X" '((0 . "LWPOLYLINE") (-3 ("URB_SENDERO")))) i 0)
+ (repeat (sslength ss)
+  (setq en (ssname ss i) obj (vlax-ename->vla-object en) b (urb:object-box-points obj))
+  (if (and (> (cadar b) 1990.0) (< (cadar b) 2010.0))
+   (progn
+    (setq region (urb:anden-region-from-object obj))
+    (foreach other (urb:anden-cutout-blocks)
+     (if (urb:objects-bbox-overlap-p obj (urb:as-vla-object other) 0.0)
+      (progn
+       (setq reg (urb:block-footprint-region other)) (vla-Boolean reg 2 (vla-Copy region))
+       (if (> (vla-get-Area reg) 1e-8)
+        (progn
+         (setq items (urb:variant-object-list (vla-Explode (urb:as-vla-object other))))
+         (foreach x items
+          (if (= (urb:generated-role x) "EXTERIOR")
+           (cc:log (list 'SOURCE_ENDS (vlax-curve-getStartPoint x) (vlax-curve-getEndPoint x)))))
+         (foreach x items (urb:safe-delete x))
+         (cc:log (list 'OUTSIDE_END 'AREA (vla-get-Area reg) 'BOX (urb:object-box-points reg)))))
+       (urb:safe-delete reg))))
+    (urb:safe-delete region)))
+  (setq i (1+ i))) (cc:log 'ENDS_DONE))
+(setq ep:r (vl-catch-all-apply 'ep:run nil))
+(if (vl-catch-all-error-p ep:r) (cc:log (list 'ERROR (vl-catch-all-error-message ep:r))))
+(princ)

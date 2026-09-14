@@ -1,5 +1,17 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 13:58 America/Bogota — 5.5.8 costados curvos y hatch neto
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base592b452.
+Lado interno/externo por tangente local/sentido del contorno, en lugar de
+centroide/espejo. Sendero: prefabricados antes de hatch, recorte por huella real
+y descuento de cantidades a6decimales. Civil2023: superposicion24.334m2->0;
+externo mal colocado12.2414m2->0. 48checks finales OK, ver diagnosticos/costados558.
+Anden curvo variable60m con guia/top/prefabs: build+pack2.344s y bloque correcto.
+Pendiente: eleccion automatica de costados en U/cuadrados ambigua y sensible a
+traslacion (ejes0/pi/2). Guardado para retomar por pedido de cierre del usuario.
+No extrapolar a188m/otrasversiones. Originales intactos; no cambio de Excel.
+
 ## 2026-09-14 13:42 America/Bogota — 5.5.7 anchos variables arquitectonicos
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base ffe9617.

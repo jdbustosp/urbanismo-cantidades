@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.7")
+(setq *urb-version* "5.5.8")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -28583,13 +28583,13 @@
 
 ;; construye el prefabricado de UN costado como bloque (uno por cada
 ;; tramo util si un contenedor lo parte). El lado de crecimiento se
-;; decide solo: Interno = hacia el centroide del poligono, Externo =
-;; alejandose de el (punto espejo del centroide respecto al medio de la
-;; cadena). Devuelve (longitud-total lista-de-referencias) o nil
+;; decide con la tangente local y el sentido del contorno, sin depender
+;; de un centroide global que puede caer fuera de un sendero concavo.
+;; Devuelve (longitud-total lista-de-referencias) o nil
 ;; (2026-08-24 v2: la referencia la necesita el anden para el vinculo de
 ;; descuento URB_PREFAB_ANILLO).
-(defun urb:poly-costado-build (pts tipo posicion etapa sub centroid destino
-                               / tramos en mid side ancho ref len total refs)
+(defun urb:poly-costado-build (pts tipo posicion etapa sub winding destino
+                               / tramos en mid side ancho ref len total refs normal)
   (setq tramos
     (vl-catch-all-apply
       '(lambda () (urb:chain-split-por-poligonos pts (urb:contenedor-polys)))))
@@ -28601,12 +28601,14 @@
     (if en
       (progn
         (setq len (urb:poly-chain-length pts))
-        (setq mid (urb:poly-chain-mid pts))
-        (setq side
-          (if (urb:string-equal-p posicion "Interno")
-            (list (car centroid) (cadr centroid) 0.0)
-            (list (- (* 2.0 (car mid)) (car centroid))
-                  (- (* 2.0 (cadr mid)) (cadr centroid)) 0.0)))
+        ;; Las cadenas conservan el sentido del contorno. En CCW el
+        ;; interior queda a la izquierda de la tangente LOCAL, incluso
+        ;; con concavidades o anchos variables. Un centroide/espejo global
+        ;; puede caer del lado equivocado de un arco.
+        (setq mid (* 0.5 (urb:curve-length en))
+              normal (+ (urb:curve-tangent en mid)
+                (* 0.5 pi winding (if (urb:string-equal-p posicion "Interno") 1.0 -1.0)))
+              side (polar (urb:curve-pt en mid) normal (* 0.5 ancho)))
         (setq ref
           (vl-catch-all-apply 'urb:build-prefab-from-reference
             (list en side tipo ancho etapa sub
@@ -28626,7 +28628,7 @@
 (defun urb:poly-costados-build (ename lado-der lado-izq posicion etapa sub destino
                                 / chains ed pts n cx cy centroid ca cb
                                 d ma va cruz chain-der chain-izq
-                                descuento r len refs)
+                                descuento r len refs winding)
   (setq chains (urb:poly-costado-chains ename))
   (if (null chains)
     (progn
@@ -28651,12 +28653,16 @@
       (if (< cruz 0.0)
         (setq chain-der ca chain-izq cb)
         (setq chain-der cb chain-izq ca))
+      (setq winding
+        (if (< (urb:loop-signed-area
+                  (mapcar '(lambda (p) (cons p 0.0))
+                    (urb:lwpoly-points-with-arcs-fine ename))) 0.0) -1.0 1.0))
       (setq descuento 0.0 refs nil)
       (if (not (urb:string-equal-p lado-der "Ninguno"))
         (progn
           (setq r
             (urb:poly-costado-build chain-der lado-der posicion etapa sub
-              centroid destino))
+              winding destino))
           (if r
             (progn
               (setq len (car r) refs (append (cadr r) refs))
@@ -28673,7 +28679,7 @@
         (progn
           (setq r
             (urb:poly-costado-build chain-izq lado-izq posicion etapa sub
-              centroid destino))
+              winding destino))
           (if r
             (progn
               (setq len (car r) refs (append (cadr r) refs))
@@ -28700,9 +28706,32 @@
 ;; (Derecha/Izquierda) y la posicion (Externo/Interno). Con posicion
 ;; Interno la franja de los costados se DESCUENTA del area (descuento
 ;; guardado en la xdata, pos 6, y aplicado por el colector de filas).
+(defun urb:sendero-finish-region (obj refs / region cutter ref result)
+  ;; Huella REAL de los prefabricados de este sendero. No usar largo*ancho
+  ;; en curvas y no dejar el hatch pintado por debajo del confinamiento.
+  (setq region (urb:anden-region-from-object obj))
+  (if (vl-catch-all-error-p region) (vl-exit-with-error "SENDERO: contorno no apto para recortar el acabado."))
+  (setq result
+    (vl-catch-all-apply
+      '(lambda ()
+        (foreach ref refs
+          (setq cutter (urb:block-footprint-region ref))
+          (if (null cutter) (vl-exit-with-error "SENDERO: no se pudo medir la huella del prefabricado."))
+          (urb:region-align-elevation cutter region)
+          (vla-Boolean region 2 cutter)
+          (urb:safe-delete cutter)
+          (setq cutter nil))
+        (if (<= (vla-get-Area region) 1e-8)
+          (vl-exit-with-error "SENDERO: los prefabricados ocupan todo el contorno.")))))
+  (if (vl-catch-all-error-p result)
+    (progn
+      (urb:safe-delete cutter) (urb:safe-delete region)
+      (vl-exit-with-error (vl-catch-all-error-message result))))
+  region)
+
 (defun urb:poly-element-draw (entry etapa sub lado-der lado-izq posicion
                               appid / capa ename obj hatch n con-cost
-                              descuento grp kw2 picks2 mov2)
+                              descuento grp kw2 picks2 mov2 costados finish-region)
   (setq capa (nth 6 entry))
   (urb:ensure-layer capa (nth 3 entry) T)
   (setq con-cost
@@ -28714,6 +28743,12 @@
   (while (setq ename (urb:draw-closed-polyline))
     (setq obj (vlax-ename->vla-object ename))
     (vla-put-Layer obj capa)
+    (setq descuento 0.0 finish-region nil)
+    (if con-cost
+      (progn
+        (setq costados (urb:poly-costados-build ename lado-der lado-izq posicion etapa sub "Anden"))
+        (setq finish-region (urb:sendero-finish-region obj (cadr costados)))
+        (setq descuento (max 0.0 (- (vla-get-Area obj) (vla-get-Area finish-region))))))
     ;; 2026-09-01 (pedido del usuario: "unifiques senderos con andenes,
     ;; que sea un mismo simbolo"): los senderos peatonales llevan la
     ;; RETICULA de loseta gris del anden (patron NET) en vez del relleno
@@ -28727,11 +28762,11 @@
                  (not (urb:string-equal-p (nth 0 entry) "CICLORRUTA"))))
           (if anden-look
             (progn
-              (setq hatch (vla-AddHatch (urb:space) 0 "NET" :vlax-true))
+              (setq hatch (vla-AddHatch (urb:space) 0 "NET" (if finish-region :vlax-false :vlax-true)))
               (vla-put-PatternScale hatch 0.40)
               (vla-put-Color hatch 8))
-            (setq hatch (vla-AddHatch (urb:space) 1 "SOLID" :vlax-true)))
-          (vla-AppendOuterLoop hatch (urb:make-loop-array obj))
+            (setq hatch (vla-AddHatch (urb:space) 1 "SOLID" (if finish-region :vlax-false :vlax-true))))
+          (vla-AppendOuterLoop hatch (urb:make-loop-array (if finish-region finish-region obj)))
           (vla-put-Layer hatch capa)
           (urb:evaluate-render-hatch hatch)
           hatch)))
@@ -28759,16 +28794,11 @@
                 (strcat appid "_" (cdr (assoc 5 (entget ename))))))
             (vla-AppendItems grp
               (urb:object-array-variant (list obj hatch)))))))
-    ;; prefabricado por costados automatico (bloques, sin trazar a mano)
-    (setq descuento 0.0)
-    (if con-cost
-      (setq descuento
-        (car (urb:poly-costados-build ename lado-der lado-izq posicion
-          etapa sub "Anden"))))
+    (if finish-region (urb:safe-delete finish-region))
     (urb:set-xdata-strings ename appid
       (if con-cost
         (list (nth 0 entry) etapa sub lado-der lado-izq posicion
-          (rtos descuento 2 3))
+          (rtos descuento 2 6))
         (list (nth 0 entry) etapa sub)))
     ;; 2026-09-02 (pedido del usuario): corte/relleno OPCIONAL del sendero
     ;; contra SUP_TN con rasante de cotas clickeadas (via/pozo/etiqueta) --

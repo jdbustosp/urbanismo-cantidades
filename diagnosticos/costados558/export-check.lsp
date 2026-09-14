@@ -1,0 +1,18 @@
+(defun ec:run (/ rows ss i en obj data box area count row h d chains)
+ (setq rows (urb:ppto-rows-senderos) ss (ssget "_X" '((0 . "LWPOLYLINE") (-3 ("URB_SENDERO")))) i 0)
+ (repeat (sslength ss)
+  (setq en (ssname ss i) obj (vlax-ename->vla-object en) box (urb:object-box-points obj) data (urb:get-xdata-strings en "URB_SENDERO"))
+  (if (> (cadar box) 2900.0)
+   (progn
+    (setq h (vla-get-Handle obj) area (- (vla-get-Area obj) (atof (nth 6 data))) count 0)
+    (foreach row rows (if (and (= h (nth 9 row)) (= (nth 7 row) "M2") (equal (atof (rtos area 2 3)) (nth 8 row) 1e-6)) (setq count (1+ count))))
+    (cv:check (list 'EXPORT_NET h) (> count 0))))
+  (if (equal (vla-get-Area obj) 468.0 1e-6)
+   (progn
+    (setq d (urb:lwpoly-points en) chains (urb:poly-costado-chains en))
+    (cc:log (list 'U_AXIS (cadar box) (urb:anden-axis-angle d) 'LENGTHS (mapcar 'urb:poly-chain-length chains)))))
+  (setq i (1+ i)))
+ (cc:log (list 'EXPORT_DONE 'FAILURES cv:fail)))
+(setq ec:r (vl-catch-all-apply 'ec:run nil))
+(if (vl-catch-all-error-p ec:r) (cc:log (list 'ERROR (vl-catch-all-error-message ec:r))))
+(princ)
