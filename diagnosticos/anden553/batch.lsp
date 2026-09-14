@@ -1,0 +1,27 @@
+;; Experimental: guardar geometria aceptada en memoria; no entidades temporales.
+(setq bn:pending nil)
+(defun urb:flush-tactile-batch (layer parent-handle / data pts pair record records)
+ (foreach data (reverse *urb-tactile-entities*)
+   (if (= (cdr (assoc 0 data)) "LWPOLYLINE")
+     (progn
+       (setq record (list 4 (cdr (assoc 62 data))))
+       (foreach pair data
+         (cond ((= (car pair) 10) (setq record (append record (cdr pair))))
+               ((= (car pair) 42) (setq record (append record (list (cdr pair))))))))
+     (setq record (append (list 2 (cdr (assoc 62 data)))
+       (list (cadr (assoc 10 data)) (caddr (assoc 10 data))
+             (cadr (assoc 11 data)) (caddr (assoc 11 data))))))
+   (setq records (cons record records)))
+ (setq bn:pending (cons (list parent-handle layer (apply 'append (reverse records))) bn:pending))
+ (setq *urb-tactile-entities* nil)
+ T)
+(defun bn:finish (block-name parent-handle / batch result total)
+ (setq total 0)
+ (foreach batch (reverse bn:pending)
+   (if (= parent-handle (car batch))
+     (progn
+       (setq result (BNAPPEND block-name parent-handle (cadr batch) (caddr batch)))
+       (setq total (+ total result)))))
+ (setq bn:pending (vl-remove-if '(lambda (b) (= parent-handle (car b))) bn:pending))
+ (BNSORT block-name)
+ total)

@@ -1,5 +1,26 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 08:45 America/Bogota — 5.5.3 bloque plano.NET, INSTALADO
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base ea5d740.
+Nuevo acelerador2023/net8: clona geometriasGUIA al bloque final, eliminaINSERT
+internos, ordena roles en transaccion. PreflightantesBUILD/package evita empezar
+sinDLL553; en otroPC hace faltaINSTALAR.bat. Se preserva motorLSP y formulas.
+Curvas junto a contenedor: no anular driving-chain si haybulges; la rama vieja
+convertia franja curva en recta, reduciaGUIA126.85ML/TOP18.37ML. Test final
+mantiene188.1/188.01ML cuando el hueco1.44m2 no tocaesasfranjas y descuentaareaexacta.
+Civil2023real50OKplano188/800+50OKfuentefinal;0sueltas/0anidados,DXF4702/20001
+igual1e-9,50checksfinalincluyenhatches/capas/origen,modossinGUIA/TOP,40cmotro
+lado,contenedor,rollback. Noimagenrendernueva,niCivil2025/26nativo,niotroPC.
+188m14.125->12.484s y800m82.952->61.516s sin guardar; repeticionfuentefinal
+188m23.110->22.297s: SOLO3.5%ahorroglobalenesa repeticion. No instantaneo ni
+lentituddelmaestroresuelta. Ordenaislado5313->47ms. Cacheno demostraventaja;
+hatchesNETrechazados por desplazarorigen200de300USER. No se integran.
+Informe/codigo/log:diagnosticos/anden553. Instalador553+hashLSPy2DLLiguales.
+LSP C4332C5F4D83BAA82EF6BF0D12F07B51E34E011A5AF887DECA73BFB363A13B16.
+DWG/Exceloriginalesintactos. PIDpropioscerrados. Reiniciar/recrear, noactualiza
+bloquesexistentes. Commit de esta entrega registrado en el handoff.
+
 ## 2026-09-14 06:21 America/Bogota — lote.NET plano:55OK, mejora modesta, NO instalado
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base f998afd.

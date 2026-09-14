@@ -20,7 +20,7 @@
 <ApplicationPackage
     SchemaVersion="1.0"
     AutodeskProduct="AutoCAD"
-    AppVersion="5.5.2"
+    AppVersion="5.5.3"
     ProductType="Application"
     Name="Urbanismo Cantidades"
     Description="Cuantificacion de obras de urbanismo: andenes, vias, rampas, prefabricados, redes y movimiento de tierras. Pestana CANTIDADES."
@@ -39,6 +39,10 @@
         ModuleName="./Contents/net/UrbCantRibbon2023_v4770.dll"
         AppDescription="Pestana CANTIDADES (ribbon dinamico, 2019-2024)"
         LoadOnAutoCADStartup="True" />
+    <ComponentEntry AppName="UrbanismoAndenFast2023"
+        ModuleName="./Contents/net/UrbAndenFast2023_v553.dll"
+        AppDescription="Empaquetado plano y orden de anden"
+        LoadOnAutoCADStartup="True" />
   </Components>
   <Components>
     <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.0" SeriesMax="R25.1" />
@@ -51,6 +55,10 @@
         AppName="UrbanismoCantidadesRibbon2025"
         ModuleName="./Contents/net/UrbCantRibbon2025.dll"
         AppDescription="Pestana CANTIDADES (ribbon dinamico, 2025-2026)"
+        LoadOnAutoCADStartup="True" />
+    <ComponentEntry AppName="UrbanismoAndenFast2025"
+        ModuleName="./Contents/net/UrbAndenFast2025_v553.dll"
+        AppDescription="Empaquetado plano y orden de anden"
         LoadOnAutoCADStartup="True" />
   </Components>
 </ApplicationPackage>

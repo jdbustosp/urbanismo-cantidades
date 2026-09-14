@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework><PlatformTarget>x64</PlatformTarget><AssemblyName>UrbAndenFast2025_v553</AssemblyName><EnableDefaultCompileItems>false</EnableDefaultCompileItems><GenerateDependencyFile>false</GenerateDependencyFile><DebugType>none</DebugType></PropertyGroup>
+ <ItemGroup><Compile Include="UrbAndenFast.cs"/><PackageReference Include="AutoCAD.NET" Version="25.0.0" ExcludeAssets="runtime"/><PackageReference Include="AutoCAD.NET.Core" Version="25.0.0" ExcludeAssets="runtime"/><PackageReference Include="AutoCAD.NET.Model" Version="25.0.0" ExcludeAssets="runtime"/></ItemGroup>
+</Project>

@@ -24,6 +24,7 @@
     <DebugType>none</DebugType>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="UrbAndenFast.cs" />
     <!-- referencias directas (el meta-paquete AutoCAD.NET 25.0.0 tiene un
          pin roto a Core 25.0.0-V058 que no existe en nuget.org) -->
     <PackageReference Include="AutoCAD.NET" Version="25.0.0" ExcludeAssets="runtime" />

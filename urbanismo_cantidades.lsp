@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.2")
+(setq *urb-version* "5.5.3")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -5151,7 +5151,15 @@
           (setq driving-chain (urb:anden-tactile-chain points))
           ;; El entrante de un contenedor solo recorta: no cambia el rumbo
           ;; de la guia/toperol ni genera cunas a inglete alrededor del hueco.
-          (if (urb:anden-near-root-container-p ename) (setq driving-chain nil))
+          ;; Un contenedor NO convierte un anden curvo en una franja recta:
+          ;; conservar el eje con arcos y recortar contra base-region. Forzar
+          ;; nil aqui perdia casi toda la guia/toperol fuera de la cuerda.
+          ;; Conservar el respaldo anterior para contornos rectilineos entrantes.
+          (if (and (urb:anden-near-root-container-p ename)
+                   (not (vl-some '(lambda (p)
+                     (and (= (car p) 42) (not (equal (cdr p) 0.0 1e-12))))
+                     (entget ename))))
+            (setq driving-chain nil))
           (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
             (progn
               ;; metodo principal: franja como OFFSET de la curva real
@@ -5399,6 +5407,8 @@
 (defun urb:build-anden-finish
   (ename material guia toperol format
    / obj result accessibility-result elevation flattened top-count)
+  ;; Fallar ANTES de dibujar si otro computador no instalo el nuevo DLL.
+  (urb:ensure-anden-fast)
   (setq material (urb:safe-string material "Loseta"))
   (setq guia (urb:safe-string guia "No"))
   (setq toperol (urb:safe-string toperol "No"))
@@ -6194,6 +6204,23 @@
       (setq n (1+ n))))
   n)
 
+(defun urb:ensure-anden-fast (/ check dll result)
+  ;; Carga diferida: cada PC usa su bundle local, nunca una ruta de Drive ajena.
+  (setq check (vl-catch-all-apply 'URBANDENFASTVERSION553 nil))
+  (if (or (vl-catch-all-error-p check) (/= check 553))
+    (progn
+      (setq dll (strcat (getenv "APPDATA")
+        "/Autodesk/ApplicationPlugins/UrbanismoCantidades.bundle/Contents/net/"
+        (if (>= (atof (getvar "ACADVER")) 25.0)
+          "UrbAndenFast2025_v553.dll" "UrbAndenFast2023_v553.dll")))
+      (if (findfile dll)
+        (setq result (vl-catch-all-apply 'vl-cmdf (list "_.NETLOAD" dll))))
+      (setq check (vl-catch-all-apply 'URBANDENFASTVERSION553 nil))))
+  (if (or (vl-catch-all-error-p check) (/= check 553))
+    (vl-exit-with-error
+      "ANDEN: falta el acelerador 5.5.3. Ejecute INSTALAR.bat en este PC y reinicie Civil 3D.")
+    T))
+
 (defun urb:package-anden
   (ename / boundary metadata material etapa subetapa guia toperol format
    calculate surface grade-source elevation pattern-mode area area-bruta
@@ -6203,6 +6230,8 @@
    copy-result point block-ref insert-result block-ename xdata-result
    fast-ok ss en cmd-result old-attreq over-poly over-area measured-qty
    capas-estado trabadas razon t-pack)
+  ;; Verificar antes de que -BLOCK retire las entidades originales.
+  (urb:ensure-anden-fast)
   (setq boundary (vlax-ename->vla-object ename))
   (urb:ensure-layer "URB-ANDEN" 7 T)
   (setq metadata (urb:get-xdata-strings ename "URB_ANDEN"))
@@ -6382,11 +6411,10 @@
       ;; sortents con decenas de miles de objetos. Sin el dato no se
       ;; optimiza a ciegas una fase que decide que tapa a que.
       (setq t-pack (getvar "MILLISECS"))
-      (urb:set-block-draw-order
-        block-definition
-        (if fast-ok
-          (urb:block-object-list block-definition)
-          (urb:variant-object-list copy-result)))
+      ;; Una transaccion: copia DXF exactos de las guias al bloque final,
+      ;; elimina sus INSERT internos y ordena todos los roles en una pasada.
+      ;; No se simplifican curvas, simbolos, capas ni cantidades.
+      (URBANDENFLAT553 block-name)
       (prompt
         (strcat "\n  orden de dibujo: "
           (rtos (/ (- (getvar "MILLISECS") t-pack) 1000.0) 2 1) " s"))
