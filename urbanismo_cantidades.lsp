@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.4.3")
+(setq *urb-version* "5.5.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -2679,6 +2679,20 @@
   (if (> failed 0)
     (prompt (strcat "\nANDEN: " (itoa failed) " rellenos pendientes de revision.")))
   n)
+
+;; 2026-09-14: envoltorio con sello de version. La reparacion sigue
+;; disponible entera (urb:repair-anden-hatches) para llamarla a mano o
+;; cuando cambie la version del motor; lo que se evita es repetir el
+;; barrido completo del dibujo en cada apertura sin nada que reparar.
+(defun urb:repair-anden-hatches-si-hace-falta (/ sello actual n)
+  (setq actual (if (boundp '*urb-version*) *urb-version* "?")
+        sello (urb:safe-string (urb:config-read "URB_HATCH_REPAIR_VER") ""))
+  (if (= sello actual)
+    0
+    (progn
+      (setq n (urb:repair-anden-hatches))
+      (urb:config-write "URB_HATCH_REPAIR_VER" actual)
+      n)))
 
 (defun urb:add-solid-hatch (boundary layer color / hatch)
   (setq layer (urb:safe-string layer "0"))
@@ -35597,7 +35611,16 @@
 (vl-catch-all-apply 'mp:load-tramo-appearance-settings nil)
 (vl-catch-all-apply 'urb:load-geometric-settings nil)
 (vl-catch-all-apply 'urb:purge-empty-hatches nil)
-(vl-catch-all-apply 'urb:repair-anden-hatches nil)
+;; 2026-09-14 (medido: el motor tardaba 43,8 s en cargar sobre una copia
+;; del maestro de 33 MB contra 1,5 s en dibujo limpio -- 42,4 s de
+;; diferencia). urb:repair-anden-hatches recorre TODOS los bloques del
+;; dibujo y TODOS los objetos de cada uno con un entget por objeto, y
+;; corria en CADA carga del motor, o sea en CADA apertura de dibujo.
+;; La reparacion es idempotente: una vez estabilizados los rellenos de un
+;; dibujo con una version dada del motor, repetirla no cambia nada. Se
+;; sella el dibujo con la version que ya lo reparo y se salta mientras
+;; coincida. Al subir de version vuelve a correr una sola vez.
+(vl-catch-all-apply 'urb:repair-anden-hatches-si-hace-falta nil)
 (if (and (not *urb-suppress-auto-migration*)
          (/= (getenv "URB_TEST_SUPPRESS_AUTO_MIGRATION") "1"))
   (vl-catch-all-apply 'urb:migrate-current-drawing nil))
