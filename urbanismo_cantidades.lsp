@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.4")
+(setq *urb-version* "5.5.6")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -29591,7 +29591,16 @@
     ("POZO PLUVIAL" "ALC-PLUVIAL" ("PROFUNDIDAD" "UNIDAD"))
     ("SUMIDERO" "ALC-PLUVIAL" ("UNIDAD"))
     ("SENDERO" "SENDERO" ("AREA" "PERIMETRO" "UNIDAD"))
-    ("BIOSWALE" "ALC-PLUVIAL" ("AREA" "PERIMETRO" "UNIDAD"))))
+    ("BIOSWALE" "ALC-PLUVIAL" ("AREA" "PERIMETRO" "UNIDAD"))
+    ;; 2026-09-14 (pedido del usuario: "elabora los parametros para que
+    ;; quede todo totalmente vinculado"). El emisor de zonas verdes YA
+    ;; pasaba estas seis magnitudes a urb:ppto-param-rows, pero el tipo
+    ;; no estaba en este catalogo: no se podia crear el parametro desde
+    ;; el dialogo. El texto debe ser ZONA_VERDE con guion bajo, que es
+    ;; exactamente lo que el emisor compara contra la columna A de la
+    ;; hoja URB_PARAMETRICAS.
+    ("ZONA_VERDE" "ZONA-VERDE"
+      ("AREA" "PERIMETRO" "VOLUMEN" "CORTE" "RELLENO" "UNIDAD"))))
 
 ;; etiquetas legibles de las magnitudes (pedido 2026-08-18: la creacion de
 ;; parametros debe leerse como en Revit, no en clave interna)
@@ -29613,6 +29622,9 @@
     ("LOSETA_LISA_UND" "Losetas lisas (unidades)")
     ("ADOQUIN_M2" "Area adoquin (m2)")
     ("ADOQUIN_UND" "Adoquines (unidades)")
+    ;; 2026-09-14: la zona verde expone VOLUMEN (tierra negra) y sin
+    ;; etiqueta el desplegable de parametros lo mostraba en clave interna
+    ("VOLUMEN" "Volumen de tierra negra (m3)")
     ("UNIDAD" "Unidad (1 por elemento)")))
 
 (defun urb:ppto-mag-label (code / entry)
@@ -33704,6 +33716,14 @@
                   (urb:rows-timed "puntos" 'urb:ppto-rows-puntos)
                   (urb:rows-timed "mobiliario" 'urb:ppto-rows-mobiliario)
                   (urb:rows-timed "senderos" 'urb:ppto-rows-senderos)
+                  ;; 2026-09-14 (reporte del usuario: "sigue sin traerme lo
+                  ;; referente a zonas verdes"). urb:ppto-rows-zonasverdes
+                  ;; SI existia y SI emitia bien (2 bloques, 523,90 m2
+                  ;; comprobados), pero estaba en urb:track-collect-rows -el
+                  ;; colector del comando de busqueda- y NO en esta lista, que
+                  ;; es la que usa la exportacion. Por eso la zona verde nunca
+                  ;; llegaba al libro, ni siquiera como huerfana.
+                  (urb:rows-timed "zonasverdes" (quote urb:ppto-rows-zonasverdes))
                   (urb:rows-timed "bioswale" 'urb:ppto-rows-bioswale)
                   (urb:rows-timed "senalizacion" 'urb:ppto-rows-senalizacion)))
               ;; 2) match contra el vocabulario vivo (equivalencias del
