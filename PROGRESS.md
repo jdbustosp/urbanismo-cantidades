@@ -1,5 +1,22 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 04:39 America/Bogota — investigacion adicional, SIN entrega funcional
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base be4b704.
+Usuario incorpora no anidar y pide casi instantaneo.552 anida una franja:
+no cumple esa restriccion y no se declara solucion final.
+Pruebas Civil2023 en lab deA(multibucle),C(identidad-BLOCK),D(traslado.NET).
+A no aprobado: hatchunico188m82.672s; lotes188m14.281s/800m51.985s, pero
+10comparaciones de cantidades fallan. No son benchmarks de una salida correcta.
+C refutado: handleF27borrado ->F2Bclonado; lista previa no reutilizabletal cual.
+D sin ventaja: plano551188m11.812s vs12.720s trasladando;800m62.938s.
+Cantidades iguales/0sueltas/0anidados, pero checkDXF+owner=nil sin aislar causa.
+B no implementado: presupuesto de ahorro es fraccion del empaquetado, no total.
+Informe completo y codigo experimental:diagnosticos/anden_fast_research.
+No cambie motor, instalacion ni originalesDWG/Excel; siguen552. PIDpropios cerrados.
+Siguiente hipotesis: emision plana por lotes.NET y orden por rol, no solo traslado.
+No prometer tiempos ni instalar prototipos hasta validar geometria y rendimiento.
+
 ## 2026-09-14 03:41 America/Bogota — 5.5.2, guia por lote y bloque unico, INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base de02ad6; cambios Claude preservados.
