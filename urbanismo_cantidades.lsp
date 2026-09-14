@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.1")
+(setq *urb-version* "5.5.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -4253,6 +4253,45 @@
   (entlast)
 )
 
+(defun urb:emit-tactile-entity (data)
+  ;; Una franja de GUIA se construye directamente dentro de una definicion,
+  ;; sin miles de objetos temporales en ModelSpace ni copias COM al empaquetar.
+  ;; Los mismos DXF, capas, colores, bulges y recortes; no es un hatch aproximado.
+  (if (and (boundp '*urb-tactile-batch*) *urb-tactile-batch*)
+    (progn (setq *urb-tactile-entities* (cons data *urb-tactile-entities*)) T)
+    (entmake data)))
+
+(defun urb:flush-tactile-batch (layer parent-handle / name i ok data result caught)
+  (if *urb-tactile-entities*
+    (progn
+      (setq i 0 name (strcat "URB_GUIA_" parent-handle "_" (itoa (getvar "MILLISECS"))))
+      (while (tblsearch "BLOCK" name)
+        (setq i (1+ i) name (strcat name "_" (itoa i))))
+      (setq ok (entmake (list '(0 . "BLOCK") '(8 . "0") (cons 2 name)
+                    '(70 . 0) '(10 0.0 0.0 0.0))))
+      (if ok
+        (progn
+          ;; Cerrar ENDBLK incluso ante error/cancelacion: nunca dejar el
+          ;; destino de entmake apuntando a una definicion incompleta.
+          (setq caught (vl-catch-all-apply
+            '(lambda ()
+              (foreach data (reverse *urb-tactile-entities*)
+                (if (not (entmake data)) (setq ok nil)))) nil))
+          (if (vl-catch-all-error-p caught) (setq ok nil))
+          (if (not (entmake '((0 . "ENDBLK") (8 . "0")))) (setq ok nil))))
+      (if ok
+        (setq result (entmake
+          (list '(0 . "INSERT") (cons 2 name) (cons 8 layer)
+                '(10 0.0 0.0 0.0) '(41 . 1.0) '(42 . 1.0) '(43 . 1.0)
+                (urb:generated-xdata-fragment parent-handle "FEATURE_SYMBOL")))))
+      (setq *urb-tactile-entities* nil)
+      (if (not result)
+        (progn
+          (vl-catch-all-apply
+            '(lambda () (vla-Delete (vla-Item (vla-get-Blocks (urb:doc)) name))) nil)
+          (vl-exit-with-error "ANDEN: no se pudo completar el bloque interno de guia.")))
+      (entlast))))
+
 (defun urb:add-capsule-symbol
   (u v half-length half-width angle-value layer parent-handle color
    / p1 p2 p3 p4)
@@ -4264,7 +4303,7 @@
         p2 (urb:local-to-world (+ u half-length) (+ v half-width) angle-value)
         p3 (urb:local-to-world (+ u half-length) (- v half-width) angle-value)
         p4 (urb:local-to-world (- u half-length) (- v half-width) angle-value))
-  (entmake
+  (urb:emit-tactile-entity
     (list
       (cons 0 "LWPOLYLINE")
       (cons 100 "AcDbEntity")
@@ -4287,8 +4326,9 @@
    / points bounds umin umax vmin vmax spacing margin v count
    radius half-length half-width global-u local-u seg-len sym-ename
    tile-k tile-g su su-step sym-color wc w1 w2 ok loops
-   *urb-pip-index-enabled* *urb-pip-source* *urb-pip-index*)
-  (setq *urb-pip-index-enabled* T)
+   *urb-pip-index-enabled* *urb-pip-source* *urb-pip-index*
+   *urb-tactile-batch* *urb-tactile-entities*)
+  (setq *urb-pip-index-enabled* T *urb-tactile-batch* (= feature "GUIA"))
   ;; Reparte simbolos tactiles reales (circulos o capsulas) en una reticula
   ;; de 5 cm sobre el area ya recortada de la franja, en vez de depender de
   ;; un patron .pat (que solo puede construirse con familias de lineas
@@ -4388,6 +4428,7 @@
           (setq su (+ su su-step)))
         (setq tile-k (1+ tile-k))
         (setq tile-g (* tile-k module)))
+      (if *urb-tactile-batch* (urb:flush-tactile-batch layer parent-handle))
       (or (urb:toperol-by-pattern-p feature) (> count 0)))
     nil)
 )
@@ -4601,8 +4642,9 @@
    / spacing margin half-length half-width radius tile-k tile-g sym-color
      su dist pt ang normal ro wpt u v cs sn joint-p1 joint-p2
      symbol-result created e1 e2
-     *urb-pip-index-enabled* *urb-pip-source* *urb-pip-index*)
-  (setq *urb-pip-index-enabled* T)
+     *urb-pip-index-enabled* *urb-pip-source* *urb-pip-index*
+     *urb-tactile-batch* *urb-tactile-entities*)
+  (setq *urb-pip-index-enabled* T *urb-tactile-batch* (= feature "GUIA"))
   ;; simbolos y juntas por tableta caminando la curva real
   ;; 2026-09-12 (reporte del usuario: "me salio un circulo, eso pasa es en
   ;; las curvas"). Los simbolos se colocan a una distancia PERPENDICULAR
@@ -4638,7 +4680,7 @@
             (if (or (null loops)
                     (and (urb:point-in-region-polygons-p joint-p1 loops)
                          (urb:point-in-region-polygons-p joint-p2 loops)))
-              (entmake
+              (urb:emit-tactile-entity
                 (list (cons 0 "LINE") (cons 8 layer) (cons 62 8)
                       (cons 10 (list (car joint-p1) (cadr joint-p1) 0.0))
                       (cons 11 (list (car joint-p2) (cadr joint-p2) 0.0))
@@ -4697,6 +4739,7 @@
                 (setq ro (+ ro spacing)))))))
       (setq su (+ su (if (= feature "GUIA") module spacing))))
     (setq tile-k (1+ tile-k)))
+  (if *urb-tactile-batch* (urb:flush-tactile-batch layer parent-handle))
   (or (urb:toperol-by-pattern-p feature) (> created 0))
 )
 

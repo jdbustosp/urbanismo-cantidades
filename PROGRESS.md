@@ -1,5 +1,23 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 03:41 America/Bogota — 5.5.2, guia por lote y bloque unico, INSTALADO
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base de02ad6; cambios Claude preservados.
+Guia: mismos DXF de barras/juntas emitidos en bloque interno por franja y
+empaquetados dentro del bloque final; no hatch aproximado ni menos barras.
+Toperol conserva el patron existente. Cierre de definicion protegido ante error.
+Civil3D2023 real, lab local:31OK/0fallos.188m 17.968s ->10.922s (-39.2% total),
+5973 ->1274 objetos a empaquetar.376m21.078s. Bloque valido y cero sueltas por
+barrido completo.4702geometrias guia iguales a1e-9; cantidades identicas;
+respaldo con hueco tambien coincide. Informe/harness/logs:diagnosticos/anden552.
+Primer FAIL fue ordenacion del test por texto redondeado de coordenadas;
+corregido con comparacion numerica y repeticion completa, no mayor tolerancia.
+Instalador552 ejecutado: SHA256 repo=candidato=bundle
+10D27FCF85A2675C29727471DC77F13364913783C0CE8EB97755E668A6AE3A80.
+Reiniciar/recrear; no cambia bloques existentes. Originales DWG/Excel intactos.
+Falta medir el caso exacto del maestro, clics/render y otrosPC/versiones:
+NO prometer cinco minutos ->11s en el maestro a partir de este laboratorio.
+
 ## 2026-09-14 03:10 America/Bogota — 5.5.1, andenes verificados en Civil 3D real, INSTALADO
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base: 6279c8a (5.4.2 de Codex).
