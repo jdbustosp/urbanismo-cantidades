@@ -53,6 +53,38 @@ Las filas 2.2.7.1.2/.1.3/.1.4 siguen en cero CORRECTAMENTE: son los conceptos
 de zona verde DENTRO DE PARQUE y ninguna de las dos zonas esta en un parque.
 
 
+
+### 2026-09-14 12:40 — VERIFICADO: las paramétricas de ZONA_VERDE sí llenan 2.2.7.3
+
+Segunda corrida headless sobre copias, ya con el libro que trae las dos filas
+paramétricas (MOTOR 5.5.6, TERMINO MS 215359 OK):
+  (RESUMEN (FILAS 8980 BORRADAS 0 HUERFANAS 33 ERRORES-ITEMS 0))
+8980 = 8978 + 2, exactamente las dos filas nuevas, y las huérfanas NO subieron
+de 33: las dos hicieron match contra el presupuesto.
+
+Capítulo 2.2.7 leído del xlsx (sin Excel, por zip, valores cacheados):
+  2.2.7    total                                     $113.438.312
+  2.2.7.1.1 Empradización        523,91 M2 x  17.483  $  9.159.588
+  2.2.7.2.1                            0
+  2.2.7.3.1 Excavación mecánica  178,87 M3 x 117.926  $ 21.093.424  <- NUEVO
+  2.2.7.3.2 Recebo B-200         756,23 M3 x 110.000  $ 83.185.300  <- NUEVO
+El corte cayó todo en la columna M (subetapa 4/4B) y el relleno todo en la S
+(5/5A): una zona verde está en corte y la otra en terraplén. Coherente.
+
+OJO PARA REVISIÓN DEL USUARIO (no es defecto del motor): 756,23 m3 de relleno
+sobre 335,92 m2 son 2,25 m de espesor medio, y a $110.000/m3 son $83 M. El
+volumen lo produce el modelo de terreno (SUP_TN contra rasante), no la
+paramétrica; el factor es 1 y la operación X. Vale la pena que el usuario
+confirme la superficie de referencia de esa zona antes de dar el capítulo por
+bueno. El corte da 0,95 m de espesor medio, que sí es razonable.
+
+NOTA DE MÉTODO: Excel por COM quedó degradado a mitad de la verificación
+(Open devolvía un libro cuyo .Worksheets/.Sheets venía vacío, síntoma del
+diálogo de recuperación). Se resolvió leyendo el xlsx como ZIP con XmlReader,
+que además es mucho más rápido. Dos trampas de PowerShell en ese lector:
+`$sub.Read()` sin `[void]` inundó la salida de "True", y `$lin -ne $null`
+sobre un ArrayList VACÍO es FALSO (compara elemento a elemento) — hay que
+escribir `$null -ne $lin`.
 ## 2026-09-14 10:05 America/Bogota — 5.5.4 microarcos y sobreancho real
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base 800eb20; commit pendiente de esta entrada.
