@@ -11,7 +11,13 @@ El LSP legado `MAIPORE_BLOQUES_REDES_ELECT_...lsp` sigue en `VARIOS\BLOQUES PPTO
 ## Cómo carga Civil 3D (importante)
 - Civil 3D NO carga desde esta carpeta: carga el bundle instalado en
   `%AppData%\Autodesk\ApplicationPlugins\UrbanismoCantidades.bundle` (local por máquina).
-- Tras editar el lsp/DLL: correr `INSTALAR.bat` (o `instalar_bundle.ps1`) y reiniciar Civil 3D.
+- **Desde v5.3.0 el `.lsp` YA NO se reinstala.** El `acaddoc.lsp` que genera el instalador
+  carga el motor directamente desde ESTA carpeta (el repo en Drive) y solo cae a la copia
+  del bundle si el repo no está disponible. O sea: se instala UNA VEZ por máquina y de ahí
+  en adelante cualquier cambio del `.lsp` lo reconoce cualquier PC con solo reiniciar
+  Civil 3D. Al arrancar imprime `urbcant <version> (repo|bundle local)` para saber cuál cargó.
+- Sí hay que correr `INSTALAR.bat` cuando cambia el **DLL de la cinta, el `PackageContents.xml`
+  o los iconos** (eso sigue viviendo en el bundle local).
 - En un PC nuevo o tras esta migración: correr `INSTALAR.bat` una vez; si el Startup Suite
   apuntaba a la ruta vieja de BLOQUES PPTOS, quitarlo y depender solo del bundle.
 

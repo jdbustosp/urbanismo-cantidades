@@ -164,11 +164,31 @@ $marker
 ;;; cargo, no hace nada. NO editar a mano (se regenera al correr
 ;;; instalar_bundle.ps1 / INSTALAR.bat).
 (vl-load-com)
-(defun urbcant:bootstrap ()
+(defun urbcant:bootstrap ( / origen)
   (vl-catch-all-apply 'vl-cmdf
     (list "_NETLOAD" "__DLL__"))
   (if (not (member "C:URBANISMO" (atoms-family 1)))
-    (load "__LSP__" "urbcant: no se pudo cargar el motor"))
+    (progn
+      ;; 2026-09-13 (pedido del usuario: hacer cambios en el .lsp y que OTRO
+      ;; computador los reconozca sin reinstalar): se intenta PRIMERO el
+      ;; motor del repo compartido (Drive). Asi basta instalar una vez por
+      ;; maquina y de ahi en adelante cada edicion del .lsp viaja sola.
+      ;; Si el repo no esta disponible -Drive sin sincronizar, sin conexion,
+      ;; carpeta movida- cae a la copia local del bundle, que siempre existe.
+      (if (findfile "__LSPREPO__")
+        (progn
+          (vl-catch-all-apply 'load (list "__LSPREPO__"))
+          (if (member "C:URBANISMO" (atoms-family 1))
+            (setq origen "repo"))))
+      (if (not (member "C:URBANISMO" (atoms-family 1)))
+        (progn
+          (load "__LSP__" "urbcant: no se pudo cargar el motor")
+          (setq origen "bundle local")))
+      (if origen
+        (prompt
+          (strcat "\nurbcant "
+            (if (boundp '*urb-version*) *urb-version* "?")
+            " (" origen ")")))))
   (princ))
 ;;; Cargar el motor inmediatamente. Antes se confiaba solo en S::STARTUP;
 ;;; si otro complemento tenia un S::STARTUP que fallaba, nunca se alcanzaba
@@ -188,6 +208,9 @@ $marker
 ;;; === FIN URBCANT AUTOLOAD ===
 "@
 $lspForLisp = ($contents + "\urbanismo_cantidades.lsp").Replace('\', '/')
+# ruta del motor EN EL REPO (Drive): es la que hace que un cambio hecho en
+# otro computador se reconozca sin volver a instalar
+$lspRepoForLisp = $lsp.Replace('\', '/')
 $autodeskProfiles = Get-ChildItem (Join-Path $env:APPDATA "Autodesk") -Directory -ErrorAction SilentlyContinue |
   Where-Object { $_.Name -like "C3D *" -or $_.Name -like "AutoCAD *" }
 foreach ($profile in $autodeskProfiles) {
@@ -201,7 +224,11 @@ foreach ($profile in $autodeskProfiles) {
     # 2025/2026 (.NET 8)
     $dllName = if ($profile.Name -match '(2019|202[0-4])$') { $dll2023Name } else { "UrbCantRibbon2025.dll" }
     $dllForLisp = ($contents + "\net\" + $dllName).Replace('\', '\\')
-    $bloque = $plantilla.Replace('__DLL__', $dllForLisp).Replace('__LSP__', $lspForLisp)
+    # OJO con el orden: __LSP__ es prefijo de nada, pero __LSPREPO__ SI
+    # contiene __LSP, asi que se reemplaza primero el mas largo.
+    $bloque = $plantilla.Replace('__DLL__', $dllForLisp).
+      Replace('__LSPREPO__', $lspRepoForLisp).
+      Replace('__LSP__', $lspForLisp)
     $acaddoc = Join-Path $supp "acaddoc.lsp"
     if (-not (Test-Path $acaddoc)) {
       Set-Content -Path $acaddoc -Value $bloque -Encoding ASCII

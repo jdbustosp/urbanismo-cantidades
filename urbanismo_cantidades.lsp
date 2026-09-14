@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.2.0")
+(setq *urb-version* "5.3.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -9869,13 +9869,18 @@
   (urb:config-write (urb:diam-config-key red)
     (urb:serialize-lisp (urb:diam-list-of red))))
 
-;; La zanja se mide con *mp-pvc-trench-width-table*, copiada literal del
-;; Excel de redes. Un diametro que no este en esa tabla NO tiene ancho y
-;; la excavacion saldria en CERO sin avisar -- por eso el gestor lo marca
-;; en pantalla antes de que el usuario dibuje con el.
-(defun urb:diam-sin-ancho-p (d / n)
-  (setq n (atoi (urb:safe-string d "0")))
-  (if (and (> n 0) (assoc n *mp-pvc-trench-width-table*)) nil T))
+;; Desde 5.3.0 NINGUN diametro se queda sin ancho de zanja: el que no esta
+;; en *mp-pvc-trench-width-table* se interpola entre sus vecinos. El gestor
+;; ya no avisa de un problema, solo informa cuales anchos son interpolados
+;; y cual le quedo al diametro que se acaba de agregar.
+(defun urb:diam-interpolado-p (d)
+  (if (mp:trench-width-exacto-p (atoi (urb:safe-string d "0"))) nil T))
+
+;; ancho para el primer tramo de profundidad (H<=1,5 m), que es el que se
+;; muestra en pantalla como referencia
+(defun urb:diam-ancho-txt (d / w)
+  (setq w (mp:pvc-trench-width (atoi (urb:safe-string d "0")) 1.0))
+  (if w (strcat (rtos w 2 2) " m") "-"))
 
 ;; Defecto del popup de diametro en los dialogos de CREACION: el valor
 ;; pedido si sigue en el catalogo; si el usuario lo borro, el primero de la
@@ -9887,20 +9892,21 @@
   (mp:fill-popup key lst
     (if (member (urb:safe-string val "") lst) (urb:index-of val lst) 0)))
 
-(defun urb:diam-info-text (red lst / sin d)
-  (setq sin "")
+(defun urb:diam-info-text (red lst / interp d)
+  (setq interp "")
   (if (/= red "ACU")
     (foreach d lst
-      (if (urb:diam-sin-ancho-p d)
-        (setq sin (strcat sin (if (= sin "") "" ", ") d)))))
+      (if (urb:diam-interpolado-p d)
+        (setq interp (strcat interp (if (= interp "") "" ", ") d)))))
   (cond
     ((= red "ACU")
       (strcat (itoa (length lst)) " diametros de acueducto."))
-    ((= sin "")
-      (strcat (itoa (length lst)) " diametros. Todos tienen ancho de zanja."))
+    ((= interp "")
+      (strcat (itoa (length lst))
+        " diametros. Todos con ancho de zanja tomado de la tabla."))
     (T
-      (strcat (itoa (length lst)) " diametros. SIN ancho de zanja: " sin
-        " (su excavacion saldria en CERO)"))))
+      (strcat (itoa (length lst)) " diametros. Ancho INTERPOLADO en: "
+        interp))))
 
 ;; Gestor de Configuracion -> Diametros de tuberia. El dialogo se reabre
 ;; tras cada operacion para refrescar la lista, igual que el de etapas.
@@ -9959,15 +9965,17 @@
                   (urb:diam-sort (cons (itoa n) lst)))
                 (urb:save-diametros-catalog red)
                 (setq idx (urb:index-of (itoa n) (urb:diam-list-of red)))
-                ;; avisar aqui y no solo en el rotulo: es el momento en que
-                ;; el usuario acaba de crearlo y puede corregir
-                (if (and (/= red "ACU") (urb:diam-sin-ancho-p (itoa n)))
+                ;; informar el ancho que le quedo: es el momento en que el
+                ;; usuario acaba de crearlo y puede corregir si no cuadra
+                (if (/= red "ACU")
                   (alert
-                    (strcat "Se agrego el diametro " (itoa n) "\", pero la"
-                      "\ntabla de anchos de zanja no lo tiene."
-                      "\n\nLos tramos con ese diametro mediran la excavacion"
-                      "\nen CERO hasta que se agregue su ancho a"
-                      "\n*mp-pvc-trench-width-table*."))))))
+                    (strcat "Diametro " (itoa n) "\" agregado."
+                      "\n\nAncho de zanja para H<=1,5 m: "
+                      (urb:diam-ancho-txt (itoa n))
+                      (if (urb:diam-interpolado-p (itoa n))
+                        (strcat "\n(interpolado: no esta en la tabla del"
+                          "\nExcel de redes, se calculo entre sus vecinos)")
+                        "\n(tomado de la tabla del Excel de redes)")))))))
           ((= code 5)
             (urb:diam-set-list red (urb:diam-default-list red))
             (urb:save-diametros-catalog red)
@@ -11970,13 +11978,63 @@
     ((<= depth 7.5) 6) ((<= depth 8.5) 7) ((<= depth 9.5) 8)
     (T 9)))
 
-(defun mp:pvc-trench-width (diameter-in depth / entry)
-  (setq entry (assoc (fix (+ diameter-in 0.5)) *mp-pvc-trench-width-table*))
-  (if entry
-    (nth
-      (mp:trench-width-bracket-index (max 0.0 (mp:number-or depth 0.0)))
-      (cdr entry))
-    nil))
+;; 2026-09-13 (pedido del usuario: "no quiero que ningun diametro de
+;; tuberia quede sin ancho de excavacion sino que al reves, si agrego un
+;; numero, dependiendo de normativa lo clasifique automaticamente").
+;; La tabla de arriba es la del Excel de redes y solo trae los diametros
+;; comerciales. ANTES, un diametro fuera de la tabla devolvia nil y el
+;; llamador caia a un generico (Ø + 0,40 m, minimo 0,60) que se queda
+;; CORTO frente a la norma: el 15" -- que esta en la lista y ademas es el
+;; que traen por defecto los dialogos de sanitario/pluvial -- daba 0,78 m
+;; contra los 1,05 m que le corresponden, y el 64" daba 2,03 contra 2,70.
+;; Para excavacion quedarse corto es peor que quedarse largo.
+;; AHORA se clasifica solo: se INTERPOLA linealmente entre los dos
+;; diametros vecinos de la tabla, tramo de profundidad por tramo, y se
+;; redondea al siguiente multiplo de 0,05 m (no se excava menos de lo que
+;; da la norma). Por encima del ultimo diametro se extrapola con la
+;; pendiente del ultimo par; por debajo del primero se usa la primera fila.
+(defun mp:trench-round-up-005 (v)
+  (/ (float (fix (+ (* v 20.0) 0.999999))) 20.0))
+
+;; ancho de UN tramo de profundidad (idx) para un diametro cualquiera
+(defun mp:trench-width-at (d idx / lst lo hi prev vlo vhi w)
+  (setq lst *mp-pvc-trench-width-table* lo nil hi nil)
+  (foreach entry lst
+    (if (<= (car entry) d)
+      (setq lo entry)
+      (if (null hi) (setq hi entry))))
+  (cond
+    ((and lo (= (car lo) d)) (nth idx (cdr lo)))
+    ((null lo) (nth idx (cdr (car lst))))
+    ((null hi)
+      ;; mas grande que toda la tabla: pendiente del ultimo par
+      (setq prev (nth (- (length lst) 2) lst)
+            vlo (nth idx (cdr prev))
+            vhi (nth idx (cdr lo))
+            w (+ vhi (* (- d (car lo))
+                  (/ (- vhi vlo) (float (- (car lo) (car prev)))))))
+      (mp:trench-round-up-005 w))
+    (T
+      (setq vlo (nth idx (cdr lo))
+            vhi (nth idx (cdr hi))
+            w (+ vlo (* (- d (car lo))
+                  (/ (- vhi vlo) (float (- (car hi) (car lo)))))))
+      (setq w (mp:trench-round-up-005 w))
+      ;; el redondeo no puede pasarse del vecino mayor: romperia el orden
+      ;; creciente de la tabla
+      (if (> w vhi) vhi w))))
+
+(defun mp:pvc-trench-width (diameter-in depth / d)
+  (setq d (fix (+ (mp:number-or diameter-in 0.0) 0.5)))
+  (if (<= d 0)
+    nil
+    (mp:trench-width-at d
+      (mp:trench-width-bracket-index (max 0.0 (mp:number-or depth 0.0))))))
+
+;; ¿el ancho de este diametro sale de la tabla o se interpolo?
+(defun mp:trench-width-exacto-p (d)
+  (if (assoc (fix (+ (mp:number-or d 0.0) 0.5)) *mp-pvc-trench-width-table*)
+    T nil))
 
 (defun mp:max-nonnil (values / result v)
   (foreach v values
