@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.6")
+(setq *urb-version* "5.5.7")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -5316,14 +5316,12 @@
     (setq i (1+ i)))
   found)
 
-(defun urb:anden-shape-ok-p (pts / selfx widthx)
-  ;; Envuelve las 2 validaciones de forma (moÃ±o / ancho anomalo) con
-  ;; vl-catch-all-apply: si CUALQUIERA de las dos revienta con un error
-  ;; interno (geometria degenerada, division por cero, etc. -- ya se vio
-  ;; un caso real con una polilinea casi plana), la validacion se trata
-  ;; como RECHAZO por seguridad, no como un crash sin capturar que aborte
-  ;; el comando a medio camino. Un error de validacion nunca debe dejar
-  ;; pasar una forma sin filtrar.
+(defun urb:anden-shape-ok-p (pts / selfx)
+  ;; El contorno arquitectonico puede tener anchos muy variables, entrantes
+  ;; y ensanchamientos. La relacion max/min NO determina su validez y el
+  ;; estimador de ancho tampoco mide secciones perpendiculares al eje.
+  ;; Validar cruces para todos los tipos, tanto al crear como al actualizar;
+  ;; los constructores conservan sus comprobaciones de region/acabado.
   (setq pts (urb:dedupe-ring-points pts))
   (setq selfx (vl-catch-all-apply 'urb:polygon-self-intersects-p (list pts)))
   (cond
@@ -5345,31 +5343,7 @@
           "\nEl contorno queda dibujado para que lo revise/corrija;"
           " no se genera el acabado del anden sobre esta forma."))
       nil)
-    (T
-      (setq widthx (vl-catch-all-apply 'urb:anden-width-anomaly-p (list pts)))
-      (cond
-        ((vl-catch-all-error-p widthx)
-          (prompt
-            (strcat "\n*** No se pudo validar el contorno (error interno: "
-                    (vl-catch-all-error-message widthx) ") ***"
-                    "\nPor seguridad no se genera el acabado sobre esta forma;"
-                    " revise el contorno (puede tener un segmento degenerado o"
-                    " un arco extremo) y vuelva a intentar."))
-          nil)
-        (widthx
-          (prompt
-            (strcat
-              "\n*** El ancho del contorno varia demasiado a lo largo del"
-              " anden (ej. angosto en los remates pero muy ancho en la"
-              " mitad) ***"
-              "\nEsto suele venir de clics imprecisos al dibujar; el"
-              " relleno sale con una mancha ancha en la zona inflada en"
-              " vez de una franja pareja."
-              "\nEl contorno queda dibujado para que lo revise/corrija"
-              " (verifique que las dos aristas largas queden paralelas);"
-              " no se genera el acabado del anden sobre esta forma."))
-          nil)
-        (T T)))))
+    (T T)))
 
 (defun urb:draw-closed-polyline
   (/ before after obj old-plinewid *error* pts)

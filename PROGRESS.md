@@ -1,5 +1,21 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 13:42 America/Bogota — 5.5.7 anchos variables arquitectonicos
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base ffe9617.
+Se retira el rechazo heuristico de variacion de ancho en anden-shape-ok-p;
+creacion y actualizacion conservan rechazo de cruces y controles del constructor.
+Contorno mas reciente D21E9 del maestro, 519.425238904 m2: antes rechazo por ancho
+sin cruce; ahora ciclorruta 1.016 s y sendero 0.156 s, un hatch, misma geometria,
+area y capa. Civil 2023: 46 OK/0 FAIL incluyendo U, curvas, ancho 2 a 18 m,
+colector de cantidades y anden de losetas variable en bloque (240 m2).
+No cambia el acabado existente: sendero NET, ciclorruta SOLID. Ninguno en ambos
+costados produce solo contorno+hatch agrupados. Fuente/manifiesto 5.5.7.
+Evidencia y limites: diagnosticos/variable557/RESULTADO.md, result.txt y harness.
+DWG/Excel originales intactos; no prueba visual completa ni 2025/2026 nativos.
+Instalada 5.5.7 sin avisos DLL; hash fuente/probada/instalada igual 4CB9127E...ED6D1.
+PID propio23964 cerrado despues de guardar fixture. Reiniciar Civil para cargarla.
+
 ## 2026-09-14 12:20 America/Bogota — 5.5.6 la zona verde nunca llegaba al ppto
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 859e5cd; commit 047f9c1.
