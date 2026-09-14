@@ -1,5 +1,50 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 19:20 America/Bogota — 5.1.1, el vinculo tramo-pozo YA existia, INSTALADO
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base: 2ae5410 (v5.1.0).
+
+Hallazgo (respuesta a "no hay forma de volver vinculante el tramo con el
+pozo"): YA ES VINCULANTE, y por handle, no por nombre.
+- El tramo guarda `HANDLE_EXTREMO_INI` / `HANDLE_EXTREMO_FIN` (atributos
+  persistidos, l.10179/10235) con el handle del elemento puntual de cada
+  extremo.
+- `mp:sync-tramo-values` hace `handent` de esos handles y llama a
+  `mp:merge-endpoint-data`, que para tramos hidraulicos copia el
+  `COTA_CLAVE_INI` DEL POZO al `COTA_CLAVE_INI/FIN` del tramo (l.13352).
+- `mp:auto-link-endpoint-value` -> `mp:find-point-reference` REESTABLECE el
+  vinculo por cercania + ID en cada sync, asi que los tramos viejos sin
+  handle se reenganchan solos.
+- Editar un pozo ya propaga: la rama de punto de
+  `mp:update-block-after-edit` termina en `mp:update-segments-for-endpoint`,
+  que resincroniza todos los tramos ligados a ese punto.
+- Excepcion deliberada (fix de Codex 5.0.7): `mp:save-edited-claves` /
+  `mp:apply-edited-claves` guardan en XDATA `MP_CLAVES_EDITADAS` las cotas
+  que el usuario edito a mano en el TRAMO; esas ganan sobre el pozo. Dejar
+  el campo vacio vuelve a heredar; cambiar de pozo invalida la excepcion.
+No hizo falta codigo nuevo para el vinculo.
+
+CORRECCION de un defecto introducido en 5.1.0 (mismo dia): el nuevo
+`urb:q-refresh-punto-one` llamaba a `mp:update-block-after-edit`, y en la
+rama de punto esa funcion pasa por `mp:auto-terrain-values`, que
+REESCRIBE `COTA_TN_INI` con lo que devuelva SUP_TN (solo se protege de
+consultas fallidas, l.12783). Habria pisado en silencio las cotas de
+terreno digitadas a mano de cada pozo refrescado, y ademas la profundidad
+recien escrita quedaba peleada con la tapa nueva. Ahora el barrido escribe
+solo `PROFUNDIDAD` con `mp:setatt-one` (mas la ETIQUETA, protegida con
+vl-catch-all-apply) y no toca el terreno.
+Tambien se quito el arrastre explicito al tramo desde el punto: 
+`mp:update-segments-for-endpoint` hace un `ssget "_X"` de TODOS los inserts
+por CADA punto (cuadratico) y `urb:q-refresh-network-segments` corre justo
+despues y resincroniza cada tramo desde los handles de sus extremos en una
+sola pasada.
+
+Verificado: balance de parentesis 0, UTF-8 sin BOM, instalado con hash
+SHA256 identico al del repo
+(AC7EC81CDA6B9B6C5BADFD250711D17020C80A52A87E89AE05D20A5C23198C4E).
+NO ejecutado dentro de Civil 3D.
+
+
 ## 2026-09-13 18:40 America/Bogota — 5.1.0, cotas de puntos: avisar en vez de bloquear, INSTALADO
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base: 8ae6780 (v5.0.7).

@@ -62,7 +62,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.1.0")
+(setq *urb-version* "5.1.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -24955,8 +24955,26 @@
                           (mp:getval "PROFUNDIDAD" atts "")))
                   (if (/= nueva actual)
                     (progn
-                      (mp:update-block-after-edit ename
-                        (list (cons "PROFUNDIDAD" nueva)))
+                      ;; OJO: aqui NO se usa mp:update-block-after-edit.
+                      ;; En la rama de punto esa funcion llama a
+                      ;; mp:auto-terrain-values, que REESCRIBE COTA_TN_INI
+                      ;; con lo que devuelva SUP_TN (solo se protege de
+                      ;; consultas fallidas). Usarla aqui pisaria en
+                      ;; silencio las cotas de terreno digitadas a mano y
+                      ;; dejaria la profundidad recien escrita peleada con
+                      ;; la tapa nueva. Este barrido solo deriva la
+                      ;; profundidad de las dos cotas TAL COMO ESTAN.
+                      (mp:setatt-one ename "PROFUNDIDAD" nueva)
+                      (setq atts (mp:alist-set atts "PROFUNDIDAD" nueva))
+                      ;; la etiqueta puede mostrar la profundidad
+                      (vl-catch-all-apply 'mp:setatt-one
+                        (list ename "ETIQUETA" (mp:label-point base atts)))
+                      ;; el arrastre al tramo NO se hace aqui:
+                      ;; mp:update-segments-for-endpoint barre TODOS los
+                      ;; inserts por cada punto (cuadratico), y de todas
+                      ;; formas urb:q-refresh-network-segments corre justo
+                      ;; despues y resincroniza cada tramo desde los
+                      ;; handles de sus extremos, en una sola pasada.
                       T)))))))))))
 
 (defun urb:q-refresh-puntos (/ ss i ename result updated failed
