@@ -1,5 +1,53 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 21:10 America/Bogota — 5.2.0, diametros editables desde Configuracion, INSTALADO
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base: 4d5573f (v5.1.2 + filas GRP).
+Pedido del usuario: poder agregar/editar diametros desde una ventana
+"parecida a la de etapa y subetapa".
+
+Se copio la mecanica del catalogo de etapas:
+- La lista vive en la CONFIGURACION DEL DIBUJO, claves `URB_DIAMETROS_ALC`
+  y `URB_DIAMETROS_ACU`, serializada con `urb:serialize-lisp` y leida con
+  `urb:read-lisp-safe`, igual que `URB_ETAPAS_CATALOGO`. Si el dibujo no
+  trae nada, quedan las listas de fabrica (`*urb-diam-alc-default*` /
+  `*urb-diam-acu-default*`, capturadas de las listas originales).
+- `urb:refresh-diametros-catalog` corre al cargar el lsp, junto al refresh
+  de etapas.
+- Gestor `urb:diametros-manager-command` + DCL `urb_diametros`, colgado de
+  Configuracion -> "Diametros de tuberia" (boton `diametros_config`, al
+  lado de "Etapas y subetapas"). Selector de red (alcantarillado/acueducto),
+  list_box, agregar, quitar y restaurar original.
+- Validacion al agregar: entero positivo, sin duplicados; la lista se
+  ordena SIEMPRE por valor numerico (`urb:diam-sort`, con `vl-sort` que de
+  paso elimina duplicados) -- un sort alfabetico pondria "10" antes de "6".
+
+Aviso de ancho de zanja: `*mp-pvc-trench-width-table*` se copio literal del
+Excel de redes y un diametro que no este en ella NO tiene ancho, asi que la
+excavacion del tramo saldria en CERO sin decir nada. El gestor lo muestra
+en el rotulo de la ventana y ademas saca un alert en el momento de
+agregarlo, que es cuando el usuario puede corregir. Solo aplica a
+alcantarillado (la tabla es de esa familia).
+
+CAMBIO NECESARIO que venia con esto: los dialogos de CREACION elegian el
+diametro por defecto por POSICION -- `(mp:fill-popup "diam"
+*mp-diam-alc-list* 5)`. Con la lista editable, el indice 5 deja de ser 15".
+Ahora usan `urb:fill-diam-popup`, que elige por VALOR y cae al primero de
+la lista si el usuario borro ese diametro. NO se uso `mp:fill-popup-val` a
+secas porque esa AGREGA al popup el valor ausente, y haria reaparecer un
+diametro quitado a proposito. Los dialogos de EDICION si conservan
+`mp:fill-popup-val`: ahi el valor viene del elemento que ya existe y debe
+verse aunque ya no este en el catalogo.
+
+Sitios convertidos: 10154 (acu "4"), 10155 (alc "15"), 10589 (acu "4"),
+11149 (acu "8" / alc "8"), 13104 (acu "4"). Sin cambio de comportamiento
+hoy: los valores elegidos son los que esos indices apuntaban.
+
+Verificado: balance de parentesis 0, UTF-8 sin BOM, instalado con hash
+SHA256 identico al del repo. NO ejecutado dentro de Civil 3D: falta abrir
+la ventana y probar agregar/quitar.
+
+
 ## 2026-09-13 20:05 America/Bogota — 5.1.2, orden del recalculo, ruido del aviso y diametro 45", INSTALADO
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base: 9193e44 (v5.1.1).

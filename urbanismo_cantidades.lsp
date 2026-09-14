@@ -1,6 +1,14 @@
 ;;; urbanismo_cantidades.lsp
 ;;; Herramientas para cuantificar andenes y vias a partir de polilineas cerradas.
 ;;; Compatible con AutoCAD para Windows (Visual LISP / ActiveX).
+;;; 5.2.0: diametros de tuberia EDITABLES desde Configuracion, con la
+;;;   misma mecanica del catalogo de etapas (la lista vive en la config
+;;;   del dibujo: URB_DIAMETROS_ALC / URB_DIAMETROS_ACU). El gestor avisa
+;;;   cuando un diametro nuevo no tiene ancho en la tabla de zanja, porque
+;;;   su excavacion saldria en cero sin decir nada. Los dialogos de
+;;;   creacion dejan de elegir el diametro por defecto por POSICION y lo
+;;;   eligen por VALOR: con la lista editable un indice fijo apuntaba a
+;;;   otro diametro. Agregado el 45" del GRP.
 ;;; 5.1.0: la auditoria de cotas deja de BLOQUEAR la exportacion (cinco
 ;;;   puntos malos impedian actualizar todo el libro); ahora avisa, y los
 ;;;   elementos con cota invalida no se miden en vez de meter volumenes
@@ -62,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.1.2")
+(setq *urb-version* "5.2.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -9815,6 +9823,160 @@
 ;; defecto de los dialogos de tramo.
 (setq *mp-diam-alc-list* '("6" "8" "10" "12" "14" "15" "16" "18" "20" "24" "27" "30" "33" "36" "45" "48" "51" "54" "64"))
 (setq *mp-diam-acu-list* '("4" "6" "8" "10" "12" "18" "24"))
+
+;; --- Diametros EDITABLES (2026-09-13, pedido del usuario) -------------
+;; Mismo patron que el catalogo de etapas: la lista vive en la
+;; configuracion del DIBUJO (URB_DIAMETROS_ALC / URB_DIAMETROS_ACU) y se
+;; administra desde Configuracion -> Diametros de tuberia. Si el dibujo no
+;; trae nada guardado, quedan las listas de fabrica de arriba.
+;; OJO: los dialogos de creacion ya NO eligen el diametro por defecto por
+;; POSICION sino por VALOR (mp:fill-popup-val). Con la lista editable, un
+;; indice fijo dejaba de apuntar al diametro que se queria.
+(setq *urb-diam-alc-default* *mp-diam-alc-list*)
+(setq *urb-diam-acu-default* *mp-diam-acu-list*)
+
+(defun urb:diam-config-key (red)
+  (if (= red "ACU") "URB_DIAMETROS_ACU" "URB_DIAMETROS_ALC"))
+
+(defun urb:diam-default-list (red)
+  (if (= red "ACU") *urb-diam-acu-default* *urb-diam-alc-default*))
+
+(defun urb:diam-list-of (red)
+  (if (= red "ACU") *mp-diam-acu-list* *mp-diam-alc-list*))
+
+(defun urb:diam-set-list (red lst)
+  (if (= red "ACU")
+    (setq *mp-diam-acu-list* lst)
+    (setq *mp-diam-alc-list* lst)))
+
+;; la lista es de TEXTOS ("6" "8" "10"): un sort alfabetico pondria "10"
+;; antes que "6", asi que se ordena por el valor numerico. vl-sort ademas
+;; elimina duplicados, que es justo lo que se quiere aqui.
+(defun urb:diam-sort (lst)
+  (mapcar 'itoa (vl-sort (mapcar 'atoi lst) '<)))
+
+(defun urb:refresh-diametros-catalog (/ red raw parsed)
+  (foreach red '("ALC" "ACU")
+    (setq raw (urb:config-read (urb:diam-config-key red)))
+    (if (and raw (/= raw ""))
+      (progn
+        (setq parsed (urb:read-lisp-safe raw))
+        (if (and parsed (listp parsed) (= (type (car parsed)) 'STR))
+          (urb:diam-set-list red parsed)))))
+  (princ))
+
+(defun urb:save-diametros-catalog (red)
+  (urb:config-write (urb:diam-config-key red)
+    (urb:serialize-lisp (urb:diam-list-of red))))
+
+;; La zanja se mide con *mp-pvc-trench-width-table*, copiada literal del
+;; Excel de redes. Un diametro que no este en esa tabla NO tiene ancho y
+;; la excavacion saldria en CERO sin avisar -- por eso el gestor lo marca
+;; en pantalla antes de que el usuario dibuje con el.
+(defun urb:diam-sin-ancho-p (d / n)
+  (setq n (atoi (urb:safe-string d "0")))
+  (if (and (> n 0) (assoc n *mp-pvc-trench-width-table*)) nil T))
+
+;; Defecto del popup de diametro en los dialogos de CREACION: el valor
+;; pedido si sigue en el catalogo; si el usuario lo borro, el primero de la
+;; lista. No se usa mp:fill-popup-val a secas porque esa AGREGA al popup el
+;; valor ausente, y haria reaparecer un diametro que se quito a proposito.
+;; (En los dialogos de EDICION si se usa fill-popup-val: ahi el valor viene
+;; del elemento que ya existe y debe verse aunque ya no este en la lista.)
+(defun urb:fill-diam-popup (key lst val)
+  (mp:fill-popup key lst
+    (if (member (urb:safe-string val "") lst) (urb:index-of val lst) 0)))
+
+(defun urb:diam-info-text (red lst / sin d)
+  (setq sin "")
+  (if (/= red "ACU")
+    (foreach d lst
+      (if (urb:diam-sin-ancho-p d)
+        (setq sin (strcat sin (if (= sin "") "" ", ") d)))))
+  (cond
+    ((= red "ACU")
+      (strcat (itoa (length lst)) " diametros de acueducto."))
+    ((= sin "")
+      (strcat (itoa (length lst)) " diametros. Todos tienen ancho de zanja."))
+    (T
+      (strcat (itoa (length lst)) " diametros. SIN ancho de zanja: " sin
+        " (su excavacion saldria en CERO)"))))
+
+;; Gestor de Configuracion -> Diametros de tuberia. El dialogo se reabre
+;; tras cada operacion para refrescar la lista, igual que el de etapas.
+(defun urb:diametros-manager-command
+  (/ filename dcl-id done code red idx lst nuevo n)
+  (urb:refresh-diametros-catalog)
+  (setq done nil red "ALC" idx 0)
+  (while (not done)
+    (setq filename (urb:write-main-menu-dcl))
+    (setq dcl-id (if filename (load_dialog filename) -1))
+    (if (and dcl-id (> dcl-id 0) (new_dialog "urb_diametros" dcl-id))
+      (progn
+        (setq lst (urb:diam-list-of red))
+        (if (>= idx (length lst)) (setq idx 0))
+        (start_list "red")
+        (mapcar 'add_list (list "Alcantarillado" "Acueducto"))
+        (end_list)
+        (set_tile "red" (if (= red "ACU") "1" "0"))
+        (start_list "diam")
+        (mapcar 'add_list lst)
+        (end_list)
+        (set_tile "diam" (itoa idx))
+        (set_tile "info" (urb:diam-info-text red lst))
+        (action_tile "red"
+          "(setq red (if (= $value \"1\") \"ACU\" \"ALC\"))(done_dialog 6)")
+        (action_tile "diam" "(setq idx (atoi $value))")
+        (action_tile "agregar"
+          "(setq nuevo (get_tile \"nuevo\"))(done_dialog 4)")
+        (action_tile "quitar" "(done_dialog 3)")
+        (action_tile "restaurar" "(done_dialog 5)")
+        (action_tile "accept" "(done_dialog 1)")
+        (setq code (start_dialog))
+        (unload_dialog dcl-id)
+        (cond
+          ;; cambio de red: solo recargar con la otra lista
+          ((= code 6) (setq idx 0))
+          ((= code 3)
+            (if (<= (length lst) 1)
+              (alert "Debe quedar al menos un diametro.")
+              (progn
+                (urb:diam-set-list red
+                  (urb:diam-sort
+                    (vl-remove (nth idx lst) lst)))
+                (urb:save-diametros-catalog red)
+                (setq idx 0))))
+          ((= code 4)
+            (setq nuevo (vl-string-trim " " (urb:safe-string nuevo ""))
+                  n (atoi nuevo))
+            (cond
+              ((= nuevo "") (alert "Escriba el diametro en pulgadas."))
+              ((or (<= n 0) (/= nuevo (itoa n)))
+                (alert "El diametro debe ser un numero entero de pulgadas."))
+              ((member (itoa n) lst) (alert "Ese diametro ya esta en la lista."))
+              (T
+                (urb:diam-set-list red
+                  (urb:diam-sort (cons (itoa n) lst)))
+                (urb:save-diametros-catalog red)
+                (setq idx (urb:index-of (itoa n) (urb:diam-list-of red)))
+                ;; avisar aqui y no solo en el rotulo: es el momento en que
+                ;; el usuario acaba de crearlo y puede corregir
+                (if (and (/= red "ACU") (urb:diam-sin-ancho-p (itoa n)))
+                  (alert
+                    (strcat "Se agrego el diametro " (itoa n) "\", pero la"
+                      "\ntabla de anchos de zanja no lo tiene."
+                      "\n\nLos tramos con ese diametro mediran la excavacion"
+                      "\nen CERO hasta que se agregue su ancho a"
+                      "\n*mp-pvc-trench-width-table*."))))))
+          ((= code 5)
+            (urb:diam-set-list red (urb:diam-default-list red))
+            (urb:save-diametros-catalog red)
+            (setq idx 0))
+          (T (setq done T))))
+      (progn
+        (prompt "\nNo se pudo abrir el dialogo de diametros.")
+        (setq done T))))
+  (princ))
 (setq *mp-material-acu-list* '("PVC" "WSP" "CCP" "PE" "ACERO" "HDPE" "OTRO"))
 (setq *mp-material-red-list* '("PVC" "HDPE" "GRP" "CONCRETO" "ACERO" "OTRO"))
 (setq *mp-acc-acu-list*
@@ -9997,8 +10159,8 @@
 
 (defun mp:update-red-diam ()
   (if (= (mp:gettile "red") "2")
-    (progn (mp:fill-popup "diam" *mp-diam-acu-list* 0) (mp:fill-popup "mat" *mp-material-acu-list* 0))
-    (progn (mp:fill-popup "diam" *mp-diam-alc-list* 5) (mp:fill-popup "mat" *mp-material-red-list* 0))))
+    (progn (urb:fill-diam-popup "diam" *mp-diam-acu-list* "4") (mp:fill-popup "mat" *mp-material-acu-list* 0))
+    (progn (urb:fill-diam-popup "diam" *mp-diam-alc-list* "15") (mp:fill-popup "mat" *mp-material-red-list* 0))))
 
 (defun mp:csv-safe (s / out i ch) (if (not s) (setq s "")) (setq out "" i 1) (while (<= i (strlen s)) (setq ch (substr s i 1)) (if (= ch "\"") (setq out (strcat out "\"\"")) (setq out (strcat out ch))) (setq i (1+ i))) (strcat "\"" out "\""))
 (defun mp:att-alist (ename / obj atts res a stored pair)
@@ -10432,7 +10594,7 @@
   (if (not (new_dialog "maipore_tramo_acu" dcl)) (exit))
   (mp:fill-popup "etapa" *mp-etapa-list* 0)
   (mp:update-subetapa)
-  (mp:fill-popup "diam" *mp-diam-acu-list* 0)
+  (urb:fill-diam-popup "diam" *mp-diam-acu-list* "4")
   (mp:fill-popup "mat" *mp-material-acu-list* 0)
   (action_tile "etapa" "(mp:update-subetapa)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
@@ -10992,7 +11154,7 @@
   (if (not (new_dialog "maipore_punto_hidro" dcl)) (exit))
   (mp:fill-popup "etapa" *mp-etapa-list* 0)
   (mp:update-subetapa)
-  (if (= red "Acueducto") (mp:fill-popup "diam" *mp-diam-acu-list* 2) (mp:fill-popup "diam" *mp-diam-alc-list* 1))
+  (if (= red "Acueducto") (urb:fill-diam-popup "diam" *mp-diam-acu-list* "8") (urb:fill-diam-popup "diam" *mp-diam-alc-list* "8"))
   (action_tile "etapa" "(mp:update-subetapa)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
   (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
@@ -12947,7 +13109,7 @@
       (mp:fill-popup "acc" *mp-acc-acu-list* 0)
       (mp:fill-popup "etapa" *mp-etapa-list* 0)
       (mp:update-subetapa)
-      (mp:fill-popup "diam" *mp-diam-acu-list* 0)
+      (urb:fill-diam-popup "diam" *mp-diam-acu-list* "4")
       (mp:fill-popup "diamsal" *mp-diam-acu-list* 0)
       (mp:fill-popup "mat" *mp-material-acu-list* 0)
       (action_tile "etapa" "(mp:update-subetapa)")
@@ -23450,7 +23612,8 @@
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
         "urb_config : dialog { label = \"Configuracion de urbanismo\";"
         ": boxed_column { label = \"Bibliotecas\";"
-        ": button { label = \"Etapas y subetapas\"; key = \"etapas_config\"; height = 2; width = 40; } }"
+        ": button { label = \"Etapas y subetapas\"; key = \"etapas_config\"; height = 2; width = 40; }"
+        ": button { label = \"Diametros de tuberia\"; key = \"diametros_config\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Movimiento de tierras\";"
         ": button { label = \"Movimiento de tierras (perfiles, sobreanchos, referencia)\"; key = \"earthworks_config\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Apariencia de redes\";"
@@ -23494,6 +23657,18 @@
         ": edit_box { key = \"nueva\"; label = \"Nombre\"; edit_width = 12; }"
         ": edit_box { key = \"nuevasubs\"; label = \"Subetapas (separadas por coma)\"; edit_width = 30; }"
         ": button { key = \"agregar\"; label = \"Agregar etapa\"; width = 20; } }"
+        ": row {"
+        ": button { key = \"restaurar\"; label = \"Restaurar original\"; width = 20; }"
+        "ok_only; } }"
+        "urb_diametros : dialog { label = \"Diametros de tuberia\";"
+        ": popup_list { key = \"red\"; label = \"Red\"; width = 22; }"
+        ": boxed_column { label = \"Diametros disponibles (pulgadas)\";"
+        ": list_box { key = \"diam\"; width = 20; height = 12; }"
+        ": button { key = \"quitar\"; label = \"Quitar el seleccionado\"; width = 24; } }"
+        ": boxed_column { label = \"Agregar\";"
+        ": edit_box { key = \"nuevo\"; label = \"Diametro en pulgadas\"; edit_width = 8; }"
+        ": button { key = \"agregar\"; label = \"Agregar diametro\"; width = 22; } }"
+        ": text { key = \"info\"; label = \"\"; width = 64; }"
         ": row {"
         ": button { key = \"restaurar\"; label = \"Restaurar original\"; width = 20; }"
         "ok_only; } }"
@@ -34698,6 +34873,7 @@
   (setq action
     (urb:simple-menu-dialog "urb_config"
       '(("etapas_config" "etapas_config")
+        ("diametros_config" "diametros_config")
         ("earthworks_config" "earthworks_config")
         ("tramo_appearance" "tramo_appearance")
         ("layers_organize" "layers_organize")
@@ -34705,6 +34881,7 @@
   (cond
     ((or (null action) (= action "back")) "back")
     ((= action "etapas_config") (urb:etapas-manager-command))
+    ((= action "diametros_config") (urb:diametros-manager-command))
     ((= action "earthworks_config") (urb:earthworks-config-command))
     ((= action "tramo_appearance")
       (mp:tramo-appearance-command))
@@ -35157,6 +35334,7 @@
 (mp:install-network-erase-reactor)
 (vl-catch-all-apply 'urb:ensure-trusted-path nil)
 (vl-catch-all-apply 'urb:refresh-etapas-catalog nil)
+(vl-catch-all-apply 'urb:refresh-diametros-catalog nil)
 (vl-catch-all-apply 'mp:load-tramo-appearance-settings nil)
 (vl-catch-all-apply 'urb:load-geometric-settings nil)
 (vl-catch-all-apply 'urb:purge-empty-hatches nil)
