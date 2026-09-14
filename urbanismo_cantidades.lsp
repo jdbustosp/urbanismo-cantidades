@@ -62,7 +62,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.1.1")
+(setq *urb-version* "5.1.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -9810,7 +9810,10 @@
 ;; Ubicacion del banco de ductos: define el recubrimiento normativo
 ;; (CODENSA CS203/CS207: 0.60 m bajo anden o zona verde, 0.80 m bajo calzada).
 (setq *mp-ubic-elec-list* '("Anden o zona verde" "Calzada"))
-(setq *mp-diam-alc-list* '("6" "8" "10" "12" "14" "15" "16" "18" "20" "24" "27" "30" "33" "36" "48" "51" "54" "64"))
+;; 2026-09-13: se agrega 45" (GRP del colector). Va DESPUES de 36" para no
+;; correr los indices 0-13, que son los que usan los mp:fill-popup por
+;; defecto de los dialogos de tramo.
+(setq *mp-diam-alc-list* '("6" "8" "10" "12" "14" "15" "16" "18" "20" "24" "27" "30" "33" "36" "45" "48" "51" "54" "64"))
 (setq *mp-diam-acu-list* '("4" "6" "8" "10" "12" "18" "24"))
 (setq *mp-material-acu-list* '("PVC" "WSP" "CCP" "PE" "ACERO" "HDPE" "OTRO"))
 (setq *mp-material-red-list* '("PVC" "HDPE" "GRP" "CONCRETO" "ACERO" "OTRO"))
@@ -31027,6 +31030,14 @@
 (defun mp:base-con-cota-p (base)
   (if (and base (member (strcase base) *mp-bases-con-cota*)) T nil))
 
+;; Solo el pozo mide ANILLO por ML a partir de la profundidad. En sumideros,
+;; cabezales y camaras electricas la profundidad no entra en ninguna
+;; cantidad (la de los tramos electricos es normativa CODENSA), asi que
+;; que este vacia no es un problema y no se reporta: si no, el aviso sale
+;; con cientos de elementos y tapa lo que si importa.
+(defun mp:base-es-pozo-p (base)
+  (if (and base (member (strcase base) '("POZO_SANITARIO" "POZO_PLUVIAL"))) T nil))
+
 ;; En este proyecto una cota es una ELEVACION (~2540-2580 msnm). Un valor
 ;; chico en una casilla de cota es una PROFUNDIDAD escrita donde va la
 ;; elevacion. Caso real DOM41 (handle 4B951): COTA_CLAVE_INI = 2.00 contra
@@ -31075,6 +31086,9 @@
         (setq base (mp:point-reference-base en))
         (if (mp:base-con-cota-p base)
           (setq issue (mp:punto-cota-issue atts))
+          (setq issue nil))
+        ;; falta de profundidad solo es noticia en los pozos
+        (if (and (= issue "FALTA PROFUNDIDAD") (not (mp:base-es-pozo-p base)))
           (setq issue nil))
         (if issue (setq out (cons (list (cdr (assoc 5 (entget en)))
           (mp:getval "ID" atts "") (mp:getval "SUBETAPA" atts "") base
@@ -33367,6 +33381,13 @@
                        mensaje nuevo)
   (vl-load-com)
   (setq *urb-cotas-avisado* nil)
+  ;; 2026-09-13 (reporte del usuario): el usuario corrigio las cotas de
+  ;; DOM41 (terreno 2561.295, clave 2558.58 -> 2.715 m) y el aviso le
+  ;; seguia mostrando prof=2559.65, el valor viejo. Era orden: la
+  ;; auditoria corria aqui y el recalculo mucho despues, dentro de
+  ;; urb:q-collect-all. Ahora se rederiva PRIMERO y se audita sobre el
+  ;; dato ya al dia, asi que un pozo recien corregido no vuelve a salir.
+  (urb:q-refresh-puntos)
   (setq seguir (urb:ppto-check-pozo-depths))
   (if (not seguir) (setq *urb-ppto-last-summary* '(DATOS-POZOS-INVALIDOS)))
   (setq *urb-ppto-headless*

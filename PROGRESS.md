@@ -1,5 +1,45 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 20:05 America/Bogota — 5.1.2, orden del recalculo, ruido del aviso y diametro 45", INSTALADO
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base: 9193e44 (v5.1.1).
+Origen: primera corrida real del usuario. La exportacion YA NO SE BLOQUEA
+(llego a leer 1.291 actividades del vocabulario); la corrida termino en
+"Exportacion CANCELADA" porque el usuario cancelo el dialogo de
+asignaciones (`resdlg 'CANCELADO`), no por un error.
+
+Tres correcciones:
+- ORDEN (defecto de 5.1.0/5.1.1): el usuario corrigio las cotas de DOM41
+  (terreno 2561.295, clave 2558.58 -> profundidad real 2.715 m) y el aviso
+  le seguia mostrando `prof=2559.65`, el valor viejo. La auditoria corria
+  al inicio de `c:PPTOEXPORTAR` y el recalculo mucho despues, dentro de
+  `urb:q-collect-all`. Ahora `urb:q-refresh-puntos` corre ANTES de auditar,
+  asi que un pozo recien corregido ya no vuelve a salir en la lista. Con
+  las cotas del reporte, cuatro de los cinco casos se resuelven solos solo
+  con reordenar: DOM41 2.715, TRAT-01 2.111, TRAT-05 3.487, TRAT-08 3.652.
+  El unico real es DOM02 (terreno 2556.403 < clave 2557.08): COTAS
+  INVERTIDAS de verdad, hay que corregirlo a mano.
+- RUIDO: el aviso salio con "962 puntos sin profundidad". Al ampliar la
+  auditoria a sumideros, cabezales y camaras se colaron cientos de
+  elementos donde la profundidad NO entra en ninguna cantidad (la de los
+  tramos electricos es normativa CODENSA). Nuevo `mp:base-es-pozo-p`: la
+  falta de profundidad solo se reporta en POZO_SANITARIO / POZO_PLUVIAL,
+  que son los unicos que miden ANILLO por ML. Los problemas de coherencia
+  de cotas (invertidas, no-elevacion) se siguen reportando en todos.
+- DIAMETRO 45": agregado a `*mp-diam-alc-list*` para el GRP del colector.
+  Va despues de 36" a proposito, para no correr los indices 0-13 que usan
+  los `mp:fill-popup` por defecto de los dialogos de tramo. GRP ya estaba
+  en `*mp-material-red-list*`.
+
+Verificado: balance de parentesis 0, UTF-8 sin BOM, instalado con hash
+SHA256 identico al del repo
+(015CC217B673C806AEF3005AD2D9AAEA5544C5555620DAE70FCE1CD68EA85976).
+
+Pendiente del lado del libro (no del LSP): el tramo GRP 45" necesita que
+la actividad exista en PRECIOS_UNITARIOS y POR EJECUTAR; hoy el catalogo
+solo tiene GRP 92" y GRP 48". Sin la fila, la cantidad sale huerfana.
+
+
 ## 2026-09-13 19:20 America/Bogota — 5.1.1, el vinculo tramo-pozo YA existia, INSTALADO
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base: 2ae5410 (v5.1.0).
