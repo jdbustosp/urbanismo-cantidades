@@ -1,5 +1,41 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 01:10 America/Bogota — redes sin "material seleccionado" + rampa vehicular localizada
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+LIBRO: borradas las tres filas `Relleno con material seleccionado de
+excavacion` de redes (2.4.1.3.12, 2.4.2.3.12, 2.4.3.3.12), las tres en
+cero. El usuario confirmo que los llenos los hace con recebo y que el
+plugin ya no emite ese nombre (verificado: cero emisiones tras 5.4.0).
+Total sin cambio. Backup: BACKUPS\antes_matsel_20260914.xlsx.
+OJO: la guarda del script freno un primer intento -- el filtro
+'material seleccionado' tambien agarraba `Relleno Material
+seleccionado(montanas)` de parques (671,36 y 1.866,48 M3, con cantidad
+real) y el carreteable de Muna. Se acoto a "de excavacion".
+
+RAMPA VEHICULAR -- cadena completa localizada:
+  urb:create-contour-ramp-command  (pide los 3 puntos)
+    -> urb:ramp-three-point-data   devuelve (p1 angulo signo ancho fondo)
+    -> urb:ramp-quad-poly  v de 0.0 a fondo  <- el CONTORNO esta BIEN,
+       no invade la via; v=0 es la linea 1->2 y crece hacia el punto 3
+    -> *urb-rampav-frente* = punto medio del borde v=0
+    -> urb:vehicular-curb-frame  elige como linea de BORDILLO el borde
+       mas cercano a ese punto, o sea EL BORDE v=0 = la linea que el
+       usuario marca sobre la via. AHI esta el problema que reporto.
+    -> urb:ramp-vehicular-objects (frame etapa sub depth)  <- ES AQUI
+       donde se dibujan las piezas (A-85 / A-86 / A-80) a partir del
+       frame del bordillo.
+`urb:ramp-vehicular-objects` es el unico punto donde aterrizan LOS CUATRO
+cambios pedidos para 2.2.4:
+  - correr las piezas al lado del anden en vez de dejarlas sobre v=0
+  - tramo de 10,00 m en A-86 (sardinel ALTO, confirmado por la cartilla)
+  - tramo de 5,80 m en A-85 (sardinel BAJO)
+  - curvas en A-80 y toperol en los costados
+PENDIENTE: leer esa funcion y hacer el ajuste. No se toco todavia -- es
+la que dibuja TODAS las rampas vehiculares del proyecto.
+
+
 ## 2026-09-14 00:30 America/Bogota — filas de zona verde en el libro + diagnostico de la rampa
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base: 171cee2 (v5.4.0).
