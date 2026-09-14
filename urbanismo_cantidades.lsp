@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.3")
+(setq *urb-version* "5.5.4")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -1884,6 +1884,38 @@
     )
   )
 )
+
+(defun urb:anden-region-from-object (obj / result cp attempt i n b a z changed original-area)
+  ;; ACIS rechaza algunos contornos recortados con microarcos casi rectos.
+  ;; Primero intentar la geometria exacta. Solo ante error, sobre una COPIA,
+  ;; sustituir arcos con flecha <= 1 micra. No modificar el contorno fuente,
+  ;; no discretizar los demas arcos, ni aceptar cambio de area > 0.00001 m2.
+  (setq result (urb:add-region-from-object obj))
+  (if (and (vl-catch-all-error-p result)
+           (= (vla-get-ObjectName obj) "AcDbPolyline")
+           (= (vla-get-Closed obj) :vlax-true))
+    (progn
+      (setq cp (vla-Copy obj) original-area (vla-get-Area obj))
+      (setq attempt
+        (vl-catch-all-apply
+          '(lambda ()
+             (setq i 0 n (fix (vlax-curve-getEndParam cp)) changed nil)
+             (repeat n
+               (setq b (vla-GetBulge cp i))
+               (if (/= b 0.0)
+                 (progn
+                   (setq a (vlax-curve-getPointAtParam cp i)
+                         z (vlax-curve-getPointAtParam cp (1+ i)))
+                   (if (<= (* 0.5 (abs b) (distance a z)) 1e-6)
+                     (progn (vla-SetBulge cp i 0.0) (setq changed T)))))
+               (setq i (1+ i)))
+             (if changed (urb:add-region-from-object cp)))))
+      (urb:safe-delete cp)
+      (if (and attempt (not (vl-catch-all-error-p attempt)))
+        (if (<= (abs (- (vla-get-Area attempt) original-area)) 1e-5)
+          (setq result attempt)
+          (urb:safe-delete attempt)))))
+  result)
 
 (defun urb:local-to-world (ucoord vcoord angle-value / cosine sine)
   (setq cosine (cos angle-value))
@@ -3986,7 +4018,7 @@
         reverse-pattern (urb:anden-pattern-reversed-p pattern-mode)
         clusters (urb:dominant-anden-axis-clusters points)
         copy (vla-Copy obj)
-        base-region (urb:add-region-from-object copy))
+        base-region (urb:anden-region-from-object copy))
   ;; 2026-08-12: eje FORZADO de modulacion (URB_ANDEN_AXIS) -- lo marca
   ;; el usuario al crear un anden con curva (2 puntos paralelos a las
   ;; bandas del vecino). Si no hay eje guardado pero el contorno tiene
@@ -5139,7 +5171,7 @@
       (setq points (urb:lwpoly-points-with-arcs-fine ename))
       (setq module (urb:loseta-module format))
       (setq copy (vla-Copy obj))
-      (setq base-region (urb:add-region-from-object copy))
+      (setq base-region (urb:anden-region-from-object copy))
       (urb:safe-delete copy)
       (if (not (vl-catch-all-error-p base-region))
         (setq base-region (urb:apply-anden-cutouts base-region)))
@@ -5269,10 +5301,7 @@
 
 (defun urb:polygon-self-intersects-p (points / n i j p1 p2 p3 p4 found)
   ;; Revisa todo par de aristas NO adyacentes del contorno cerrado en
-  ;; busca de un cruce real (poligono "moÃ±o"/autointersectado). Un
-  ;; contorno asi produce rellenos con forma anomala (la mancha ancha que
-  ;; aparece cuando el usuario dibuja con clics imprecisos) aunque cada
-  ;; arista individual se vea razonable.
+  ;; busca de un cruce real (poligono "moño"/autointersectado).
   (setq n (length points) found nil i 0)
   (while (and (< i n) (not found))
     (setq p1 (nth i points) p2 (nth (rem (1+ i) n) points))
@@ -5723,7 +5752,7 @@
     (vl-catch-all-apply '(lambda () (vla-Copy (urb:as-vla-object ename)))))
   (setq region
     (if (not (vl-catch-all-error-p copy))
-      (vl-catch-all-apply '(lambda () (urb:add-region-from-object copy)))))
+      (vl-catch-all-apply '(lambda () (urb:anden-region-from-object copy)))))
   (if (and copy (not (vl-catch-all-error-p copy))) (urb:safe-delete copy))
   (if (or (null region) (vl-catch-all-error-p region))
     bruta
@@ -6003,7 +6032,7 @@
   (setq copy (vl-catch-all-apply '(lambda () (vla-Copy obj))))
   (setq region
     (if (not (vl-catch-all-error-p copy))
-      (vl-catch-all-apply '(lambda () (urb:add-region-from-object copy)))))
+      (vl-catch-all-apply '(lambda () (urb:anden-region-from-object copy)))))
   (if (and copy (not (vl-catch-all-error-p copy))) (urb:safe-delete copy))
   (if (or (null region) (vl-catch-all-error-p region))
     nil
@@ -6056,6 +6085,44 @@
                 nil
                 (progn (entupd ename) best-a)))))))))
 
+(defun urb:anden-offset-safe (en width / result n i j b a z chord radius theta count points poly attempt)
+  ;; Primero OFFSET exacto. Algunos costados ACIS con muchos microarcos
+  ;; fallan aun siendo validos: respaldo SOLO para el contorno de tierras.
+  ;; Flecha de cada cuerda <= 0.000001 m, calculada por radio/angulo;
+  ;; no usar el muestreo visual (aprox. 1 m) para medir cantidades.
+  (setq result (urb:offset-poly en width))
+  (if (null result)
+    (progn
+      (setq attempt
+        (vl-catch-all-apply
+          '(lambda ()
+             (setq i 0 n (fix (vlax-curve-getEndParam en)))
+             (repeat n
+               (setq a (vlax-curve-getPointAtParam en i)
+                     z (vlax-curve-getPointAtParam en (1+ i))
+                     b (abs (vla-GetBulge (vlax-ename->vla-object en) i))
+                     count 1)
+               (if (> b 1e-12)
+                 (progn
+                   (setq chord (distance a z)
+                         radius (/ (* chord (+ 1.0 (* b b))) (* 4.0 b))
+                         theta (* 4.0 (atan b))
+                         count (max 1 (1+ (fix (* theta (sqrt (/ radius 0.000008)))))))))
+               (if (> (+ (length points) count) 100000)
+                 (vl-exit-with-error "ANDEN: arco fuera del limite de calculo seguro del sobreancho."))
+               (setq j 0)
+               (repeat count
+                 (setq points
+                   (cons (vlax-curve-getPointAtParam en (+ i (/ (float j) count))) points)
+                   j (1+ j)))
+               (setq i (1+ i)))
+             (setq points (reverse (cons (vlax-curve-getEndPoint en) points))
+                   poly (urb:open-poly-from-points points 0.0))
+             (urb:offset-poly poly width))))
+      (if poly (urb:safe-delete (vlax-ename->vla-object poly)))
+      (if (not (vl-catch-all-error-p attempt)) (setq result attempt))))
+  result)
+
 (defun urb:anden-overwidth-contour (ename width / chains chain pl off a b polygon pts mid normal test sign all result check)
   ;; Dos costados desplazados; las tapas solo unen sus extremos, sin
   ;; prolongar longitudinalmente el anden. Conservar bulges verdaderos.
@@ -6067,12 +6134,12 @@
           pts (urb:curve-pt pl mid) normal (+ (urb:curve-tangent pl mid) (* 0.5 pi))
           test (polar pts normal 0.05))
     ;; vla-Offset no tiene signo universal por normal: comprobar ambos.
-    (setq off (urb:offset-poly pl width))
+    (setq off (urb:anden-offset-safe pl width))
     (if off
       (progn
         (setq test (urb:curve-pt off (* 0.5 (urb:curve-length off))))
         (if (urb:point-in-poly-p test polygon)
-          (progn (entdel off) (setq off (urb:offset-poly pl (- width)))))))
+          (progn (entdel off) (setq off (urb:anden-offset-safe pl (- width)))))))
     (if off
       (progn
         (setq pts (urb:lwpoly-vertex-bulges off) a (car pts) b (cadr pts))

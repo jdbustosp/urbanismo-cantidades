@@ -1,5 +1,25 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 10:05 America/Bogota — 5.5.4 microarcos y sobreancho real
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base 800eb20; commit pendiente de esta entrada.
+Se reprodujo en copia local del contorno C5BCD del maestro (importado 282A,
+260 vértices, 683.757642801242 m2) el mensaje `TOPEROL: 0`: AddRegion de
+Civil 3D 2023 devolvía `Automation Error. Invalid input` antes del hatch.
+La corrección 5.5.4 intenta la región exacta primero; solo ante ese error,
+en una copia, reemplaza microarcos con flecha máxima <= 0.000001 m y acepta
+solo diferencia de área <= 0.00001 m2. El caso real quedó: BUILD=T, TOP_STATE=SI,
+TOP_COUNT=1, contorno fuente sin cambio y bloque final con NESTED=0.
+Prueba de empaquetado: 4167 entidades dentro del bloque; 904 toperoles
+(180.72 ML), 898 guías (179.69 ML), área sin sobreancho 683.757643 m2,
+área con 1 m por lado 1048.990742 m2. Construcción+empaque observada ~21.75 s
+en este caso aislado, no instantánea ni extrapolable al maestro completo.
+El sobreancho exacto fallaba por microarcos; el respaldo de cálculo produjo
+1048.99 m2 y conservó la geometría del contorno original. Fuente cargó en
+Civil 3D 2023 como 5.5.4. Instalado este equipo y hash fuente/instalado igual;
+DLL no pudo copiarse porque Civil estaba abierto, por lo que repetir INSTALAR.bat
+con Civil cerrado si cambió el ribbon. No se validaron nativamente 2025/2026.
+
 ## 2026-09-14 08:45 America/Bogota — 5.5.3 bloque plano.NET, INSTALADO
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base ea5d740.
