@@ -25,6 +25,9 @@ El LSP legado `MAIPORE_BLOQUES_REDES_ELECT_...lsp` sigue en `VARIOS\BLOQUES PPTO
 - `PROGRESS.md` — bitácora completa del desarrollo (leerla antes de retomar).
 - `TESTING_CIVIL3D.md` — metodología de verificación headless (work/<tema>/, invariantes de
   área, peor caso, PDFs solo a carpeta temporal, nunca a Drive).
+  **Leer y aplicar primero su sección 0** antes de verificar/ajustar: herramientas,
+  laboratorio sin control de pantalla, checklist de andenes y límites de evidencia
+  numérica frente a visual. Pasar un test no significa haber visto todo el modelo.
 
 ## Convenciones
 - Namespaces `urb:` / `mp:`. Releer el `.lsp` antes de editar (puede haber cambios externos).

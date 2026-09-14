@@ -4,6 +4,11 @@ Antes de trabajar, leer `CLAUDE.md`, `TESTING_CIVIL3D.md` y
 `../../handoffs/urbanismo-externo.md`. Este ultimo es el unico resumen de
 continuidad entre agentes y computadores; actualizarlo con avances verificables.
 
+Para verificar o ajustar modelos, aplicar primero la seccion 0 de
+`TESTING_CIVIL3D.md`: herramientas, pruebas en segundo plano, checklist de
+andenes y separacion entre evidencia numerica, visual e instalada. No afirmar
+que se vio el DWG completo por haber consultado su geometria mediante COM.
+
 Toda entrada nueva en `PROGRESS.md` y en el handoff debe identificar de forma
 explicita `Agente` (Codex o Claude), `Equipo` (nombre de Windows), fecha/hora
 local y commit cuando exista. No atribuir a un agente cambios de otro ni usar

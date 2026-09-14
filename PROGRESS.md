@@ -1,5 +1,17 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 22:51 America/Bogota — metodologia compartida de verificacion
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base documental:6870d3e.
+Pedido del usuario: conservar como se comprueba y ajusta sin tomar pantalla
+para que Claude pueda retomar. TESTING_CIVIL3D.md seccion0 documenta herramientas,
+flujo baseline/cambio/prueba, checklist de anden (curvas, orientacion, continuidad,
+solapes, bloque, cantidades y tiempo), laboratorio COM seguro y limites visuales.
+AGENTS.md y CLAUDE.md remiten expresamente a esa seccion. Diferencia33tests de
+rampas541 de una validacion integral del anden188m. No se modifica el motor,
+instalacion, DWG ni Excel; no se ejecuta Civil por un cambio documental.
+
+
 ## 2026-09-13 22:21 America/Bogota — rampas5.4.1 verificadas e instaladas
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base94ec9b3; commit de entrega

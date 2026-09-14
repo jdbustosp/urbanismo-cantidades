@@ -1,8 +1,159 @@
 # Cómo se prueba este .lsp contra Civil 3D real (sin control de escritorio)
 
-Claude Code no tiene una herramienta de "computer use" para el escritorio de Windows — solo controla un navegador web embebido. No puede hacer clic en un diálogo de AutoCAD ni dibujar una polilínea a mano. Lo que sí puede hacer es lanzar Civil 3D real por línea de comandos y automatizarlo con un **script `.scr`** que corre código AutoLISP sin necesidad de interacción, capturando los resultados en un archivo de texto. Esto sirve para detectar errores de sintaxis y verificar funciones puras (que no abren diálogos ni esperan clics del usuario) contra la aplicación real, no solo con revisión de código.
+Las herramientas disponibles dependen de la sesión y del equipo: comprobarlas,
+no asumir que Claude o Codex tienen control de escritorio. El método preferido
+es automatizar Civil 3D real con PowerShell, scripts `.scr`, AutoLISP y
+ActiveX/COM sobre un dibujo de laboratorio. Permite construir e inspeccionar
+geometría sin controlar el mouse del usuario. No equivale a observar su pantalla.
 
 Esta guía es para repetir el proceso en otra máquina o en otra sesión de Claude Code.
+
+## 0. Protocolo compartido vigente: comprobar, ajustar y explicar la evidencia
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Fecha/hora local:
+2026-09-13 22:51 America/Bogota. Base documental: commit6870d3e.
+Pedido explícito del usuario: conservar el método para Claude y ambos equipos.
+Esta sección aclara las limitaciones de los ejemplos históricos posteriores.
+No convierte resultados antiguos en una validación de la versión actual.
+
+### Herramientas y qué demuestra cada una
+
+| Herramienta | Uso en este proyecto | Lo que NO demuestra por sí sola |
+|---|---|---|
+| PowerShell | Leer archivos/logs, localizar Civil, lanzar una instancia propia y medir tiempos | Que el dibujo se vea bien |
+| AutoLISP + `.scr` corto | Crear casos reproducibles y llamar las funciones reales del motor | Que el diálogo y los clics reales funcionen |
+| ActiveX/COM de Civil 3D completo | Consultar coordenadas, arcos, áreas, capas, bloques, atributos y realizar booleanos | Que se haya observado visualmente todo el modelo |
+| Core Console | Carga y pruebas compatibles con su entorno | Equivalencia con COM, interfaz o superficies de Civil; declarar cualquier adaptador |
+| Asserts del harness | Comparar resultados con valores calculados independientemente | Éxito si solo se comprobó ausencia de excepciones |
+| Imágenes del usuario o del laboratorio | Inspeccionar apariencia, textura, orientación y ubicación visibles | Estado de zonas fuera de la imagen, atributos o cantidades completas |
+| Git + SHA256 | Trazabilidad y coincidencia entre archivos de prueba, repo e instalación | Que la sesión abierta haya recargado el archivo nuevo |
+
+### Secuencia operativa, sin tomar la pantalla
+
+1. Leer AGENTS/CLAUDE, este documento, último handoff y progreso pertinente.
+   Consultar Git y versión de fuente/instalada; identificar la cargada si hay
+   evidencia. Si se desconoce, decirlo. Buscar con `rg` y leer rangos del
+   subsistema afectado; no reconstruir todo el proyecto en cada respuesta.
+2. Separar la observación de la hipótesis. Una captura muestra un síntoma;
+   localizar la rama y los datos que lo producen antes de cambiar código.
+   Definir criterios de aceptación concretos para cada punto del usuario.
+3. Reproducir el defecto con la versión anterior en una copia local. Mantener
+   modo, geometría, lado elegido y condiciones relevantes (con/sin andén,
+   prefabricados, contenedor, superficie). Registrar qué test falla. Llamar
+   directamente al constructor prueba esa rama, NO el flujo de clics completo.
+4. Hacer el cambio mínimo que resuelva la causa. Releer el archivo antes de
+   editar para preservar cambios de otro agente. Evitar correcciones basadas
+   solo en desplazar un objeto del ejemplo o relajar tolerancias para aprobar.
+5. Verificar sintaxis y pruebas focales; usar Civil real cuando intervengan
+   geometría/COM. Un único arranque, casos agrupados, reutilizando esa sesión
+   mientras siga disponible y los casos estén aislados. Registrar tiempos por
+   fase y resultado final. No abrir el maestro para una prueba que cabe en un
+   fixture vacío; copiar los datos reales solo cuando sean necesarios.
+6. Si cambia la apariencia, complementar los números con revisión visual
+   localizada de imagen existente o salida local de laboratorio. Si no se
+   puede obtener/inspeccionar, dejarlo pendiente y pedir una captura específica;
+   no sustituirlo por la frase «los asserts pasaron». No tomar el control de
+   pantalla sin la autorización correspondiente.
+7. Entregar fuente/manifiesto coherentes e instalar cuando proceda; comprobar
+   hashes y cargador. Distinguir instalado de cargado. Registrar agente,
+   equipo, fecha/hora local, commit y push; actualizar el handoff. Explicar si
+   hay que reiniciar/recrear. No afirmar instalación en un PC no inspeccionado.
+
+### Lista específica: ¿el andén quedó bien?
+
+Estas comprobaciones se ejecutan según el cambio, no se dan por hechas:
+
+- **Círculos/rellenos desbordados:** área de acabados fuera del contorno neto
+  igual a cero dentro de tolerancia declarada. No basta buscar entidades
+  CIRCLE: un relleno erróneo puede ser HATCH/REGION, y los domos sí son círculos
+  legítimos. Una caja WCS sirve de filtro, no prueba exacta en curvas/rotaciones.
+- **Bloque único:** referencia INSERT válida, contenido esperado dentro,
+  atributos/XDATA conservados y cero entidades generadas del andén sueltas.
+  Distinguir prefabricados independientes por diseño de piezas olvidadas;
+  no confundir GROUP, selección múltiple o bloques por banda con un solo bloque.
+- **Orientación:** verificar dirección local contra tangente del eje en
+  inicio, medio, final y transiciones; la relación angular depende del material
+  y patrón previsto. Probar curva simple, curva S, varias curvas, eje invertido
+  y lado contrario. Un ángulo fijo global o conservar el área NO prueba que
+  losetas y adoquines sigan correctamente la curva. Confirmar apariencia en
+  las zonas de transición cuando se cambie esa lógica.
+- **Guía y toperol:** comprobar continuidad por estaciones/intervalos a lo
+  largo del eje, ancho y ubicación correctos. La suma de ML o un conteo alto
+  puede ocultar huecos y duplicados. Descontar huecos intencionales: contenedor,
+  prefabricado u otro recorte; no exigir188ML efectivos si hay interrupciones.
+- **Encuentros/obstáculos:** acabados entre caras interiores de prefabricados,
+  intersección con sus huellas cero. Contenedor colocado antes y después del
+  andén debe recortar sin desviar la fase/orientación del patrón alrededor.
+- **Cantidades:** área neta sin sobreancho = loseta lisa/adoquín + toperol +
+  guía, sin duplicaciones. Para llenos/cortes/rellenos comprobar el contorno
+  con1m de sobreancho por lado, confirmado por el usuario; no añadirlo al
+  área de acabados. Verificar la fórmula/dato de terreno que realmente se use.
+- **Rendimiento:** medir generar + recortar + empaquetar + actualizar, no
+  solo una función rápida. Registrar longitud, curvas, entidades, equipo,
+  versión y condiciones. El tiempo de una rampa10x4m no mide un andén188m.
+
+### Laboratorio seguro y reutilizable
+
+- Carpeta LOCAL `Documents/URBANISMO/work/<tema>/`, fuera de Drive. Scripts y
+  resultados importantes versionados en `diagnosticos/<tema>/`; dibujos y
+  salidas visuales de laboratorio permanecen locales. No editar DWG/Excel
+  vigentes como parte de una verificación.
+- Descubrir ejecutable y argumentos en el acceso directo de Civil del equipo.
+  Lanzar desde PowerShell con `Start-Process -WindowStyle Hidden -PassThru`;
+  guardar PID propio. No cerrar ni enviar comandos a la sesión del usuario.
+- `.scr` corto carga un helper `.lsp`; lógica y asserts en el helper. No usar
+  líneas gigantes ni desactivar globalmente la seguridad de AutoCAD. Usar
+  carpeta confiable existente; diagnosticar un modal, no repetir arranques.
+- Para reutilizar COM, verificar `ActiveDocument.FullName` contra la ruta
+  absoluta EXACTA del fixture antes de `SendCommand`. Con varias instancias,
+  `GetActiveObject` no garantiza elegir la propia: si no coincide, abortar.
+  El helper también comprueba DWGPREFIX/DWGNAME ANTES de borrar/crear objetos.
+- En este equipo se usó Windows PowerShell5.1 para `Marshal.GetActiveObject`;
+  no dar por hecho que esa API está disponible en PowerShell7. Evitar alias
+  de funciones SUBR para instrumentar; en AutoLISP LAST devuelve el último
+  elemento y no existe FBOUNDP. Capturar errores con `vl-catch-all-apply`.
+- Suprimir migraciones automáticas solo en el laboratorio, cuando corresponda.
+  Probar una instantánea del motor con hash registrado; no editar el archivo
+  que Civil está cargando. Un error de infraestructura no es éxito funcional.
+- Guardar/cerrar únicamente el fixture y la instancia propia. Reutilizar la
+  sesión entre lotes no autoriza esperar indefinidamente: los presupuestos
+  históricos son alertas de diagnóstico, no evidencia de que algo funciona.
+  Si hay un bloqueo, informarlo; no omitir pruebas y declarar corregido por tiempo.
+
+### Evidencia existente para reutilizar, no para extrapolar
+
+- `diagnosticos/fix507/native.lsp` y `RESULTADO.md`: andenes curvos, empaquetado,
+  áreas y tiempos de esa versión. No prueba orientación visual completa del
+  DWG principal ni valida automáticamente motores posteriores.
+- `diagnosticos/ramp541/native.lsp`, `overlay.lsp` y `RESULTADO.md`: Civil2023
+  real, baseline11fallos y lote final33OK; rampas y una rampa sobre andén de
+  laboratorio. **No fue una repetición integral del andén curvo188m.**
+- `work/_lib/verify_lib.lsp`: reutilizar helpers si existen en el equipo;
+  una ruta local del otro PC puede no existir. Leer y adaptar el harness,
+  nunca ejecutar su limpieza en el archivo principal.
+
+### Cómo comunicar y reducir trabajo repetido
+
+Usar cuatro estados separados: **comprobado numéricamente**, **observado en
+imagen**, **instalado** y **pendiente**. Para cada resultado indicar versión,
+archivo/caso, prueba y límite. No decir «vi todo el modelo» por consultar COM,
+ni «todo funciona» porque el LSP cargó. Una imagen parcial no permite concluir
+sobre el dibujo completo. No extrapolar Civil2023 a todas las versiones.
+
+Agrupar pruebas pertinentes, reutilizar sesión y helpers, mostrar resúmenes
+OK/FAIL y leer detalle solo del fallo. Reutilizar resultados anteriores SOLO
+si coinciden hashes de motor, harness, fixture y dependencias/entorno relevantes.
+Registrar pruebas y duración real sin inventar ahorro porcentual de tokens.
+Automatizar una orden y cache por hashes es una mejora propuesta, no declararla
+implementada por el hecho de escribir esta metodología.
+
+Para cambios SOLO documentales: revisar enlaces/rutas y `git diff --check`;
+no ejecutar Civil, cambiar versión del motor ni reinstalar innecesariamente.
+
+---
+
+Las secciones siguientes conservan instrucciones y experiencias históricas.
+Ante afirmaciones absolutas sobre capacidades o cobertura, prevalece sección0.
 
 ## 1. Encontrar la instalación de Civil 3D
 
