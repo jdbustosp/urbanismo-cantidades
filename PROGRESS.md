@@ -1,5 +1,23 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 06:21 America/Bogota — lote.NET plano:55OK, mejora modesta, NO instalado
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base f998afd.
+Ensayada emision de guia/juntas desde.NET directamente en bloque final, sin
+anidar, mismas coordenadas/bulges/capas y cantidades. Orden por roles.NET.
+Civil2023 real, fixtureS188/800m:55OK/0fallos,0sueltas/0anidados.4702y20001
+geometriasiguales1e-9; hatches188iguales, recortehueco y rollbackloteinvalidoOK.
+Finalbuild+pack+regen188:11.640s->11.796s (NO mejora estable);800:52.391s->45.938s
+(-12.3%). Primer1889.718s->8.001s no sostenido en repeticion. No elegir mejornumero.
+Orden aislado bloqueplano188:5312msLISP/COM->110ms.NET, ya incluidoenprototipo.
+ExportvisualWMF rechazo ventanaoculta: imagenpendiente, noforzada. Incidenciaprimer800
+porseguimientoCOMenplenoBUILD corregida conloteunificado. VerificadorO(n2)corregido.
+Informe/codigo/logs:diagnosticos/anden_batchnet. No integrar todavia: falta sinGUIA,
+cancelacion/edicion/rampas/otrosformatos/render/DLL2025-26. Fuente/bundle siguen552.
+Mas opciones sustentadas por codigo: cachelocalobstaculos y cajas/huellas,
+hatchesmaterialporlote.NET, muestreocurvaenlote. Ahorros aun no medidos.
+DWG/Exceloriginales intactos;PIDpropios23124/8164cerrados.
+
 ## 2026-09-14 04:39 America/Bogota — investigacion adicional, SIN entrega funcional
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base be4b704.
