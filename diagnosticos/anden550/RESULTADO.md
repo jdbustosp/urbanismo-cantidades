@@ -123,3 +123,50 @@ miles de simbolos independientes. Bajaria las piezas en un 88% de golpe.
 NO se implemento: cambia como se ve el dibujo y como se cuentan las
 piezas (hoy los simbolos llevan su XDATA y de ahi salen GUIA_UND y
 TOPEROL_UND). Es decision del usuario, no del que optimiza.
+
+## Censo por CAPA y por TIPO (2026-09-14, lo mas util para retomar)
+
+Anden curvo de 188 m, dibujo limpio, motor 5.5.1, guia y toperol activos.
+`ESTADO_PATRON_TOPEROL = SI`, `FALLOS_PIEZA = 0`: el patron del toperol
+FUNCIONO, incluso en curva. Total 6.014 piezas:
+
+| capa | tipo | piezas |
+|---|---|---|
+| URB-ANDEN-LOSETA-GUIA-20X20 | AcDbPolyline (capsulas) | **3.762** |
+| URB-ANDEN-LOSETA-GUIA-20X20 | AcDbLine (juntas) | **940** |
+| URB-ANDEN-LOSETA-GUIA-20X20 | Hatch / Region | 1 / 1 |
+| URB-ANDEN-LOSETA-TOPEROL-20X20 | AcDbLine (juntas) | 531 |
+| URB-ANDEN-LOSETA-TOPEROL-20X20 | **Hatch** | **2** |
+| URB-ANDEN-LOSETA-TOPEROL-20X20 | Region / Polyline | 1 / 2 |
+| URB-ANDEN-BLOQUE-BLANCO-20X10 (adoquin) | Hatch / Region | 333 / 111 |
+| URB-ANDEN-LOSETA-GRIS-20X20 | Hatch / Region | 220 / 110 |
+
+Reparto: **guia 4.704 (78,2%)**, toperol 536 (8,9%), adoquin 444 (7,4%),
+loseta gris 330 (5,5%).
+
+CORRECCION al hallazgo 2 de arriba: se dijo "guia y toperol son el 88%".
+Es **la GUIA sola, el 78%**. El toperol YA esta optimizado desde v4.86
+(patron URB_TOPEROL, un hatch por banda) y en esta corrida funciono sin
+un solo fallo de pieza. El toperol NO es el problema.
+
+CONFIRMADO: cada elemento queda en SU capa. El hatch del toperol se crea
+sobre URB-ANDEN-LOSETA-TOPEROL-20X20, no sobre una capa generica.
+
+## Siguiente paso recomendado (para quien retome)
+
+1. **La guia**: darle el mismo tratamiento que ya tiene el toperol -- un
+   patron .pat de barras, un hatch por banda. Bajaria de 3.762 capsulas a
+   ~2 entidades; el total de 6.014 a ~1.300 (-78%).
+   DECISION DEL USUARIO PENDIENTE: el codigo dejo las barras a proposito
+   ("la guia conserva sus barras, que a 15 cm si se leen"). El argumento
+   que se uso para convertir el toperol aplica igual (un patron se ve a
+   cualquier zoom), pero cambia la apariencia y hay que mostrarsela antes.
+2. **Las 1.471 lineas de junta** (940 guia + 531 toperol): 24% restante,
+   sin mirar todavia.
+3. **Sin decision**: emitir ya en orden de dibujo (ahorra ~20% del
+   empaquetado) y reutilizar la lista de objetos en vez de recorrer el
+   bloque otra vez tras -BLOCK (~10%).
+4. **Sin reproducir**: el caso real del usuario, un tramo de varios
+   cientos de metros sobre el maestro. Si en ese dibujo alguna pieza falla
+   el patron, `*urb-toperol-fallos-pieza*` lo reporta -- ahi estaria la
+   diferencia entre sus minutos y los segundos de laboratorio.
