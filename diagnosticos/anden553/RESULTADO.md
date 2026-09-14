@@ -126,3 +126,15 @@ truncados por transportar el archivo grande en salida de herramienta; se
 regeneraron completos conPowerShell. Se corrigio un parentesis del harness
 y una copia de fixture intentada antes de terminar el proceso anterior;
 ahora se espera WaitForExit antes de copiar. Ninguna cuenta como prueba pasada.
+
+## Verificación Luna sobre copia del maestro — 2026-09-14 09:20
+
+Se intentó cargar una copia local de `URB_MASTER_GENERAL.dwg` (35 MB), sin
+modificar el original. La instancia propia no escribió ni siquiera el primer
+registro después de superar 90 s; se cerró únicamente ese PID. Por protocolo
+esto es un límite de infraestructura/carga, no un fallo funcional ni una
+confirmación del toperol en el maestro. `master-result.txt` quedó vacío.
+
+El mensaje del usuario (`TOPEROL: 0`) sigue siendo diagnóstico reportado por
+pantalla, no reproducido en el fixture. Para una validación concluyente hace
+falta conservar el DWG después del fallo o una copia que complete la carga.
