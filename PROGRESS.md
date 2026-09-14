@@ -1,5 +1,50 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 02:05 America/Bogota — 5.4.3, por que el anden no queda en bloque, INSTALADO
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base: 6279c8a (5.4.2 de Codex).
+Reporte del usuario: el anden se crea bien (captura de ETAPA 5A, tramo
+curvo largo) pero NO QUEDA EN BLOQUE, y generarlo se demora muchisimo.
+
+DIAGNOSTICO: los dos sintomas son EL MISMO problema, y el propio codigo ya
+lo decia en un comentario de 2026-08-09 dentro de urb:package-anden:
+  "-BLOCK ... en vez de CopyObjects + borrado objeto-por-objeto via COM
+   que tardaba MINUTOS con decenas de miles de piezas -- la causa de fondo
+   de 'el anden no queda en bloque' (el usuario interrumpia la espera y el
+   material quedaba suelto). Si el comando falla por cualquier razon, se
+   cae al camino COM anterior."
+Es decir: hay un camino rapido (-BLOCK nativo) y uno lento (vla-CopyObjects).
+Cuando el rapido falla, el motor cae al lento, imprime "varios minutos, no
+interrumpa", el usuario interrumpe y las piezas quedan sueltas. Lo que
+faltaba era saber POR QUE falla el rapido: hasta ahora solo decia
+"Empaquetado nativo no disponible", sin motivo.
+
+CAMBIOS (todos dentro de urb:package-anden, sin tocar la geometria):
+- Nuevas urb:layers-of-selection / urb:layers-unlock / urb:layers-restore /
+  urb:layers-trabadas. Antes de llamar a -BLOCK se DESTRABAN las capas de
+  las piezas y se restauran despues pase lo que pase. Una capa bloqueada o
+  congelada impide que -BLOCK meta esos objetos en la definicion, y es la
+  causa mas probable en el dwg maestro, que trae estados de capa. Si habia
+  alguna trabada lo avisa por consola.
+- Si el camino nativo falla de todas formas, ahora IMPRIME EL MOTIVO:
+  CMDACTIVE distinto de 0 (otro comando en curso), el mensaje real que
+  devolvio -BLOCK, o que corrio sin dejar definicion.
+- Si el camino nativo funciona, imprime el tiempo que tardo.
+
+LIMITE DE ESTA ENTREGA, explicito: la causa raiz NO esta confirmada, solo
+acotada. Lo entregado convierte un fallo mudo en un fallo que se explica y
+ataca la causa mas probable. Verificado balance de parentesis, UTF-8 sin
+BOM y hash repo = instalado; NO ejecutado dentro de Civil 3D. Hace falta
+que el usuario cree un anden y reporte la linea que empieza por
+"motivo del fallo nativo:" o, si ya no aparece, que confirme que quedo en
+bloque y en cuanto tiempo. Con ese dato se ataca la causa real.
+
+Pendiente aparte: el tiempo de GENERACION (antes de empaquetar) no se
+toco. La referencia de 5.0.5 era 19,5 s de generacion + 26 s de
+empaquetado para una curva de 188 m; el tramo de la captura es bastante
+mas largo.
+
+
 ## 2026-09-13 22:51 America/Bogota — metodologia compartida de verificacion
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base documental:6870d3e.

@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.4.1")
+(setq *urb-version* "5.4.3")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -4272,7 +4272,9 @@
   (region feature angle-value layer phase-offset parent-handle module
    / points bounds umin umax vmin vmax spacing margin v count
    radius half-length half-width global-u local-u seg-len sym-ename
-   tile-k tile-g su su-step sym-color wc w1 w2 ok loops)
+   tile-k tile-g su su-step sym-color wc w1 w2 ok loops
+   *urb-pip-index-enabled* *urb-pip-source* *urb-pip-index*)
+  (setq *urb-pip-index-enabled* T)
   ;; Reparte simbolos tactiles reales (circulos o capsulas) en una reticula
   ;; de 5 cm sobre el area ya recortada de la franja, en vez de depender de
   ;; un patron .pat (que solo puede construirse con familias de lineas
@@ -4584,7 +4586,9 @@
   (chain-poly len d1 d2 perp-sign feature module layer parent-handle loops
    / spacing margin half-length half-width radius tile-k tile-g sym-color
      su dist pt ang normal ro wpt u v cs sn joint-p1 joint-p2
-     symbol-result created e1 e2)
+     symbol-result created e1 e2
+     *urb-pip-index-enabled* *urb-pip-source* *urb-pip-index*)
+  (setq *urb-pip-index-enabled* T)
   ;; simbolos y juntas por tableta caminando la curva real
   ;; 2026-09-12 (reporte del usuario: "me salio un circulo, eso pasa es en
   ;; las curvas"). Los simbolos se colocan a una distancia PERPENDICULAR
@@ -5823,10 +5827,65 @@
         (entdel poly))))
   out)
 
+(defun urb:pip-index-build (loops / low high n loop p prev xi yi xj yj
+                          bins step rows i j edge row edges)
+  ;; Indice por bandas Y de las MISMAS aristas del poligono muestreado.
+  ;; No simplifica curvas ni cambia tolerancias: evita recorrer aristas
+  ;; que no pueden cruzar el rayo horizontal del punto consultado.
+  (setq n 0)
+  (foreach loop loops
+    (foreach p loop
+      (setq low (if low (min low (cadr p)) (cadr p))
+            high (if high (max high (cadr p)) (cadr p)) n (1+ n))))
+  (if (and low high (> high low) (> n 32))
+    (progn
+      (setq bins (min 128 (max 8 (fix (sqrt n))))
+            step (/ (- high low) bins) rows nil i 0)
+      (repeat bins (setq rows (cons (list i) rows) i (1+ i)))
+      (foreach loop loops
+        (setq prev (last loop))
+        (foreach p loop
+          (setq xi (car p) yi (cadr p) xj (car prev) yj (cadr prev))
+          (if (/= yi yj)
+            (progn
+              (setq edge (list xi yi xj yj)
+                    i (max 0 (min (1- bins) (fix (/ (- (min yi yj) low) step))))
+                    j (max 0 (min (1- bins) (fix (/ (- (max yi yj) low) step)))))
+              (while (<= i j)
+                (setq row (assoc i rows)
+                      rows (subst (cons i (cons edge (cdr row))) row rows)
+                      i (1+ i)))))
+          (setq prev p)))
+      (list low high step bins rows))))
+
+(defun urb:pip-index-contains-p (pt index / x y row edge xi yi xj yj inside)
+  (setq x (car pt) y (cadr pt))
+  (if (and (>= y (car index)) (<= y (cadr index)))
+    (progn
+      (setq row (max 0 (min (1- (nth 3 index))
+        (fix (/ (- y (car index)) (nth 2 index))))))
+      (foreach edge (cdr (assoc row (nth 4 index)))
+        (setq xi (car edge) yi (cadr edge) xj (caddr edge) yj (cadddr edge))
+        ;; Misma expresion y semantica de borde de point-in-poly-2d.
+        (if (and (/= (> yi y) (> yj y))
+                 (< x (+ xi (/ (* (- xj xi) (- y yi)) (- yj yi)))))
+          (setq inside (not inside))))))
+  inside)
+
 (defun urb:point-in-region-polygons-p (point loops / inside loop)
   ;; Paridad: dentro de contorno exterior pero fuera de todos sus huecos.
-  (foreach loop loops
-    (if (urb:point-in-poly-2d point loop) (setq inside (not inside))))
+  ;; Cache solo durante la creacion de UNA franja. Variables ligadas
+  ;; localmente por los dos generadores: no persiste entre DWG/ediciones.
+  (if *urb-pip-index-enabled*
+    (progn
+      (if (not (eq loops *urb-pip-source*))
+        (setq *urb-pip-source* loops *urb-pip-index* (urb:pip-index-build loops)))
+      (if *urb-pip-index*
+        (setq inside (urb:pip-index-contains-p point *urb-pip-index*))
+        (foreach loop loops
+          (if (urb:point-in-poly-2d point loop) (setq inside (not inside))))))
+    (foreach loop loops
+      (if (urb:point-in-poly-2d point loop) (setq inside (not inside)))))
   inside)
 
 (defun urb:region-align-elevation (cutter base / a b za zb)
@@ -6024,6 +6083,60 @@
       (list a (urb:unit-count-ceiling a (* module module)) (/ c module) (/ d module)
         b (urb:unit-count-ceiling b 0.02)))))
 
+;; 2026-09-14 (reporte del usuario: "no quedan en bloque" + "se esta
+;; demorando muchisimo tiempo"). Los dos sintomas son EL MISMO problema:
+;; si el empaquetado nativo -BLOCK falla, el motor cae al camino COM que
+;; tarda varios minutos, el usuario interrumpe y las piezas quedan sueltas.
+;; La causa mas comun de que -BLOCK falle es que alguna de las capas
+;; generadas este BLOQUEADA o CONGELADA -- el comando no puede meter esos
+;; objetos en la definicion y no dice nada. Se destraban antes de llamarlo
+;; y se restauran despues, pase lo que pase.
+(defun urb:layers-of-selection (ss / i en capas capa)
+  (setq i 0 capas nil)
+  (repeat (sslength ss)
+    (setq en (ssname ss i)
+          capa (cdr (assoc 8 (entget en))))
+    (if (and capa (not (member capa capas))) (setq capas (cons capa capas)))
+    (setq i (1+ i)))
+  capas)
+
+(defun urb:layers-unlock (capas / estado capa obj)
+  (setq estado nil)
+  (foreach capa capas
+    (setq obj (vl-catch-all-apply
+      '(lambda () (vla-Item (vla-get-Layers (urb:doc)) capa))))
+    (if (not (vl-catch-all-error-p obj))
+      (progn
+        (setq estado
+          (cons (list capa
+                  (vl-catch-all-apply '(lambda () (vlax-get-property obj 'Lock)))
+                  (vl-catch-all-apply '(lambda () (vlax-get-property obj 'Freeze))))
+                estado))
+        (vl-catch-all-apply '(lambda () (vlax-put-property obj 'Lock :vlax-false)))
+        ;; descongelar la capa ACTUAL lanza error en AutoCAD: va con catch
+        (vl-catch-all-apply '(lambda () (vlax-put-property obj 'Freeze :vlax-false))))))
+  estado)
+
+(defun urb:layers-restore (estado / e obj)
+  (foreach e estado
+    (setq obj (vl-catch-all-apply
+      '(lambda () (vla-Item (vla-get-Layers (urb:doc)) (car e)))))
+    (if (not (vl-catch-all-error-p obj))
+      (progn
+        (if (not (vl-catch-all-error-p (cadr e)))
+          (vl-catch-all-apply '(lambda () (vlax-put-property obj 'Lock (cadr e)))))
+        (if (not (vl-catch-all-error-p (caddr e)))
+          (vl-catch-all-apply '(lambda () (vlax-put-property obj 'Freeze (caddr e))))))))
+  (princ))
+
+;; cuantas de esas capas estaban trabadas (solo para el aviso)
+(defun urb:layers-trabadas (estado / n e)
+  (setq n 0)
+  (foreach e estado
+    (if (or (equal (cadr e) :vlax-true) (equal (caddr e) :vlax-true))
+      (setq n (1+ n))))
+  n)
+
 (defun urb:package-anden
   (ename / boundary metadata material etapa subetapa guia toperol format
    calculate surface grade-source elevation pattern-mode area area-bruta
@@ -6031,7 +6144,8 @@
    quantity-pattern-angle
    handle objects filtered obj block-name blocks block-definition
    copy-result point block-ref insert-result block-ename xdata-result
-   fast-ok ss en cmd-result old-attreq over-poly over-area measured-qty)
+   fast-ok ss en cmd-result old-attreq over-poly over-area measured-qty
+   capas-estado trabadas razon t-pack)
   (setq boundary (vlax-ename->vla-object ename))
   (urb:ensure-layer "URB-ANDEN" 7 T)
   (setq metadata (urb:get-xdata-strings ename "URB_ANDEN"))
@@ -6143,19 +6257,45 @@
     (if (not (vl-catch-all-error-p en)) (ssadd en ss)))
   (if (> (sslength ss) 0)
     (progn
+      (setq t-pack (getvar "MILLISECS"))
+      ;; destrabar las capas de las piezas: es lo que hacia fallar a -BLOCK
+      (setq capas-estado (urb:layers-unlock (urb:layers-of-selection ss))
+            trabadas (urb:layers-trabadas capas-estado))
+      (if (> trabadas 0)
+        (prompt (strcat "\n  (" (itoa trabadas)
+          " capa(s) estaban bloqueadas o congeladas; se destraban para"
+          " empaquetar y se dejan como estaban)")))
       (setq old-attreq (getvar "ATTREQ"))
       (setvar "ATTREQ" 0)
       (setq cmd-result
         (vl-catch-all-apply 'vl-cmdf
           (list "_.-BLOCK" block-name "0,0,0" ss "")))
       (setvar "ATTREQ" old-attreq)
+      (urb:layers-restore capas-estado)
       (if (and (not (vl-catch-all-error-p cmd-result))
                (tblsearch "BLOCK" block-name))
         (progn
           (setq block-definition
             (vl-catch-all-apply '(lambda () (vla-Item blocks block-name))))
           (if (not (vl-catch-all-error-p block-definition))
-            (setq fast-ok T))))))
+            (setq fast-ok T))))
+      ;; si aun asi fallo, DECIR POR QUE: antes solo se veia "no
+      ;; disponible" y despues varios minutos de espera a ciegas
+      (if (not fast-ok)
+        (prompt
+          (strcat "\n  motivo del fallo nativo: "
+            (cond
+              ((/= 0 (getvar "CMDACTIVE"))
+                "hay otro comando activo (CMDACTIVE distinto de 0)")
+              ((vl-catch-all-error-p cmd-result)
+                (strcat "-BLOCK devolvio: "
+                  (vl-catch-all-error-message cmd-result)))
+              ((not (tblsearch "BLOCK" block-name))
+                "el comando corrio pero no quedo la definicion del bloque")
+              (T "no se pudo tomar la definicion recien creada"))))
+        (prompt
+          (strcat "\n  empaquetado nativo OK en "
+            (rtos (/ (- (getvar "MILLISECS") t-pack) 1000.0) 2 1) " s")))))
   (if (not fast-ok)
     (progn
       (prompt "\nEmpaquetado nativo no disponible; usando el metodo lento (varios minutos, no interrumpa)...")
