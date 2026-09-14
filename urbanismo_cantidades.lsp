@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.0")
+(setq *urb-version* "5.5.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -6332,11 +6332,21 @@
           (vl-catch-all-error-message copy-result)))
       nil)
     (progn
+      ;; 2026-09-14: se reporta el tiempo del ORDEN DE DIBUJO aparte. Medido
+      ;; en laboratorio, el empaquetado escala peor que lineal (al doblar el
+      ;; largo del anden el empaque se multiplico por 2,61 con el doble de
+      ;; piezas), y esta es la fase candidata: reordenar la tabla de
+      ;; sortents con decenas de miles de objetos. Sin el dato no se
+      ;; optimiza a ciegas una fase que decide que tapa a que.
+      (setq t-pack (getvar "MILLISECS"))
       (urb:set-block-draw-order
         block-definition
         (if fast-ok
           (urb:block-object-list block-definition)
           (urb:variant-object-list copy-result)))
+      (prompt
+        (strcat "\n  orden de dibujo: "
+          (rtos (/ (- (getvar "MILLISECS") t-pack) 1000.0) 2 1) " s"))
       (urb:add-invisible-attribute
         block-definition point "AREA_M2" "Area m2"
         (rtos area 2 2))

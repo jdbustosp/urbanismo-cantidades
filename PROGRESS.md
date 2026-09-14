@@ -1,5 +1,48 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 03:10 America/Bogota — 5.5.1, andenes verificados en Civil 3D real, INSTALADO
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base: 6279c8a (5.4.2 de Codex).
+Informe completo y harnesses: diagnosticos/anden550/RESULTADO.md.
+Verificado con Civil 3D 2023 Metric REAL, instancia propia oculta, sobre
+copia local del fixture y dibujos limpios. NO se abrio el maestro del
+usuario. Al cerrar no queda ninguna instancia mia.
+
+HALLAZGO 1 (comprobado numericamente): el motor tardaba 43.843 ms en cargar
+sobre una copia del maestro de 33 MB contra 1.469 ms en dibujo limpio.
+`urb:repair-anden-hatches` recorria TODOS los bloques y TODOS sus objetos
+con un entget por objeto, en CADA carga -- o sea en cada apertura de
+dibujo. Arreglado con sello de version: 2.906 ms -> 0 ms medido.
+Limite: el sello vive en el dibujo, hay que guardarlo una vez.
+
+HALLAZGO 2 (comprobado): guia y toperol son el 88% de las piezas
+(5.511 de 6.285 en 188 m), suman 71% al build y casi DUPLICAN el
+empaquetado. La sospecha del usuario era correcta.
+
+HALLAZGO 3 (comprobado): el empaquetado NO esta roto. En los cinco casos
+corridos, ES_BLOQUE = T y SUELTAS = 0 con barrido completo por XDATA.
+El problema es que el tiempo total se dispara, el usuario interrumpe y el
+material queda suelto -- que es lo que el propio motor documentaba desde
+agosto dentro de urb:package-anden.
+
+CORRECCION PROPIA: primero reporte que el empaquetado escalaba PEOR que
+lineal (x2,61). Era RUIDO. Medido fase por fase da x2,10 para x1,98 piezas:
+es LINEAL, ~1,1 ms por pieza. El orden de dibujo, mi sospechoso, pesa solo
+19-21%. No hay punto patologico que optimizar: la unica palanca es generar
+menos piezas.
+
+ERROR PROPIO REGISTRADO: intente cronometrar la fase tactil envolviendo
+`urb:create-accessibility-features`. TESTING_CIVIL3D.md advierte "evitar
+alias de funciones SUBR para instrumentar" y fue exactamente lo que fallo
+(bad function: SUBR), invalidando esa corrida. Se rehizo comparando build
+con guia/toperol apagados contra encendidos, sin envolver nada.
+
+PENDIENTE: no se reprodujo el caso real del usuario (tramo de varios
+cientos de metros sobre el maestro). La propuesta de bajar las piezas
+tactiles con un hatch de patron NO se implemento: cambia apariencia y
+conteo, es decision del usuario.
+
+
 ## 2026-09-14 02:05 America/Bogota — 5.4.3, por que el anden no queda en bloque, INSTALADO
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base: 6279c8a (5.4.2 de Codex).

@@ -61,14 +61,26 @@ Contorno curvo sintetico, ancho 3,5 m, loseta 20x20, dibujo limpio:
 - Cantidades correctas y completas: GUIA_ML 188,10 y TOPEROL_ML 188,01
   sobre 188 m; 376,20 y 375,87 sobre 376 m.
 
-## Medicion 4: el empaquetado escala PEOR que lineal
+## Medicion 4: el empaquetado es LINEAL (corregido)
 
-De B a C el largo se duplica y las piezas tambien (x1,97), pero:
-- BUILD x2,23
-- PACK **x2,61**
+Primero se reporto que escalaba PEOR que lineal (x2,61 al doblar el
+largo). Esa cifra era RUIDO: venia de una corrida con tres andenes
+acumulados en el dibujo y el equipo con poca memoria libre. Medido
+aparte, fase por fase:
 
-Extrapolar con cuidado: un anden de ~800 m (orden del tramo de la captura)
-daria del orden de 26.000 piezas. No se midio ese caso.
+| fase | 188 m (6.014 piezas) | 376 m (11.925 piezas) | escala |
+|---|---|---|---|
+| listar objetos | 641 ms | 1.344 ms | x2,10 |
+| orden de dibujo | 1.265 ms | 2.906 ms | x2,30 |
+| resto (-BLOCK + atributos) | ~4.797 ms | ~9.797 ms | x2,04 |
+| **empaquetado total** | 6.703 ms | 14.047 ms | **x2,10** |
+
+Con x1,98 de piezas, x2,10 de tiempo: es LINEAL. El orden de dibujo,
+que era el sospechoso, pesa solo el 19-21% del empaquetado.
+
+CONSECUENCIA: no hay un punto patologico que optimizar. El costo es
+de ~1,1 ms POR PIEZA, parejo. La unica palanca real es generar MENOS
+PIEZAS, y el 88% son guia y toperol.
 
 ## Lo que SI quedo demostrado sobre el bloque
 En los tres casos: `ES_BLOQUE = T` y `SUELTAS = 0` con barrido completo del
@@ -98,3 +110,16 @@ Se intento cronometrar la fase tactil envolviendo
 lo que fallo (`bad function: SUBR`), invalidando esa corrida. Se rehizo
 comparando el build con guia/toperol apagados contra encendidos, sin
 envolver nada.
+
+## La palanca que queda (propuesta, NO implementada)
+
+La franja tactil dibuja UNA entidad por tacho/capsula: 5.511 piezas en
+188 m. Un anden de ~800 m como el de la captura daria del orden de 23.000
+piezas tactiles, y a ~1,1 ms por pieza el empaquetado solo se iria a mas
+de medio minuto, mas el build.
+
+Opcion: representar la franja tactil como UN hatch con patron en vez de
+miles de simbolos independientes. Bajaria las piezas en un 88% de golpe.
+NO se implemento: cambia como se ve el dibujo y como se cuentan las
+piezas (hoy los simbolos llevan su XDATA y de ahi salen GUIA_UND y
+TOPEROL_UND). Es decision del usuario, no del que optimiza.
