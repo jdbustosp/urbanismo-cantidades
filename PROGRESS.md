@@ -1,5 +1,58 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 23:40 America/Bogota — 5.4.0, un solo nombre para el relleno de recebo, INSTALADO
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base: c1abcc1 (v5.3.0).
+Instruccion del usuario: "los rellenos van es a la actividad de recebo,
+quiero que elimines lo referente a material seleccionado y lo cambies es
+por el recebo... siempre que sea el precio mas alto".
+
+Hallazgo previo: la MISMA actividad vivia bajo tres nombres y DOS precios.
+  Suministro y colocacion de recebo .......... $101.915
+  Relleno con material seleccionado B-200 .... $101.915
+  Suministro y colocacion de recebo B-200 .... $110.000
+  RELLENO EN RECEBO B-200 .................... $110.000
+Repartidos sin criterio: anden, via, paso peatonal y Muna al precio bajo;
+ciclorruta, las dos rampas, zona verde y TODAS las redes al alto. Y ademas
+DUPLICADA dentro del mismo capitulo en 2.2.1 (f62 con 5,44 y f63 en cero) y
+en 2.2.6 (f206 y f207) -- eso explicaba la unica "sin formulacion" que
+habia reportado del paso peatonal: no faltaba formula, SOBRABA una fila.
+
+LIBRO: renombradas a `Suministro y colocacion de recebo B-200` las filas
+f62 (2.2.1.4.2, 5,44 M3), f98 (2.2.2.5.2, 14,62), f206 (2.2.6.4.2, 0),
+f1186 (2.7.1.3.3, 3.798,62) y f1244 (2.7.2.2.3, 3.104,13). Borradas las
+duplicadas f207 y f63, ambas en cero -- habia que borrarlas, no solo
+renombrarlas: VR_UNITARIO es un SUMIF por nombre y dos filas iguales en el
+mismo capitulo COBRAN DOBLE el precio unitario.
+Total: 217.307.686.926 -> 217.374.451.121 (**+66.764.195**). De esos,
+55.965.918 son el cambio directo de precio (8.085 $/M3 sobre 6.922,81 M3) y
+el resto lo arrastran los capitulos por porcentaje (imprevistos,
+interventoria, administracion).
+Backup: BACKUPS\antes_recebo_20260913.xlsx. Subido con hash igual.
+
+LSP: todas las emisiones usan ya el nombre unificado --
+  30223 VIA (era "Suministro y colocacion de recebo")
+  30589 ANDEN (era "Relleno con material seleccionado")
+  30888 PASO-PEATONAL (era "Suministro y colocacion de recebo")
+  31128 zanja de redes (era "Suministro y colocacion de recebo")
+  24193 y 24681, que son rotulos de los informes, por consistencia.
+Las rampas (30866, 30911) ya emitian el nombre con B-200.
+
+NO se toco `Relleno con material seleccionado de excavacion` ($48.122, en
+2.4.1.3.12 / 2.4.2.3.12 / 2.4.3.3.12, las tres en cero): esa SI es otra
+actividad -- material reutilizado de la propia excavacion, no recebo
+importado. Si el usuario tambien la quiere unificar, es otra decision.
+
+A-85 / A-86: verificado contra la fuente oficial (cartilla IDU y catalogo
+de prefabricados). **A-85 = sardinel BAJO para rampa; A-86 = sardinel ALTO
+para rampas.** Los nombres del presupuesto ya estaban correctos; lo que
+manda son las ZONAS que marco el usuario en sus capturas. Dato suelto por
+verificar: la fuente da un peso aproximado de 97,44 kg para el A-86 y el
+catalogo del plugin (*urb-prefab-pesos*) tiene 168,00 kg -- afecta el KG de
+transporte de prefabricados. NO se cambio: un resumen de busqueda no basta
+para pisar un valor puesto a proposito.
+
+
 ## 2026-09-13 22:30 America/Bogota — 5.3.0, anchos de zanja y motor desde el repo, INSTALADO
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base: 5f4e345 (v5.2.0).

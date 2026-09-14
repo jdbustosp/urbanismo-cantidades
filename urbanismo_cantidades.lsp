@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.3.0")
+(setq *urb-version* "5.4.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -24190,7 +24190,7 @@
                 (setq records
                   (cons
                     (urb:q-record "ANDENES" "Movimiento de tierras"
-                      "Relleno con material seleccionado B-200"
+                      "Suministro y colocacion de recebo B-200"
                       (urb:q-safe-nth 1 mov "")
                       stage substage "M3" fill handle
                       (if (= quantity-status "OK") "CALCULADO" "REVISAR")
@@ -24678,7 +24678,7 @@
       ("CAMA_M3" "Cama de apoyo" "M3")
       ("RELLENO_M3" "Relleno de zanja" "M3")
       ("TRITURADO_M3" "Cimentacion en triturado tamano grava" "M3")
-      ("RECEBO_M3" "Suministro y colocacion de recebo" "M3")
+      ("RECEBO_M3" "Suministro y colocacion de recebo B-200" "M3")
       ("ENTIBADO_LE3_M2" "Entibado para excavaciones <=3m" "M2")
       ("ENTIBADO_GT3_M2" "Entibado para excavaciones >3m" "M2")
       ("SOBRANTE_M3" "Retiro de sobrantes" "M3")
@@ -30220,7 +30220,7 @@
             nombre "" "" etapa sub "M2" area handle)
           (urb:ppto-row "VIA" "Excavacion mecanica en material comun"
             nombre "" "" etapa sub "M3" corte handle)
-          (urb:ppto-row "VIA" "Suministro y colocacion de recebo"
+          (urb:ppto-row "VIA" "Suministro y colocacion de recebo B-200"
             nombre "" "" etapa sub "M3" relleno handle)
           (urb:ppto-row "VIA" "Emulsion asfaltica CRL-1 imprimacion"
             nombre "" "" etapa sub "M2" base-area handle)
@@ -30586,7 +30586,7 @@
             "" "" "" etapa sub "M2" over-area handle)
           (urb:ppto-row "ANDEN" "Excavacion mecanica en material comun"
             "" "" "" etapa sub "M3" corte handle)
-          (urb:ppto-row "ANDEN" "Relleno con material seleccionado"
+          (urb:ppto-row "ANDEN" "Suministro y colocacion de recebo B-200"
             "" "" "" etapa sub "M3" relleno handle)
           (urb:ppto-row "ANDEN" "Subbase granular SBG"
             "" "" "" etapa sub "M3" (* over-area 0.50) handle)
@@ -30885,7 +30885,7 @@
           (setq rows
             (append rows
               (list
-                (rr red "Suministro y colocacion de recebo" "M3" relleno)
+                (rr red "Suministro y colocacion de recebo B-200" "M3" relleno)
                 (rr red "Adoquin gris 10x20x6" "UN" adoq-und)
                 (rr red "Bordillo prefabricado A-80" "UN" a80)
                 (rr red "Arena de nivelacion" "M3" arena)
@@ -31125,7 +31125,7 @@
                   "Cama y atraque en arena de pena"
                   "Cimentacion de tuberia en gravilla")
                 id pini pfin etapa sub "M3" trit handle)
-              (urb:ppto-row red "Suministro y colocacion de recebo"
+              (urb:ppto-row red "Suministro y colocacion de recebo B-200"
                 id pini pfin etapa sub "M3" rec handle)
               (urb:ppto-row red "Cargue transporte y disposicion de sobrantes"
                 id pini pfin etapa sub "M3"
