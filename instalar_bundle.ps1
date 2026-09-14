@@ -102,7 +102,7 @@ Copy-Item -LiteralPath $xml -Destination (Join-Path $dest 'PackageContents.xml')
 # subcarpetas"). Sin esto, el .lsp (directo en Contents) cargaba sin
 # aviso pero el .dll (en Contents\net) mostraba "Unsigned Executable
 # File" cada vez que se recompilaba.
-$trustAdd = @($contents, ($contents + "\..."))
+$trustAdd = @($contents, ($contents + "\..."), $repo)
 $updated = 0
 try {
   Get-ChildItem 'HKCU:\Software\Autodesk\AutoCAD' -ErrorAction Stop | Get-ChildItem | ForEach-Object {
@@ -164,10 +164,13 @@ $marker
 ;;; cargo, no hace nada. NO editar a mano (se regenera al correr
 ;;; instalar_bundle.ps1 / INSTALAR.bat).
 (vl-load-com)
-(defun urbcant:bootstrap ( / origen)
+(defun urbcant:bootstrap ( / origen destino resultado)
   (vl-catch-all-apply 'vl-cmdf
     (list "_NETLOAD" "__DLL__"))
-  (if (not (member "C:URBANISMO" (atoms-family 1)))
+  ;; El bundle puede haber cargado ANTES una version vieja. Su comando
+  ;; C:URBANISMO no debe impedir cargar la fuente compartida en este DWG.
+  ;; La guarda es propia del bootstrap y del documento, no del comando.
+  (if (not urbcant:source-loaded)
     (progn
       ;; 2026-09-13 (pedido del usuario: hacer cambios en el .lsp y que OTRO
       ;; computador los reconozca sin reinstalar): se intenta PRIMERO el
@@ -177,18 +180,27 @@ $marker
       ;; carpeta movida- cae a la copia local del bundle, que siempre existe.
       (if (findfile "__LSPREPO__")
         (progn
-          (vl-catch-all-apply 'load (list "__LSPREPO__"))
-          (if (member "C:URBANISMO" (atoms-family 1))
-            (setq origen "repo"))))
-      (if (not (member "C:URBANISMO" (atoms-family 1)))
+          (setq resultado (vl-catch-all-apply 'load (list "__LSPREPO__")))
+          (if (and (not (vl-catch-all-error-p resultado))
+                   (member "C:URBANISMO" (atoms-family 1)))
+            (setq origen "repo" destino "__LSPREPO__")
+            (prompt "\nURBCANT: fallo al cargar Drive; se intentara el respaldo local. Reinicie tras corregir la fuente."))))
+      (if (null origen)
         (progn
-          (load "__LSP__" "urbcant: no se pudo cargar el motor")
-          (setq origen "bundle local")))
+          (setq resultado (vl-catch-all-apply 'load (list "__LSP__")))
+          (if (and (not (vl-catch-all-error-p resultado))
+                   (member "C:URBANISMO" (atoms-family 1)))
+            (setq origen "bundle local" destino "__LSP__")
+            (prompt "\nURBCANT: no se pudo cargar el motor. Revise la instalacion."))))
       (if origen
-        (prompt
+        (progn
+          (setq urbcant:source-loaded destino)
+          (prompt
           (strcat "\nurbcant "
             (if (boundp '*urb-version*) *urb-version* "?")
-            " (" origen ")")))))
+            " (" origen ") - " destino))
+          (if (= origen "bundle local")
+            (prompt "\nAviso: fuente Drive no disponible. Revise sincronizacion o ejecute INSTALAR.bat desde la ruta de este PC."))))))
   (princ))
 ;;; Cargar el motor inmediatamente. Antes se confiaba solo en S::STARTUP;
 ;;; si otro complemento tenia un S::STARTUP que fallaba, nunca se alcanzaba
@@ -252,6 +264,7 @@ $ver = (Select-String -Path $lsp -Pattern '\*urb-version\*\s+"([^"]+)"' | Select
 Write-Output "Plugin instalado/actualizado en:"
 Write-Output "  $dest"
 Write-Output "Version del motor: $ver"
+Write-Output "Fuente compartida registrada en ESTE equipo: $lsp"
 Write-Output "Perfiles de AutoCAD con ruta confiable agregada: $updated"
 if ($dllBloqueado) {
   Write-Output ""
