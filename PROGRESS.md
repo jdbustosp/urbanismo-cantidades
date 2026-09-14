@@ -1,5 +1,58 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 12:20 America/Bogota — 5.5.6 la zona verde nunca llegaba al ppto
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 859e5cd; commit 047f9c1.
+Reporte del usuario: "verifica sigue sin traerme lo referente a zonas verdes,
+quiero que elabores los parametros para que quede todo totalmente vinculado".
+
+CAUSA RAIZ (no era el emisor): `urb:ppto-rows-zonasverdes` si existia y si
+calculaba bien -2 bloques, 523,90 m2 comprobados en el maestro- pero estaba
+registrada en `urb:track-collect-rows`, el colector del comando de BUSQUEDA,
+y NO en la lista de fuentes de `urb:ppto-run`, que es la que arma la
+EXPORTACION. Nadie la llamaba al exportar, por eso no llegaba al libro ni
+siquiera como huerfana. Se buscaron durante un buen rato fallos de match de
+capitulo/UM que no existian: el match nunca se ejecutaba.
+
+Cambios de esta version:
+- `urb:ppto-run`: se agrega "zonasverdes" a la lista de fuentes.
+- `*urb-ppto-param-tipos*`: familia ZONA_VERDE (clave con guion BAJO, que es
+  la que compara el emisor contra la columna A de URB_PARAMETRICAS) con
+  AREA, PERIMETRO, VOLUMEN, CORTE, RELLENO, UNIDAD. El emisor ya pasaba esas
+  seis magnitudes a `urb:ppto-param-rows`; sin la entrada del catalogo no se
+  podian crear parametros desde el dialogo.
+- `*urb-ppto-mag-labels*`: etiqueta legible de VOLUMEN (tierra negra).
+
+Verificado en Civil 3D headless sobre COPIAS (copia.dwg + prueba_zv.xlsx en
+work/claude_20260914_export), nunca sobre los archivos de trabajo:
+  (MOTOR 5.5.5) (COINCIDE SI) (TERMINO MS 214281 OK)
+  (RESUMEN (FILAS 8978 BORRADAS 0 HUERFANAS 33 ERRORES-ITEMS 0))
+  MEMORIAS: ZONA-VERDE Empradizacion y conformacion 5/5A M2 335.918
+            ZONA-VERDE Empradizacion y conformacion 4/4B M2 187.986
+  2.2.7.1.1 M2 cant=523,91 valor=9.159.588
+Antes del cambio: 8976 filas y 2.2.7.1.1 en cero.
+
+Paramétricas escritas en el libro de colsubsidio (respaldo previo en
+BACKUPS/antes_parametricas_zv_20260914.xlsx), con los nombres de actividad
+LEIDOS DEL PROPIO LIBRO para no romper el match por acentos:
+  ZONA_VERDE | CORTE   | 1 | Excavacion mecanica en material comun (...) | 2.2.7.3.1
+  ZONA_VERDE | RELLENO | 1 | Suministro y colocacion de recebo B-200     | 2.2.7.3.2
+La hoja URB_PARAMETRICAS quedo de nuevo veryHidden.
+
+HALLAZGO APARTE, sin resolver: en URB_PARAMETRICAS las filas 3 y 4 son
+IDENTICAS (ANDEN TOPEROL_ML + GUIA_ML -> "M.O. instalacion de loseta guia y
+toperol", nota "sdsds"). Como el libro agrega con SUMIF por nombre, esa
+actividad de anden esta recibiendo el DOBLE de la cantidad real. Es dato de
+prueba del usuario, no defecto del motor; pendiente de que el confirme para
+borrar una.
+
+Instalado en este equipo; hash fuente = hash instalado
+FAD6C9F5FB68D752E945474E206CBED5FF58894FF89FF1F69D66465C4A2B25F4. El DLL no
+se copio porque habia un acad abierto, pero el DLL NO cambio en esta version.
+Las filas 2.2.7.1.2/.1.3/.1.4 siguen en cero CORRECTAMENTE: son los conceptos
+de zona verde DENTRO DE PARQUE y ninguna de las dos zonas esta en un parque.
+
+
 ## 2026-09-14 10:05 America/Bogota — 5.5.4 microarcos y sobreancho real
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base 800eb20; commit pendiente de esta entrada.
