@@ -1,5 +1,51 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 00:30 America/Bogota — filas de zona verde en el libro + diagnostico de la rampa
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base: 171cee2 (v5.4.0).
+
+LIBRO: agregadas al capitulo 2.2.7 las tres actividades que la zona verde
+DENTRO DE PARQUE calcula y no tenian fila donde caer:
+  2.2.7.1.2  Localizacion y replanteo            M2   $6.202
+  2.2.7.1.3  Relleno Manual Tierra Negra X 30CM  M3   $111.152
+  2.2.7.1.4  Coberturas Zonas Verdes             M2   $32.000
+Los tres precios ya estaban en el catalogo; los textos se copiaron de los
+capitulos de parque para que el emparejador los alcance. Total sin cambio
+(217.374.451.121): las cantidades entran cuando se exporte.
+Backup: BACKUPS\antes_zonaverde_20260913.xlsx. Subido con hash igual.
+
+DOS TRAMPAS DE POWERSHELL que costaron dos intentos fallidos y que valen
+para el README:
+1. Insertar una fila y CLONAR la de arriba en el mismo bucle pisa los
+   valores recien escritos. Hay que hacer una fila completa a la vez
+   (insertar, clonar, escribir) antes de pasar a la siguiente.
+2. MUY SUTIL: un scriptblock ejecutado con & dentro de una funcion VE LAS
+   VARIABLES LOCALES DE ESA FUNCION. El helper Retry usaba $i como
+   contador, asi que un $cods[$i] del llamador leia el contador de
+   reintentos y escribia siempre el mismo elemento. El contador se llama
+   ahora $__try. Regla: nunca usar nombres de variable comunes ($i, $r,
+   $n) como locales de un helper que recibe scriptblocks.
+
+DIAGNOSTICO DE LA RAMPA (reporte del usuario: el bordillo queda sobre la
+via). El flujo de `urb:create-contour-ramp-command` (rampa vehicular) pide
+exactamente los tres puntos que describe el usuario:
+  1. Punto INICIAL
+  2. EJE y ancho -- "marque hasta donde llega el frente"
+  3. SENTIDO y FONDO -- "marque hacia donde llega"
+y el propio codigo dice que "el frente (1 -> 2) es el borde de la via".
+O sea que el modulo NO deberia cruzar esa linea, y el usuario confirma que
+lo correcto es construirlo del lado del punto 3 (el anden).
+CAUSA ENCONTRADA en el builder de la rampa peatonal (`urb:build-ramp`):
+    (setq v0 (- (max 0.0 (if ext ext 0.0))))
+v0 es el arranque del modulo HACIA LA VIA -- con ext > 0 vale -ext y toda
+la geometria (contorno, toperoles, bordillo) arranca en v negativo, es
+decir del lado de la via. El side-sign del tercer punto SI se calcula bien
+y se propaga; el problema es el signo de v0, no el lado.
+PENDIENTE: falta ubicar el equivalente en el builder del contorno
+(rampa vehicular) antes de tocar nada -- no se cambia a ciegas porque
+afectaria TODAS las rampas del proyecto.
+
+
 ## 2026-09-13 23:40 America/Bogota — 5.4.0, un solo nombre para el relleno de recebo, INSTALADO
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base: c1abcc1 (v5.3.0).
