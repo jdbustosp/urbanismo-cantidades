@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.4.0")
+(setq *urb-version* "5.4.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -22073,15 +22073,45 @@
   (atof (urb:safe-string
           (cdr (assoc "LONGITUD_M" (urb:block-attribute-values ref))) "0")))
 
+(defun urb:ramp-tactile-clear-prefabs (poly prefabs / region cutter result prefab)
+  ;; Recorte real del encuentro tactil/aleta; no dibujar domos encima
+  ;; del bordillo ni contabilizar esa superficie como loseta.
+  (setq region (urb:add-region-from-object poly))
+  (foreach prefab prefabs
+    (if (urb:objects-bbox-overlap-p region (urb:as-vla-object prefab) 0.001)
+      (progn
+        (setq cutter (urb:block-footprint-region prefab))
+        (if cutter
+          (progn
+            (urb:region-align-elevation cutter region)
+            (setq result (vl-catch-all-apply 'vla-Boolean (list region 2 cutter)))
+            (urb:safe-delete cutter)
+            (if (vl-catch-all-error-p result)
+              (vl-exit-with-error "No se pudo recortar la loseta contra el prefabricado.")))))))
+  (vla-put-Layer region (vla-get-Layer poly))
+  (urb:safe-delete poly)
+  region)
+
+(defun urb:ramp-input-data (tipo p1 p2 p3 / spec)
+  (setq spec (urb:ramp-three-point-data p1 p2 p3))
+  (if (and spec (= tipo "RAMPA-VEHICULAR"))
+    (list (car spec) (cadr spec) (caddr spec) *urb-rampav-mayor* (nth 4 spec))
+    spec))
+
 (defun urb:ramp-vehicular-objects
   (frame etapa sub depth / base axis sign L a f b bi objects obj hatch ent
-   u1 u2 lu lv tab-ml bol origin prefabs r fan-area vx txt a105 a80ml a85ml)
+   u1 u2 lu lv tab-ml bol origin prefabs r fan-area vx txt a105 a80ml a85ml a86ml v)
   (setq base (car frame) axis (cadr frame) sign (caddr frame) L (nth 3 frame))
   (setq a (urb:rampav-aleta L)
         f *urb-rampav-fondo*
         b *urb-rampav-banda*
         bi (max 0.0 (- a *urb-rampav-banda-ini*)))
-  (setq objects nil prefabs nil tab-ml 0.0 bol 0 a105 0 a80ml 0.0 a85ml 0.0)
+  ;; El frente seleccionado es el LIMITE via/anden. Reservar el espesor
+  ;; real del sardinel hacia el tercer punto; tambien las curvas quedan
+  ;; al interior. Conservar el fondo absoluto seleccionado por el usuario.
+  (setq base (urb:ramp-local-point base axis sign 0.0 b)
+        depth (- depth b))
+  (setq objects nil prefabs nil tab-ml 0.0 bol 0 a105 0 a80ml 0.0 a85ml 0.0 a86ml 0.0)
   (urb:ensure-layer "URB-RAMPA" 4 T)
   (urb:ensure-layer "URB-RAMPA-BAJADA" 8 T)
   (urb:ensure-layer "URB-RAMPA-REMATE" 4 T)
@@ -22147,17 +22177,16 @@
             (list (list L 0.0 (- *urb-rampav-bulge*)) (list (- L a) f 0.0))
             (list (+ L 1.0) (* 0.5 f)) etapa sub "Bordillo" "Rampa vehicular"))
   (if r (setq prefabs (cons r prefabs) a80ml (+ a80ml (urb:prefab-longitud-de r))))
-  ;; ---- LONGITUD MENOR (5,80 en el modulo de 10) = bordillo A-80 ----
+  ;; ---- LONGITUD MENOR (5,80 en el modulo de 10) = sardinel bajo A-85 ----
   (setq r (urb:rampav-bordillo base axis sign
             (list (list bi (- f b) 0.0) (list (- L bi) (- f b) 0.0))
-            (list (* 0.5 L) (+ f 1.0)) etapa sub "Bordillo" "Rampa vehicular"))
-  (if r (setq prefabs (cons r prefabs) a80ml (+ a80ml (- L (* 2.0 bi)))))
-  ;; ---- LONGITUD MAYOR (10,00) = sardinel BAJO A-85, sobre el bordillo
-  ;;      de la via: es el sardinel rebajado por donde cruza el vehiculo ----
+            (list (* 0.5 L) (+ f 1.0)) etapa sub "Sardinel A-85" "Rampa vehicular"))
+  (if r (setq prefabs (cons r prefabs) a85ml (+ a85ml (- L (* 2.0 bi)))))
+  ;; ---- LONGITUD MAYOR (10,00) = sardinel ALTO A-86 ----
   (setq r (urb:rampav-bordillo base axis sign
             (list (list 0.0 0.0 0.0) (list L 0.0 0.0))
-            (list (* 0.5 L) -1.0) etapa sub "Sardinel A-85" "Rampa vehicular"))
-  (if r (setq prefabs (cons r prefabs) a85ml (+ a85ml L)))
+            (list (* 0.5 L) -1.0) etapa sub "Sardinel A-86" "Rampa vehicular"))
+  (if r (setq prefabs (cons r prefabs) a86ml (+ a86ml L)))
 
   ;; ---- tableta podotactil de ALERTA: fila al fondo y bajando por los
   ;;      costados (del bloque del plano) ----
@@ -22168,6 +22197,7 @@
         (urb:as-vla-object
           (urb:ramp-quad-poly base axis sign u1 f u2 (+ f *urb-rampav-tableta*)
             "URB-ANDEN-LOSETA-TOPEROL-20X20")))
+      (setq obj (urb:ramp-tactile-clear-prefabs obj prefabs))
       (setq objects (cons obj objects))
       (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
                     (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
@@ -22175,17 +22205,19 @@
       (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
       (setq hatch (urb:toperol-texture obj "TOPEROL" "URB-ANDEN-LOSETA-TOPEROL-20X20" axis ""))
       (if hatch (setq objects (cons hatch objects)))
-      (setq tab-ml (+ tab-ml (- u2 u1)))))
-  (foreach lu (list (list (- u1 *urb-rampav-tableta*) u1)
-                    (list u2 (+ u2 *urb-rampav-tableta*)))
-    (if (< (+ f *urb-rampav-tableta*) depth)
+      (setq tab-ml (+ tab-ml (/ (vla-get-Area obj) *urb-rampav-tableta*)))))
+  ;; Alerta a TODO el fondo en los dos costados EXTERIORES del modulo.
+  (foreach lu (list (list 0.0 *urb-rampav-tableta*)
+                    (list (- L *urb-rampav-tableta*) L))
+    (if (> depth 0.0)
       (progn
         (setq obj
           (urb:as-vla-object
-            (urb:ramp-quad-poly base axis sign (car lu) (+ f *urb-rampav-tableta*)
+            (urb:ramp-quad-poly base axis sign (car lu) 0.0
               (cadr lu)
-              (min depth (+ f *urb-rampav-tableta* *urb-rampav-lateral*))
+              depth
               "URB-ANDEN-LOSETA-TOPEROL-20X20")))
+        (setq obj (urb:ramp-tactile-clear-prefabs obj prefabs))
         (setq objects (cons obj objects))
         (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
                       (list obj "URB-ANDEN-LOSETA-TOPEROL-20X20"
@@ -22193,8 +22225,7 @@
         (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
         (setq hatch (urb:toperol-texture obj "TOPEROL" "URB-ANDEN-LOSETA-TOPEROL-20X20" axis ""))
         (if hatch (setq objects (cons hatch objects)))
-        (setq tab-ml (+ tab-ml (- (min depth (+ f *urb-rampav-tableta* *urb-rampav-lateral*))
-                                  (+ f *urb-rampav-tableta*)))))))
+        (setq tab-ml (+ tab-ml (/ (vla-get-Area obj) *urb-rampav-tableta*))))))
 
   ;; ---- borde del acceso hacia el predio (arcos de cuarto de circulo del
   ;;      plano) y los 4 bolardos, solo lo que quepa en el fondo dibujado --
@@ -22225,7 +22256,7 @@
   ;;  bordillos y el sardinel se cobran como PREFABRICADOS; los ML aqui van
   ;;  solo de informe (atributos del bloque)
   (list (reverse objects) fan-area tab-ml 0.0 bol (reverse prefabs) a105 a80ml
-        a85ml)
+        a85ml a86ml)
 )
 
 ;; T si el paso da para llevar el desarrollo completo en los dos extremos
@@ -22398,12 +22429,14 @@
           (vl-catch-all-apply
             '(lambda ()
                (and (= (type p) 'VLA-OBJECT)
-                    (= (vla-get-ObjectName p) "AcDbPolyline")
+                    (member (vla-get-ObjectName p) '("AcDbPolyline" "AcDbRegion"))
                     (= (vla-get-Layer p) "URB-ANDEN-LOSETA-TOPEROL-20X20")
-                    (= (vla-get-Closed p) :vlax-true)))))
+                    (or (= (vla-get-ObjectName p) "AcDbRegion")
+                        (= (vla-get-Closed p) :vlax-true))))))
         (if (and ok (not (vl-catch-all-error-p ok)))
           (progn
-            (setq reg (vl-catch-all-apply 'urb:add-region-from-object (list p)))
+            (setq reg (if (= (vla-get-ObjectName p) "AcDbRegion")
+              (vla-Copy p) (vl-catch-all-apply 'urb:add-region-from-object (list p))))
             (if (and reg (not (vl-catch-all-error-p reg)))
               (progn
                 (setq top-m2 (+ top-m2 (vla-get-Area reg)))
@@ -22415,8 +22448,8 @@
       (setq guia-ml 0.0 guia-m2 0.0)
       (if (> depth (+ *urb-guide-offset* 0.45))
         (progn
-          (setq quad (urb:ramp-quad-poly base axis sign 0.0 *urb-guide-offset*
-                       L (+ *urb-guide-offset* 0.40)
+          (setq quad (urb:ramp-quad-poly base axis sign *urb-rampav-tableta* *urb-guide-offset*
+                       (- L *urb-rampav-tableta*) (+ *urb-guide-offset* 0.40)
                        "URB-ANDEN-LOSETA-GUIA-20X20"))
           (setq reg (vl-catch-all-apply 'urb:add-region-from-object
                       (list (urb:as-vla-object quad))))
@@ -22427,7 +22460,7 @@
                     (vl-catch-all-apply 'vla-Boolean (list region 2 reg)))
                 (urb:safe-delete reg))))
           (setq guia (urb:guia-quad-objects quad axis))
-          (setq guia-ml L guia-m2 (* L 0.40))
+          (setq guia-ml (- L (* 2.0 *urb-rampav-tableta*)) guia-m2 (* guia-ml 0.40))
           (setq objects (append objects guia))))
       (setq bandas (vl-catch-all-apply 'urb:decorate-region-anden-bands
                      (list region axis "URB-RAMPA")))
@@ -22481,12 +22514,12 @@
         blanco (if surf (nth 2 surf) 0.0)
         guia-ml (if surf (nth 3 surf) 0.0)
         guia-m2 (if surf (nth 4 surf) 0.0)
-        top-m2 (if surf (nth 5 surf) 0.0))
+        top-m2 (* top-ml *urb-rampav-tableta*))
   ;; AREA_M2 = lo pavimentado por el modulo cuando el pavimento es suyo;
   ;; en superposicion sigue siendo el area de la bajada (el anden ya cuenta
   ;; la suya y no se puede contar dos veces)
-  (setq area-pav (+ gris blanco guia-m2 top-m2))
-  (if (> area-pav 0.0) (setq area area-pav))
+  (setq area-pav (if surf (+ gris blanco guia-m2 top-m2) 0.0))
+  (if (and surf (> area-pav 0.0)) (setq area area-pav))
   (setq name (strcat "URB_RAMPA_" (vla-get-Handle copy))
         definition (vla-Add (vla-get-Blocks doc) (vlax-3d-point '(0 0 0)) name)
         result (vl-catch-all-apply 'vla-CopyObjects
@@ -22500,11 +22533,12 @@
       (cons "ANCHO_RAMPA" (rtos (nth 3 frame) 2 3))
       (cons "FONDO_M" (rtos *urb-rampav-fondo* 2 3))
       (cons "AREA_M2" (rtos area 2 6))
-      (cons "TOPEROL_ML" (rtos (nth 2 endres) 2 3))
+      (cons "TOPEROL_ML" (rtos (nth 2 endres) 2 6))
       (cons "A81_UND" "0")
       (cons "A105_UND" (itoa (nth 6 endres)))
       (cons "BORDILLO_A80_ML" (rtos (nth 7 endres) 2 3))
       (cons "SARDINEL_A85_ML" (rtos (nth 8 endres) 2 3))
+      (cons "SARDINEL_A86_ML" (rtos (nth 9 endres) 2 3))
       (cons "LONGITUD_MAYOR_M" (rtos (nth 3 frame) 2 3))
       (cons "LONGITUD_MENOR_M"
         (rtos (max 0.0 (- (nth 3 frame)
@@ -22535,14 +22569,10 @@
   (foreach obj objects (urb:safe-delete obj))
   ;; los bordillos curvos y la banda recortan el patron del anden de abajo
   (setq n-rec (if prefabs (urb:recut-andenes-under prefabs) 0))
-  (prompt (strcat "\nAcceso vehicular: rampa del lado de la via, "
-    (rtos (nth 7 endres) 2 2) " ml de bordillo A-80 (curvas + longitud menor "
-    (rtos (max 0.0 (- (nth 3 frame)
-                      (* 2.0 (max 0.0 (- (urb:rampav-aleta (nth 3 frame))
-                                         *urb-rampav-banda-ini*)))))
-          2 2)
-    " m), " (rtos (nth 8 endres) 2 2)
-    " ml de sardinel bajo A-85 en la longitud mayor, "
+  (prompt (strcat "\nAcceso vehicular hacia el tercer punto, sin invadir la via: "
+    (rtos (nth 7 endres) 2 2) " ml A-80 en curvas, "
+    (rtos (nth 8 endres) 2 2) " ml sardinel bajo A-85 (menor), "
+    (rtos (nth 9 endres) 2 2) " ml sardinel alto A-86 (mayor), "
     (itoa (nth 4 endres)) " bolardos."
     (if surf
       (strcat " Pavimento propio del modulo: " (rtos (+ gris blanco) 2 2)
@@ -22881,15 +22911,19 @@
           (vla-put-Closed (urb:as-vla-object source) :vlax-true))))
     (progn
       (setq p1 (getpoint "\n1. Punto INICIAL: "))
-      (if p1 (setq p2 (getpoint p1 "\n2. EJE y ancho: marque hasta donde llega el frente: ")))
+      (if p1 (setq p2 (getpoint p1
+        (if (= (car selection) "RAMPA-VEHICULAR")
+          "\n2. Direccion del EJE (frente fijo de 10.00 m): "
+          "\n2. EJE y ancho: marque hasta donde llega el frente: "))))
       (if p2 (setq p3 (getpoint p1 "\n3. SENTIDO y FONDO: marque hacia donde llega: ")))
       (if p3
         (progn
-          (setq spec (urb:ramp-three-point-data (trans p1 1 0) (trans p2 1 0) (trans p3 1 0)))
+          (setq spec (urb:ramp-input-data (car selection) (trans p1 1 0) (trans p2 1 0) (trans p3 1 0)))
           (if spec
             (progn
               (setq axis (cadr spec) sign (caddr spec) width (nth 3 spec) depth (nth 4 spec))
-              (if (> depth (if (= (car selection) "RAMPA-VEHICULAR") 1.20 0.40))
+              (if (> depth (if (= (car selection) "RAMPA-VEHICULAR")
+                            (+ *urb-rampav-fondo* *urb-rampav-banda* *urb-rampav-tableta*) 0.40))
                 (progn
                   (setq source (urb:ramp-quad-poly (car spec) axis sign 0.0 0.0 width depth "URB-RAMPA"))
                   (vla-put-Elevation (urb:as-vla-object source) (caddr (car spec)))
@@ -23201,7 +23235,10 @@
   ;; rampa). Todo queda unido en el mismo bloque URB_RAMPA_*.
   (setq doc (urb:doc))
   (urb:ensure-layer "URB-RAMPA" 7 T)
-  (urb:ensure-layer "URB-RAMPA-A81" 8 T)
+  (if (<= depth 1.70)
+    (vl-exit-with-error "Fondo insuficiente: rampa peatonal y sardinel posterior requieren mas de 1.70 m."))
+  (urb:ensure-layer "URB-RAMPA-A105" 6 T)
+  (urb:ensure-layer "URB-SARDINEL-A-86" 3 T)
   (urb:ensure-layer "URB-ANDEN-LOSETA-TOPEROL-20X20" 2 T)
   (if (not (tblsearch "APPID" "URB_ANDEN_GEN")) (regapp "URB_ANDEN_GEN"))
   (setq total (+ width 1.20))
@@ -23267,14 +23304,14 @@
     (setq obj
       (vlax-ename->vla-object
         (urb:ramp-quad-poly base-pt axis-angle side-sign
-          (nth 0 corners) v0 (nth 1 corners) 1.3 "URB-RAMPA-A81")))
+          (nth 0 corners) v0 (nth 1 corners) 1.3 "URB-RAMPA-A105")))
     (setq objects (cons obj objects))
     ;; la diagonal del cuadrado (el borde inclinado de la rampa)
     (setq ent
       (urb:ramp-line base-pt axis-angle side-sign
         (car (nth 2 corners)) (cadr (nth 2 corners))
         (car (nth 3 corners)) (cadr (nth 3 corners))
-        "URB-RAMPA-A81" 8))
+        "URB-RAMPA-A105" 6))
     (setq objects (cons (vlax-ename->vla-object ent) objects)))
   ;; AMARILLO: superficie de rampa RECTANGULAR entre los dos A81 (2026-08-11,
   ;; correccion del usuario sobre el PDF: la rampa NO invade los A81 -- antes
@@ -23289,13 +23326,22 @@
   (setq rorigin (urb:ramp-local-point base-pt axis-angle side-sign 0.3 0.0))
   (setq treg
     (vl-catch-all-apply 'urb:add-region-from-object (list obj)))
+  ;; A-86 solicitado en el borde posterior, dentro del contorno. El
+  ;; acabado termina contra su cara interior, no debajo del prefabricado.
+  (setq obj (urb:as-vla-object
+    (urb:ramp-quad-poly base-pt axis-angle side-sign
+      0.3 (- depth 0.20) (+ width 0.9) depth "URB-SARDINEL-A-86")))
+  (setq objects (cons obj objects))
+  (setq hatch (vl-catch-all-apply 'urb:add-solid-hatch
+    (list obj "URB-SARDINEL-A-86" 3)))
+  (if (not (vl-catch-all-error-p hatch)) (setq objects (cons hatch objects)))
   ;; ZONA POSTERIOR: el fondo del modulo (del bordillo horizontal hasta el
   ;; final) con la MISMA modelacion del anden real: banda por banda (gris
   ;; loseta 20x20 / blanco adoquin 0.10x0.20), NO una reticula uniforme --
   ;; la textura se aplica por banda mas abajo, en el mismo bucle de fase.
   (setq ent
     (urb:ramp-quad-poly base-pt axis-angle side-sign
-      0.3 1.5 (+ width 0.9) depth "URB-RAMPA"))
+      0.3 1.5 (+ width 0.9) (- depth 0.20) "URB-RAMPA"))
   (setq obj (vlax-ename->vla-object ent))
   (setq objects (cons obj objects))
   (setq forigin (urb:ramp-local-point base-pt axis-angle side-sign 0.3 1.5))
@@ -23393,7 +23439,10 @@
         (rtos (* 2.0 (- depth v0)) 2 2))
       (urb:add-invisible-attribute block-definition base-pt "BORDILLO_ML" "Bordillo ml"
         (rtos (+ (* 2.0 (- depth v0)) (+ width 0.6)) 2 2))
-      (urb:add-invisible-attribute block-definition base-pt "A81_UND" "Prefabricado A81 und" "2")
+      (urb:add-invisible-attribute block-definition base-pt "A81_UND" "Legado A81 und" "0")
+      (urb:add-invisible-attribute block-definition base-pt "A105_UND" "Remate A105 und" "2")
+      (urb:add-invisible-attribute block-definition base-pt "SARDINEL_A86_ML" "Sardinel alto A86 ml"
+        (rtos (+ width 0.6) 2 6))
       (urb:add-invisible-attribute block-definition base-pt "ETAPA" "Etapa" etapa)
       (urb:add-invisible-attribute block-definition base-pt "SUBETAPA" "Subetapa" subetapa)
       (setq insert-result
@@ -30796,7 +30845,7 @@
 (defun urb:ppto-rows-rampas (/ ss i be atts data mov tipo red etapa sub handle
                              area corte relleno sbg arena geo adoq-und adoq-m2
                              loseta-und loseta-m2 top-ml top-und guia-ml
-                             guia-und bor-ml a80 a81 bolardos a85 propio
+                             guia-und bor-ml a80 a81 a105 bolardos a85 a86 propio
                              kg-prefab base rows out r)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_RAMPA_BLOCK")))) out nil i 0)
   (if ss
@@ -30825,6 +30874,8 @@
             bor-ml (urb:ra-num "BORDILLO_ML" "0")
             a80 (/ bor-ml 0.80)
             a85 (urb:ra-num "SARDINEL_A85_ML" "0")
+            a86 (urb:ra-num "SARDINEL_A86_ML" "0")
+            a105 (urb:ra-num "A105_UND" "0")
             a81 (urb:ra-num "A81_UND" "0")
             bolardos (urb:ra-num "BOLARDO_UND" "0"))
       ;; el acceso vehicular sin anden debajo trae su propio pavimento
@@ -30841,7 +30892,11 @@
       (setq kg-prefab
         (+ (* adoq-und (urb:prefab-peso "ADOQUIN"))
            (* (+ loseta-und top-und guia-und) (urb:prefab-peso "LOSETA"))
-           (* a80 (urb:prefab-peso "A-80"))))
+           (* a80 (urb:prefab-peso "A-80"))
+           (if (= tipo "RAMPA-PEATONAL")
+             (+ (* (fix (+ 0.999999 (/ a85 (urb:prefab-largo "Sardinel A-85")))) (urb:prefab-peso "A-85"))
+                (* (fix (+ 0.999999 (/ a86 (urb:prefab-largo "Sardinel A-86")))) (urb:prefab-peso "A-86")))
+             0.0)))
       (defun rr (r c um q) (urb:ppto-row r c "" "" "" etapa sub um q handle))
       ;; ---------- lo que comparten los tres capitulos ----------
       (setq rows
@@ -30918,9 +30973,13 @@
                 (rr red "Transporte de prefabricados" "KG" kg-prefab)
                 (rr red "Suministro sardinel bajo A-85 para rampa" "UN"
                   (if (> a85 0.0) (float (fix (+ 0.999999 a85))) 0.0))
+                (rr red "Suministro sardinel alto A-86 para rampas" "UN"
+                  (if (> a86 0.0)
+                    (float (fix (+ 0.999999 (/ a86 (urb:prefab-largo "Sardinel A-86")))) ) 0.0))
+                (rr red "M.O. instalacion de sardinel prefabricado" "ML" (+ a85 a86))
                 (rr red
                   "Suministro y construccion de remate de rampa en concreto fundido en sitio"
-                  "M2" (* a81 0.39))
+                  "M2" (* (+ a81 a105) 0.39))
                 (rr red "M.O. localizacion y replanteo" "M2" base)
                 (rr red "M.O. nivelacion con arena" "M2" base)
                 (rr red "M.O. instalacion de bordillo prefabricado" "ML" bor-ml)
@@ -30937,6 +30996,8 @@
               (cons "AREA" area) (cons "TOPEROL_ML" top-ml)
               (cons "BORDILLO_ML" bor-ml)
               (cons "SARDINEL_A85_ML" a85)
+              (cons "SARDINEL_A86_ML" a86)
+              (cons "A105_UND" a105)
               (cons "LOSETA_LISA_M2" loseta-m2)
               (cons "ADOQUIN_M2" adoq-m2)
               (cons "GUIA_ML" guia-ml) (cons "CORTE" corte)

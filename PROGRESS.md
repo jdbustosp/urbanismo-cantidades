@@ -1,5 +1,23 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-13 22:21 America/Bogota — rampas5.4.1 verificadas e instaladas
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base94ec9b3; commit de entrega
+identificable con git log de diagnosticos/ramp541/RESULTADO.md.
+Vehicular: A86 alto10m, A85 bajo5.8m, A80 curvas; frente fisico0.20m
+al interior hacia punto3; ancho10m fijo en Tres puntos. Toperol exterior
+completo recortado contra prefabs, guia sin cruce lateral, cantidades netas.
+Peatonal: A86 posterior, acabado termina en su cara; remates etiquetadosA105.
+Se mantiene partida fundida del presupuesto para esos remates; A86 nuevo
+con suministro/instalacion/transporte. No se modifica Excel ni DWG vigentes.
+Civil3D2023 real: baseline11fallos reproducidos; ultimo lote33OK/0fallos,
+tres orientaciones, solape0, y rampa sobre anden real sin duplicar base.
+Modulo10x4m328-406ms; no extrapolar al anden188m. Informe/evidencia/harness
+en diagnosticos/ramp541. Instalador541 sin advertencia de DLL bloqueada.
+Reiniciar y recrear rampas; visual/clics y exportacion E2E aExcel no probados.
+No se valida ni instala el otro equipo desde aqui.
+
+
 ## 2026-09-14 01:10 America/Bogota — redes sin "material seleccionado" + rampa vehicular localizada
 
 Agente: Claude. Equipo: BOG085CD119BDQN.
