@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.11")
+(setq *urb-version* "5.5.12")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -11364,10 +11364,12 @@
       (mp:acc-add-polys blk lay col T
         '((0.826 0.033 0.0 -0.242 0.0 0.309)
           (1.377 0.033 0.0 -0.517 0.0 0.584))))
-    (T ;; UNION / OTRO
+    (T ;; UNION / OTRO: simbolo abierto, sin marco rectangular que oculte
+      ;; accesorios coincidentes. La geometria sigue siendo lineal y no
+      ;; introduce hatch/wipeout ni una entidad que tape el cruce.
       (mp:acc-add-lines blk lay col
-        '((-1.667 1.667 1.667 1.667) (-1.667 -1.667 1.667 -1.667)
-          (-0.417 0.417 0.417 0.417) (-0.417 -0.417 0.417 -0.417))))))
+        '((-1.667 0.18 1.667 0.18) (-1.667 -0.18 1.667 -0.18)
+          (-0.20 -0.60 -0.20 0.60) (0.20 -0.60 0.20 0.60))))))
 
 ;; nombre de bloque POR TIPO para accesorios (cada tipo con su simbolo);
 ;; los demas puntos siguen con mp:point-block-name
@@ -12063,7 +12065,7 @@
 ;; contar derivaciones/postes. Arriba conductor, abajo longitud y ducteria.
 (defun mp:ducteria-label (vals / d)
   (setq d (vl-string-trim " \"" (mp:getval "DIAM_DUCTO" vals "?")))
-  (strcat (mp:getval "DUCTOS" vals "?") " tubos de " d "\" "
+  (strcat (mp:getval "DUCTOS" vals "?") "%%c" d "\" "
     (mp:getval "MATERIAL_DUCTO" vals "")))
 
 (defun mp:long-label (vals)
@@ -15682,6 +15684,7 @@
   (urb:config-write "MP_TRAMO_TEXT_HEIGHT" (rtos text-height 2 6))
   (urb:config-write "URB_MP_ANCHO_TRAMO" (rtos line-width 2 6))
   (urb:config-write "URB_MP_TEXTO_TRAMO" (rtos text-height 2 6))
+  (urb:config-write "MP_POINT_TEXT_HEIGHT" (rtos text-height 2 6))
   (list line-width text-height))
 
 (defun mp:load-tramo-appearance-settings (/ value)
@@ -15694,13 +15697,18 @@
     (mp:configured-tramo-value
       "MP_TRAMO_TEXT_HEIGHT" "URB_MP_TEXTO_TRAMO"
       *mp-vis-tramo-text-height* 0.10 50.0))
+  (setq *mp-vis-text-height*
+    (mp:configured-tramo-value
+      "MP_POINT_TEXT_HEIGHT" "MP_TRAMO_TEXT_HEIGHT"
+      *mp-vis-text-height* 0.10 50.0))
   (list *mp-vis-width* *mp-vis-tramo-text-height*)
 )
 
 (defun mp:apply-tramo-appearance-to-drawing
-  (/ blocks blk bname base definitions ss index ename obj atts att tag refs)
-  ;; Las polilineas viven en la definicion compartida; los textos visibles
-  ;; son referencias de atributo y se actualizan tambien en cada INSERT.
+  (/ blocks blk bname base definitions ss index ename obj atts att tag refs visible)
+  ;; Apariencia global: referencias y definiciones de tramos, pozos, cajas y
+  ;; accesorios. Las polilineas viven en definiciones compartidas; los textos
+  ;; visibles se actualizan en cada INSERT sin tocar XDATA ni geometria.
   (setq blocks (vla-get-Blocks (urb:doc)) definitions 0 refs 0)
   (vlax-for blk blocks
     (if (and (= (vla-get-IsLayout blk) :vlax-false)
@@ -15708,10 +15716,13 @@
       (progn
         (setq bname (vla-get-Name blk)
               base (mp:infer-base bname nil))
-        (if (mp:base-is-tramo base)
+        (if (or (mp:base-is-tramo base) (/= base ""))
           (progn
-            (mp:normalize-tramo-graphics blk base)
-            (mp:normalize-visible-attdefs blk T base)
+            (if (mp:base-is-tramo base)
+              (progn
+                (mp:normalize-tramo-graphics blk base)
+                (mp:normalize-visible-attdefs blk T base))
+              (mp:normalize-visible-attdefs blk nil base))
             (setq definitions (1+ definitions)))))))
   (setq ss (ssget "_X" '((0 . "INSERT"))) index 0)
   (if ss
@@ -15719,16 +15730,18 @@
       (setq ename (ssname ss index)
             obj (vlax-ename->vla-object ename)
             base (mp:infer-base (vla-get-EffectiveName obj) (mp:att-alist ename)))
-      (if (and (mp:base-is-tramo base)
+      (if (and (/= base "")
                (= (vla-get-HasAttributes obj) :vlax-true))
         (progn
           (setq atts (vlax-invoke obj 'GetAttributes))
           (foreach att atts
             (setq tag (strcase (vla-get-TagString att)))
-            (if (member tag '("ETIQUETA" "PENDIENTE_VIS"))
+            (if (member tag '("ETIQUETA" "PENDIENTE_VIS" "LONG_VIS" "NUM_VIS"))
               (progn
                 (vl-catch-all-apply 'vla-put-Height
-                  (list att (float *mp-vis-tramo-text-height*)))
+                  (list att (float (if (mp:base-is-tramo base)
+                                     *mp-vis-tramo-text-height*
+                                     *mp-vis-text-height*))))
                 (vla-Update att))))
           (setq refs (1+ refs))))
       (setq index (1+ index))))
@@ -15743,8 +15756,8 @@
       '("urb_tramo_apariencia : dialog { label = \"Apariencia de tramos\";"
         ": boxed_column { label = \"Geometria y datos visibles\";"
         ": edit_box { label = \"Espesor de linea del tramo (m)\"; key = \"line_width\"; edit_width = 12; }"
-        ": edit_box { label = \"Altura de datos del tramo (m)\"; key = \"text_height\"; edit_width = 12; }"
-        ": text { label = \"Se aplica a tramos existentes y a los que se creen despues.\"; } }"
+        ": edit_box { label = \"Altura global de textos (m)\"; key = \"text_height\"; edit_width = 12; }"
+        ": text { label = \"Se aplica a tramos, pozos, cajas y accesorios existentes y nuevos.\"; } }"
         "ok_cancel; }"))
     filename)
 )
@@ -15756,7 +15769,7 @@
     ((or (null line-width) (< line-width 0.01) (> line-width 20.0))
       (alert "El espesor debe estar entre 0.01 m y 20.00 m.") nil)
     ((or (null text-height) (< text-height 0.10) (> text-height 50.0))
-      (alert "La altura de los datos debe estar entre 0.10 m y 50.00 m.") nil)
+      (alert "La altura global de textos debe estar entre 0.10 m y 50.00 m.") nil)
     (T
       (setq *mp-vis-width* line-width
             *mp-vis-tramo-text-height* text-height)

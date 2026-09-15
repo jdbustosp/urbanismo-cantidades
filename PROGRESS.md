@@ -2,6 +2,18 @@
 
 ## 2026-09-15 14:45 America/Bogota — 5.5.11 etiquetas eléctricas y SUP_TN
 
+## 2026-09-15 15:05 America/Bogota — 5.5.12 formato y apariencia global
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Se ajustó la ductería al formato del
+plano (`4%%c6" PVC`, que Civil muestra como `4Ø6" PVC`) y se eliminó el texto
+“tubos de”. La ventana Apariencia ahora guarda una altura global para textos
+de tramos, pozos, cajas y accesorios; la aplicación actualiza sus referencias
+visibles sin alterar geometría, XDATA ni cantidades. El símbolo genérico de
+accesorio de acueducto dejó de dibujar un marco rectangular y usa linework
+abierto para no ocultar accesorios superpuestos. Sintaxis LSP verificada.
+Pendiente validar visualmente cada familia de accesorios en Civil 3D con el
+DWG del usuario; el cambio no modifica cantidades.
+
 Agente: Codex. Equipo: BOG085CD119BDQN. Base 5fba584; commit pendiente.
 Usuario confirmó que “número de tramos” significa número de tubos (ej. 6 tubos
 de 6 pulgadas) y pidió el formato visual del plano: conductor arriba, longitud
