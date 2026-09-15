@@ -1,5 +1,19 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-15 16:43 America/Bogota — 5.5.13 cotas y perfil variable de movimiento de tierras
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit: 36bf691. Se acercaron las cotas visibles de
+tramo al eje y al punto medio (factor local 0.75 de la altura), y la ventana
+de apariencia global ahora recentra automáticamente las referencias existentes
+además de cambiar su altura. El cambio aplica a tramos ya creados y nuevos.
+El flujo de creación de andén dejó de usar una sola cota implícita: cuando se
+activa movimiento de tierras llama al cálculo por perfil completo de la vía,
+interpolando sus estaciones y muestreando la franja; así las pendientes y
+elevaciones variables de la vía no se reducen al primer punto seleccionado.
+La opción genérica por picks sigue disponible para senderos/zonas sin vía.
+Sintaxis LSP verificada; validación visual en el DWG del usuario queda para la
+prueba de creación/edición en Civil 3D después de reiniciar.
+
 ## 2026-09-15 14:45 America/Bogota — 5.5.11 etiquetas eléctricas y SUP_TN
 
 ## 2026-09-15 15:05 America/Bogota — 5.5.12 formato y apariencia global

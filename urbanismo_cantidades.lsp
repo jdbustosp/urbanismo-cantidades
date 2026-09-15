@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.12")
+(setq *urb-version* "5.5.13")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -7668,9 +7668,16 @@
       (vla-Regen (urb:doc) 1)
       (if block-ref
         (progn
-          ;; 2026-09-07: MT por cotas de implantacion (superficie auto)
+          ;; 2026-09-15: usar el perfil completo de la via cuando el usuario
+          ;; activa movimiento. Esto interpola las cotas guardadas en cada
+          ;; estacion; no reduce una via con pendientes variables a un solo
+          ;; punto clickeado. El calculo generico por cotas queda disponible
+          ;; para senderos/zonas sin via mediante EDITAR.
           (setq earthworks-ok
-            (urb:anden-earthworks-por-cotas block-ref anden-points))
+            (if (urb:yes-p calculate)
+              (urb:prompt-anden-earthworks
+                block-ref anden-points anden-area calculate surface grade-source)
+              T))
           (prompt
             (strcat
               "\nAnden creado: " (strcase material)
@@ -10606,7 +10613,7 @@
       (vla-put-Color c2 col)))
 
   ;; Etiqueta y pendiente centradas respecto al punto medio del tramo.
-  (setq mid (list (/ dist 2.0) (* th 1.35) 0.0))
+  (setq mid (list (/ dist 2.0) (* th 0.75) 0.0))
   (mp:center-visible-att
     (mp:vla-add-att blk "ETIQUETA" "Etiqueta visible" lab mid th nil lay col)
     mid
@@ -10615,7 +10622,7 @@
   ;; acueducto (presion) el "-0.102%" era puro ruido visual
   (if (member baseb '("TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
     (progn
-      (setq mid (list (/ dist 2.0) (- (* th 1.35)) 0.0))
+      (setq mid (list (/ dist 2.0) (- (* th 0.75)) 0.0))
       (mp:center-visible-att
         (mp:vla-add-att
           blk
@@ -10632,7 +10639,7 @@
   ;; MT/BT-AP: longitud y tubos debajo; conductor/acometida arriba.
   (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
     (progn
-      (setq mid (list (/ dist 2.0) (- (* th 1.35)) 0.0))
+      (setq mid (list (/ dist 2.0) (- (* th 0.75)) 0.0))
       (mp:center-visible-att
         (mp:vla-add-att blk "LONG_VIS" "Longitud visible"
           (mp:long-label vals) mid th nil lay col)
@@ -14698,8 +14705,8 @@
                   (list
                     (/ span 2.0)
                     (if (= tag "ETIQUETA")
-                      (* *mp-vis-tramo-text-height* 1.35)
-                      (- (* *mp-vis-tramo-text-height* 1.35)))
+                      (* *mp-vis-tramo-text-height* 0.75)
+                      (- (* *mp-vis-tramo-text-height* 0.75)))
                     0.0))
                 (mp:center-visible-att item pos *mp-vis-tramo-text-height*)))))))
     (if (member base '("POZO_SANITARIO" "POZO_PLUVIAL"))
@@ -14733,8 +14740,8 @@
             (setq invisible (not (member tag '("ETIQUETA" "PENDIENTE_VIS" "LONG_VIS"))))
             (setq pos
               (cond
-                ((= tag "ETIQUETA") (list (/ span 2.0) (* display-height 1.35) 0.0))
-                ((member tag '("PENDIENTE_VIS" "LONG_VIS")) (list (/ span 2.0) (- (* display-height 1.35)) 0.0))
+                ((= tag "ETIQUETA") (list (/ span 2.0) (* display-height 0.75) 0.0))
+                ((member tag '("PENDIENTE_VIS" "LONG_VIS")) (list (/ span 2.0) (- (* display-height 0.75)) 0.0))
                 (T (list 0.0 y 0.0))))
             (setq height (if invisible 0.10 (max 0.10 display-height)))
             (mp:vla-add-att
@@ -14775,7 +14782,7 @@
       (progn
         (setq pos (if (member tag '("ETIQUETA" "LONG_VIS"))
                     (list (/ span 2.0)
-                      (* *mp-vis-tramo-text-height* (if (= tag "ETIQUETA") 1.35 -1.35)) 0.0)
+                      (* *mp-vis-tramo-text-height* (if (= tag "ETIQUETA") 0.75 -0.75)) 0.0)
                     (list 0.0 (- -100.0 added) 0.0)))
         (setq att (mp:vla-add-att blk tag (cadr spec) "" pos
                     (if (member tag '("ETIQUETA" "LONG_VIS")) *mp-vis-tramo-text-height* 0.10)
@@ -15743,6 +15750,12 @@
                                      *mp-vis-tramo-text-height*
                                      *mp-vis-text-height*))))
                 (vla-Update att))))
+          ;; Reaplicar la posicion local de las cotas a cada referencia;
+          ;; esto corrige tambien bloques ya existentes al cambiar la
+          ;; apariencia global, sin depender de que el usuario ejecute
+          ;; ETIQUETAS manualmente.
+          (if (mp:base-is-tramo base)
+            (mp:recenter-tramo-attribs ename))
           (setq refs (1+ refs))))
       (setq index (1+ index))))
   (vla-Regen (urb:doc) 1)
