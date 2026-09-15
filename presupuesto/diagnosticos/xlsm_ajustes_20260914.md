@@ -200,3 +200,79 @@ campo afectaría también al capítulo 4. La vía limpia sin tocar el resto es
 reescribir el texto de NIVEL 6 en esas 97 filas para que traiga la ETAPA y correr
 el año a NIVEL 4/5 (hoy redundantes: repiten "1. INDEXACION POR EJECUTAR"). No
 mueve un solo peso, solo reetiqueta.
+
+---
+
+# EJECUTADO 2026-09-14 20:00 (sobre el archivo original, con respaldo previo)
+
+Decisiones del usuario: inflacion = misma serie del bloque ANTERIOR; pozos = no
+borrar aun; excavaciones de anden = falta que AutoCAD las alimente.
+
+## Aplicado y verificado
+
+1. `Memorias!A17:A23` reconstruida con la serie del bloque ANTERIOR
+   (1,0928 / 1,0627 / 1,0477 / 1,0377 / 1,0297 / 1,0300 / 1,0300), como
+   constantes para que NUEVO y ANTERIOR sigan independientes. A23 se dejo
+   como `=A22`.
+2. Las 3 fases PTAR ahora apuntan cada una a SU ano:
+   - f1135 FASE III (2025) -> `=Memorias!$C$19` = 2.943.808.568
+   - f1136 FASE IV  (2027) -> `=Memorias!$C$21` = 3.145.544.814
+   - f1137 FASE V   (2029) -> `=Memorias!$C$23` = 3.337.108.493
+   Total 12. CONSTRUCCION PTAR = 9.426.461.875 (antes en error).
+3. Las 10 filas de INC 2024-2025 pasan de `$U$3:$U$1281` (cota fija) a
+   `$U$3:$U$3330` + `$R$3:$R$3330,"<>%"`. Misma semantica, pero toda actividad
+   nueva entra sola al subtotal. Ya estaba dejando por fuera 5 filas del
+   capitulo 10 CASONA (hoy en total 0, por eso no cambia ninguna cifra).
+4. Indexacion: 80 filas reetiquetadas. NIVEL 3 pasa a traer el ano
+   ("INDEXACION ANO 2023", antes vacio o repetido) y NIVEL 6 -el nivel azul-
+   pasa a traer la subetapa ("INDEXACION ETAPA 01", "INDEXACION GENERAL").
+   Cero pesos movidos.
+
+Barrido posterior: **0 celdas con error en las 10 hojas** (venia de 20).
+Macros, 6 dinamicas y 10 hojas intactas. Cachés de dinamica refrescadas.
+
+## Resultado
+
+    4. ACTIVIDADES POR EJECUTAR   163.491.203.650   (antes 163.025.100.315)
+    7. INDIRECTOS                  21.898.363.946
+    Total general                 350.190.777.394
+
+## HALLAZGO: la indexacion esta APAGADA a proposito
+
+Las 80 filas de indexacion tienen la cantidad como `S = =1*0`, de modo que
+VR TOTAL = 0. Los 41.559.084.747 del pantallazo son la suma de la columna
+**V/U**, no del VR TOTAL: el calculo esta hecho y parqueado, pero no suma al
+presupuesto. Para encenderlo hay que cambiar `=1*0` por `1`. Decision del usuario.
+
+## CORRECCION sobre el sumidero (punto 6)
+
+Mi primer analisis comparo contra los sumideros SL del IDU y no encontro el
+item exacto. SI existe:
+
+    IDU 4558  SUMIDERO ALCANTARILLADO PLUVIAL EN VIA NS-047-1V4 EAAB  UN  8.015.596
+
+o sea el MISMO nombre del presupuesto. El libro lo tiene a 7.065.968,52, que
+esta **11,8% POR DEBAJO** del IDU, no por encima. Los otros NS-047:
+
+    4549  COMBINADO EN ANDEN  8.078.382
+    4550  COMBINADO EN VIA    5.786.100
+    4551  PLUVIAL EN ANDEN    6.369.371
+    4558  PLUVIAL EN VIA      8.015.596  <- el del presupuesto
+
+Con 78,2127 UN: al IDU serian 626.951.000 (+74,3 M). El usuario habia escogido
+SL-150 (6.186.409) sobre mi analisis incompleto; NO se aplico, queda pendiente
+de que confirme con el dato correcto encima.
+
+Ademas no hay factor uniforme entre el libro y el IDU:
+    EXCAVACION MANUAL REDES 0-2M   libro 64.161,67 / IDU 58.471    = 1,097
+    CILINDRO POZO MAMPOSTERIA      libro 741.339,87 / IDU 907.310  = 0,817
+    SUMIDERO NS-047 PLUVIAL VIA    libro 7.065.968 / IDU 8.015.596 = 0,882
+Los precios vienen de origenes o vigencias distintas.
+
+## Pendiente
+
+- 6. Confirmar el precio del sumidero con el dato correcto (IDU 4558).
+- 7. Crear las filas de cabezal de descarga al bioswale: falta el precio.
+- 5. Ubicar en sanitario el item que cobra el pozo a todo costo.
+- 2. Vincular la excavacion de anden de AutoCAD a ESTE libro (trabajo del .lsp;
+     hoy el plugin exporta al otro libro, con otra estructura).
