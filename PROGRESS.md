@@ -1,6 +1,6 @@
 # Progress — urbanismo_cantidades.lsp
 
-## 2026-09-15 14:40 America/Bogota — 5.5.10 etiquetas eléctricas y SUP_TN
+## 2026-09-15 14:45 America/Bogota — 5.5.11 etiquetas eléctricas y SUP_TN
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base 5fba584; commit pendiente.
 Usuario confirmó que “número de tramos” significa número de tubos (ej. 6 tubos
@@ -21,7 +21,7 @@ estadísticas y 100 elevaciones verificadas, maxDz=4.55e-13m. Antes de aplicar
 se guardó URB_MASTER_GENERAL.preSUPTN_20260915_143xxx.dwg; el original quedó
 actualizado con la superficie recuperada. No se sustituyeron sus redes.
 
-Motor 5.5.10 instalado con instalar_bundle.ps1; validación de entrega OK,
+Motor 5.5.11 instalado con instalar_bundle.ps1; validación de entrega OK,
 manifiesto/LSP coherentes. Requiere reiniciar Civil 3D para cargarlo. La prueba
 de migración automática masiva se aisló tras detectar un cuello de botella en
 una ruta anterior que reescribía XDATA; esa ruta fue reemplazada por escritura

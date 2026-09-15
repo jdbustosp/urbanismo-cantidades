@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.10")
+(setq *urb-version* "5.5.11")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -14823,6 +14823,14 @@
          (setq result
            (vl-catch-all-apply
              '(lambda ()
+                ;; Poblar referencias tecnicas nuevas desde alias historicos,
+                ;; sin tocar MP_CANT_DATA ni las cantidades.
+                (mp:setatt-visible-only (car rec) "DUCTOS"
+                  (mp:getval "DUCTOS" vals ""))
+                (mp:setatt-visible-only (car rec) "DIAM_DUCTO"
+                  (mp:getval "DIAM_DUCTO" vals ""))
+                (mp:setatt-visible-only (car rec) "CONDUCTOR"
+                  (mp:getval "CONDUCTOR" vals ""))
                 (mp:setatt-visible-only (car rec) "ETIQUETA"
                   (mp:getval "ETIQUETA" vals "Conductor: sin dato"))
                 (mp:setatt-visible-only (car rec) "LONG_VIS"
