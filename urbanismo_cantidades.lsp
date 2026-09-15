@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.9")
+(setq *urb-version* "5.5.10")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -10629,7 +10629,7 @@
           col)
         mid
         th)))
-  ;; MT/BT-AP: la longitud va DEBAJO del tramo (arriba queda la ducteria)
+  ;; MT/BT-AP: longitud y tubos debajo; conductor/acometida arriba.
   (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
     (progn
       (setq mid (list (/ dist 2.0) (- (* th 1.35)) 0.0))
@@ -10668,6 +10668,16 @@
           (vla-Update a)))))
   (vla-Update obj)
   (mp:store-cant-data ename (mp:alist-set vals (strcase tag) (mp:safe-str val))))
+
+;; Actualizacion masiva de presentacion: no toca MP_CANT_DATA. Los valores
+;; tecnicos ya se conservaron y esta ruta evita serializar XDATA 557 veces.
+(defun mp:setatt-visible-only (ename tag val / obj a)
+  (setq obj (vlax-ename->vla-object ename))
+  (if (= (vla-get-HasAttributes obj) :vlax-true)
+    (foreach a (vlax-invoke obj 'GetAttributes)
+      (if (= (strcase (vla-get-TagString a)) (strcase tag))
+        (progn (vla-put-TextString a (mp:safe-str val)) (vla-Update a)))))
+  (vla-Update obj))
 
 
 ;; Unificado 4.1.0: una sola lista de etapas para todo el archivo.
@@ -10791,7 +10801,7 @@
           ("HASTA" "Hasta" "")
           ("TIPO_EXTREMO_INI" "Tipo extremo inicial" "")
           ("TIPO_EXTREMO_FIN" "Tipo extremo final" "")
-          ("DUCTOS" "Ductos" "6") ("DIAM_DUCTO" "Diam ducto" "6")
+          ("DUCTOS" "Numero de tubos" "6") ("DIAM_DUCTO" "Diametro de tubo (pulgadas)" "6")
           ("MATERIAL_DUCTO" "Material ducto" "PVC")
           ("LIBRES" "Ductos libres" "")
           ("UBICACION" "Ubicacion ducteria" "Anden o zona verde")
@@ -10812,7 +10822,7 @@
           ("DESDE" "Desde" "") ("HASTA" "Hasta" "")
           ("TIPO_EXTREMO_INI" "Tipo extremo inicial" "")
           ("TIPO_EXTREMO_FIN" "Tipo extremo final" "")
-          ("DUCTOS" "Ductos" "1") ("DIAM_DUCTO" "Diam ducto" "3")
+          ("DUCTOS" "Numero de tubos" "1") ("DIAM_DUCTO" "Diametro de tubo (pulgadas)" "3")
           ("MATERIAL_DUCTO" "Material ducto" "PVC")
           ("LIBRES" "Ductos libres" "")
           ("UBICACION" "Ubicacion ducteria" "Anden o zona verde")
@@ -10856,7 +10866,7 @@
           (member (car item)
             '("TRITURADO_M3" "RECEBO_M3" "ENTIBADO_LE3_M2" "ENTIBADO_GT3_M2"
               "TIPO_RED" "CIRCUITO" "CIRCUITO_AP" "DESDE" "HASTA"
-              "CONDUCTOR" "DIAM_DUCTO" "LIBRES" "PROFUNDIDAD" "UBICACION"
+              "LIBRES" "PROFUNDIDAD" "UBICACION"
               "CAMA_M3" "RELLENO_M3" "MEMORIAS"
               ;; 2026-08-26: la excavacion electrica incluye disposicion
               ;; (sin sobrantes) y no se cobra reposicion
@@ -12048,16 +12058,17 @@
     d
     (strcat d "\"")))
 
-;; 2026-08-26 (pedido del usuario): en MT/BT-AP la etiqueta de ARRIBA es
-;; solo la ducteria al estilo del plano ("6%%c6\" PVC") y la longitud va
-;; en una etiqueta aparte DEBAJO del tramo ("L=16.70").
+;; 5.5.10: "numero de tramos" confirmado como numero de tubos, NO circuitos.
+;; El usuario identifica la acometida por el CONDUCTOR de la foto, no pide
+;; contar derivaciones/postes. Arriba conductor, abajo longitud y ducteria.
 (defun mp:ducteria-label (vals / d)
-  (setq d (vl-string-right-trim "\"" (mp:getval "DIAM_DUCTO" vals "")))
-  (strcat (mp:getval "DUCTOS" vals "") "%%c" d "\" "
+  (setq d (vl-string-trim " \"" (mp:getval "DIAM_DUCTO" vals "?")))
+  (strcat (mp:getval "DUCTOS" vals "?") " tubos de " d "\" "
     (mp:getval "MATERIAL_DUCTO" vals "")))
 
 (defun mp:long-label (vals)
-  (strcat "L=" (mp:getval "LONGITUD" vals "")))
+  (strcat "L=" (mp:getval "LONGITUD" vals "?") " m | "
+    (mp:ducteria-label vals)))
 
 (defun mp:label-tramo (base vals / l d mat)
   (setq l (mp:getval "LONGITUD" vals ""))
@@ -12076,7 +12087,8 @@
     ((= base "TRAMO_ARESIDUAL")
       (strcat "SAN L=" l "- %%c" d "-" mat))
     ((member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
-      (mp:ducteria-label vals))
+      (mp:getval "CONDUCTOR" vals
+        (mp:getval "CONDUCTORES" vals "Conductor: sin dato")))
     (T (strcat base " L=" l))))
 
 ;; "last" es funcion nativa de AutoLISP; renombrado por prevencion
@@ -14549,7 +14561,10 @@
       (list
         (list "ETIQUETA" "Etiqueta visible" "")
         (list "PENDIENTE_VIS" "Pendiente visible" ""))
-      (list (list "ETIQUETA" "Etiqueta visible" ""))))
+      (if (and is-tramo (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP")))
+        '(("ETIQUETA" "Conductor / acometida" "")
+          ("LONG_VIS" "Longitud y ducteria" ""))
+        (list (list "ETIQUETA" "Etiqueta visible" "")))))
   (if is-tramo
     (append visible specs)
     (append visible (list (list "BLOQUE_BASE" "Bloque base" base)) specs)))
@@ -14675,7 +14690,7 @@
         (if (= (vla-get-ObjectName item) "AcDbAttributeDefinition")
           (progn
             (setq tag (strcase (vla-get-TagString item)))
-            (if (member tag '("ETIQUETA" "PENDIENTE_VIS"))
+            (if (member tag '("ETIQUETA" "PENDIENTE_VIS" "LONG_VIS"))
               (progn
                 (setq pos
                   (list
@@ -14713,11 +14728,11 @@
         (setq tag (strcase (car spec)))
         (if (not (member tag tags))
           (progn
-            (setq invisible (not (member tag '("ETIQUETA" "PENDIENTE_VIS"))))
+            (setq invisible (not (member tag '("ETIQUETA" "PENDIENTE_VIS" "LONG_VIS"))))
             (setq pos
               (cond
                 ((= tag "ETIQUETA") (list (/ span 2.0) (* display-height 1.35) 0.0))
-                ((= tag "PENDIENTE_VIS") (list (/ span 2.0) (- (* display-height 1.35)) 0.0))
+                ((member tag '("PENDIENTE_VIS" "LONG_VIS")) (list (/ span 2.0) (- (* display-height 1.35)) 0.0))
                 (T (list 0.0 y 0.0))))
             (setq height (if invisible 0.10 (max 0.10 display-height)))
             (mp:vla-add-att
@@ -14737,6 +14752,105 @@
 
 (defun mp:definition-record (bname defs)
   (assoc (strcase bname) defs))
+
+;; 5.5.10: migracion SOLO de presentacion electrica, una vez por DWG.
+;; No llama sync-tramo-values: no recalcula TN, longitudes ni presupuesto.
+;; ATTSYNC se agrupa por definicion. Respaldar TODAS las referencias antes
+;; de sincronizar y restaurarlas despues evita que defaults sobrescriban XDATA.
+(defun mp:ensure-electrical-display-schema (bname / blk tags span lay col spec tag pos att added)
+  (setq blk (vla-Item (vla-get-Blocks (urb:doc)) bname)
+        tags (mp:block-attdef-tags blk)
+        span (mp:block-tramo-length blk)
+        lay (mp:vis-layer (mp:infer-base bname nil))
+        col (mp:vis-color (mp:infer-base bname nil)) added 0)
+  (foreach spec '(("DUCTOS" "Numero de tubos")
+                  ("DIAM_DUCTO" "Diametro de tubo (pulgadas)")
+                  ("CONDUCTOR" "Conductor / acometida")
+                  ("ETIQUETA" "Conductor / acometida visible")
+                  ("LONG_VIS" "Longitud y ducteria"))
+    (setq tag (car spec))
+    (if (not (member tag tags))
+      (progn
+        (setq pos (if (member tag '("ETIQUETA" "LONG_VIS"))
+                    (list (/ span 2.0)
+                      (* *mp-vis-tramo-text-height* (if (= tag "ETIQUETA") 1.35 -1.35)) 0.0)
+                    (list 0.0 (- -100.0 added) 0.0)))
+        (setq att (mp:vla-add-att blk tag (cadr spec) "" pos
+                    (if (member tag '("ETIQUETA" "LONG_VIS")) *mp-vis-tramo-text-height* 0.10)
+                    (not (member tag '("ETIQUETA" "LONG_VIS"))) lay col))
+        (if (member tag '("ETIQUETA" "LONG_VIS"))
+          (mp:center-visible-att att pos *mp-vis-tramo-text-height*))
+        (setq added (1+ added)))))
+  added)
+
+(defun mp:electrical-display-values (vals / conductor)
+  ;; Canonizar el alias legado solo si contiene un dato real. Vacio NO es 6".
+  (setq conductor (mp:getval "CONDUCTOR" vals (mp:getval "CONDUCTORES" vals "")))
+  (setq vals (mp:alist-set vals "CONDUCTOR" conductor)
+        vals (mp:alist-set vals "DUCTOS" (mp:getval "DUCTOS" vals ""))
+        vals (mp:alist-set vals "DIAM_DUCTO" (mp:getval "DIAM_DUCTO" vals "")))
+  (setq vals (mp:alist-set vals "ETIQUETA" (if (/= conductor "") conductor "Conductor: sin dato")))
+  (mp:alist-set vals "LONG_VIS" (mp:long-label vals)))
+
+(defun mp:refresh-electrical-display
+  (/ ss i en obj vals base name refs defs rec result failed count missing doc old-echo)
+  (setq ss (ssget "_X" '((0 . "INSERT") (66 . 1)))
+        i 0 count 0 failed 0 missing 0)
+  (if ss (repeat (sslength ss)
+    (setq en (ssname ss i) i (1+ i) obj (vlax-ename->vla-object en)
+          name (vla-get-EffectiveName obj) vals (mp:att-alist en)
+          base (mp:infer-base name vals))
+    (if (member base '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
+      (progn
+        (setq refs (cons (list en name vals) refs))
+        (if (not (member name defs)) (setq defs (cons name defs)))))))
+  (setq doc (urb:doc) old-echo (getvar "CMDECHO"))
+  (vla-StartUndoMark doc)
+  (setvar "CMDECHO" 0)
+  (setq result (vl-catch-all-apply
+    '(lambda ()
+       (foreach name defs
+         (setq result (vl-catch-all-apply
+           '(lambda ()
+              (if (> (mp:ensure-electrical-display-schema name) 0)
+                (vl-cmdf "_.ATTSYNC" "_N" name))) nil))
+         (if (vl-catch-all-error-p result) (setq failed (1+ failed))))
+       ;; Actualizar solo referencias visibles. XDATA/cantidades ya estan
+       ;; validos y no se reescriben: evita una serializacion completa por
+       ;; cada tramo del dibujo.
+       (foreach rec refs
+         (setq vals (mp:electrical-display-values (caddr rec)))
+         (setq result
+           (vl-catch-all-apply
+             '(lambda ()
+                (mp:setatt-visible-only (car rec) "ETIQUETA"
+                  (mp:getval "ETIQUETA" vals "Conductor: sin dato"))
+                (mp:setatt-visible-only (car rec) "LONG_VIS"
+                  (mp:getval "LONG_VIS" vals "L=? m | ? tubos de ?\""))) nil))
+         (if (vl-catch-all-error-p result)
+           (setq failed (1+ failed))
+           (progn
+             (setq count (1+ count))
+             (if (or (= (mp:getval "DIAM_DUCTO" vals "") "")
+                     (= (mp:getval "CONDUCTOR" vals "") ""))
+               (setq missing (1+ missing))))))) nil))
+  (setvar "CMDECHO" old-echo)
+  (vla-EndUndoMark doc)
+  (if (vl-catch-all-error-p result) (setq failed (1+ failed)))
+  (list count failed missing))
+
+(defun mp:migrate-electrical-display (/ result)
+  (if (/= (urb:safe-string (urb:config-read "URB_ELECT_LABELS_5510") "") "OK")
+    (progn
+      (setq result (mp:refresh-electrical-display))
+      (if (= (cadr result) 0)
+        (urb:config-write "URB_ELECT_LABELS_5510" "OK"))
+      (if (or (> (car result) 0) (> (cadr result) 0))
+        (prompt (strcat "\nEtiquetas electricas: " (itoa (car result))
+          " actualizadas; " (itoa (cadr result)) " fallidas; "
+          (itoa (caddr result)) " con diametro/conductor sin dato (no se inventaron valores).")))
+      result)
+    '(0 0 0)))
 
 (defun mp:remove-duplicate-points (/ ss i en obj base atts id ip kept rec removed tol candidate)
   ;; Solo elimina coincidencias inequivocas: mismo tipo, ID y coordenada.
@@ -35850,7 +35964,12 @@
 (vl-catch-all-apply 'urb:repair-anden-hatches-si-hace-falta nil)
 (if (and (not *urb-suppress-auto-migration*)
          (/= (getenv "URB_TEST_SUPPRESS_AUTO_MIGRATION") "1"))
-  (vl-catch-all-apply 'urb:migrate-current-drawing nil))
+  (progn
+    (vl-catch-all-apply 'urb:migrate-current-drawing nil)
+    (setq *mp-electrical-display-migration-result*
+      (vl-catch-all-apply 'mp:migrate-electrical-display nil))
+    (if (vl-catch-all-error-p *mp-electrical-display-migration-result*)
+      (prompt "\nActualizacion electrica pendiente: no se pudo completar; se reintentara al abrir."))))
 (vl-catch-all-apply 'urb:install-memory-property-reactors nil)
 ;; OJO (2026-08-11 v3): urb:ensure-ribbon YA NO se llama automaticamente.
 ;; Si el lsp carga el cuix por COM ANTES que el Autoloader, el Autoloader

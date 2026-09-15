@@ -1,5 +1,33 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-15 14:40 America/Bogota — 5.5.10 etiquetas eléctricas y SUP_TN
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base 5fba584; commit pendiente.
+Usuario confirmó que “número de tramos” significa número de tubos (ej. 6 tubos
+de 6 pulgadas) y pidió el formato visual del plano: conductor arriba, longitud
+y ductería debajo. Se ajustó la etiqueta MT/BT-AP, se dejó DIAM_DUCTO,
+CONDUCTOR y DUCTOS disponibles en Propiedades y se añadió migración idempotente
+URB_ELECT_LABELS_5510. La migración actualiza solo referencias visibles; no
+recalcula ni serializa XDATA/cantidades por tramo. Acometidas no se inventan ni
+se cuentan desde postes: se conserva el conductor guardado como especificación.
+
+Diagnóstico nativo Civil 3D 2023 contra copias: maestro a las 13:44:39 tenía
+0 superficies; respaldo URB_MASTER_GENERAL.bak de 09:14:08 tenía SUP_TN,
+TinSurface handle7523, 436988 puntos, 868248 triángulos, ShowToolTip=True.
+TOOLTIPS=1, ROLLOVERTIPS=1 y SettingsGeneral.ShowToolTips=True: la causa era
+ausencia de SUP_TN, no solo configuración del cursor. Se generó work/elec5510/
+recovered.dwg clonando únicamente SUP_TN desde el .bak al maestro actual;
+estadísticas y 100 elevaciones verificadas, maxDz=4.55e-13m. Antes de aplicar
+se guardó URB_MASTER_GENERAL.preSUPTN_20260915_143xxx.dwg; el original quedó
+actualizado con la superficie recuperada. No se sustituyeron sus redes.
+
+Motor 5.5.10 instalado con instalar_bundle.ps1; validación de entrega OK,
+manifiesto/LSP coherentes. Requiere reiniciar Civil 3D para cargarlo. La prueba
+de migración automática masiva se aisló tras detectar un cuello de botella en
+una ruta anterior que reescribía XDATA; esa ruta fue reemplazada por escritura
+solo de atributos visibles. Falta una corrida nativa posterior en un fixture
+fresco para medir el tiempo final; no declarar el rendimiento cerrado sin ella.
+
 ## 2026-09-14 18:57 America/Bogota — 5.5.9 sobreancho sin pico
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base c1b4fd6; commit en cierre.
