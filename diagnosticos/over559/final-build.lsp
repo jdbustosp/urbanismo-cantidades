@@ -1,0 +1,23 @@
+(load (strcat ov:dir "candidate.lsp"))
+(ov:log (list 'FINAL_VERSION *urb-version*))
+(defun ov:census (block / def ob key pair counts nested)
+ (setq def (vla-Item (vla-get-Blocks (urb:doc)) (vla-get-Name (urb:as-vla-object block))) nested 0)
+ (vlax-for ob def
+  (if (= (vla-get-ObjectName ob) "AcDbBlockReference") (setq nested (1+ nested)))
+  (if (not (member (vla-get-ObjectName ob) '("AcDbAttributeDefinition")))
+   (progn
+    (setq key (strcat (vla-get-ObjectName ob) "|" (vla-get-Layer ob) "|" (urb:safe-string (urb:generated-role ob) "")) pair (assoc key counts))
+    (if pair (setq counts (subst (cons key (1+ (cdr pair))) pair counts)) (setq counts (cons (cons key 1) counts))))))
+ (ov:log (list 'NESTED_INSERTS nested))
+ (vl-sort counts '(lambda (a b) (< (car a) (car b)))))
+(setq ov:prevblock ov:newblock ov:prevattrs (urb:block-attribute-values ov:newblock) ov:prevcensus (ov:census ov:newblock))
+(load (strcat ov:dir "build.lsp"))
+(if (and ov:newblock (/= ov:newblock ov:prevblock))
+ (progn
+  (ov:check 'CENSUS_TYPES_LAYERS_ROLES_UNCHANGED (equal ov:prevcensus (ov:census ov:newblock)))
+  (foreach key '("AREA_SIN_SOBREANCHO_M2" "AREA_CON_SOBREANCHO_M2" "LOSETA_GUIA_M2" "LOSETA_TOPEROL_M2" "LOSETA_LISA_M2" "ADOQUIN_20X10_M2")
+   (ov:check (list 'QUANTITY_UNCHANGED key)
+    (equal (cdr (assoc key ov:prevattrs)) (cdr (assoc key (urb:block-attribute-values ov:newblock))))))))
+(ov:log (list 'FINAL_BUILD_DONE 'FAIL ov:fail))
+(command "_.QSAVE")
+(princ)

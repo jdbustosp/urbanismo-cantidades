@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.8")
+(setq *urb-version* "5.5.9")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -2986,7 +2986,8 @@
 )
 
 (defun urb:triangulate-polygon
-  (points / verts triangles guard n i prev cur nxt test contains ear-found)
+  (points / verts triangles guard n i prev cur nxt test contains ear-found
+   cursor scan determinant xmin xmax ymin ymax padx pady)
   ;; Ear clipping sobre el contorno ordenado de la LWPOLYLINE. Cada
   ;; triangulo es convexo y su interseccion con una banda tambien lo es;
   ;; evita la operacion ACIS multi-isla que falla en curvas concavas.
@@ -2995,27 +2996,40 @@
     (setq verts (reverse verts)))
   (setq guard 0 triangles nil)
   (while (and (> (length verts) 3) (< guard 20000))
-    (setq n (length verts) i 0 ear-found nil)
+    (setq n (length verts) i 0 ear-found nil cursor verts prev (last verts))
     (while (and (< i n) (not ear-found))
-      (setq prev (nth (rem (+ i n -1) n) verts)
-            cur (nth i verts)
-            nxt (nth (rem (1+ i) n) verts))
-      (if (> (urb:triangle-cross prev cur nxt) 1e-10)
+      (setq cur (car cursor) nxt (if (cdr cursor) (cadr cursor) (car verts))
+            determinant (urb:triangle-cross prev cur nxt))
+      (if (> determinant 1e-10)
         (progn
-          (setq contains nil)
-          (foreach test verts
-            (if (and (not contains)
+          ;; Misma eleccion de orejas y misma tolerancia del predicado.
+          ;; Caja conservadora: las coordenadas baricentricas admiten
+          ;; +/- tol/determinante; ampliar 2*tol/D por el rango del eje
+          ;; incluye tambien la segunda rama del test en triangulos finos.
+          (setq xmin (min (car prev) (car cur) (car nxt))
+                xmax (max (car prev) (car cur) (car nxt))
+                ymin (min (cadr prev) (cadr cur) (cadr nxt))
+                ymax (max (cadr prev) (cadr cur) (cadr nxt))
+                padx (+ 1e-8 (* (/ 2e-9 determinant) (- xmax xmin)))
+                pady (+ 1e-8 (* (/ 2e-9 determinant) (- ymax ymin)))
+                xmin (- xmin padx) xmax (+ xmax padx)
+                ymin (- ymin pady) ymax (+ ymax pady)
+                contains nil scan verts)
+          (while (and scan (not contains))
+            (setq test (car scan))
+            (if (and (<= xmin (car test) xmax) (<= ymin (cadr test) ymax)
                      (not (urb:point-near-2d-p test prev 1e-12))
                      (not (urb:point-near-2d-p test cur 1e-12))
                      (not (urb:point-near-2d-p test nxt 1e-12))
                      (urb:point-in-triangle-p test prev cur nxt))
-              (setq contains T)))
+              (setq contains T))
+            (setq scan (cdr scan)))
           (if (not contains)
             (progn
               (setq triangles (cons (list prev cur nxt) triangles)
                     verts (urb:remove-point-once verts cur)
                     ear-found T)))))
-      (setq i (1+ i)))
+      (setq i (1+ i) prev cur cursor (cdr cursor)))
     (if (not ear-found) (setq guard 20000))
     (setq guard (1+ guard)))
   (if (= (length verts) 3)
@@ -5299,21 +5313,28 @@
     (or (and (> d3 0) (< d4 0)) (and (< d3 0) (> d4 0))))
 )
 
-(defun urb:polygon-self-intersects-p (points / n i j p1 p2 p3 p4 found)
-  ;; Revisa todo par de aristas NO adyacentes del contorno cerrado en
-  ;; busca de un cruce real (poligono "moño"/autointersectado).
-  (setq n (length points) found nil i 0)
-  (while (and (< i n) (not found))
-    (setq p1 (nth i points) p2 (nth (rem (1+ i) n) points))
-    (setq j (+ i 2))
-    (while (and (<= j (1- n)) (not found))
-      (if (not (and (= i 0) (= j (1- n))))
-        (progn
-          (setq p3 (nth j points) p4 (nth (rem (1+ j) n) points))
-          (if (urb:segments-cross-p p1 p2 p3 p4)
-            (setq found T))))
-      (setq j (1+ j)))
-    (setq i (1+ i)))
+(defun urb:polygon-self-intersects-p (points / n i ring a b edges tail e f scan found)
+  ;; Barrido de cajas por X: misma prueba ESTRICTA, sin NTH sobre una
+  ;; lista larga en cada pareja. No simplifica puntos ni omite cruces.
+  ;; Registro: minX maxX minY maxY indice punto1 punto2.
+  (setq n (length points) i 0 ring (append points (list (car points))))
+  (while (cdr ring)
+    (setq a (car ring) b (cadr ring)
+          edges (cons (list (min (car a) (car b)) (max (car a) (car b))
+            (min (cadr a) (cadr b)) (max (cadr a) (cadr b)) i a b) edges)
+          i (1+ i) ring (cdr ring)))
+  (setq tail (vl-sort edges '(lambda (a b)
+    (if (= (car a) (car b)) (< (nth 4 a) (nth 4 b)) (< (car a) (car b))))))
+  (while (and tail (not found))
+    (setq e (car tail) scan (cdr tail))
+    (while (and scan (<= (caar scan) (cadr e)) (not found))
+      (setq f (car scan) i (abs (- (nth 4 e) (nth 4 f))))
+      (if (and (/= i 1) (/= i (1- n))
+               (<= (nth 2 e) (nth 3 f)) (<= (nth 2 f) (nth 3 e))
+               (urb:segments-cross-p (nth 5 e) (nth 6 e) (nth 5 f) (nth 6 f)))
+        (setq found T))
+      (setq scan (cdr scan)))
+    (setq tail (cdr tail)))
   found)
 
 (defun urb:anden-shape-ok-p (pts / selfx)
@@ -6097,7 +6118,32 @@
       (if (not (vl-catch-all-error-p attempt)) (setq result attempt))))
   result)
 
-(defun urb:anden-overwidth-contour (ename width / chains chain pl off a b polygon pts mid normal test sign all result check)
+(defun urb:anden-overwidth-bounded-p (source result width / i n p near valid)
+  ;; Control independiente del area/cruces: un miter puede no cruzarse y
+  ;; aun asi extenderse cientos de metros. Revisar vertices y puntos medios
+  ;; exactos del resultado contra el contorno original (tolerancia 0.1 mm).
+  (setq i 0 n (* 2 (fix (vlax-curve-getEndParam result))) valid T)
+  (while (and valid (< i n))
+    (setq p (vlax-curve-getPointAtParam result (* 0.5 i))
+          near (if p (vlax-curve-getClosestPointTo source p)))
+    (if (or (null near) (> (distance p near) (+ (abs width) 0.0001)))
+      (setq valid nil))
+    (setq i (1+ i)))
+  valid)
+
+(defun urb:anden-overwidth-contour (ename width / gap result)
+  ;; SOLO tierras: union circular de radio = sobreancho, sin prolongar
+  ;; aristas a un vertice lejano. Acabados/prefabricados no se modifican.
+  ;; OFFSET ActiveX respeta OFFSETGAPTYPE; restaurarlo incluso ante error.
+  (setq gap (getvar "OFFSETGAPTYPE"))
+  (setvar "OFFSETGAPTYPE" 1)
+  (setq result (vl-catch-all-apply 'urb:anden-overwidth-contour-raw (list ename width)))
+  (setvar "OFFSETGAPTYPE" gap)
+  (if (vl-catch-all-error-p result)
+    (progn (prompt (strcat "\nANDEN: error de sobreancho: " (vl-catch-all-error-message result))) nil)
+    result))
+
+(defun urb:anden-overwidth-contour-raw (ename width / chains chain pl off a b polygon pts mid normal test sign all result check)
   ;; Dos costados desplazados; las tapas solo unen sus extremos, sin
   ;; prolongar longitudinalmente el anden. Conservar bulges verdaderos.
   (setq chains (urb:poly-costado-chains ename)
@@ -6127,7 +6173,8 @@
       (vla-put-Closed (vlax-ename->vla-object result) :vlax-true)
       (if (or (<= (vla-get-Area (vlax-ename->vla-object result))
                   (vla-get-Area (vlax-ename->vla-object ename)))
-              (urb:polygon-self-intersects-p (urb:lwpoly-points-with-arcs result)))
+              (urb:polygon-self-intersects-p (urb:lwpoly-points-with-arcs result))
+              (not (urb:anden-overwidth-bounded-p ename result width)))
         (progn (entdel result) nil)
         result))))
 
@@ -7280,7 +7327,8 @@
 ;; Muestrear los arcos en coordenadas del bloque y transformar a WCS.
 ;; En AutoLISP OR retorna T: nunca usarlo como alternativa entre puntos.
 (defun urb:anden-earthwork-raw-points
-  (item / en data pair verts pt bulge tail v next p q b chord theta center start k n out normal elevation)
+  (item / en data pair verts pt bulge tail v next p q b chord theta k n out normal elevation
+   radius h phi halfsin along across ux uy)
   (setq en (urb:as-ename item) data (entget en))
   (setq normal (cdr (assoc 210 data)) elevation (cdr (assoc 38 data)))
   (if (not normal) (setq normal '(0.0 0.0 1.0)))
@@ -7301,16 +7349,23 @@
     (setq out (cons (trans p normal 0) out))
     (if (and (> (abs b) 1e-10) (> chord 1e-10))
       (progn
+        ;; Coordenadas locales estables: no restar centro/radio gigantes
+        ;; en microarcos. El minimo fijo de8 sobremuestreaba cada microarco.
+        ;; Flecha de cuerda <=0.00001m (0.01mm), conservando arco en el DWG.
         (setq theta (* 4.0 (atan b))
-              center (polar (mapcar '(lambda (x y) (/ (+ x y) 2.0)) p q)
-                            (+ (angle p q) (/ pi 2.0))
-                            (/ (* chord (- 1.0 (* b b))) (* 4.0 b)))
-              start (angle center p)
-              n (max 8 (fix (+ 1.0 (/ (abs theta) 0.01)))) k 1)
+              radius (/ (* chord (+ 1.0 (* b b))) (* 4.0 (abs b)))
+              h (/ (* chord (- 1.0 (* b b))) (* 4.0 b))
+              ux (/ (- (car q) (car p)) chord)
+              uy (/ (- (cadr q) (cadr p)) chord)
+              n (max 1 (1+ (fix (* (abs theta) (sqrt (/ radius 0.00008)))))) k 1)
         (repeat (1- n)
-          (setq out (cons
-            (trans (polar center (+ start (* theta (/ (float k) n)))
-                          (distance center p)) normal 0) out) k (1+ k)))))
+          (setq phi (* theta (/ (float k) n)) halfsin (sin (* 0.5 phi))
+                along (+ (* chord halfsin halfsin) (* h (sin phi)))
+                across (- (* 2.0 h halfsin halfsin) (* 0.5 chord (sin phi)))
+                out (cons
+                  (trans (list (+ (car p) (* along ux) (* (- across) uy))
+                               (+ (cadr p) (* along uy) (* across ux)) elevation) normal 0) out)
+                k (1+ k)))))
     (setq tail (cdr tail)))
   (reverse out))
 

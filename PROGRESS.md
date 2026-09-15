@@ -1,5 +1,22 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-14 18:57 America/Bogota — 5.5.9 sobreancho sin pico
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base c1b4fd6; commit en cierre.
+Maestro copiado18:16:04: E239A tenia pico a189.509m y tierras vacias.
+Sobreancho con uniones circulares radio1m y guarda de distancia: area770.048540
+->582.155231m2, acabado367.586328 intacto. OFFSETGAPTYPE restaurado ante error.
+Barrido de cajas acelera validacion de cruces:506equivalencias sin diferencias.
+Triangulacion con cajas conservadoras:240casos con triangulos exactos iguales.
+Muestreo estable de microarcos arregla error de area de tierras0.191283m2
+->0.000615344m2;20checks nativos de arco OK. Malla real28.609s, aun251831muestras:
+NO declarar tierras instantaneas ni volumen validado contra SUP_TN real.
+Ver diagnosticos/over559/RESULTADO.md y log, incluidos fallos intermedios.
+Zona verde con islas: consejo documentado, no implementado. Originales intactos.
+Final18:59: motor5.5.9 build70.406s+pack34.984s=105.390s, bloque unico, cero
+INSERT anidados, censo tipo/capa/rol y seis areas iguales,0fallos finales.
+Hash probadoC9FE52DB547207E178F5BAFD609D34A2F80B654C51B186084B47710E2E8148FF.
+
 ## 2026-09-14 13:58 America/Bogota — 5.5.8 costados curvos y hatch neto
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base592b452.
