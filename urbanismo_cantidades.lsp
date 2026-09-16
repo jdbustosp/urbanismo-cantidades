@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.0")
+(setq *urb-version* "5.6.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -6898,11 +6898,73 @@
 ;; En una via nueva, registros contiene las muestras de rasante guardadas.
 ;; Las vias antiguas sin muestras pueden releerlas desde su capa de cotas;
 ;; el eje siempre se recupera o selecciona entre entidades ya existentes.
-(defun urb:select-anden-road-grade
-  (/ selected road data mov axis axis-handle via-id records c0 c1 span
+;; 5.6.1 (reporte del usuario: "cuando le doy editar un anden porque me
+;; pide seleccionar una polilinea del eje" + "que me reconozca todo el
+;; alineamiento, actualmente me reconoce solo una cota"). La vía que
+;; controla el anden se DETECTA sola: la via creada mas cercana al contorno
+;; (<= 10 m). Solo si no hay ninguna cerca se pide el clic.
+(defun urb:anden-road-autodetect (points / ss i e road seen best bestd d p near step k)
+  (if (and points (> (length points) 2))
+    (progn
+      ;; contornos curvos traen miles de vertices (un anden real: 1272);
+      ;; para decidir cual via esta al lado bastan ~80 repartidos
+      (if (> (length points) 80)
+        (setq step (/ (length points) 80) k 0
+              points (vl-remove-if
+                       '(lambda (p) (/= 0 (rem (setq k (1+ k)) step)))
+                       points)))
+      (setq ss (ssget "_X" '((-3 ("URB_VIA")))) i 0 bestd 10.0)
+      (if ss
+        (repeat (sslength ss)
+          (setq e (ssname ss i)
+                road (vl-catch-all-apply 'urb:road-parent-from-entity (list e)))
+          (if (and road (not (vl-catch-all-error-p road))
+                   (not (member road seen)))
+            (progn
+              (setq seen (cons road seen))
+              (foreach p points
+                (setq d (urb:point-to-entity-distance road p))
+                (if (and d (< d bestd)) (setq bestd d best road)))))
+          (setq i (1+ i))))
+      best)
+    nil))
+
+;; distancia en planta de un punto a una entidad: curva exacta; bloque u
+;; otro objeto por su caja envolvente (0 si el punto cae dentro)
+(defun urb:point-to-entity-distance (ename p / near r lo hi dx dy obj)
+  (if (urb:curve-entity-p ename)
+    (progn
+      (setq near (vl-catch-all-apply 'vlax-curve-getClosestPointTo
+                   (list ename (list (car p) (cadr p) 0.0))))
+      (if (vl-catch-all-error-p near) nil
+        (distance (list (car p) (cadr p)) (list (car near) (cadr near)))))
+    (progn
+      (setq obj (vlax-ename->vla-object ename)
+            r (vl-catch-all-apply 'vla-GetBoundingBox (list obj 'lo 'hi)))
+      (if (vl-catch-all-error-p r) nil
+        (progn
+          (setq lo (vlax-safearray->list lo) hi (vlax-safearray->list hi))
+          (setq dx (max 0.0 (- (car lo) (car p)) (- (car p) (car hi)))
+                dy (max 0.0 (- (cadr lo) (cadr p)) (- (cadr p) (cadr hi))))
+          (sqrt (+ (* dx dx) (* dy dy))))))))
+
+;; puntos del contorno del anden en calculo (los fija urb:run-anden-earthworks)
+(setq *urb-anden-grade-points* nil)
+
+(defun urb:select-anden-road-grade (/ road)
+  (setq road (urb:anden-road-autodetect *urb-anden-grade-points*))
+  (if road
+    (prompt "\nVia creada detectada junto al anden: se usa su rasante en todo el alineamiento.")
+    (progn
+      (setq road (entsel "\nSeleccione la via creada que controla este anden: "))
+      (if road (setq road (urb:road-parent-from-entity (car road))))))
+  (urb:anden-road-grade-for road))
+
+;; referencia de rasante de UNA via creada: (eje records inicio longitud
+;; sentido modo metodo via-id nombre). nil si la via no tiene rasante.
+(defun urb:anden-road-grade-for
+  (road / data mov axis axis-handle via-id records c0 c1 span
    record-mode method axis-start)
-  (setq selected (entsel "\nSeleccione la via creada que controla este anden: "))
-  (if selected (setq road (urb:road-parent-from-entity (car selected))))
   (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
     (progn
       (setq via-id (if (> (length data) 22) (nth 22 data) ""))
@@ -7011,10 +7073,17 @@
         nil)))
 )
 
-(defun urb:select-anden-grade-reference (source)
+(defun urb:select-anden-grade-reference (source / road)
   (cond
     ((urb:string-equal-p source "Via creada")
       (urb:select-anden-road-grade))
+    ;; 5.6.1: andenes guardados con "Cotas seleccionadas" o "Alineamiento +
+    ;; cotas" pedian la polilinea del eje al EDITAR aunque hubiera una via
+    ;; creada al lado. Si la hay, manda su rasante completa; si no, sigue
+    ;; el modo guardado como antes.
+    ((setq road (urb:anden-road-autodetect *urb-anden-grade-points*))
+      (prompt "\nVia creada detectada junto al anden: se usa su rasante en todo el alineamiento.")
+      (urb:anden-road-grade-for road))
     ((urb:string-equal-p source "Cotas seleccionadas")
       (urb:select-anden-picked-grade))
     (T (urb:select-anden-alignment-grade)))
@@ -7164,7 +7233,10 @@
           nil)
         (progn
           (setq *urb-anden-earthwork-stage* "seleccion de rasante")
+          ;; 5.6.1: el contorno permite detectar sola la via que controla
+          (setq *urb-anden-grade-points* (if edge-points edge-points points))
           (setq reference (urb:select-anden-grade-reference grade-source))
+          (setq *urb-anden-grade-points* nil)
           (setq axis (if (and (listp reference) (> (length reference) 6))
                        (nth 0 reference) nil))
           (if (or (not axis)
@@ -8438,7 +8510,25 @@
 ;;  - 2 cotas: rasante lineal entre ambas, extendida perpendicular
 ;; Malla de muestreo 2.5 m dentro del contorno; corte = TN sobre diseno,
 ;; relleno = diseno sobre TN.
-(defun urb:design-z-from-picks (picks x y / n sx sy sz sxx syy sxy sxz syz
+;; 5.6.1: si alguna cota vino de una VIA creada, la cota de diseno sale de
+;; la rasante de esa via en la estacion del punto (todo el alineamiento);
+;; si no, el plano / rasante lineal de siempre.
+(defun urb:design-z-from-picks (picks x y / ref)
+  (setq ref (vl-some '(lambda (p) (if (> (length p) 2) (caddr p))) picks))
+  (cond
+    ((null ref) (urb:design-z-from-picks-plane picks x y))
+    ;; con el borde conocido (lo fija urb:earthworks-from-picks) se usa la
+    ;; MISMA cota de diseno que el recalculo completo del anden
+    ;; (urb:anden-grade-at-point: bombeo de via hasta el borde + bordillo +
+    ;; pendiente transversal). Verificado: con la version simple las dos
+    ;; rutas daban 454 y 280 m3 para el mismo anden.
+    ((numberp *urb-picks-edge-offset*)
+      (urb:anden-grade-at-point (list x y 0.0) ref *urb-picks-edge-offset*))
+    (T (urb:road-reference-design-z ref x y))))
+
+(setq *urb-picks-edge-offset* nil)
+
+(defun urb:design-z-from-picks-plane (picks x y / n sx sy sz sxx syy sxy sxz syz
    det a b c p p1 p2 z1 z2 dx dy len2 t0 ox oy)
   (setq n (length picks))
   (cond
@@ -8538,6 +8628,16 @@
             area (vla-get-Area (vlax-ename->vla-object ename))
             samples (urb:earthwork-area-samples poly)
             total 0.0 covered 0.0 cut 0.0 fill 0.0)
+      ;; 5.6.1: si una cota vino de una via creada, distancia del eje de
+      ;; esa via al borde del elemento (para la cota de diseno completa)
+      (setq *urb-picks-edge-offset*
+        (vl-some '(lambda (pk)
+                    (if (> (length pk) 2)
+                      (vl-catch-all-apply 'urb:anden-axis-edge-offset
+                        (list poly (car (caddr pk))))))
+                 picks))
+      (if (vl-catch-all-error-p *urb-picks-edge-offset*)
+        (setq *urb-picks-edge-offset* nil))
       (foreach sample samples
         (setq p (car sample) weight (cadr sample) total (+ total weight)
               ztn (urb:surface-elevation surface (car p) (cadr p))
@@ -11291,25 +11391,52 @@
     ((= tk "VCP") 1.10) ((= tk "TAP") 1.80) ((= tk "RDC") 0.60)
     (T 1.75)))
 
-(defun mp:acc-add-lines (blk lay col lst / l e)
+;; 5.6.1 (pedido del usuario: "que el espesor de los accesorios este igual
+;; que los tramos"): todo el trazo del simbolo es polilinea con el MISMO
+;; ancho configurado para los tramos (Ajustes > Apariencia). Antes eran
+;; LINE/ARC/CIRCLE de ancho cero y junto a una tuberia gruesa el accesorio
+;; casi no se veia.
+(defun mp:acc-line-width ()
+  (max 0.0 (mp:cfg-tramo-width *mp-vis-width*)))
+
+(defun mp:acc-add-lines (blk lay col lst / l e w)
+  (setq w (mp:acc-line-width))
   (foreach l lst
-    (setq e (vla-AddLine blk
-      (mp:3d (list (nth 0 l) (nth 1 l) 0.0))
-      (mp:3d (list (nth 2 l) (nth 3 l) 0.0))))
+    (setq e (vla-AddLightWeightPolyline blk
+      (mp:var-dbls (list (nth 0 l) (nth 1 l) (nth 2 l) (nth 3 l)))))
+    (vla-put-ConstantWidth e w)
     (vla-put-Layer e lay) (vla-put-Color e col)))
 
 (defun mp:acc-add-polys (blk lay col closed lst / p e)
   (foreach p lst
     (setq e (vla-AddLightWeightPolyline blk (mp:var-dbls p)))
     (if closed (vla-put-Closed e :vlax-true))
+    (vla-put-ConstantWidth e (mp:acc-line-width))
     (vla-put-Layer e lay) (vla-put-Color e col)))
 
-(defun mp:acc-add-arcs (blk lay col lst / a e)
+;; arco (cx cy r angulo-inicial angulo-final) como polilinea de un segmento
+;; con bulge = tan(barrido/4), para poder darle ancho
+(defun mp:acc-add-arcs (blk lay col lst / a e sweep p0 p1)
   (foreach a lst
-    (setq e (vla-AddArc blk
-      (mp:3d (list (nth 0 a) (nth 1 a) 0.0))
-      (nth 2 a) (nth 3 a) (nth 4 a)))
+    (setq sweep (- (nth 4 a) (nth 3 a)))
+    (if (<= sweep 0.0) (setq sweep (+ sweep (* 2.0 pi))))
+    (setq p0 (polar (list (nth 0 a) (nth 1 a)) (nth 3 a) (nth 2 a))
+          p1 (polar (list (nth 0 a) (nth 1 a)) (nth 4 a) (nth 2 a)))
+    (setq e (vla-AddLightWeightPolyline blk
+      (mp:var-dbls (list (car p0) (cadr p0) (car p1) (cadr p1)))))
+    (vla-SetBulge e 0 (/ (sin (/ sweep 4.0)) (cos (/ sweep 4.0))))
+    (vla-put-ConstantWidth e (mp:acc-line-width))
     (vla-put-Layer e lay) (vla-put-Color e col)))
+
+;; circulo de contorno con ancho: polilinea cerrada de dos medias vueltas
+(defun mp:acc-add-circle (blk lay col cx cy r / e)
+  (setq e (vla-AddLightWeightPolyline blk
+    (mp:var-dbls (list (- cx r) cy (+ cx r) cy))))
+  (vla-put-Closed e :vlax-true)
+  (vla-SetBulge e 0 1.0) (vla-SetBulge e 1 1.0)
+  (vla-put-ConstantWidth e (mp:acc-line-width))
+  (vla-put-Layer e lay) (vla-put-Color e col)
+  e)
 
 ;; circulo RELLENO (tapa del hidrante): polilinea de 2 arcos con ancho
 ;; constante = radio (truco donut)
@@ -11321,8 +11448,13 @@
   (vla-put-ConstantWidth e r)
   (vla-put-Layer e lay) (vla-put-Color e col))
 
-(defun mp:acc-plan-geom (blk tipo lay col / tk c)
-  (setq tk (mp:acc-tipo-token (mp:safe-str tipo)))
+(defun mp:acc-plan-geom (blk tipo lay col)
+  (mp:acc-plan-geom-tk blk (mp:acc-tipo-token (mp:safe-str tipo)) lay col))
+
+;; 5.6.1: por TOKEN (TEE, C45, VAL...), que es el sufijo del nombre del
+;; bloque MP_PUNTO_ACC_ACU_<token>: permite redibujar una definicion ya
+;; existente en el DWG sin conocer el tipo largo del accesorio.
+(defun mp:acc-plan-geom-tk (blk tk lay col / c)
   (cond
     ((= tk "TEE")
       (mp:acc-add-lines blk lay col
@@ -11358,8 +11490,7 @@
       (mp:acc-add-lines blk lay col
         '((0.0 -1.418 0.0 -4.481) (0.0 1.744 0.0 -3.197)))
       (mp:acc-add-disk blk lay col 0.0 -1.069 0.349)
-      (setq c (vla-AddCircle blk (mp:3d '(0.0 2.615 0.0)) 0.872))
-      (vla-put-Layer c lay) (vla-put-Color c col))
+      (mp:acc-add-circle blk lay col 0.0 2.615 0.872))
     ((= tk "VPH")
       (mp:acc-add-polys blk lay col T
         '((-0.174 2.18 0.174 1.308 -0.174 1.308 0.174 2.18)
@@ -11387,8 +11518,7 @@
       (mp:acc-add-polys blk lay col T
         '((0.0 0.0 -0.30 -0.75 0.30 -0.75)
           (0.0 0.0 -0.30 0.75 0.30 0.75)))
-      (setq c (vla-AddCircle blk (mp:3d '(0.0 0.0 0.0)) 1.004))
-      (vla-put-Layer c lay) (vla-put-Color c col)
+      (mp:acc-add-circle blk lay col 0.0 0.0 1.004)
       (mp:acc-add-lines blk lay col '((1.004 0.0 2.30 0.0))))
     ((= tk "TAP")
       (mp:acc-add-polys blk lay col nil
@@ -11512,7 +11642,7 @@
   (setq *mp-dialog-edit-mode* nil)
   ;; v13 (5.6.0): nueva ventana maipore_punto_pluvial; subir el nombre
   ;; obliga a reescribir el .dcl temporal que dejo una sesion anterior
-  (setq fn (urb:temp-file "maipore_puntos_v13" ".dcl"))
+  (setq fn (urb:temp-file "maipore_puntos_v14" ".dcl"))
   (if (and *mp-dcl-puntos-ok* (findfile fn))
     fn
     (progn
@@ -11529,13 +11659,13 @@
   (write-line ": text { label = \"La profundidad se calcula sola: tapa - clave.\"; } } ok_cancel; }" f)
   ;; 5.6.0 (pedido del usuario): un solo boton pluvial para pozo, sumidero
   ;; y cabezal de descarga -- todos por unidad; el tipo se elige aqui.
-  (write-line "maipore_punto_pluvial : dialog { label = \"Maipore - Punto pluvial\"; : boxed_column {" f)
+  ;; 5.6.1 (pedido del usuario): "Accesorios" pluviales -- solo Tipo,
+  ;; Etapa/Subetapa e ID. Sin diametro ni cotas: el terreno sale solo de
+  ;; SUP_TN y el cabezal toma el diametro del tramo que llega a el.
+  (write-line "maipore_punto_pluvial : dialog { label = \"Maipore - Accesorios pluviales\"; : boxed_column {" f)
   (write-line ": popup_list { label = \"Tipo\"; key = \"tipo_plu\"; edit_width = 24; }" f)
   (write-line (mp:dcl-etapa-str) f)
-  (write-line ": edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
-  (write-line ": edit_box { label = \"Cota tapa / terreno (vacia = SUP_TN)\"; key = \"ctapa\"; edit_width = 12; } : edit_box { label = \"Cota clave / fondo\"; key = \"cclave\"; edit_width = 12; }" f)
-  (write-line ": text { label = \"Pozo, sumidero y cabezal van por unidad. Profundidad = tapa - clave.\"; }" f)
-  (write-line ": text { label = \"Cabezal: el diametro define la fila del presupuesto (8-10 / 12-16 / 18-24).\"; } } ok_cancel; }" f)
+  (write-line ": edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } } ok_cancel; }" f)
   (write-line "maipore_caja_elec : dialog { label = \"Maipore - Caja / camara electrica\"; : boxed_column {" f)
   (write-line ": popup_list { label = \"Tipo\"; key = \"tipo\"; }" f)
   (write-line (mp:dcl-etapa-str) f)
@@ -13362,6 +13492,9 @@
       (mp:store-tramo-memory-samples en *mp-last-tramo-memory-samples*)
       (setq *mp-last-tramo-memory-samples* nil)
       (vl-catch-all-apply 'urb:attach-memory-reactor-to-block (list en))
+      ;; 5.6.1: el tramo recien creado se dibuja encima de todo; los
+      ;; simbolos de red vuelven a quedar por encima de la tuberia
+      (vl-catch-all-apply 'mp:points-to-top (list nil))
       (princ
         (strcat
           "\nTramo PPTO creado en " lay ": " blk
@@ -13375,7 +13508,7 @@
 ;; 2026-09-02 (pedido del usuario: "las cotas de los tramos no estan
 ;; quedando centradas"): reposiciona las etiquetas visibles de un TRAMO a
 ;; su sitio de diseno -- el punto del attdef del bloque transformado por
-;; la insercion. Rotacion: ACU horizontal (0), el resto acompana al tramo.
+;; la insercion. Rotacion: todas las redes acompanan al tramo (5.6.1).
 (defun mp:recenter-tramo-attribs (en / obj ed ip rot bname blk map a tag
                                   item local x y tgt base res flip)
   (setq obj (vlax-ename->vla-object en)
@@ -13441,11 +13574,15 @@
                 (list a 'TextAlignmentPoint tgt)))
               (setq res (vl-catch-all-apply 'vlax-put
                 (list a 'InsertionPoint tgt))))
+            ;; 5.6.1 (reporte del usuario: "las cotas de acueducto no estan
+            ;; quedando alineadas igual que el resto de tramos, sino
+            ;; perpendicular"): ACU tenia aqui una excepcion que forzaba el
+            ;; texto a 0 grados. Desde 5.6.0 Apariencia recentra TODOS los
+            ;; tramos, asi que cada ACU vertical quedo con el texto
+            ;; horizontal. Ahora todas las redes acompanan al tramo; si uno
+            ;; queda boca abajo, EDITAR > Voltear texto.
             (vl-catch-all-apply 'vla-put-Rotation
-              (list a
-                (if (= base "TRAMO_ACUEDUCTO")
-                  0.0
-                  (+ rot (nth 2 item) (if flip pi 0.0))))))))
+              (list a (+ rot (nth 2 item) (if flip pi 0.0)))))))
       T)))
 
 ;; ---------- 5.6.0 voltear el texto de tramos puntuales ----------
@@ -13537,6 +13674,10 @@
   (if (tblsearch "LAYER" lay) (vla-put-Layer br lay))
   (mp:setatts en vals2)
   (if (> (abs rot) 1e-9) (mp:level-etiqueta-atts en))
+  ;; 5.6.1: numero pegado al accesorio y todo simbolo encima de tuberias
+  (if (= base "ACCESORIO_ACUEDUCTO")
+    (vl-catch-all-apply 'mp:place-acc-label (list en)))
+  (vl-catch-all-apply 'mp:points-to-top (list (list en)))
   (princ
     (strcat
       "\nPunto PPTO creado en " lay ": " blk
@@ -14170,20 +14311,24 @@
 ;; ventana. CABEZAL_PLUVIAL ya existia completo en el motor (simbolo del
 ;; plano PLUVIAL.dwg, capa, etiqueta CAB, cruce con presupuesto por rango de
 ;; diametro) pero no tenia forma de crearse desde la cinta.
+;; 5.6.1: el boton se llama "Accesorios" y la canuela entro como un tipo mas
+;; (pedido del usuario: "que la canuela este incluida en pozo/sumidero y
+;; cambies ese nombre a accesorios").
 (setq *mp-pluvial-tipos*
   '(("Pozo de inspeccion" . "POZO_PLUVIAL")
     ("Sumidero" . "SUMIDERO")
-    ("Cabezal de descarga" . "CABEZAL_PLUVIAL")))
+    ("Cabezal de descarga" . "CABEZAL_PLUVIAL")
+    ("Canuela (recorrido, ML)" . "CANUELA_PLU")))
 
-(defun mp:dialog-punto-pluvial (/ dcl ok etapa res tapa clave prof tipo idx)
+(defun mp:dialog-punto-pluvial (/ dcl ok etapa res tipo idx)
   (setq dcl (load_dialog (mp:write-dcl-puntos)))
   (if (not (new_dialog "maipore_punto_pluvial" dcl)) (exit))
-  (setq idx (if (and (boundp '*mp-last-tipo-plu*) *mp-last-tipo-plu*)
+  (setq idx (if (and (boundp '*mp-last-tipo-plu*) *mp-last-tipo-plu*
+                     (< *mp-last-tipo-plu* (length *mp-pluvial-tipos*)))
               *mp-last-tipo-plu* 0))
   (mp:fill-popup "tipo_plu" (mapcar 'car *mp-pluvial-tipos*) idx)
   (mp:fill-popup "etapa" *mp-etapa-list* 0)
   (mp:update-subetapa)
-  (urb:fill-diam-popup "diam" *mp-diam-alc-list* "8")
   (action_tile "etapa" "(mp:update-subetapa)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
   (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
@@ -14195,43 +14340,97 @@
       (setq *mp-last-tipo-plu* idx
             tipo (cdr (nth idx *mp-pluvial-tipos*)))
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
-      (setq tapa (mp:numeric-real (mp:gettile "ctapa")))
-      (setq clave (mp:numeric-real (mp:gettile "cclave")))
-      (setq prof (if (and tapa clave) (rtos (- tapa clave) 2 3) ""))
+      ;; sin diametro ni cotas (pedido del usuario): cota de terreno
+      ;; automatica de SUP_TN; clave y profundidad se completan con EDITAR
       (setq res
         (cons tipo
           (list (cons "ETAPA" etapa)
                 (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
                 (cons "RED" "Alluvias")
                 (cons "ID" (mp:gettile "id"))
-                (cons "DIAMETRO" (mp:item *mp-diam-alc-list* "diam"))
-                (cons "COTA_TN_INI" (if tapa (rtos tapa 2 3) ""))
-                (cons "COTA_CLAVE_INI" (mp:gettile "cclave"))
-                (cons "PROFUNDIDAD" prof))))))
+                (cons "DIAMETRO" "")
+                (cons "COTA_TN_INI" "")
+                (cons "COTA_CLAVE_INI" "")
+                (cons "PROFUNDIDAD" ""))))))
   (unload_dialog dcl)
   res)
 
-(defun urb:create-storm-manhole (/ data base vals p dir)
+;; Diametro del tramo PLUVIAL que llega al punto (extremo a <= 2.5 m: los
+;; tramos arrancan en el borde del simbolo, no en su centro). Lo usa el
+;; cabezal, cuyo presupuesto va por rango de diametro (8-10/12-16/18-24).
+(defun mp:pluvial-diam-near (p / ss i en obj nm ed ip rot sx span end d bestd diam spans hit blk)
+  (setq ss (ssget "_X" '((0 . "INSERT"))) i 0 bestd 2.5 diam nil spans nil)
+  (if ss
+    (repeat (sslength ss)
+      (setq en (ssname ss i) obj (vlax-ename->vla-object en)
+            nm (vla-get-EffectiveName obj))
+      (if (and (wcmatch (strcase nm) "*TRAMO*")
+               (= (mp:infer-base nm (mp:att-alist en)) "TRAMO_ALLUVIAS"))
+        (progn
+          (setq ed (entget en) ip (cdr (assoc 10 ed))
+                rot (cdr (assoc 50 ed)) sx (cdr (assoc 41 ed)))
+          (if (setq hit (assoc nm spans))
+            (setq span (cdr hit))
+            (progn
+              (setq blk (vl-catch-all-apply 'vla-Item
+                          (list (vla-get-Blocks (urb:doc)) nm)))
+              (setq span (if (vl-catch-all-error-p blk) 0.0
+                           (mp:block-tramo-length blk)))
+              (setq spans (cons (cons nm span) spans))))
+          (setq end (list (+ (car ip) (* sx span (cos rot)))
+                          (+ (cadr ip) (* sx span (sin rot)))))
+          (setq d (min (distance (list (car p) (cadr p)) (list (car ip) (cadr ip)))
+                       (distance (list (car p) (cadr p)) end)))
+          (if (< d bestd)
+            (setq bestd d
+                  diam (mp:getval "DIAMETRO" (mp:att-alist en) "")))))
+      (setq i (1+ i))))
+  (if (and diam (/= diam "")) diam nil))
+
+(defun urb:create-storm-manhole (/ data base vals p dir diam ename n total ancho)
   (mp:ensure-layers)
   (if (setq data (mp:dialog-punto-pluvial))
     (progn
       (setq base (car data) vals (cdr data))
-      (if (setq p (mp:getpoint-wcs nil
-                    (cond
-                      ((= base "SUMIDERO") "\nPunto de sumidero: ")
-                      ((= base "CABEZAL_PLUVIAL") "\nPunto del cabezal (boca de descarga): ")
-                      (T "\nPunto de pozo pluvial: "))))
+      (if (= base "CANUELA_PLU")
+        ;; canuela: recorrido dibujado, por ML (ancho de Ajustes)
         (progn
-          ;; el cabezal tiene frente: se orienta hacia donde descarga
-          ;; (Enter = sin girar). Viaja en la pseudo-clave __ROT que ya
-          ;; entiende mp:insert-cant-point (la etiqueta queda horizontal).
-          (if (= base "CABEZAL_PLUVIAL")
-            (progn
-              (setq dir (getangle p "\nDireccion de descarga <sin girar>: "))
-              (if dir
-                (setq vals (mp:alist-set vals "__ROT"
-                             (rtos (- dir (/ pi 2.0)) 2 8))))))
-          (mp:insert-cant-point base p vals)))))
+          (setq ancho (urb:canuela-plu-ancho-default) n 0 total 0.0)
+          (while (setq ename (urb:draw-open-polyline "la canuela"))
+            (setq total (+ total
+                          (urb:canuela-plu-register ename
+                            (mp:getval "ETAPA" vals "1")
+                            (mp:getval "SUBETAPA" vals "1")
+                            ancho (mp:getval "ID" vals "")))
+                  n (1+ n))
+            (prompt (strcat "\nCanuela " (itoa n) ": "
+              (rtos (vla-get-Length (vlax-ename->vla-object ename)) 2 2)
+              " ML. Dibuje otra o Enter para terminar.")))
+          (if (> n 0)
+            (prompt (strcat "\nCanuelas creadas: " (itoa n)
+              " | total " (rtos total 2 2) " ML | ancho " (rtos ancho 2 2) " m."))))
+        (if (setq p (mp:getpoint-wcs nil
+                      (cond
+                        ((= base "SUMIDERO") "\nPunto de sumidero: ")
+                        ((= base "CABEZAL_PLUVIAL") "\nPunto del cabezal (boca de descarga): ")
+                        (T "\nPunto de pozo pluvial: "))))
+          (progn
+            ;; el cabezal tiene frente: se orienta hacia donde descarga
+            ;; (Enter = sin girar). Viaja en la pseudo-clave __ROT que ya
+            ;; entiende mp:insert-cant-point (la etiqueta queda horizontal).
+            (if (= base "CABEZAL_PLUVIAL")
+              (progn
+                (setq diam (mp:pluvial-diam-near p))
+                (if diam
+                  (progn
+                    (setq vals (mp:alist-set vals "DIAMETRO" diam))
+                    (prompt (strcat "\nDiametro tomado del tramo que llega: " diam "\"")))
+                  (prompt "\nNo hay tramo pluvial llegando a este punto: el cabezal queda sin diametro (asignelo con EDITAR)."))
+                (setq dir (getangle p "\nDireccion de descarga <sin girar>: "))
+                (if dir
+                  (setq vals (mp:alist-set vals "__ROT"
+                               (rtos (- dir (/ pi 2.0)) 2 8))))))
+            (mp:insert-cant-point base p vals))))))
   (princ))
 
 (defun urb:create-inlet (/ vals p)
@@ -14392,8 +14591,11 @@
                     (mp:recenter-tramo-attribs en))
                   ;; puntos (accesorios girados con ROTATE): etiqueta
                   ;; horizontal, sin tocar tramos (sus etiquetas acompanan
-                  ;; la linea salvo ACU)
-                  (mp:level-etiqueta-atts en))))))
+                  ;; la linea). 5.6.1: accesorio con su numero pegado.
+                  (progn
+                    (mp:level-etiqueta-atts en)
+                    (if (= base "ACCESORIO_ACUEDUCTO")
+                      (vl-catch-all-apply 'mp:place-acc-label (list en)))))))))
         (setq i (1+ i)))
       (princ "\nEtiquetas de cantidades actualizadas."))
     (princ "\nNo se encontraron bloques."))
@@ -15034,6 +15236,140 @@
           (setq victims (cons item victims))))
       (foreach item victims (urb:safe-delete item))
       (length victims))
+    0))
+
+;; ---------- 5.6.1 accesorios: grosor, encima de tuberias, numero pegado ----------
+;; Pedido del usuario: "el espesor de los accesorios igual que los tramos,
+;; que siempre se vean por encima de los tramos de tuberia y que el numero
+;; del accesorio este mas pegado al accesorio".
+
+;; Redibuja las definiciones MP_PUNTO_ACC_ACU_* existentes con el trazo
+;; actual (ancho de tramo). Conserva sus atributos: solo cambia geometria,
+;; y todas las inserciones toman el cambio a la vez.
+(defun mp:rebuild-acc-definitions (/ blk nm victims item lay col n)
+  (setq lay (mp:point-layer "ACCESORIO_ACUEDUCTO")
+        col (mp:point-color "ACCESORIO_ACUEDUCTO") n 0)
+  (vlax-for blk (vla-get-Blocks (urb:doc))
+    (setq nm (strcase (vla-get-Name blk)))
+    (if (and (= (vla-get-IsLayout blk) :vlax-false)
+             (= (vla-get-IsXRef blk) :vlax-false)
+             (wcmatch nm "MP_PUNTO_ACC_ACU_*"))
+      (progn
+        (setq victims nil)
+        (vlax-for item blk
+          (if (/= (vla-get-ObjectName item) "AcDbAttributeDefinition")
+            (setq victims (cons item victims))))
+        (foreach item victims (urb:safe-delete item))
+        ;; "MP_PUNTO_ACC_ACU_" son 17 caracteres: el resto es el token
+        (mp:acc-plan-geom-tk blk (substr nm 18) lay col)
+        (setq n (1+ n)))))
+  (setq *mp-acc-bbox-cache* nil)
+  n)
+
+;; caja de la GEOMETRIA de una definicion (sin atributos), en coordenadas
+;; locales: (xmin ymin xmax ymax). Se cachea por nombre.
+(defun mp:block-geom-bbox (bname / blk item lo hi r x0 y0 x1 y1 hit)
+  (if (setq hit (assoc (strcase bname)
+                  (if (boundp '*mp-acc-bbox-cache*) *mp-acc-bbox-cache* nil)))
+    (cdr hit)
+    (progn
+      (setq blk (vl-catch-all-apply 'vla-Item
+                  (list (vla-get-Blocks (urb:doc)) bname)))
+      (if (not (vl-catch-all-error-p blk))
+        (vlax-for item blk
+          (if (/= (vla-get-ObjectName item) "AcDbAttributeDefinition")
+            (progn
+              (setq r (vl-catch-all-apply 'vla-GetBoundingBox (list item 'lo 'hi)))
+              (if (not (vl-catch-all-error-p r))
+                (progn
+                  (setq lo (vlax-safearray->list lo) hi (vlax-safearray->list hi))
+                  (if (or (null x0) (< (car lo) x0)) (setq x0 (car lo)))
+                  (if (or (null y0) (< (cadr lo) y0)) (setq y0 (cadr lo)))
+                  (if (or (null x1) (> (car hi) x1)) (setq x1 (car hi)))
+                  (if (or (null y1) (> (cadr hi) y1)) (setq y1 (cadr hi)))))))))
+      (setq r (if x0 (list x0 y0 x1 y1) '(-0.5 -0.5 0.5 0.5)))
+      (setq *mp-acc-bbox-cache*
+        (cons (cons (strcase bname) r)
+          (if (boundp '*mp-acc-bbox-cache*) *mp-acc-bbox-cache* nil)))
+      r)))
+
+;; Numero del accesorio JUSTO al lado del simbolo, horizontal y legible:
+;; se calcula la caja real del simbolo ya girado en el plano; si el simbolo
+;; queda tendido en horizontal el numero va ENCIMA, si queda en vertical va
+;; a la DERECHA, a 0.15 m del trazo. Antes colgaba a una distancia fija
+;; debajo del simbolo en coordenadas locales, y al girar el accesorio
+;; quedaba lejos y del lado que no era.
+(defun mp:place-acc-label (en / obj ed ip rot sx sy bb xs ys c wx wy
+                           x0 x1 y0 y1 a h gap)
+  (setq obj (vlax-ename->vla-object en)
+        ed (entget en) ip (cdr (assoc 10 ed)) rot (cdr (assoc 50 ed))
+        sx (cdr (assoc 41 ed)) sy (cdr (assoc 42 ed)) gap 0.15)
+  (setq bb (mp:block-geom-bbox (vla-get-EffectiveName obj)))
+  (foreach c (list (list (nth 0 bb) (nth 1 bb)) (list (nth 2 bb) (nth 1 bb))
+                   (list (nth 2 bb) (nth 3 bb)) (list (nth 0 bb) (nth 3 bb)))
+    (setq wx (+ (car ip) (- (* sx (car c) (cos rot)) (* sy (cadr c) (sin rot))))
+          wy (+ (cadr ip) (+ (* sx (car c) (sin rot)) (* sy (cadr c) (cos rot)))))
+    (setq xs (cons wx xs) ys (cons wy ys)))
+  (setq x0 (apply 'min xs) x1 (apply 'max xs)
+        y0 (apply 'min ys) y1 (apply 'max ys))
+  (if (= (vla-get-HasAttributes obj) :vlax-true)
+    (foreach a (vlax-invoke obj 'GetAttributes)
+      (if (= (strcase (vla-get-TagString a)) "ETIQUETA")
+        (progn
+          (setq h (vla-get-Height a))
+          (vl-catch-all-apply 'vla-put-Rotation (list a 0.0))
+          (if (>= (- x1 x0) (- y1 y0))
+            (progn
+              (vl-catch-all-apply 'vla-put-Alignment (list a 10))
+              (vl-catch-all-apply 'vla-put-TextAlignmentPoint
+                (list a
+                  (mp:3d (list (/ (+ x0 x1) 2.0) (+ y1 gap (/ h 2.0)) 0.0)))))
+            (progn
+              (vl-catch-all-apply 'vla-put-Alignment (list a 9))
+              (vl-catch-all-apply 'vla-put-TextAlignmentPoint
+                (list a
+                  (mp:3d (list (+ x1 gap) (/ (+ y0 y1) 2.0) 0.0))))))
+          (vla-Update a)))))
+  T)
+
+;; Simbolos de red (pozos, sumideros, cajas, accesorios) SIEMPRE encima de
+;; las tuberias: tabla de orden de dibujo del espacio modelo. Con enames
+;; mueve solo esos; sin argumento mueve todos los MP_PUNTO_* (despues de
+;; crear un tramo, que por ser nuevo quedaria dibujado encima).
+(defun mp:points-to-top (enames / ss i objs ms dict st)
+  (if (null enames)
+    (progn
+      (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_*"))) i 0)
+      (if ss (repeat (sslength ss)
+        (setq enames (cons (ssname ss i) enames) i (1+ i))))))
+  (setq objs (mapcar 'vlax-ename->vla-object enames))
+  (if objs
+    (progn
+      (setq ms (vla-get-ModelSpace (urb:doc))
+            dict (vla-GetExtensionDictionary ms)
+            st (vl-catch-all-apply 'vla-GetObject (list dict "ACAD_SORTENTS")))
+      (if (vl-catch-all-error-p st)
+        (setq st (vla-AddObject dict "ACAD_SORTENTS" "AcDbSortentsTable")))
+      (vla-MoveToTop st (urb:object-array-variant objs))
+      (length objs))
+    0))
+
+;; una vez por DWG y cada vez que cambie el ancho de los tramos
+(defun mp:migrate-accessory-look (/ w n ss i)
+  (setq w (rtos (mp:acc-line-width) 2 4))
+  (if (/= (urb:safe-string (urb:config-read "URB_ACC_LOOK_561B") "") w)
+    (progn
+      (setq n (mp:rebuild-acc-definitions))
+      (setq ss (ssget "_X" '((0 . "INSERT") (2 . "MP_PUNTO_ACC_ACU_*"))) i 0)
+      (if ss (repeat (sslength ss)
+        (vl-catch-all-apply 'mp:place-acc-label (list (ssname ss i)))
+        (setq i (1+ i))))
+      (vl-catch-all-apply 'mp:points-to-top (list nil))
+      (urb:config-write "URB_ACC_LOOK_561B" w)
+      (if (> n 0)
+        (prompt (strcat "\nAccesorios de acueducto: " (itoa n)
+          " simbolos con el grosor de los tramos, encima de las tuberias y con el numero junto al simbolo.")))
+      n)
     0))
 
 (defun mp:migrate-network-wipeouts (/ result)
@@ -15956,6 +16292,8 @@
             (mp:recenter-tramo-attribs ename))
           (setq refs (1+ refs))))
       (setq index (1+ index))))
+  ;; 5.6.1: si cambio el ancho de los tramos, los accesorios lo siguen
+  (vl-catch-all-apply 'mp:migrate-accessory-look nil)
   (vla-Regen (urb:doc) 1)
   (list definitions refs)
 )
@@ -17888,10 +18226,10 @@
 ;; DIGITADA (opcion Digitar: numero + punto donde aplica). Sin vias ni
 ;; pozos, se digita y ya. Con UNA sola cota el plano de diseno queda
 ;; horizontal; con 2 es una rasante lineal; con 3+ un plano ajustado.
-(defun urb:pick-design-cotas (/ picks sel value point done n alto)
+(defun urb:pick-design-cotas (/ picks sel value point done n alto ref)
   (setq done nil picks nil)
   (while (not done)
-    (setq n (length picks))
+    (setq n (length picks) ref nil)
     (initget "Digitar Terminar")
     (setq sel
       (nentsel
@@ -17933,10 +18271,19 @@
           ;; (urb:prefab-default-alto), no se pregunta.
           (progn
             (setq alto (urb:prefab-default-alto "Bordillo"))
-            (prompt (strcat "\nRasante de la via en el clic: " (rtos value 2 3)
-              " + " (rtos alto 2 2) " m de bordillo -> cota de diseno "
-              (rtos (+ value alto) 2 3)))
-            (setq value (+ value alto)))
+            (setq value (+ value alto))
+            ;; 5.6.1 (reporte del usuario: "me esta reconociendo solo una
+            ;; cota"): el clic sobre una VIA ya no aporta un punto suelto --
+            ;; aporta su RASANTE COMPLETA. La cota de diseno de cada punto
+            ;; sale de la estacion de la via frente a el (+ bordillo).
+            (setq ref (vl-catch-all-apply 'urb:road-reference-from-pick (list sel)))
+            (if (vl-catch-all-error-p ref) (setq ref nil))
+            (if ref
+              (prompt (strcat "\nVia creada: se usa su rasante en TODO el alineamiento"
+                " + " (rtos alto 2 2) " m de bordillo (en el clic: "
+                (rtos value 2 3) "). Enter para terminar."))
+              (prompt (strcat "\nRasante de la via en el clic + " (rtos alto 2 2)
+                " m de bordillo -> cota de diseno " (rtos value 2 3)))))
           (progn
             (setq value (urb:cota-from-model-punto sel))
             (if value
@@ -17951,8 +18298,41 @@
           (setq value
             (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
         (if value
-          (setq picks (append picks (list (list value (cadr sel)))))))))
+          (setq picks (append picks
+                        (list (if ref (list value (cadr sel) ref)
+                                      (list value (cadr sel))))))))))
   picks)
+
+;; referencia de rasante de la via creada tocada por un clic (nentsel)
+(defun urb:road-reference-from-pick (sel / cands item road out)
+  (setq cands (list (car sel)))
+  (if (> (length sel) 3) (setq cands (append cands (nth 3 sel))))
+  (foreach item cands
+    (if (and (null out) item)
+      (progn
+        (setq road (vl-catch-all-apply 'urb:road-parent-from-entity (list item)))
+        (if (and road (not (vl-catch-all-error-p road)))
+          (setq out (urb:anden-road-grade-for road))))))
+  out)
+
+;; cota de DISENO en (x y) sobre la rasante de una via: estacion del punto
+;; proyectado en el eje (misma regla que urb:anden-grade-at-point) + altura
+;; de bordillo, igual que el clic suelto sobre la via.
+(defun urb:road-reference-design-z (reference x y / axis records axis-start
+                                    span direction mode closest raw station z)
+  (setq axis (nth 0 reference) records (nth 1 reference)
+        axis-start (nth 2 reference) span (nth 3 reference)
+        direction (nth 4 reference) mode (nth 5 reference))
+  (setq closest (vlax-curve-getClosestPointTo axis (list x y 0.0)))
+  (setq raw (vlax-curve-getDistAtPoint axis closest))
+  (setq station
+    (if (urb:string-equal-p mode "LOCAL")
+      (if (urb:string-equal-p direction "Final")
+        (- (+ axis-start span) raw)
+        (- raw axis-start))
+      raw))
+  (setq z (urb:cota-at-axis-distance station records))
+  (if z (+ z (urb:prefab-default-alto "Bordillo")) nil))
 
 ;; Proyecta cada cota seleccionada sobre el eje (en el punto del clic) y
 ;; devuelve records (distancia-en-el-eje cota) ordenados, listos para
@@ -29161,7 +29541,7 @@
 
 (defun urb:poly-element-draw (entry etapa sub lado-der lado-izq posicion
                               appid / capa ename obj hatch n con-cost
-                              descuento grp kw2 picks2 mov2 costados finish-region)
+                              descuento grp kw2 picks2 mov2 over2 costados finish-region)
   (setq capa (nth 6 entry))
   (urb:ensure-layer capa (nth 3 entry) T)
   (setq con-cost
@@ -29243,8 +29623,20 @@
         (if (and picks2 (>= (length picks2) 1))
           (progn
             ;; sendero: la subrasante queda el espesor de su tipo por debajo
-            (setq mov2 (urb:earthworks-from-picks ename picks2
+            ;; 5.6.1 (pedido del usuario: "para vias, andenes, senderos solo
+            ;; va sobreancho a los costados"): el corte/relleno del sendero
+            ;; se mide sobre su contorno + 1 m SOLO en los dos costados
+            ;; largos -- la misma huella del anden, sin prolongar las
+            ;; puntas. Antes se media sobre el contorno exacto, sin
+            ;; sobreancho. Una forma sin dos costados claros (plazoleta)
+            ;; cae al contorno exacto y lo avisa.
+            (setq over2 (vl-catch-all-apply 'urb:anden-overwidth-contour (list ename 1.0)))
+            (if (vl-catch-all-error-p over2) (setq over2 nil))
+            (if (null over2)
+              (prompt "\nSendero sin dos costados largos claros: corte/relleno sobre el contorno exacto, sin sobreancho."))
+            (setq mov2 (urb:earthworks-from-picks (if over2 over2 ename) picks2
                          (vl-catch-all-apply 'urb:send-espesor-de (list entry))))
+            (if over2 (urb:safe-delete (vlax-ename->vla-object over2)))
             (if mov2
               (progn
                 (urb:set-xdata-strings ename "URB_SEND_MOV"
@@ -29362,7 +29754,8 @@
       ": text { label = \"Aceptar y dibujar el recorrido; Enter sin dibujar termina.\"; }"
       "ok_cancel; }")))
 
-(defun urb:canuela-plu-register (ename etapa sub ancho / obj)
+;; xdata URB_CANUELA_PLU = (codigo etapa subetapa ancho id) -- 5.6.1 agrega el ID
+(defun urb:canuela-plu-register (ename etapa sub ancho id / obj)
   (setq obj (vlax-ename->vla-object ename))
   (urb:ensure-layer *urb-canuela-plu-capa* 8 T)
   (vla-put-Layer obj *urb-canuela-plu-capa*)
@@ -29370,7 +29763,7 @@
   (if (vlax-property-available-p obj 'ConstantWidth T)
     (vla-put-ConstantWidth obj (float ancho)))
   (urb:set-xdata-strings ename "URB_CANUELA_PLU"
-    (list "CANUELA_PLU" etapa sub (rtos ancho 2 3)))
+    (list "CANUELA_PLU" etapa sub (rtos ancho 2 3) (urb:safe-string id "")))
   (vla-get-Length obj))
 
 (defun urb:canuela-plu-command (/ dclfile dcl done etapa sub subs ancho
@@ -29416,7 +29809,7 @@
               etapa))
           (setq n 0 total 0.0)
           (while (setq ename (urb:draw-open-polyline "la canuela"))
-            (setq total (+ total (urb:canuela-plu-register ename etapa sub ancho))
+            (setq total (+ total (urb:canuela-plu-register ename etapa sub ancho ""))
                   n (1+ n))
             (prompt (strcat "\nCanuela " (itoa n) ": "
               (rtos (vla-get-Length (vlax-ename->vla-object ename)) 2 2)
@@ -29451,8 +29844,11 @@
             zona (urb:ppto-zona-de en))
       (setq rows
         (cons
+          ;; 3er campo = ID (5.6.1); sin ID queda la descripcion con el ancho
           (urb:ppto-row "ALC-PLUVIAL" "Canuela"
-            (strcat "Canuela pluvial a=" (rtos ancho 2 2) " m")
+            (if (/= (urb:safe-string (nth 4 datos) "") "")
+              (nth 4 datos)
+              (strcat "Canuela pluvial a=" (rtos ancho 2 2) " m"))
             "" "" etapa sub "ML" len handle)
           (urb:ppto-param-rows "CANUELA" "ALC-PLUVIAL"
             (list (cons "LONGITUD" len)
@@ -36371,6 +36767,8 @@
       (vl-catch-all-apply 'mp:migrate-electrical-display nil))
     (setq *mp-wipeout-migration-result*
       (vl-catch-all-apply 'mp:migrate-network-wipeouts nil))
+    (setq *mp-acc-look-migration-result*
+      (vl-catch-all-apply 'mp:migrate-accessory-look nil))
     (if (vl-catch-all-error-p *mp-electrical-display-migration-result*)
       (prompt "\nActualizacion electrica pendiente: no se pudo completar; se reintentara al abrir."))))
 (vl-catch-all-apply 'urb:install-memory-property-reactors nil)

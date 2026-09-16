@@ -11,7 +11,7 @@
 //   [Urbanismo] -> 10 simbolos GRANDES con su nombre debajo:
 //     Via, Anden, Rampa, Zona verde, Prefabricado,
 //     Red sanitaria ->  Tramo, Pozo sanitario
-//     Red pluvial   ->  Tramo, Pozo / Sumidero (+cabezal), Canuela, Bioswale
+//     Red pluvial   ->  Tramo, Accesorios (pozo/sumidero/cabezal/canuela), Bioswale
 //     Acueducto     ->  Tramo, Accesorios
 //     Media tension ->  Tramo MT, Tramo BT, Alumbrado, Camara, Luminaria
 //   Todo aparece EN EL MISMO ESPACIO del panel (swap en vivo), con "<"
@@ -438,7 +438,7 @@ namespace UrbanismoCantidades
         //    Urbanismo      -> Via, Anden, Rampa, Zona verde, Prefabricado
         //    Redes humedas  -> Acueducto     -> Tramo, Accesorios
         //                      Alcantarillado -> Tramo, Pozo sanitario
-        //                      Pluvial        -> Tramo, Pozo / Sumidero, Canuela, Bioswale
+        //                      Pluvial        -> Tramo, Accesorios, Bioswale
         //    Redes secas    -> Media tension  -> Tramo MT, Tramo BT, Camara
         //                      Alumbrado      -> Tramo alumbrado, Luminaria
 
@@ -507,9 +507,10 @@ namespace UrbanismoCantidades
                 // boton; la ventana trae "Tipo" = Pozo / Sumidero / Cabezal
                 // de descarga (todos por unidad). El comando SUMIDERO sigue
                 // existiendo para quien lo escriba.
-                AddBigCmd("Pozo / Sumidero", "POZOPLU", "pozoplu");
-                // 5.6.0: canuela pluvial por ML, se dibuja el recorrido
-                AddBigCmd("Canuela", "CANUELAPLU", "canuelaplu");
+                // 5.6.1 (pedido del usuario): el boton se llama
+                // "Accesorios" y la canuela entro como un Tipo mas dentro
+                // de la misma ventana (pozo / sumidero / cabezal / canuela).
+                AddBigCmd("Accesorios", "POZOPLU", "accesorio");
                 // 2026-08-24 (pedido del usuario): el bioswale es un
                 // elemento de la red pluvial, no de Sendero -- salio de
                 // ahi y entro aqui.

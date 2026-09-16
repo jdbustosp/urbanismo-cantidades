@@ -1,5 +1,57 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-16 15:30 America/Bogota — 5.6.1 cotas ACU paralelas, accesorios, pluvial y movimiento de tierras
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 965650a. INSTALADA (DLL 2023 -> UrbCantRibbon2023_v561.dll).
+
+1. COTAS DE ACUEDUCTO perpendiculares: mp:recenter-tramo-attribs forzaba el
+   texto de TRAMO_ACUEDUCTO a 0 grados. Desde 5.6.0 Apariencia recentra todos
+   los tramos, asi que cada ACU no horizontal quedo con el texto cruzado. Se
+   quito la excepcion. Verificado: tramo 50.03 grados -> texto 50.03.
+2. ACCESORIOS DE ACUEDUCTO: (a) todo el trazo es polilinea con el ancho de
+   tramo (lineas, arcos con bulge, circulos de dos medias vueltas); las 13
+   definiciones existentes se redibujan (migracion URB_ACC_LOOK_561B, que se
+   repite si cambia el ancho y tambien corre desde Apariencia). (b) simbolos
+   MP_PUNTO_* siempre encima: SORTENTS MoveToTop al insertar un punto y
+   despues de crear cada tramo. (c) numero a 0.15 m del simbolo, horizontal:
+   a la derecha si el simbolo queda vertical, encima si queda horizontal,
+   calculado con la caja real del simbolo girado. OJO: la primera version
+   escribia con vlax-put + vlax-3d-point, combinacion que falla y el
+   vl-catch-all-apply la silenciaba; se paso a vla-put-TextAlignmentPoint.
+   Verificado: VAL derecha 0.15, TEE arriba 0.15.
+3. PLUVIAL: boton "Accesorios" (POZOPLU) con Tipo Pozo / Sumidero / Cabezal
+   / Canuela; ventana solo Tipo, Etapa/Subetapa e ID (sin diametro ni cotas).
+   El cabezal toma el diametro del tramo pluvial cuyo extremo esta a <= 2.5 m
+   (verificado O45). Canuela guarda ID en XDATA y sale en la fila (CN-7, 30 ML).
+   Boton Canuela suelto retirado de la cinta (el comando CANUELAPLU sigue).
+4. MOVIMIENTO DE TIERRAS:
+   - Sobreancho: anden y via YA eran solo costados (anden: dos cadenas
+     costado desplazadas; via: longitud x ancho izq/der). Verificado con
+     rectangulo 40x3 -> 200 m2 (rodeando puntas seria 210). Senderos NO
+     tenian sobreancho: ahora se mide sobre contorno + 1 m en los dos
+     costados largos; forma sin costados claros cae al contorno exacto.
+   - La via que controla un anden se DETECTA sola (la via creada mas
+     cercana a <= 10 m; submuestreo a ~80 puntos: 0.47 s por anden, misma via detectada). Andenes guardados con
+     "Cotas seleccionadas"/"Alineamiento + cotas" ya no piden la polilinea
+     del eje si hay via al lado.
+   - Clic sobre una via al tomar cotas de diseno (andén EDITAR, senderos,
+     zonas verdes, rampas): ya no aporta UNA cota; aporta la rasante completa
+     y se usa la MISMA cota de diseno del recalculo completo
+     (urb:anden-grade-at-point: bombeo al borde + bordillo + transversal).
+     Verificado: ruta clic = recalculo en dos andenes reales
+     (F20E5 0/2427.93; DD2CA 0.12/280.50). Antes de unificar daban 454 vs 280.
+   - Las cantidades siguen excluyendo la estructura: anden hasta 0.60 m bajo
+     terminado, via hasta el fondo del perfil, sendero su espesor.
+   CAMBIO DE CIFRAS: DD2CA tenia 1431.20 corte / 17.04 relleno con una cota
+   suelta; con la rasante completa queda 0.12 / 280.50. Recalcular andenes
+   existentes con EDITAR.
+   Recalculo completo de DD2CA (1272 vertices) tarda 160 s headless.
+
+Aviso "Unreconciled New Layers": es la notificacion de capas nuevas de
+AutoCAD (LAYERNOTIFY/LAYEREVAL) al crear capas del plugin; no se toco, queda
+a decision del usuario.
+
+
 ## 2026-09-16 09:25 America/Bogota — 5.6.0 separacion de cotas, volteo de texto, wipeouts y pluvial unificado
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base b0bb1d6. INSTALADA (hash repo =
