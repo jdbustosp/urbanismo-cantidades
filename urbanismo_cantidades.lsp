@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.5.13")
+(setq *urb-version* "5.6.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -9227,7 +9227,23 @@
           (if greens
             (urb:edit-green-zones greens)
             (if mp-entities
-              (foreach ename mp-entities (mp:edit-entity ename))
+              ;; 5.6.0: con tramos en la seleccion EDITAR ofrece tambien
+              ;; voltear su texto (integrado aqui a pedido del usuario:
+              ;; nada de comandos sueltos). Enter = Propiedades, como antes.
+              (if (and (vl-some
+                         '(lambda (e)
+                            (mp:base-is-tramo
+                              (mp:infer-base
+                                (vla-get-EffectiveName (vlax-ename->vla-object e))
+                                (mp:att-alist e))))
+                         mp-entities)
+                       (progn
+                         (initget "Propiedades Voltear")
+                         (= "Voltear"
+                            (getkword
+                              "\nTramos: [Propiedades/Voltear texto] <Propiedades>: "))))
+                (mp:flip-tramo-texts mp-entities)
+                (foreach ename mp-entities (mp:edit-entity ename)))
               (prompt
                 "\nLa seleccion no contiene elementos editables.")))))))
     (prompt "\nNo se selecciono ningun objeto."))
@@ -10123,6 +10139,12 @@
 (setq *mp-vis-radius* 1.50) ; radio de circulos de inicio/fin
 (setq *mp-vis-text-height* 1.50) ; altura de datos de elementos puntuales
 (setq *mp-vis-tramo-text-height* 0.60) ; altura unificada de datos del tramo
+;; 5.6.0 (pedido del usuario: "que en configuracion pueda graduar la
+;; separacion frente al eje del tramo"): espacio LIBRE entre el borde de
+;; la linea del tramo y el borde del texto. v5.5.13 lo dejaba fijo en
+;; 0.75 x altura desde el EJE, sin contar el espesor de la linea: con un
+;; tramo grueso el texto quedaba practicamente encima.
+(setq *mp-vis-tramo-text-gap* 0.15)
 
 ;; Separador del CSV: ";" abre en columnas en Excel con configuracion
 ;; regional de Colombia/Espana. Cambie a "," si su sistema usa la coma.
@@ -10483,7 +10505,12 @@
       "serie" "circuito" "desde" "hasta" "cond" "ductos"
       "diamducto" "matducto" "libres" "prof" "id" "lote"
       "anchoz" "cama" "repos"
-      "cd" "pf" "lum" "led" "altura" "brazo" "avance"))
+      "cd" "pf" "lum" "led" "altura" "brazo" "avance"
+      ;; 5.6.0: "ctapa" FALTABA -- mp:dialog-punto-hidro la leia despues de
+      ;; done_dialog, cuando get_tile ya no responde, y la cota de tapa
+      ;; digitada se perdia (caia al terreno automatico). "tipo_plu" es el
+      ;; selector Pozo/Sumidero/Cabezal de la ventana pluvial unificada.
+      "ctapa" "tipo_plu"))
   (setq result nil)
   (foreach key keys
     (setq value (vl-catch-all-apply 'get_tile (list key)))
@@ -10613,7 +10640,7 @@
       (vla-put-Color c2 col)))
 
   ;; Etiqueta y pendiente centradas respecto al punto medio del tramo.
-  (setq mid (list (/ dist 2.0) (* th 0.75) 0.0))
+  (setq mid (list (/ dist 2.0) (mp:tramo-label-offset th) 0.0))
   (mp:center-visible-att
     (mp:vla-add-att blk "ETIQUETA" "Etiqueta visible" lab mid th nil lay col)
     mid
@@ -10622,7 +10649,7 @@
   ;; acueducto (presion) el "-0.102%" era puro ruido visual
   (if (member baseb '("TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS"))
     (progn
-      (setq mid (list (/ dist 2.0) (- (* th 0.75)) 0.0))
+      (setq mid (list (/ dist 2.0) (- (mp:tramo-label-offset th)) 0.0))
       (mp:center-visible-att
         (mp:vla-add-att
           blk
@@ -10639,7 +10666,7 @@
   ;; MT/BT-AP: longitud y tubos debajo; conductor/acometida arriba.
   (if (member baseb '("TRAMO_E_MT" "TRAMO_E_BT_AP"))
     (progn
-      (setq mid (list (/ dist 2.0) (- (* th 0.75)) 0.0))
+      (setq mid (list (/ dist 2.0) (- (mp:tramo-label-offset th)) 0.0))
       (mp:center-visible-att
         (mp:vla-add-att blk "LONG_VIS" "Longitud visible"
           (mp:long-label vals) mid th nil lay col)
@@ -11483,7 +11510,9 @@
 (defun mp:write-dcl-puntos (/ fn f)
   (mp:reset-dialog-capture)
   (setq *mp-dialog-edit-mode* nil)
-  (setq fn (urb:temp-file "maipore_puntos_v12" ".dcl"))
+  ;; v13 (5.6.0): nueva ventana maipore_punto_pluvial; subir el nombre
+  ;; obliga a reescribir el .dcl temporal que dejo una sesion anterior
+  (setq fn (urb:temp-file "maipore_puntos_v13" ".dcl"))
   (if (and *mp-dcl-puntos-ok* (findfile fn))
     fn
     (progn
@@ -11498,6 +11527,15 @@
   (write-line ": edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
   (write-line ": edit_box { label = \"Cota tapa (vacia = terreno SUP_TN)\"; key = \"ctapa\"; edit_width = 12; } : edit_box { label = \"Cota clave / fondo\"; key = \"cclave\"; edit_width = 12; }" f)
   (write-line ": text { label = \"La profundidad se calcula sola: tapa - clave.\"; } } ok_cancel; }" f)
+  ;; 5.6.0 (pedido del usuario): un solo boton pluvial para pozo, sumidero
+  ;; y cabezal de descarga -- todos por unidad; el tipo se elige aqui.
+  (write-line "maipore_punto_pluvial : dialog { label = \"Maipore - Punto pluvial\"; : boxed_column {" f)
+  (write-line ": popup_list { label = \"Tipo\"; key = \"tipo_plu\"; edit_width = 24; }" f)
+  (write-line (mp:dcl-etapa-str) f)
+  (write-line ": edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
+  (write-line ": edit_box { label = \"Cota tapa / terreno (vacia = SUP_TN)\"; key = \"ctapa\"; edit_width = 12; } : edit_box { label = \"Cota clave / fondo\"; key = \"cclave\"; edit_width = 12; }" f)
+  (write-line ": text { label = \"Pozo, sumidero y cabezal van por unidad. Profundidad = tapa - clave.\"; }" f)
+  (write-line ": text { label = \"Cabezal: el diametro define la fila del presupuesto (8-10 / 12-16 / 18-24).\"; } } ok_cancel; }" f)
   (write-line "maipore_caja_elec : dialog { label = \"Maipore - Caja / camara electrica\"; : boxed_column {" f)
   (write-line ": popup_list { label = \"Tipo\"; key = \"tipo\"; }" f)
   (write-line (mp:dcl-etapa-str) f)
@@ -11923,7 +11961,7 @@
     (member base
       '("TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS" "TRAMO_ACUEDUCTO"
         "TRAMO_E_MT" "TRAMO_E_BT_AP" "POZO_SANITARIO"
-        "POZO_PLUVIAL" "SUMIDERO" "ACCESORIO_ACUEDUCTO"
+        "POZO_PLUVIAL" "SUMIDERO" "CABEZAL_PLUVIAL" "ACCESORIO_ACUEDUCTO"
         "CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280"
         "CAJA_BARRAJE_CS281" "LUMINARIA_AP"))))
 
@@ -11949,7 +11987,7 @@
           ((member base '("TRAMO_ARESIDUAL" "TRAMO_ALLUVIAS" "TRAMO_ACUEDUCTO")) (mp:edit-dialog-tramo-red atts base))
           ((= base "TRAMO_E_MT") (mp:edit-dialog-tramo-mt atts))
           ((= base "TRAMO_E_BT_AP") (mp:edit-dialog-tramo-bt atts))
-          ((member base '("POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO")) (mp:edit-dialog-punto-hidro atts base))
+          ((member base '("POZO_SANITARIO" "POZO_PLUVIAL" "SUMIDERO" "CABEZAL_PLUVIAL")) (mp:edit-dialog-punto-hidro atts base))
           ((= base "ACCESORIO_ACUEDUCTO") (mp:edit-dialog-acc-acu atts))
           ((member base *mp-caja-elec-list*) (mp:edit-dialog-caja-elec atts base))
           ((= base "LUMINARIA_AP") (mp:edit-dialog-luminaria atts))
@@ -13339,13 +13377,14 @@
 ;; su sitio de diseno -- el punto del attdef del bloque transformado por
 ;; la insercion. Rotacion: ACU horizontal (0), el resto acompana al tramo.
 (defun mp:recenter-tramo-attribs (en / obj ed ip rot bname blk map a tag
-                                  item local x y tgt base res)
+                                  item local x y tgt base res flip)
   (setq obj (vlax-ename->vla-object en)
         ed (entget en)
         ip (cdr (assoc 10 ed))
         rot (cdr (assoc 50 ed))
         bname (vla-get-EffectiveName obj)
-        base (mp:infer-base bname (mp:att-alist en)))
+        base (mp:infer-base bname (mp:att-alist en))
+        flip (mp:tramo-text-flipped-p en))
   ;; 2026-09-03 (optimizacion de velocidad): el mapa de attdefs de cada
   ;; DEFINICION se cachea por nombre de bloque -- las definiciones son
   ;; compartidas por longitud, asi que en pasadas masivas (RECENTRA,
@@ -13388,6 +13427,11 @@
                 (nth 1 item)
                 (nth 4 item)))
             (setq x (car local) y (cadr local))
+            ;; 5.6.0 VOLTEADO: el texto se lee al derecho girandolo 180
+            ;; grados sobre su propio centro (alineacion centro-medio) y
+            ;; cambiando de lado del eje, para que la etiqueta siga
+            ;; quedando ARRIBA y la pendiente ABAJO vistas en pantalla.
+            (if flip (setq y (- y)))
             (setq tgt
               (list (+ (car ip) (- (* x (cos rot)) (* y (sin rot))))
                     (+ (cadr ip) (+ (* x (sin rot)) (* y (cos rot))))
@@ -13401,8 +13445,37 @@
               (list a
                 (if (= base "TRAMO_ACUEDUCTO")
                   0.0
-                  (+ rot (nth 2 item))))))))
+                  (+ rot (nth 2 item) (if flip pi 0.0))))))))
       T)))
+
+;; ---------- 5.6.0 voltear el texto de tramos puntuales ----------
+;; Pedido del usuario: "hay tramos que el texto quedo boca abajo, pero son
+;; tramos en especifico, no todos". La marca vive en XDATA de la
+;; REFERENCIA (no de la definicion, que se comparte entre tramos de la
+;; misma longitud) y la respeta cualquier recentrado posterior: Apariencia,
+;; ETIQUETAS, edicion. Copiar el tramo copia tambien la marca.
+(defun mp:tramo-text-flipped-p (en)
+  (= "1" (car (urb:get-xdata-strings en "URB_TXT_VOLTEO"))))
+
+(defun mp:toggle-tramo-text-flip (en)
+  (urb:set-xdata-strings en "URB_TXT_VOLTEO"
+    (list (if (mp:tramo-text-flipped-p en) "0" "1")))
+  (mp:recenter-tramo-attribs en))
+
+(defun mp:flip-tramo-texts (ents / en n)
+  (setq n 0)
+  (foreach en ents
+    (if (mp:base-is-tramo
+          (mp:infer-base
+            (vla-get-EffectiveName (vlax-ename->vla-object en))
+            (mp:att-alist en)))
+      (progn
+        (mp:toggle-tramo-text-flip en)
+        (setq n (1+ n)))))
+  (prompt
+    (strcat "\nTexto volteado en " (itoa n) " tramo(s)."
+      (if (> n 0) " Repita la opcion para devolverlo." "")))
+  n)
 
 ;; Deja horizontales las ETIQUETAS de un insert rotado (los ATTRIB llevan
 ;; su propio angulo DXF 50): el simbolo gira, el texto se lee derecho.
@@ -13448,6 +13521,9 @@
       (mp:point-block-name base)))
   (if (not (tblsearch "BLOCK" blk))
     (mp:make-cant-punto-block blk base vals2))
+  ;; 5.6.0: una definicion homonima traida de otro plano puede venir con
+  ;; wipeout; se quita al reusarla para que el simbolo no tape nada
+  (mp:strip-wipeouts-in-block blk)
   (setq added (mp:ensure-block-schema blk base nil))
   (if (> added 0)
     (setq sync-result
@@ -14088,11 +14164,74 @@
       (mp:insert-cant-point "POZO_SANITARIO" p vals)))
   (princ))
 
-(defun urb:create-storm-manhole (/ vals p)
+;; 5.6.0 (pedido del usuario: "unificame el icono de sumidero y pozo, que en
+;; tipo me deje elegir si es un pozo o un sumidero, falta incluir tambien
+;; la opcion de cabezal"). El boton Pozo del panel pluvial abre esta
+;; ventana. CABEZAL_PLUVIAL ya existia completo en el motor (simbolo del
+;; plano PLUVIAL.dwg, capa, etiqueta CAB, cruce con presupuesto por rango de
+;; diametro) pero no tenia forma de crearse desde la cinta.
+(setq *mp-pluvial-tipos*
+  '(("Pozo de inspeccion" . "POZO_PLUVIAL")
+    ("Sumidero" . "SUMIDERO")
+    ("Cabezal de descarga" . "CABEZAL_PLUVIAL")))
+
+(defun mp:dialog-punto-pluvial (/ dcl ok etapa res tapa clave prof tipo idx)
+  (setq dcl (load_dialog (mp:write-dcl-puntos)))
+  (if (not (new_dialog "maipore_punto_pluvial" dcl)) (exit))
+  (setq idx (if (and (boundp '*mp-last-tipo-plu*) *mp-last-tipo-plu*)
+              *mp-last-tipo-plu* 0))
+  (mp:fill-popup "tipo_plu" (mapcar 'car *mp-pluvial-tipos*) idx)
+  (mp:fill-popup "etapa" *mp-etapa-list* 0)
+  (mp:update-subetapa)
+  (urb:fill-diam-popup "diam" *mp-diam-alc-list* "8")
+  (action_tile "etapa" "(mp:update-subetapa)")
+  (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
+  (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
+  (start_dialog)
+  (if ok
+    (progn
+      (setq idx (atoi (mp:gettile "tipo_plu")))
+      (if (or (< idx 0) (>= idx (length *mp-pluvial-tipos*))) (setq idx 0))
+      (setq *mp-last-tipo-plu* idx
+            tipo (cdr (nth idx *mp-pluvial-tipos*)))
+      (setq etapa (mp:item *mp-etapa-list* "etapa"))
+      (setq tapa (mp:numeric-real (mp:gettile "ctapa")))
+      (setq clave (mp:numeric-real (mp:gettile "cclave")))
+      (setq prof (if (and tapa clave) (rtos (- tapa clave) 2 3) ""))
+      (setq res
+        (cons tipo
+          (list (cons "ETAPA" etapa)
+                (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
+                (cons "RED" "Alluvias")
+                (cons "ID" (mp:gettile "id"))
+                (cons "DIAMETRO" (mp:item *mp-diam-alc-list* "diam"))
+                (cons "COTA_TN_INI" (if tapa (rtos tapa 2 3) ""))
+                (cons "COTA_CLAVE_INI" (mp:gettile "cclave"))
+                (cons "PROFUNDIDAD" prof))))))
+  (unload_dialog dcl)
+  res)
+
+(defun urb:create-storm-manhole (/ data base vals p dir)
   (mp:ensure-layers)
-  (if (setq vals (mp:dialog-punto-hidro "Alluvias" "POZO_PLUVIAL"))
-    (if (setq p (mp:getpoint-wcs nil "\nPunto de pozo pluvial: "))
-      (mp:insert-cant-point "POZO_PLUVIAL" p vals)))
+  (if (setq data (mp:dialog-punto-pluvial))
+    (progn
+      (setq base (car data) vals (cdr data))
+      (if (setq p (mp:getpoint-wcs nil
+                    (cond
+                      ((= base "SUMIDERO") "\nPunto de sumidero: ")
+                      ((= base "CABEZAL_PLUVIAL") "\nPunto del cabezal (boca de descarga): ")
+                      (T "\nPunto de pozo pluvial: "))))
+        (progn
+          ;; el cabezal tiene frente: se orienta hacia donde descarga
+          ;; (Enter = sin girar). Viaja en la pseudo-clave __ROT que ya
+          ;; entiende mp:insert-cant-point (la etiqueta queda horizontal).
+          (if (= base "CABEZAL_PLUVIAL")
+            (progn
+              (setq dir (getangle p "\nDireccion de descarga <sin girar>: "))
+              (if dir
+                (setq vals (mp:alist-set vals "__ROT"
+                             (rtos (- dir (/ pi 2.0)) 2 8))))))
+          (mp:insert-cant-point base p vals)))))
   (princ))
 
 (defun urb:create-inlet (/ vals p)
@@ -14705,8 +14844,8 @@
                   (list
                     (/ span 2.0)
                     (if (= tag "ETIQUETA")
-                      (* *mp-vis-tramo-text-height* 0.75)
-                      (- (* *mp-vis-tramo-text-height* 0.75)))
+                      (mp:tramo-label-offset *mp-vis-tramo-text-height*)
+                      (- (mp:tramo-label-offset *mp-vis-tramo-text-height*)))
                     0.0))
                 (mp:center-visible-att item pos *mp-vis-tramo-text-height*)))))))
     (if (member base '("POZO_SANITARIO" "POZO_PLUVIAL"))
@@ -14740,8 +14879,8 @@
             (setq invisible (not (member tag '("ETIQUETA" "PENDIENTE_VIS" "LONG_VIS"))))
             (setq pos
               (cond
-                ((= tag "ETIQUETA") (list (/ span 2.0) (* display-height 0.75) 0.0))
-                ((member tag '("PENDIENTE_VIS" "LONG_VIS")) (list (/ span 2.0) (- (* display-height 0.75)) 0.0))
+                ((= tag "ETIQUETA") (list (/ span 2.0) (mp:tramo-label-offset display-height) 0.0))
+                ((member tag '("PENDIENTE_VIS" "LONG_VIS")) (list (/ span 2.0) (- (mp:tramo-label-offset display-height)) 0.0))
                 (T (list 0.0 y 0.0))))
             (setq height (if invisible 0.10 (max 0.10 display-height)))
             (mp:vla-add-att
@@ -14782,7 +14921,8 @@
       (progn
         (setq pos (if (member tag '("ETIQUETA" "LONG_VIS"))
                     (list (/ span 2.0)
-                      (* *mp-vis-tramo-text-height* (if (= tag "ETIQUETA") 0.75 -0.75)) 0.0)
+                      (* (mp:tramo-label-offset *mp-vis-tramo-text-height*)
+                         (if (= tag "ETIQUETA") 1.0 -1.0)) 0.0)
                     (list 0.0 (- -100.0 added) 0.0)))
         (setq att (mp:vla-add-att blk tag (cadr spec) "" pos
                     (if (member tag '("ETIQUETA" "LONG_VIS")) *mp-vis-tramo-text-height* 0.10)
@@ -14855,6 +14995,60 @@
   (vla-EndUndoMark doc)
   (if (vl-catch-all-error-p result) (setq failed (1+ failed)))
   (list count failed missing))
+
+;; ---------- 5.6.0 quitar WIPEOUT de los simbolos de redes ----------
+;; Reporte del usuario: "los accesorios de acueducto estan quedando como en
+;; recuadro que cuando se sobreponen varios elementos ese recuadro hace que
+;; lo que este por debajo no se vea nada". Sonda en copia del maestro
+;; (2026-09-16): las 13 definiciones MP_PUNTO_ACC_ACU_* (450 inserciones)
+;; traian UN AcDbWipeout cada una. Ningun codigo del plugin crea wipeouts
+;; (ni el LSP ni los DLL, revisada la historia git): llegaron al dibujo
+;; por fuera -- bloques homonimos pegados desde otro plano o editados a
+;; mano. Como las inserciones apuntan a la DEFINICION, quitarlo de la
+;; definicion arregla todas a la vez. Se limita a bloques del plugin.
+(defun mp:strip-network-wipeouts (/ blk victims item n defs)
+  (setq n 0 defs 0)
+  (vlax-for blk (vla-get-Blocks (urb:doc))
+    (if (and (= (vla-get-IsLayout blk) :vlax-false)
+             (= (vla-get-IsXRef blk) :vlax-false)
+             (wcmatch (strcase (vla-get-Name blk))
+               "MP_PUNTO_*,CANT_TRAMO_*,MP_TRAMO_*,CANT_PUNTO_*"))
+      (progn
+        (setq victims nil)
+        (vlax-for item blk
+          (if (= (vla-get-ObjectName item) "AcDbWipeout")
+            (setq victims (cons item victims))))
+        (if victims (setq defs (1+ defs)))
+        (foreach item victims
+          (if (urb:safe-delete item) (setq n (1+ n)))))))
+  (list n defs))
+
+;; una sola definicion (al crear o reusar un simbolo) -- barato
+(defun mp:strip-wipeouts-in-block (bname / blk victims item)
+  (setq blk (vl-catch-all-apply 'vla-Item
+              (list (vla-get-Blocks (urb:doc)) bname)))
+  (if (not (vl-catch-all-error-p blk))
+    (progn
+      (vlax-for item blk
+        (if (= (vla-get-ObjectName item) "AcDbWipeout")
+          (setq victims (cons item victims))))
+      (foreach item victims (urb:safe-delete item))
+      (length victims))
+    0))
+
+(defun mp:migrate-network-wipeouts (/ result)
+  (if (/= (urb:safe-string (urb:config-read "URB_SIN_WIPEOUT_560") "") "OK")
+    (progn
+      (setq result (mp:strip-network-wipeouts))
+      (urb:config-write "URB_SIN_WIPEOUT_560" "OK")
+      (if (> (car result) 0)
+        (progn
+          (vla-Regen (urb:doc) 1)
+          (prompt (strcat "\nSimbolos de redes: se quitaron " (itoa (car result))
+            " mascaras (wipeout) de " (itoa (cadr result))
+            " definiciones; ya no tapan lo que queda debajo."))))
+      result)
+    '(0 0)))
 
 (defun mp:migrate-electrical-display (/ result)
   (if (/= (urb:safe-string (urb:config-read "URB_ELECT_LABELS_5510") "") "OK")
@@ -15708,6 +15902,8 @@
     (mp:configured-tramo-value
       "MP_POINT_TEXT_HEIGHT" "MP_TRAMO_TEXT_HEIGHT"
       *mp-vis-text-height* 0.10 50.0))
+  (setq *mp-vis-tramo-text-gap*
+    (mp:cfg-tramo-text-gap *mp-vis-tramo-text-gap*))
   (list *mp-vis-width* *mp-vis-tramo-text-height*)
 )
 
@@ -15717,6 +15913,8 @@
   ;; accesorios. Las polilineas viven en definiciones compartidas; los textos
   ;; visibles se actualizan en cada INSERT sin tocar XDATA ni geometria.
   (setq blocks (vla-get-Blocks (urb:doc)) definitions 0 refs 0)
+  ;; 5.6.0: Apariencia tambien limpia mascaras (wipeout) de los simbolos
+  (vl-catch-all-apply 'mp:strip-network-wipeouts nil)
   (vlax-for blk blocks
     (if (and (= (vla-get-IsLayout blk) :vlax-false)
              (= (vla-get-IsXRef blk) :vlax-false))
@@ -15770,23 +15968,34 @@
         ": boxed_column { label = \"Geometria y datos visibles\";"
         ": edit_box { label = \"Espesor de linea del tramo (m)\"; key = \"line_width\"; edit_width = 12; }"
         ": edit_box { label = \"Altura global de textos (m)\"; key = \"text_height\"; edit_width = 12; }"
+        ": edit_box { label = \"Separacion texto - linea del tramo (m)\"; key = \"text_gap\"; edit_width = 12; }"
+        ": text { label = \"Espacio libre entre el borde de la linea y el texto (0 = pegado).\"; }"
         ": text { label = \"Se aplica a tramos, pozos, cajas y accesorios existentes y nuevos.\"; } }"
         "ok_cancel; }"))
     filename)
 )
 
-(defun mp:tramo-appearance-capture (/ line-width text-height updated)
+(defun mp:tramo-appearance-capture (/ line-width text-height text-gap updated)
   (setq line-width (urb:parse-real (get_tile "line_width"))
-        text-height (urb:parse-real (get_tile "text_height")))
+        text-height (urb:parse-real (get_tile "text_height"))
+        text-gap (urb:parse-real (get_tile "text_gap")))
   (cond
     ((or (null line-width) (< line-width 0.01) (> line-width 20.0))
       (alert "El espesor debe estar entre 0.01 m y 20.00 m.") nil)
     ((or (null text-height) (< text-height 0.10) (> text-height 50.0))
       (alert "La altura global de textos debe estar entre 0.10 m y 50.00 m.") nil)
+    ((or (null text-gap) (< text-gap 0.0) (> text-gap 50.0))
+      (alert "La separacion texto - linea debe estar entre 0.00 m y 50.00 m.") nil)
     (T
       (setq *mp-vis-width* line-width
-            *mp-vis-tramo-text-height* text-height)
+            *mp-vis-tramo-text-height* text-height
+            *mp-vis-tramo-text-gap* text-gap)
       (mp:store-tramo-appearance-settings line-width text-height)
+      ;; se guarda antes de aplicar: mp:tramo-label-offset lee la config
+      (urb:config-write "MP_TRAMO_TEXT_GAP" (rtos text-gap 2 6))
+      ;; las definiciones se normalizan de nuevo con la separacion nueva:
+      ;; la cache de attdefs del recentrado quedaria con la posicion vieja
+      (setq *mp-recenter-defcache* nil)
       (setq *mp-tramo-appearance-result*
         (mp:apply-tramo-appearance-to-drawing))
       T))
@@ -15801,6 +16010,7 @@
     (progn
       (set_tile "line_width" (rtos *mp-vis-width* 2 3))
       (set_tile "text_height" (rtos *mp-vis-tramo-text-height* 2 3))
+      (set_tile "text_gap" (rtos *mp-vis-tramo-text-gap* 2 3))
       (action_tile "accept"
         "(if (mp:tramo-appearance-capture) (done_dialog 1))")
       (action_tile "cancel" "(done_dialog 0)")
@@ -15814,6 +16024,7 @@
         (strcat
           "\nApariencia actualizada: espesor " (rtos *mp-vis-width* 2 3)
           " m | datos " (rtos *mp-vis-tramo-text-height* 2 3)
+          " m | separacion " (rtos *mp-vis-tramo-text-gap* 2 3)
           " m | definiciones " (itoa (if result (car result) 0))
           " | tramos insertados " (itoa (if result (cadr result) 0)) "."))))
   (princ)
@@ -27544,6 +27755,7 @@
     (urb:ppto-rows-mobiliario)
     (urb:ppto-rows-senderos)
     (urb:ppto-rows-bioswale)
+    (urb:ppto-rows-canuela-plu)
     (urb:ppto-rows-zonasverdes)
     (urb:ppto-rows-senalizacion)))
 
@@ -28116,6 +28328,21 @@
 (defun mp:cfg-tramo-width (default)
   (mp:configured-tramo-value
     "MP_TRAMO_LINE_WIDTH" "URB_MP_ANCHO_TRAMO" default 0.01 20.0))
+
+;; 5.6.0: separacion texto-tramo configurable (Ajustes > Apariencia).
+(defun mp:cfg-tramo-text-gap (default)
+  (mp:configured-tramo-value
+    "MP_TRAMO_TEXT_GAP" "MP_TRAMO_TEXT_GAP" default 0.0 50.0))
+
+;; Distancia del EJE del tramo al CENTRO del texto. Los atributos visibles
+;; van con alineacion centro-medio, asi que el borde del texto queda a
+;; media altura del centro: media linea + separacion libre + media altura.
+;; UNICA fuente de la posicion vertical de ETIQUETA / PENDIENTE_VIS /
+;; LONG_VIS (antes eran 7 copias de "th x 0.75" repartidas en el archivo).
+(defun mp:tramo-label-offset (th)
+  (+ (/ (max 0.01 (mp:cfg-tramo-width *mp-vis-width*)) 2.0)
+     (mp:cfg-tramo-text-gap *mp-vis-tramo-text-gap*)
+     (/ th 2.0)))
 
 ;; 2026-08-24 (pedido del usuario): prefabricado por COSTADOS -- distinto
 ;; de urb:build-prefab-anillo (que envuelve TODO el contorno incluidas
@@ -29105,6 +29332,138 @@
             costpos "URB_BIOSWALE")))))
   (princ))
 
+;; ---------- 5.6.0 CANUELA PLUVIAL (por ML, recorrido dibujado) ----------
+;; Pedido del usuario: "agregame la opcion de canuela, es la gris de la
+;; cuarta foto y es por ml, asi que me toca dibujar lo referente al
+;; recorrido de la canuela". Distinta del prefabricado "Canuela" de
+;; urbanismo (piezas A-? a lo largo de un anden): esta es el canal de
+;; drenaje de la red pluvial. Una polilinea ABIERTA en capa gris, con el
+;; ancho real como ancho constante (se ve como la franja del plano) y
+;; XDATA URB_CANUELA_PLU = (codigo etapa subetapa ancho). La cantidad es la
+;; longitud de la polilinea, asi que editarla con grips actualiza el ML.
+(setq *urb-canuela-plu-capa* "URB-CANUELA-PLUVIAL")
+
+(defun urb:canuela-plu-ancho-default (/ v)
+  (setq v (urb:parse-real
+            (urb:safe-string (urb:config-read "URB_CANUELA_PLU_ANCHO") "")))
+  (if (and v (> v 0.0)) v 0.40))
+
+(defun urb:canuela-plu-write-dcl ()
+  (urb:write-dialog-dcl
+    "urb_canuela_plu"
+    '*urb-canuela-plu-dcl-ok*
+    (list
+      "urb_canuela_plu : dialog { label = \"Canuela pluvial\";"
+      ": boxed_column { label = \"Datos del elemento\";"
+      ": popup_list { label = \"Etapa\"; key = \"etapa\"; }"
+      ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
+      ": edit_box { label = \"Ancho de la canuela (m)\"; key = \"ancho\"; edit_width = 10; } }"
+      ": text { label = \"Se cuantifica por metro lineal (ML) sobre el recorrido.\"; }"
+      ": text { label = \"Aceptar y dibujar el recorrido; Enter sin dibujar termina.\"; }"
+      "ok_cancel; }")))
+
+(defun urb:canuela-plu-register (ename etapa sub ancho / obj)
+  (setq obj (vlax-ename->vla-object ename))
+  (urb:ensure-layer *urb-canuela-plu-capa* 8 T)
+  (vla-put-Layer obj *urb-canuela-plu-capa*)
+  (vla-put-Color obj 256)
+  (if (vlax-property-available-p obj 'ConstantWidth T)
+    (vla-put-ConstantWidth obj (float ancho)))
+  (urb:set-xdata-strings ename "URB_CANUELA_PLU"
+    (list "CANUELA_PLU" etapa sub (rtos ancho 2 3)))
+  (vla-get-Length obj))
+
+(defun urb:canuela-plu-command (/ dclfile dcl done etapa sub subs ancho
+                                 ename n total)
+  (vl-load-com)
+  (setq dclfile (urb:canuela-plu-write-dcl))
+  (if (null dclfile)
+    (alert "No se pudo preparar la ventana de canuela (revise permisos de la carpeta temporal de Windows).")
+    (progn
+      (setq dcl (load_dialog dclfile))
+      (if (and dcl (> dcl 0) (new_dialog "urb_canuela_plu" dcl))
+        (progn
+          (start_list "etapa")
+          (foreach e *urb-etapa-list* (add_list e))
+          (end_list)
+          (set_tile "etapa" "0")
+          (urb:send-fill-sub 0)
+          (set_tile "ancho" (rtos (urb:canuela-plu-ancho-default) 2 2))
+          (action_tile "etapa" "(urb:send-fill-sub (atoi $value))")
+          (setq *urb-send-etapa* "0" *urb-send-sub* "0"
+                *urb-canuela-plu-ancho* nil)
+          (action_tile "accept"
+            (strcat
+              "(setq *urb-canuela-plu-ancho* (urb:parse-real (get_tile \"ancho\")))"
+              "(if (and *urb-canuela-plu-ancho* (> *urb-canuela-plu-ancho* 0.0) (<= *urb-canuela-plu-ancho* 5.0))"
+              " (progn (setq *urb-send-etapa* (get_tile \"etapa\")"
+              "  *urb-send-sub* (get_tile \"subetapa\")) (done_dialog 1))"
+              " (alert \"El ancho debe ser mayor que 0 y hasta 5.00 m.\"))"))
+          (setq done (start_dialog))))
+      (if (and dcl (> dcl 0)) (unload_dialog dcl))
+      (if (= done 1)
+        (progn
+          (setq ancho *urb-canuela-plu-ancho*)
+          (urb:config-write "URB_CANUELA_PLU_ANCHO" (rtos ancho 2 3))
+          (setq etapa
+            (urb:safe-string
+              (nth (atoi (urb:safe-string *urb-send-etapa* "0"))
+                *urb-etapa-list*) "1"))
+          (setq subs (urb:subetapas-for etapa))
+          (setq sub
+            (urb:safe-string
+              (nth (atoi (urb:safe-string *urb-send-sub* "0")) subs)
+              etapa))
+          (setq n 0 total 0.0)
+          (while (setq ename (urb:draw-open-polyline "la canuela"))
+            (setq total (+ total (urb:canuela-plu-register ename etapa sub ancho))
+                  n (1+ n))
+            (prompt (strcat "\nCanuela " (itoa n) ": "
+              (rtos (vla-get-Length (vlax-ename->vla-object ename)) 2 2)
+              " ML. Dibuje otra o Enter para terminar.")))
+          (if (> n 0)
+            (prompt (strcat "\nCanuelas creadas: " (itoa n)
+              " | total " (rtos total 2 2) " ML.")))))))
+  (princ))
+
+;; filas de presupuesto: concepto "Canuela" a secas A PROPOSITO. Con el
+;; emparejador por palabras (>= 50% dentro del capitulo y la unidad),
+;; "Canuela en concreto fundida en sitio" empataba al 75% con "Construccion
+;; de cuneta en concreto fundida en sitio" y "Canuela pluvial" al 50% con
+;; el carcamo de proteccion "(Red de alcantarillado pluvial)": las dos
+;; habrian ido a una actividad equivocada SIN avisar. "Canuela" solo cae en
+;; una fila que diga canuela, o queda huerfana visible. Para mandarla a
+;; otra actividad (p.ej. la cuneta) esta la familia parametrica CANUELA.
+(defun urb:ppto-rows-canuela-plu (/ ss i en obj datos etapa sub ancho len
+                                  handle zona rows out r)
+  (setq ss (ssget "_X" '((0 . "LWPOLYLINE") (-3 ("URB_CANUELA_PLU"))))
+        out nil i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq en (ssname ss i)
+            obj (vlax-ename->vla-object en)
+            datos (urb:get-xdata-strings en "URB_CANUELA_PLU")
+            etapa (urb:safe-string (nth 1 datos) "1")
+            sub (urb:safe-string (nth 2 datos) "GEN")
+            ancho (atof (urb:safe-string (nth 3 datos) "0"))
+            len (vla-get-Length obj)
+            handle (cdr (assoc 5 (entget en)))
+            zona (urb:ppto-zona-de en))
+      (setq rows
+        (cons
+          (urb:ppto-row "ALC-PLUVIAL" "Canuela"
+            (strcat "Canuela pluvial a=" (rtos ancho 2 2) " m")
+            "" "" etapa sub "ML" len handle)
+          (urb:ppto-param-rows "CANUELA" "ALC-PLUVIAL"
+            (list (cons "LONGITUD" len)
+                  (cons "AREA" (* len ancho))
+                  (cons "UNIDAD" 1.0))
+            "" "" "" etapa sub handle)))
+      (setq rows (urb:ppto-rows+zona rows zona))
+      (foreach r rows (if r (setq out (cons r out))))
+      (setq i (1+ i))))
+  out)
+
 ;; senderos/bioswale dentro de una seleccion (contorno directo o su
 ;; relleno) -- generico por appid, 2026-08-24
 (defun urb:poly-elemento-selected (selection appid / i be out datos parent)
@@ -29799,6 +30158,8 @@
     ("SUMIDERO" "ALC-PLUVIAL" ("UNIDAD"))
     ("SENDERO" "SENDERO" ("AREA" "PERIMETRO" "UNIDAD"))
     ("BIOSWALE" "ALC-PLUVIAL" ("AREA" "PERIMETRO" "UNIDAD"))
+    ;; 5.6.0: canuela pluvial -- LONGITUD (ML), AREA (largo x ancho)
+    ("CANUELA" "ALC-PLUVIAL" ("LONGITUD" "AREA" "UNIDAD"))
     ;; 2026-09-14 (pedido del usuario: "elabora los parametros para que
     ;; quede todo totalmente vinculado"). El emisor de zonas verdes YA
     ;; pasaba estas seis magnitudes a urb:ppto-param-rows, pero el tipo
@@ -33932,6 +34293,7 @@
                   ;; llegaba al libro, ni siquiera como huerfana.
                   (urb:rows-timed "zonasverdes" (quote urb:ppto-rows-zonasverdes))
                   (urb:rows-timed "bioswale" 'urb:ppto-rows-bioswale)
+                  (urb:rows-timed "canuela-plu" 'urb:ppto-rows-canuela-plu)
                   (urb:rows-timed "senalizacion" 'urb:ppto-rows-senalizacion)))
               ;; 2) match contra el vocabulario vivo (equivalencias del
               ;; LIBRO primero, cascada automatica despues)
@@ -33972,6 +34334,7 @@
                   (urb:ppto-rows-mobiliario)
                   (urb:ppto-rows-senderos)
                   (urb:ppto-rows-bioswale)
+                  (urb:ppto-rows-canuela-plu)
     (urb:ppto-rows-senalizacion)))
                     (setq final (urb:ppto-match-all raw vocab dwg))
                     (setq *urb-ppto-final-prev* final))
@@ -34044,6 +34407,7 @@
                   (urb:ppto-rows-mobiliario)
                   (urb:ppto-rows-senderos)
                   (urb:ppto-rows-bioswale)
+                  (urb:ppto-rows-canuela-plu)
     (urb:ppto-rows-senalizacion)))
                       (setq final (urb:ppto-match-all raw vocab dwg))))
                   (setq huerfanas *urb-ppto-huerfanas*
@@ -35875,6 +36239,9 @@
 (defun c:POZOSAN () (if (urb:confirm-meter-units) (urb:create-sanitary-manhole)) (princ))
 (defun c:POZOPLU () (if (urb:confirm-meter-units) (urb:create-storm-manhole)) (princ))
 (defun c:SUMIDERO () (if (urb:confirm-meter-units) (urb:create-inlet)) (princ))
+;; 5.6.0: canuela de la red pluvial (boton del panel Pluvial). El nombre
+;; CANUELA a secas ya lo retira la limpieza de comandos viejos del inicio.
+(defun c:CANUELAPLU () (if (urb:confirm-meter-units) (urb:canuela-plu-command)) (princ))
 (defun c:CAMARA () (if (urb:confirm-meter-units) (urb:create-electrical-chamber)) (princ))
 (defun c:ACCESORIO () (if (urb:confirm-meter-units) (urb:create-water-accessory)) (princ))
 (defun c:LUMINARIA () (if (urb:confirm-meter-units) (urb:create-luminaire)) (princ))
@@ -36002,6 +36369,8 @@
     (vl-catch-all-apply 'urb:migrate-current-drawing nil)
     (setq *mp-electrical-display-migration-result*
       (vl-catch-all-apply 'mp:migrate-electrical-display nil))
+    (setq *mp-wipeout-migration-result*
+      (vl-catch-all-apply 'mp:migrate-network-wipeouts nil))
     (if (vl-catch-all-error-p *mp-electrical-display-migration-result*)
       (prompt "\nActualizacion electrica pendiente: no se pudo completar; se reintentara al abrir."))))
 (vl-catch-all-apply 'urb:install-memory-property-reactors nil)

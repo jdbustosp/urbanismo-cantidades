@@ -1,5 +1,60 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-16 09:25 America/Bogota — 5.6.0 separacion de cotas, volteo de texto, wipeouts y pluvial unificado
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base b0bb1d6. INSTALADA (hash repo =
+instalado c94d0af3...; DLL 2023 renombrado a UrbCantRibbon2023_v560.dll, 2025
+recompilado).
+
+1. SEPARACION COTA-TRAMO configurable (Ajustes > Apariencia, campo nuevo
+   "Separacion texto - linea del tramo (m)", clave MP_TRAMO_TEXT_GAP, 0.15 por
+   defecto). Es espacio LIBRE entre el borde de la linea y el borde del texto.
+   Las 7 copias de "th x 0.75" (v5.5.13) se reemplazaron por UNA funcion,
+   mp:tramo-label-offset = media linea + separacion + media altura. v5.5.13
+   media desde el EJE sin contar el espesor: con linea gruesa quedaba encima.
+2. VOLTEAR TEXTO de tramos puntuales: EDITAR con tramos seleccionados pregunta
+   [Propiedades/Voltear texto]. Marca XDATA URB_TXT_VOLTEO en la REFERENCIA
+   (la definicion se comparte por longitud); mp:recenter-tramo-attribs la
+   respeta: gira 180 y cambia de lado, asi la etiqueta sigue arriba en
+   pantalla. Repetir la opcion la devuelve.
+3. RECUADRO DE ACCESORIOS: sonda en copia del maestro -> las 13 definiciones
+   MP_PUNTO_ACC_ACU_* (450 inserciones) traian UN AcDbWipeout cada una.
+   Ningun codigo los crea (LSP, DLL e historia git revisados): llegaron por
+   bloques homonimos de otro plano. Migracion sellada URB_SIN_WIPEOUT_560 al
+   abrir + limpieza al reusar un simbolo + limpieza en Apariencia.
+4. PLUVIAL: boton unico "Pozo / Sumidero" (POZOPLU) con Tipo = Pozo de
+   inspeccion / Sumidero / Cabezal de descarga. CABEZAL_PLUVIAL ya existia
+   completo en el motor pero no tenia boton; ahora pide direccion de descarga
+   y es editable. Boton nuevo "Canuela" (CANUELAPLU): polilinea abierta en
+   URB-CANUELA-PLUVIAL con el ancho real, cantidad = longitud (ML), familia
+   parametrica CANUELA (LONGITUD, AREA, UNIDAD). Registrada en las 4 listas
+   de fuentes de presupuesto.
+   Concepto emitido "Canuela" A PROPOSITO: verificado que "Canuela en concreto
+   fundida en sitio" se habria asignado SIN AVISO a "Construccion de cuneta en
+   concreto fundida en sitio".
+5. Bug latente corregido: mp:capture-dialog-values no capturaba "ctapa"; la
+   cota de tapa digitada en pozos/sumideros se leia tras cerrar el dialogo y
+   se perdia (caia al terreno automatico).
+
+Verificado headless sobre copia del maestro (work/claude_20260916_pluvial):
+  separacion 1.00 -> etiqueta a 1.20 del eje (0.10+1.00+0.10), borde a borde 1.00
+  volteo: y +1.2 -> -1.2, giro 180.0, sobrevive recentrado, se devuelve
+  wipeouts: 13 quitados, 0 restantes; Apariencia completa 38 s (968 defs, 2960 refs)
+  canuela 70 ML -> fila (ALC-PLUVIAL Canuela ... ML 70.0); huerfana sin fila;
+    con fila "Canuela en concreto" empata directo
+  cabezal O14 -> "Cabezal de descarga en concreto para tuberia 12 16" UN 1,
+    etiqueta CAB T1, editable, girado
+  4 ventanas DCL nuevas/modificadas cargan (new_dialog OK)
+
+OJO para pruebas: si el bundle instalado es de otra version, el Autoloader lo
+carga DESPUES del repo y sus funciones pisan las del repo (la 1a corrida dio
+MOTOR 5.5.13 con funciones nuevas mezcladas). Instalar antes de verificar.
+Tambien: una insercion de cabezal en (99999,99999), FUERA de la superficie,
+dejo la instancia oculta esperando entrada; dentro del dibujo inserta bien. No
+se aislo el paso exacto. No se probaron las ventanas con clics reales ni la
+cinta visualmente.
+
+
 ## 2026-09-15 16:43 America/Bogota — 5.5.13 cotas y perfil variable de movimiento de tierras
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Commit: 36bf691. Se acercaron las cotas visibles de
