@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.3")
+(setq *urb-version* "5.6.4")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -1151,7 +1151,32 @@
     nil)
 )
 
-(defun urb:get-xdata-strings (ename app / item section)
+;; 5.6.3: lectura por ActiveX GetXData. entget -- aun filtrado por APPID --
+;; serializa TODO el objeto: en una REGION los datos ACIS, en un HATCH sus
+;; lazos y lineas de patron. Con 6000 piezas de un anden curvo eran ~6.6 ms
+;; por lectura (40 s solo para hallar el contorno de tierras). GetXData
+;; devuelve solo el XDATA. Si falla, se usa el camino entget de siempre.
+(defun urb:get-xdata-strings (ename app / obj xt xv r vals)
+  (if (/= (type ename) 'ENAME) (setq ename (urb:as-ename ename)))
+  (if ename
+    (progn
+      (setq r (vl-catch-all-apply
+                '(lambda ()
+                   (setq obj (vlax-ename->vla-object ename))
+                   (vla-GetXData obj app 'xt 'xv)
+                   (if (and xv (= (type xv) 'VARIANT) (> (vlax-variant-type xv) 8192))
+                     (setq xv (vlax-variant-value xv)))
+                   (if (= (type xv) 'SAFEARRAY)
+                     (mapcar '(lambda (v) (if (= (type v) 'VARIANT) (vlax-variant-value v) v))
+                             (vlax-safearray->list xv))
+                     'VACIO))))
+      (cond
+        ((vl-catch-all-error-p r) (urb:get-xdata-strings-entget ename app))
+        ((eq r 'VACIO) nil)
+        ;; el primer valor es el nombre de la aplicacion (codigo 1001)
+        (T (mapcar '(lambda (v) (urb:safe-string v "")) (cdr r)))))))
+
+(defun urb:get-xdata-strings-entget (ename app / item section)
   ;; Para ENAME no pedir primero TODO el DXF solo para validarlo y luego
   ;; pedirlo otra vez con el APPID. Una sola lectura filtrada y protegida.
   (if (/= (type ename) 'ENAME) (setq ename (urb:as-ename ename)))
@@ -5277,13 +5302,79 @@
               (> (if count count 0) 0)))))))
 )
 
-(defun urb:draw-polyline-interactive (old-plinewid)
-  ;; Idioma repetido en varios comandos de dibujo: lanza PLINE interactivo,
-  ;; espera a que el usuario termine (Enter/Esc) y restaura PLINEWID.
+;; 5.6.3 (pedido del usuario: "me equivoco, doy ctrl z para volver a dibujar
+;; el tramo que dibuje mal y se cancela lo del dibujo del contorno y me toca
+;; volver a dibujar todo"). Ctrl+Z es la macro ^C^C_u: el primer ^C cancelaba
+;; PLINE y el LISP del comando, y el _u deshacia la polilinea entera.
+;; Ahora la cancelacion se atrapa: PLINE deja en el dibujo los tramos hechos,
+;; se reabre PLINE con esos mismos vertices (arcos incluidos) y la cola de la
+;; macro cae DENTRO del PLINE reabierto: el segundo ^C llega en milisegundos
+;; (se vuelve a reabrir) y el "_u" es la opcion Deshacer de PLINE -> quita
+;; solo el ultimo tramo. Un Esc humano reabre con todo lo dibujado; un
+;; segundo Esc sin dibujar nada nuevo cancela como antes.
+(defun urb:draw-polyline-interactive (old-plinewid / before r t0 after data n restored done abort-it)
+  (setq before (entlast))
   (vl-cmdf "_.PLINE")
-  (while (> (getvar "CMDACTIVE") 0)
-    (command pause))
+  (while (not done)
+    (setq t0 (getvar "MILLISECS"))
+    (setq r (vl-catch-all-apply
+              '(lambda () (while (> (getvar "CMDACTIVE") 0) (command pause)))))
+    (if (not (vl-catch-all-error-p r))
+      (setq done T)
+      (progn
+        (setq after (entlast) data nil n 0)
+        (if (and after (not (eq after before))
+                 (= (cdr (assoc 0 (entget after))) "LWPOLYLINE"))
+          (setq data (urb:lwpoly-vertex-bulges after) n (length (car data)))
+          (setq after nil))
+        (cond
+          ;; resto de la macro de Ctrl+Z: llega sin intervencion humana
+          ((and restored (< (- (getvar "MILLISECS") t0) 150))
+            (urb:pline-restart after data))
+          ;; Esc antes de tener un tramo, o Esc de nuevo sin dibujar nada
+          ((or (and (< n 2) (null restored)) (and restored (= n restored)))
+            (setq done T abort-it T))
+          (T
+            (urb:pline-restart after data)
+            (setq restored n)
+            (prompt
+              (strcat "\nContorno recuperado (" (itoa n) " vertices). Siga dibujando;"
+                " U o Ctrl+Z deshace el ultimo tramo, Enter termina, Esc otra vez cancela.")))))))
   (setvar "PLINEWID" old-plinewid)
+  (if abort-it (exit))
+)
+
+;; reabre PLINE con los vertices (y arcos) de una polilinea a medio dibujar
+(defun urb:pline-restart (ename data / pts bulges elev i p q b len mid arc)
+  (if ename
+    (setq elev (cdr (assoc 38 (entget ename)))))
+  (if (not elev) (setq elev 0.0))
+  (if ename (entdel ename))
+  (vl-cmdf "_.PLINE")
+  (if (and data (car data))
+    (progn
+      (setq pts (mapcar '(lambda (v) (list (car v) (cadr v) elev)) (car data))
+            bulges (cadr data) i 0)
+      (vl-cmdf (trans (car pts) 0 1))
+      (while (< i (1- (length pts)))
+        (setq p (nth i pts) q (nth (1+ i) pts) b (nth i bulges))
+        (if (and (numberp b) (> (abs b) 1e-9))
+          (progn
+            ;; punto medio del arco: centro de la cuerda + sagita a la
+            ;; DERECHA del sentido p->q para bulge positivo (antihorario)
+            (setq len (distance (list (car p) (cadr p)) (list (car q) (cadr q)))
+                  mid (list (+ (* 0.5 (+ (car p) (car q)))
+                               (* (/ (* b len) 2.0) (/ (- (cadr q) (cadr p)) len)))
+                            (+ (* 0.5 (+ (cadr p) (cadr q)))
+                               (* (/ (* b len) 2.0) (/ (- (car p) (car q)) len)))
+                            elev))
+            (if (not arc) (progn (vl-cmdf "_A") (setq arc T)))
+            (vl-cmdf "_S" (trans mid 0 1) (trans q 0 1)))
+          (progn
+            (if arc (progn (vl-cmdf "_L") (setq arc nil)))
+            (vl-cmdf (trans q 0 1))))
+        (setq i (1+ i)))
+      (if arc (vl-cmdf "_L"))))
 )
 
 (defun urb:cross2d (ox oy ax ay bx by)
@@ -8791,7 +8882,53 @@
 ;; La estructura en si (granular, tierra negra) se sigue cantidando aparte.
 ;; Cuadratura por triangulos: cada muestra tiene su area real. No contar
 ;; celdas completas de una malla que exceden o pierden el borde del contorno.
-(defun urb:earthwork-area-samples (points / pending tri a b c ab bc ca mid w out)
+;; 5.6.3: contornos CURVOS densificados (DD2CA 1272 vertices, F20E5 2012)
+;; salen de la triangulacion como abanicos de astillas: 253 000 muestras y
+;; ~3 min de calculo con AutoCAD congelado (Windows lo marca "no responde";
+;; el visor de eventos tiene esos AppHang del 11 y 13-09). Con muchos
+;; vertices se muestrea por BARRIDO: filas cada 0.5 m, intervalos exactos
+;; en X partidos en celdas de 0.5 m; pesos normalizados al area del
+;; contorno. Contornos simples: triangulos de siempre (cifras intactas).
+(defun urb:earthwork-area-samples (points)
+  (if (> (length points) 200)
+    (urb:earthwork-scanline-samples points 0.5)
+    (urb:earthwork-triangle-samples points)))
+
+(defun urb:earthwork-scanline-samples (points step / pts rest a b edges xmin xmax ymin ymax
+                                       y xs k x0 x1 c cx lo hi z out total area e)
+  (setq pts (mapcar '(lambda (p) (list (car p) (cadr p))) points)
+        z (if (caddr (car points)) (caddr (car points)) 0.0)
+        rest (append pts (list (car pts))) area 0.0)
+  (while (cdr rest)
+    (setq a (car rest) b (cadr rest)
+          area (+ area (- (* (car a) (cadr b)) (* (car b) (cadr a)))))
+    (if (/= (cadr a) (cadr b)) (setq edges (cons (list a b) edges)))
+    (setq rest (cdr rest)))
+  (setq area (* 0.5 (abs area))
+        xmin (apply 'min (mapcar 'car pts)) xmax (apply 'max (mapcar 'car pts))
+        ymin (apply 'min (mapcar 'cadr pts)) ymax (apply 'max (mapcar 'cadr pts))
+        y (+ ymin (* 0.5 step)) total 0.0)
+  (while (< y ymax)
+    (setq xs nil)
+    (foreach e edges
+      (setq a (car e) b (cadr e))
+      (if (or (and (<= (cadr a) y) (< y (cadr b))) (and (<= (cadr b) y) (< y (cadr a))))
+        (setq xs (cons (+ (car a) (/ (* (- y (cadr a)) (- (car b) (car a))) (- (cadr b) (cadr a)))) xs))))
+    (setq xs (vl-sort xs '<))
+    (while (cdr xs)
+      (setq x0 (car xs) x1 (cadr xs) xs (cddr xs)
+            c (fix (/ (- x0 xmin) step)))
+      (while (< (setq cx (+ xmin (* c step))) x1)
+        (setq lo (max x0 cx) hi (min x1 (+ cx step)))
+        (if (> hi lo)
+          (setq out (cons (list (list (* 0.5 (+ lo hi)) y z) (* (- hi lo) step)) out)
+                total (+ total (* (- hi lo) step))))
+        (setq c (1+ c))))
+    (setq y (+ y step)))
+  (if (> total 1e-9)
+    (mapcar '(lambda (s) (list (car s) (* (cadr s) (/ area total)))) out)))
+
+(defun urb:earthwork-triangle-samples (points / pending tri a b c ab bc ca mid w out)
   (setq pending (urb:triangulate-polygon points))
   (while pending
     (setq tri (car pending) pending (cdr pending)

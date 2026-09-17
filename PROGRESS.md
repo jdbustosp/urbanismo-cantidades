@@ -1,5 +1,44 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-17 11:15 America/Bogota — 5.6.4 andenes curvos 5x más rápidos y Ctrl+Z al dibujar contornos
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 9bfe51f. INSTALADA (el .lsp).
+
+1. ANDENES CURVOS "SE TRABA Y SE CIERRA": el visor de eventos de Windows
+   muestra AppHang (AutoCAD no responde y se cierra) el 11-09 y 13-09 y un
+   AV de accore.dll el 14-09; nada después. Los andenes curvos tardaban
+   minutos con la ventana congelada. Medido en DD2CA (1272 vértices):
+   - Tierras: la triangulación de contornos densificados da abanicos de
+     astillas -> 253 238 muestras; la pendiente longitudinal cuesta 0.5 ms
+     por muestra (~2-3 min). Contornos > 200 vértices ahora se muestrean por
+     BARRIDO (filas 0.5 m, intervalos exactos en X, celdas 0.5 m, pesos
+     normalizados al área): 4 477 muestras. DD2CA 0.12/280.50 -> 0.14/280.27
+     en 4.3 s; F20E5 0/2427.93 -> 0/2427.94 en 4.4 s. Contornos simples:
+     triángulos de siempre (cifras intactas).
+   - urb:get-xdata-strings leía con entget, que serializa todo el objeto
+     (ACIS de regiones, lazos de hatch). Ahora ActiveX GetXData con respaldo
+     entget. Verificado: 3708 objetos de 21 APPIDs, 0 diferencias, 6.5x más
+     rápido. Esta función la usa todo el plugin.
+   - Resultado: recorte/regeneración completa de DD2CA 286 s -> 58.6 s
+     (losetas 57->15 s, guía/toperol 68->14 s, bloque 61->14 s), mismas
+     cifras 0.14/279.37 con sobreancho. Sendero amarrado a andén 6.5 -> 0.5 s.
+2. CTRL+Z AL DIBUJAR CONTORNOS (andén, vía, zona verde, todo lo que usa
+   urb:draw-polyline-interactive). Ctrl+Z es ^C^C_u: cancelaba PLINE y el
+   comando, y el _u borraba la polilínea. Ahora la cancelación se atrapa, se
+   reabre PLINE con los vértices ya dibujados (arcos incluidos,
+   urb:pline-restart) y el resto de la macro cae dentro del PLINE: el "_u" es
+   la opción Deshacer y quita solo el último tramo. Esc una vez: recupera lo
+   dibujado; Esc otra vez sin dibujar nada nuevo: cancela como antes.
+   Verificado headless: reapertura exacta (5 vértices, bulges 0.3/-0.5,
+   largo 44.6111 = 44.6111) y con "_U" en cola queda en 4 vértices.
+   NO verificable headless: la tecla Ctrl+Z real (acelerador de la interfaz);
+   el usuario debe probarla. Si su Ctrl+Z tuviera otra macro, "U" + Enter
+   dentro del PLINE siempre deshace el último tramo.
+3. Regresión: rectángulo 40x3 sobreancho 200; costados simulados 2x40 ML;
+   andén curvo sintético completo OK (acabado 5.4->3.1 s, bloque 3.6->1.2 s);
+   sobreancho de contornos extraídos DD2CA 1039.26 / F20E5 577.23; sendero
+   amarrado a andén con las mismas cifras de 5.6.2.
+
 ## 2026-09-17 08:50 America/Bogota — 5.6.3 el andén recortado conserva el sobreancho (costados de andenes curvos reales)
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base b4d6fc0. INSTALADA (el .lsp).
