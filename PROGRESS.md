@@ -1,5 +1,70 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-16 23:15 America/Bogota — 5.6.2 costados por tramo en andenes/senderos, materiales de senderos, tierras de senderos amarradas a vía o andén
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 58e7e9a. INSTALADA (el .lsp; sin cambio de DLL).
+
+1. PREFABRICADOS EN ANDENES Y SENDEROS como en vías: la ventana ya no trae
+   "Prefabricado por costados". Después de dibujar se resalta cada costado y
+   se pregunta [Bordillo/Sardinel/Canuela/Ninguno], sentido [Interno/Externo]
+   y los tramos a cortar (pares INICIO/FIN). Cada tramo guarda su propio
+   sentido en URB_PREFAB_ANILLO (urb:poly-costados-interactive).
+2. SENDEROS: hatch siempre SOLID, color propio por material, transparencia 60
+   (como zona verde). Materiales de la leyenda: B2-A mulch ecológico, B2-B
+   mulch trote, B3 concreto ocre, B4 ecopavimento, B5-A ciclorruta, B5-B
+   bicicarril, B6 caucho reciclado, B7 deck madera plástica. Verificado: los
+   8 existen con color/capa/espesor distintos.
+3. MOVIMIENTO DE TIERRAS DE SENDEROS (en AutoCAD; la conexión a presupuesto
+   queda para después — solo se añadieron CORTE/RELLENO como paramétricos):
+   EDITAR sobre un sendero -> urb:sendero-earthworks, guarda URB_SEND_MOV.
+   Orden de referencia de la cota de diseño:
+   a) vía creada a <= 10 m -> su rasante en todo el alineamiento;
+   b) (pedido del usuario: "vía lejos o solo un pozo... con respecto a los
+      puntos de elevación de los andenes") andén creado a <= 10 m -> cota de
+      DISEÑO del andén en su borde más cercano (urb:anden-design-reference:
+      rasante de SU vía + bombeo + bordillo + transversal);
+   c) si no, cotas clicadas: ahora también se puede hacer clic sobre un ANDÉN
+      (referencia tagueada ANDEN; con varios andenes manda el más cercano a
+      cada punto), además de vía/pozo/etiqueta/digitar.
+   Verificado headless (copia563, andén DD2CA, sendero 4x10 m pegado por
+   fuera): vía 0/30.97 m3; clic en andén 0/33.11; automático por andén con
+   sobreancho lateral 0/49.67 (XDATA 0.00/49.67); cota de diseño del andén en
+   el borde = la de la vía en ese punto (2557.41). Sin polilíneas temporales
+   sobrantes. IMPORTANTE: por eso las cotas de los andenes deben quedar bien.
+4. RENDIMIENTO: urb:anden-earthwork-points leía XDATA de los 6079 elementos
+   del bloque (40 s en DD2CA); ahora solo polilíneas y se detiene al hallar
+   el contorno: 0.39 s. Mismo filtro en urb:anden-earthwork-area. Búsqueda del
+   punto más cercano con polilínea temporal invisible + vlax-curve (se borra
+   al terminar). Referencia de andén 2.4 s; sendero automático 6.5 s.
+5. RAMPAS / PASOS sobre andén o zona verde: tras recortar prefabricados
+   pregunta "Recortar andén/zona verde debajo de la rampa? [Si/No] <Si>"; el
+   andén regenerado recalcula tierras sin preguntar (urb:recalc-earthworks-
+   silent) y la zona verde también (urb:green-earthworks-silent). Rampa de
+   contorno ya no excluye vehiculares.
+6. CRASH AL CREAR ANDENES CURVOS: no reproducido (andén curvo sintético con
+   bordillo OK ~7 s). Caja negra: %TEMP%\urbcant_anden_etapas.log registra
+   cada etapa (INICIA/TERMINA); tras el próximo cierre, la última línea dice
+   dónde murió.
+7. Verificación en vivo pendiente del usuario: el flujo interactivo de
+   costados (se probó con respuestas simuladas).
+8. FALLO PREVIO ENCONTRADO Y CORREGIDO (regenerar/recortar andén): al
+   extraer el contorno de un andén curvo real (DD2CA) para recortarlo, el
+   contorno ya no tiene dos costados claros, urb:anden-overwidth-contour
+   devuelve nil y urb:package-anden abortaba con vl-exit-with-error. Ese
+   error NO trae mensaje y urb:call-edit-stage hacía strcat con nil ->
+   "stringp nil" fuera de la protección: el andén no se regeneraba (es el
+   mismo "stringp nil" que dio la prueba de curvas de 5.6.1). Ahora: tierras
+   con contorno exacto + aviso "sin sobreancho lateral", y call-edit-stage /
+   caja negra toleran errores sin mensaje. Verificado: recorte de DD2CA
+   regenera en 74 s y recalcula solo contra la vía: 0.00/186.74 m3 (antes
+   0.12/280.50 con sobreancho). PENDIENTE: que los contornos extraídos sí
+   reconozcan sus dos costados para conservar el sobreancho.
+9. Caja negra con más marcas en el empaquetado (-BLOCK, orden de dibujo,
+   atributos, inserción) y hora desde CDATE.
+10. Costados con respuestas simuladas: rectángulo 40x3, costado 1 Bordillo
+    Externo y costado 2 Sardinel Interno -> 2 prefabricados de 40 ML con su
+    sentido propio.
+
 ## 2026-09-16 15:30 America/Bogota — 5.6.1 cotas ACU paralelas, accesorios, pluvial y movimiento de tierras
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 965650a. INSTALADA (DLL 2023 -> UrbCantRibbon2023_v561.dll).

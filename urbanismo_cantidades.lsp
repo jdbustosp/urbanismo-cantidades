@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.1")
+(setq *urb-version* "5.6.2")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -685,9 +685,18 @@
 ;; codigo "" = anden nativo en loseta (todo el motor de losetas)
 (setq *urb-elem-variantes*
   '(("Andenes" ("Loseta" . "") ("Concreto" . "ANDEN-CONC"))
-    ("Senderos" ("Concreto - sendero de trote" . "SEND-TROTE")
-                 ("Concreto - sendero ecologico" . "SEND-ECO")
-                 ("Asfalto - ciclorruta" . "CICLORRUTA"))
+    ;; 5.6.2 (pedido del usuario): los materiales de la convencion del
+    ;; plano. Fuera de la lista a proposito: B1 anden propuesto (es
+    ;; Andenes), B5-C ciclorruta existente (no se construye), verde plano,
+    ;; verde talud, lamina de agua y gavion existente.
+    ("Senderos" ("Sendero ecologico en mulch (B2-A)" . "SEND-MULCH-ECO")
+                 ("Sendero de trote en mulch (B2-B)" . "SEND-MULCH-TROTE")
+                 ("Sendero en concreto ocre (B3)" . "SEND-CONC-OCRE")
+                 ("Ecopavimento (B4)" . "SEND-ECOPAV")
+                 ("Ciclorruta propuesta (B5-A)" . "CICLORRUTA")
+                 ("Bicicarril propuesto (B5-B)" . "BICICARRIL")
+                 ("Superficie en caucho reciclado (B6)" . "SEND-CAUCHO")
+                 ("Superficie en deck de madera plastica (B7)" . "SEND-DECK"))
     ("Equipamientos"
       ("Concreto - plazoleta" . "PLAZOLETA")
       ("Sintetico - cancha" . "CANCHA-SINT")
@@ -744,14 +753,10 @@
       ": popup_list { label = \"Loseta guia\"; key = \"guia\"; }"
       ": popup_list { label = \"Loseta toperol\"; key = \"toperol\"; }"
       "}"
-      ;; 2026-08-24 (pedido del usuario): igual que el sendero -- fuera
-      ;; el anillo perimetral, entran los COSTADOS automaticos (tipo por
-      ;; lado + posicion; el ancho es el predeterminado de cada pieza).
-      ": boxed_column { label = \"Prefabricado por costados (automatico, en bloque)\";"
-      ": popup_list { label = \"Derecha\"; key = \"lado_der\"; }"
-      ": popup_list { label = \"Izquierda\"; key = \"lado_izq\"; }"
-      ": popup_list { label = \"Posicion\"; key = \"costpos\"; }"
-      "}"
+      ;; 5.6.2 (pedido del usuario): fuera la seccion de prefabricado por
+      ;; costados. Se elige DESPUES de dibujar, costado por costado, como
+      ;; en las vias (tipo, sentido y tramos sin prefabricado).
+      ": text { label = \"Prefabricados: despues de dibujar se elige costado por costado.\"; }"
       ": text { label = \"Contenedores existentes se omiten solos: dibuje el contorno exterior sin rodearlos.\"; }"
       ": text { label = \"Al dibujar: superficie SUP_TN automatica + cotas de implantacion.\"; }"
       " ok_cancel; }"))
@@ -823,12 +828,6 @@
         "toperol"
         *urb-yes-no-list*
         (urb:index-of current-toperol *urb-yes-no-list*))
-      (urb:fill-popup "lado_der" *urb-anillo-prefab-list*
-        (urb:list-index-ci (urb:send-costado-de 1) *urb-anillo-prefab-list*))
-      (urb:fill-popup "lado_izq" *urb-anillo-prefab-list*
-        (urb:list-index-ci (urb:send-costado-de 2) *urb-anillo-prefab-list*))
-      (urb:fill-popup "costpos" *urb-anillo-pos-list*
-        (urb:list-index-ci (urb:send-costpos-de) *urb-anillo-pos-list*))
       (action_tile
         "accept"
         (strcat
@@ -841,9 +840,6 @@
             "")
           " *urb-dialog-guia-index* (atoi (get_tile \"guia\"))"
           " *urb-dialog-toperol-index* (atoi (get_tile \"toperol\"))"
-          " *urb-dialog-lado-der-index* (atoi (get_tile \"lado_der\"))"
-          " *urb-dialog-lado-izq-index* (atoi (get_tile \"lado_izq\"))"
-          " *urb-dialog-costpos-index* (atoi (get_tile \"costpos\"))"
           " *urb-dialog-tipoelem-index* (atoi (get_tile \"tipoelem\")))"
           "(done_dialog 1)"))
       (setq accepted (= 1 (start_dialog)))
@@ -878,22 +874,14 @@
           ;; "Normal"; EDITAR = "Conservar").
           ;; 2026-08-24: al final van los COSTADOS (11 = tipo derecha,
           ;; 12 = tipo izquierda, 13 = posicion); los llamadores viejos
-          ;; los ignoran. La eleccion queda como default de la proxima
-          ;; vez (mismas claves que sendero/bioswale).
-          (urb:config-write "URB_SEND_COSTADO1"
-            (nth *urb-dialog-lado-der-index* *urb-anillo-prefab-list*))
-          (urb:config-write "URB_SEND_COSTADO2"
-            (nth *urb-dialog-lado-izq-index* *urb-anillo-prefab-list*))
-          (urb:config-write "URB_SEND_COSTPOS"
-            (nth *urb-dialog-costpos-index* *urb-anillo-pos-list*))
+          ;; los ignoran. 5.6.2: ya no salen de la ventana -- quedan en
+          ;; Ninguno y el llamador pregunta costado por costado.
           (setq result
             (list current-material current-format current-etapa current-subetapa
                   current-guia current-toperol current-calculate
                   current-surface current-grade-source
                   current-orientation current-start
-                  (nth *urb-dialog-lado-der-index* *urb-anillo-prefab-list*)
-                  (nth *urb-dialog-lado-izq-index* *urb-anillo-prefab-list*)
-                  (nth *urb-dialog-costpos-index* *urb-anillo-pos-list*)
+                  "Ninguno" "Ninguno" "Externo"
                   ;; nth 14 (2026-09-07): CODIGO de la variante elegida en
                   ;; *urb-send-tipos*; "" = anden nativo en loseta
                   (urb:safe-string
@@ -5463,10 +5451,15 @@
   ;; es Loseta; un xdata viejo con material distinto cae aqui igual.
   (vla-put-Layer obj "URB-ANDEN")
   (vla-put-Color obj 256)
+  (urb:bb-log "  INICIA losetas (bandas y regiones)")
   (setq result (urb:create-composite-loseta ename format))
+  (urb:bb-log (strcat "  TERMINA losetas " (if result "OK" "SIN RESULTADO")))
   (if result
-    (setq accessibility-result
-      (urb:create-accessibility-features ename guia toperol format)))
+    (progn
+      (urb:bb-log "  INICIA guia y toperol")
+      (setq accessibility-result
+        (urb:create-accessibility-features ename guia toperol format))
+      (urb:bb-log "  TERMINA guia y toperol")))
   (if (and result
            (or (urb:yes-p guia)
                (urb:yes-p toperol)))
@@ -6368,8 +6361,17 @@
   (setq area (urb:anden-area-neta ename area-bruta))
   (setq perimeter (urb:poly-perimeter boundary))
   (setq over-poly (urb:anden-overwidth-contour ename 1.0))
+  ;; 5.6.2: un anden recortado por una rampa/paso puede quedar sin dos
+  ;; costados claros y el sobreancho no se arma. Antes eso ABORTABA el
+  ;; empaquetado (el anden no se regeneraba). Ahora las tierras usan el
+  ;; contorno exacto y se avisa; el acabado y las cantidades no cambian.
   (if (not over-poly)
-    (vl-exit-with-error "ANDEN: no se pudo construir el sobreancho lateral de 1 m."))
+    (progn
+      (entmake (vl-remove-if '(lambda (p) (member (car p) '(-1 5 330 360 102)))
+                 (entget ename)))
+      (setq over-poly (entlast))
+      (urb:bb-log "  sobreancho no aplicable: tierras con contorno exacto")
+      (prompt "\nANDEN: el contorno no tiene dos costados claros; el movimiento de tierras se mide SIN sobreancho lateral.")))
   (setq over-area (vla-get-Area (vlax-ename->vla-object over-poly)))
   (urb:tag-generated-role (vlax-ename->vla-object over-poly)
     (vla-get-Handle boundary) "EARTHWORK_BOUNDARY")
@@ -6445,6 +6447,7 @@
         (vl-catch-all-apply 'vl-cmdf
           (list "_.-BLOCK" block-name "0,0,0" ss "")))
       (setvar "ATTREQ" old-attreq)
+      (urb:bb-log (strcat "  -BLOCK " (if (vl-catch-all-error-p cmd-result) "ERROR" "OK")))
       (urb:layers-restore capas-estado)
       (if (and (not (vl-catch-all-error-p cmd-result))
                (tblsearch "BLOCK" block-name))
@@ -6502,7 +6505,9 @@
       ;; Una transaccion: copia DXF exactos de las guias al bloque final,
       ;; elimina sus INSERT internos y ordena todos los roles en una pasada.
       ;; No se simplifican curvas, simbolos, capas ni cantidades.
+      (urb:bb-log "  INICIA orden de dibujo (URBANDENFLAT553)")
       (URBANDENFLAT553 block-name)
+      (urb:bb-log "  TERMINA orden de dibujo")
       (prompt
         (strcat "\n  orden de dibujo: "
           (rtos (/ (- (getvar "MILLISECS") t-pack) 1000.0) 2 1) " s"))
@@ -6561,6 +6566,7 @@
         block-definition point "ANDEN_CORTE_M3" "Corte m3" "0")
       (urb:add-invisible-attribute
         block-definition point "ANDEN_RELLENO_M3" "Relleno m3" "0")
+      (urb:bb-log "  atributos OK; INICIA insertar bloque")
       (setq insert-result
         (vl-catch-all-apply
           'vla-InsertBlock
@@ -6589,6 +6595,7 @@
               nil)
             (progn
               (vla-put-Layer block-ref "URB-ANDEN")
+              (urb:bb-log (strcat "  bloque insertado; xdata pattern-mode=" (vl-princ-to-string pattern-mode) " surface=" (vl-princ-to-string surface) " grade=" (vl-princ-to-string grade-source) " format=" (vl-princ-to-string format)))
               (setq xdata-result
                 (urb:set-xdata-strings
                   block-ename
@@ -7449,8 +7456,12 @@
             transform (urb:block-instance-transform obj)
             base (cdr (assoc 10 (tblsearch "BLOCK" (vla-get-Name obj)))))
       (if (not base) (setq base '(0.0 0.0 0.0)))
+      ;; 5.6.2: el rol vive en XDATA y leerlo en cada loseta costaba ~40 s
+      ;; en un anden real; solo una polilinea puede ser el contorno
       (vlax-for item def
-        (if (= (urb:generated-role item) "EARTHWORK_BOUNDARY")
+        (if (and (null raw)
+                 (= (vla-get-ObjectName item) "AcDbPolyline")
+                 (= (urb:generated-role item) "EARTHWORK_BOUNDARY"))
           (setq raw (urb:anden-earthwork-raw-points item))))
       (mapcar '(lambda (p)
         (urb:xref-local-to-world (mapcar '- (urb:point3d-list p) base) transform))
@@ -7460,7 +7471,9 @@
   (setq obj (urb:as-vla-object block-ref)
         def (vla-Item (vla-get-Blocks (urb:doc)) (vla-get-Name obj)))
   (vlax-for item def
-    (if (= (urb:generated-role item) "EARTHWORK_BOUNDARY")
+    (if (and (null area)
+             (= (vla-get-ObjectName item) "AcDbPolyline")
+             (= (urb:generated-role item) "EARTHWORK_BOUNDARY"))
       (setq area (* (vla-get-Area item)
         (abs (* (vla-get-XScaleFactor obj) (vla-get-YScaleFactor obj)))))))
   (if area area 0.0))
@@ -7567,7 +7580,7 @@
    grade-source ename result block-ref anden-points anden-area
    earthworks-ok orientation-choice start-choice pattern-mode
    old-fillmode doc undo-open undo-result *error* mod-p1 mod-p2 mod-angle
-   costados-res anillo-refs clip-area)
+   costados-res anillo-refs anillo-pos clip-area)
   (setq doc (urb:doc) old-fillmode (getvar "FILLMODE"))
   (defun *error* (message)
     (if (and ename (not block-ref))
@@ -7675,17 +7688,22 @@
       ;; 13 = posicion), cada uno como bloque independiente. Se construye
       ;; ANTES del acabado y del empaquetado: v4.76 resta su huella fisica
       ;; de las losetas/tactiles, en vez de limitarse a ponerlo al frente.
-      (setq anillo-refs nil)
-      (if (and (> (length data) 13)
-               (or (not (urb:string-equal-p (nth 11 data) "Ninguno"))
-                   (not (urb:string-equal-p (nth 12 data) "Ninguno"))))
+      ;; 5.6.2 (pedido del usuario): el prefabricado ya no sale de la
+      ;; ventana -- costado por costado, como en las vias (tipo, sentido
+      ;; Interno/Externo y tramos sin prefabricado). Cada bloque guarda SU
+      ;; sentido en URB_PREFAB_ANILLO, porque un anden puede llevar un
+      ;; costado interno y el otro externo.
+      (setq anillo-refs nil anillo-pos nil)
+      (setq costados-res
+        (vl-catch-all-apply 'urb:poly-costados-interactive
+          (list ename etapa subetapa "Anden")))
+      (if (vl-catch-all-error-p costados-res)
         (progn
-          (setq costados-res
-            (vl-catch-all-apply 'urb:poly-costados-build
-              (list ename (nth 11 data) (nth 12 data) (nth 13 data)
-                etapa subetapa "Anden")))
-          (if (vl-catch-all-error-p costados-res) (setq costados-res nil))
-          (setq anillo-refs (cadr costados-res))))
+          (prompt (strcat "\nPrefabricado por costados omitido: "
+            (vl-catch-all-error-message costados-res)))
+          (setq costados-res nil)))
+      (setq anillo-refs (cadr costados-res)
+            anillo-pos (nth 5 costados-res))
       ;; Vinculo temporal al contorno: permite que el generador de acabado
       ;; encuentre los costados reciÃ©n creados. Tras empaquetar se sustituye
       ;; por el handle definitivo del bloque de anden.
@@ -7696,7 +7714,7 @@
               (urb:set-xdata-strings
                 (vlax-vla-object->ename aref) "URB_PREFAB_ANILLO"
                 (list (vla-get-Handle (urb:as-vla-object ename))
-                      (nth 13 data)))))))
+                      (urb:safe-string (cdr (assoc aref anillo-pos)) "Externo")))))))
       ;; 2026-09-08 (pedido del usuario: "solo el bloque del anden tiene
       ;; que estar entre los prefabricados"): el CONTORNO se recorta
       ;; fisicamente contra los prefabricados recien creados y contra los
@@ -7705,16 +7723,29 @@
       ;; perimetro se calculan ya sobre ese contorno neto; si el recorte
       ;; no es posible el contorno queda intacto y todo sigue como en
       ;; v4.77 (el acabado se recorta igual).
+      ;; 5.6.2: caja negra (ver urb:bb-log) en cada etapa pesada
+      (urb:bb-log (strcat "CREAR anden: contorno "
+        (itoa (length (urb:lwpoly-points ename))) " vertices, arcos "
+        (if (urb:lwpoly-has-arcs-p ename) "SI" "NO")
+        ", area " (rtos (vla-get-Area (vlax-ename->vla-object ename)) 2 2)
+        ", guia " guia ", toperol " toperol ", formato " format))
+      (urb:bb-log "INICIA recorte del contorno")
       (setq clip-area
         (vl-catch-all-apply (function urb:anden-clip-contour) (list ename)))
+      (urb:bb-log "TERMINA recorte del contorno")
       (if (and (not (vl-catch-all-error-p clip-area)) (numberp clip-area))
         (prompt
           (strcat "\nContorno del anden recortado a " (rtos clip-area 2 2)
                   " m2: queda entre los prefabricados.")))
+      (urb:bb-log "INICIA acabado (losetas, guia, toperol)")
       (setq result
         (urb:build-anden-finish ename material guia toperol format))
+      (urb:bb-log (strcat "TERMINA acabado " (if result "OK" "SIN RESULTADO")))
       (if result
-        (setq block-ref (urb:package-anden ename)))
+        (progn
+          (urb:bb-log "INICIA empaquetado en bloque")
+          (setq block-ref (urb:package-anden ename))
+          (urb:bb-log (strcat "TERMINA empaquetado " (if block-ref "OK" "FALLO")))))
       ;; vinculo costado->anden para el descuento de area cuando es
       ;; Interno: la MISMA xdata URB_PREFab_ANILLO de siempre (handle del
       ;; anden + posicion) sobre CADA bloque de costado -- el descuento
@@ -7729,7 +7760,7 @@
                 "URB_PREFAB_ANILLO"
                 (list
                   (vla-get-Handle (urb:as-vla-object block-ref))
-                  (nth 13 data)))
+                  (urb:safe-string (cdr (assoc aref anillo-pos)) "Externo")))
               ;; 2026-08-26 (reporte del usuario: el anden quedaba POR
               ;; ENCIMA del bordillo): el bloque del anden se inserta
               ;; DESPUES de los costados y su achurado tapaba la franja
@@ -8356,16 +8387,56 @@
   (urb:yes-p (urb:safe-string kw "No"))
 )
 
-(defun urb:call-edit-stage (stage function arguments / result)
+;; ---------- 5.6.2 CAJA NEGRA de la generacion de andenes ----------
+;; Reporte del usuario: "al crear andenes con curvas se traba y se cierra el
+;; AutoCAD". Un cierre duro (violacion de acceso en accore.dll) no se puede
+;; atrapar desde LISP y no deja rastro. Cada etapa se escribe -y el archivo
+;; se CIERRA- antes de ejecutarla: si AutoCAD muere, la ultima linea dice
+;; exactamente donde. Archivo: %TEMP%\urbcant_anden_etapas.log (se recorta
+;; solo cuando supera ~200 KB).
+;; La caja negra JAMAS puede romper el flujo: verificado en 5.6.2 que
+;; menucmd devuelve nil justo despues del empaquetado (-BLOCK) y el strcat
+;; abortaba el recorte del anden con "stringp nil". Todo va protegido y la
+;; hora sale de CDATE, no de menucmd.
+(defun urb:bb-log (texto)
+  (vl-catch-all-apply 'urb:bb-log-write (list texto))
+  T)
+
+(defun urb:bb-log-write (texto / fn f cd)
+  (setq fn (strcat (urb:safe-string (getenv "TEMP") "C:\\Temp") "\\urbcant_anden_etapas.log"))
+  (if (and (findfile fn) (> (vl-file-size fn) 200000))
+    (vl-file-delete fn))
+  (setq cd (rtos (getvar "CDATE") 2 6))
+  (setq f (open fn "a"))
+  (if f
+    (progn
+      (write-line
+        (strcat (substr cd 1 4) "-" (substr cd 5 2) "-" (substr cd 7 2) " "
+                (substr cd 10 2) ":" (substr cd 12 2) ":" (substr cd 14 2)
+                " | " (urb:safe-string (if (boundp '*urb-version*) *urb-version*) "?")
+                " | " (urb:safe-string (getvar "DWGNAME") "?")
+                " | " (urb:safe-string texto ""))
+        f)
+      (close f))))
+
+;; 5.6.2: vl-exit-with-error deja un error SIN mensaje (nil). Antes el
+;; strcat del aviso reventaba con "stringp nil" FUERA de la proteccion y
+;; tumbaba todo el recorte/regeneracion del anden (medido con DD2CA).
+(defun urb:call-edit-stage (stage function arguments / result msg)
+  (urb:bb-log (strcat "INICIA " (urb:safe-string stage "?")))
   (setq result (vl-catch-all-apply function arguments))
   (if (vl-catch-all-error-p result)
+    (setq msg (urb:safe-string (vl-catch-all-error-message result)
+                "error sin mensaje (vl-exit-with-error)")))
+  (urb:bb-log (strcat "TERMINA " (urb:safe-string stage "?")
+                      (if msg (strcat " ERROR " msg) " OK")))
+  (if msg
     (progn
       (prompt
         (strcat
           "\nNo se completo la etapa "
           (urb:safe-string stage "desconocida")
-          ": "
-          (vl-catch-all-error-message result)))
+          ": " msg))
       nil)
     result)
 )
@@ -8513,9 +8584,25 @@
 ;; 5.6.1: si alguna cota vino de una VIA creada, la cota de diseno sale de
 ;; la rasante de esa via en la estacion del punto (todo el alineamiento);
 ;; si no, el plano / rasante lineal de siempre.
-(defun urb:design-z-from-picks (picks x y / ref)
-  (setq ref (vl-some '(lambda (p) (if (> (length p) 2) (caddr p))) picks))
+(defun urb:design-z-from-picks (picks x y / ref arefs best bd d q)
+  ;; 5.6.2: referencias de ANDEN (ANDEN ref-via borde contorno). Si hay
+  ;; varias (sendero entre dos andenes) manda la del anden mas cercano.
+  (setq arefs (vl-remove-if-not
+                '(lambda (r) (and (listp r) (eq (car r) 'ANDEN)))
+                (mapcar '(lambda (p) (if (> (length p) 2) (caddr p))) picks)))
+  (setq ref (vl-some '(lambda (p) (if (and (> (length p) 2) (not (eq (car (caddr p)) 'ANDEN))) (caddr p))) picks))
+  (if (and arefs (null ref))
+    (progn
+      (foreach r arefs
+        (setq q (if (cdr arefs)
+                  (vl-catch-all-apply 'vlax-curve-getClosestPointTo
+                    (list (urb:anden-ref-curve r) (list x y 0.0)))))
+        (if (vl-catch-all-error-p q) (setq q nil))
+        (if q (setq d (distance (list x y) (list (car q) (cadr q)))))
+        (if (and q (or (null bd) (< d bd))) (setq bd d best r)))
+      (setq ref (if best best (car arefs)))))
   (cond
+    ((and ref (eq (car ref) 'ANDEN)) (urb:anden-reference-design-z ref x y))
     ((null ref) (urb:design-z-from-picks-plane picks x y))
     ;; con el borde conocido (lo fija urb:earthworks-from-picks) se usa la
     ;; MISMA cota de diseno que el recalculo completo del anden
@@ -8648,6 +8735,7 @@
             (if (> delta 0.0)
               (setq cut (+ cut (* weight delta)))
               (setq fill (+ fill (* weight (- delta))))))))
+      (urb:anden-ref-curves-clear)
       (if (and (> total 1e-9) (> area 1e-9)
                (<= (abs (- area total)) (max 0.001 (* area 0.0001)))
                (>= covered (* total 0.999999)))
@@ -8961,7 +9049,7 @@
 )
 
 (defun c:EDITAR
-  (/ selection parents prefabs greens first metadata material format etapa subetapa
+  (/ selection parents prefabs greens senderos first metadata material format etapa subetapa
    guia toperol calculate surface grade-source data
    ename obj result deleted updated failed old-material boundary block-ref
    cleaned old-guia old-toperol old-format old-calculate old-surface
@@ -9004,6 +9092,7 @@
       (setq greens (urb:selected-green-zones selection))
       (setq roads (urb:selected-roads selection))
       (setq mp-entities (urb:selected-mp-entities selection))
+      (setq senderos (urb:send-selected selection))
       ;; Una seleccion mixta ya no descarta objetos silenciosamente. Se
       ;; rechaza completa para que el usuario sepa exactamente quÃ© se editÃ³.
       (setq mixed-count
@@ -9011,12 +9100,13 @@
            (if parents 1 0)
            (if prefabs 1 0)
            (if greens 1 0)
-           (if mp-entities 1 0)))
+           (if mp-entities 1 0)
+           (if senderos 1 0)))
       (if (> mixed-count 1)
         (progn
           (prompt
             "\nLa seleccion contiene categorias diferentes. No se modifico ningun objeto; seleccione un solo tipo.")
-          (setq roads nil parents nil prefabs nil greens nil mp-entities nil)))
+          (setq roads nil parents nil prefabs nil greens nil mp-entities nil senderos nil)))
       (if roads
         (foreach ename roads (urb:edit-road ename))
         (if parents
@@ -9344,8 +9434,11 @@
                               "\nTramos: [Propiedades/Voltear texto] <Propiedades>: "))))
                 (mp:flip-tramo-texts mp-entities)
                 (foreach ename mp-entities (mp:edit-entity ename)))
-              (prompt
-                "\nLa seleccion no contiene elementos editables.")))))))
+              (if senderos
+                ;; 5.6.2: senderos -> recalcular su movimiento de tierras
+                (urb:edit-senderos-movimiento senderos)
+                (prompt
+                "\nLa seleccion no contiene elementos editables."))))))))
     (prompt "\nNo se selecciono ningun objeto."))
   (setq *urb-current-tactile-side-point* nil
         *urb-current-tactile-side-choice* nil)
@@ -18227,14 +18320,14 @@
 ;; pozos, se digita y ya. Con UNA sola cota el plano de diseno queda
 ;; horizontal; con 2 es una rasante lineal; con 3+ un plano ajustado.
 (defun urb:pick-design-cotas (/ picks sel value point done n alto ref)
-  (setq done nil picks nil)
+  (setq done nil picks nil *urb-anden-pts-cache* nil)
   (while (not done)
     (setq n (length picks) ref nil)
     (initget "Digitar Terminar")
     (setq sel
       (nentsel
         (strcat "\nCota de diseno " (itoa (1+ n))
-          ": clic sobre VIA/POZO/etiqueta, [Digitar] la cota, o Enter para terminar"
+          ": clic sobre VIA/ANDEN/POZO/etiqueta, [Digitar] la cota, o Enter para terminar"
           (if (> n 0) (strcat " (" (itoa n) " tomadas)") "") ": ")))
     (cond
       ((null sel)
@@ -18262,6 +18355,19 @@
       (T
         ;; misma cascada del modo Pendiente: via -> pozo del modelo ->
         ;; etiqueta con numero -> digitar de respaldo
+        ;; 5.6.2: clic sobre un ANDEN creado -> su superficie de DISENO
+        ;; (la cota de cada punto sale del borde del anden mas cercano)
+        (setq ref (vl-catch-all-apply 'urb:anden-reference-from-pick (list sel)))
+        (if (vl-catch-all-error-p ref) (setq ref nil))
+        (if ref
+          (progn
+            (setq value (urb:anden-reference-design-z ref (car (cadr sel)) (cadr (cadr sel))))
+            (urb:anden-ref-curves-clear)
+            (if value
+              (prompt (strcat "\nAnden creado: se usan sus cotas de DISENO en el borde mas cercano"
+                " (en el clic: " (rtos value 2 3) "). Enter para terminar."))
+              (setq ref nil)))
+          (progn
         (setq value (urb:cota-from-pick sel))
         (if value
           ;; 2026-09-10 (pedido del usuario): estas son cotas de DISENO de
@@ -18293,7 +18399,7 @@
                 (setq value (urb:selected-cota-number sel))
                 (if value
                   (prompt (strcat "\nCota leida de la etiqueta: "
-                    (rtos value 2 3))))))))
+                    (rtos value 2 3))))))))))
         (if (null value)
           (setq value
             (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
@@ -18302,6 +18408,138 @@
                         (list (if ref (list value (cadr sel) ref)
                                       (list value (cadr sel))))))))))
   picks)
+
+;; ---------- 5.6.2 cotas de DISENO de un ANDEN como referencia ----------
+;; Pedido del usuario: "que pasa si para el movimiento de tierras de los
+;; senderos tengo una via lejos o un pozo, no podria sacarla con respecto a
+;; los puntos de elevacion de los andenes? por eso es importante que los
+;; andenes queden bien las cotas". El anden ya tiene su superficie de
+;; diseno completa (rasante de SU via + bombeo al borde + bordillo +
+;; pendiente transversal, urb:anden-grade-at-point). Un sendero o una zona
+;; que llega al anden se amarra a la cota de diseno del BORDE del anden en
+;; el punto mas cercano. Referencia: (ANDEN ref-via borde contorno).
+(defun urb:anden-design-reference (ab / pts road ref edge)
+  (setq pts (urb:anden-points-cached ab))
+  (if pts
+    (progn
+      (setq road (urb:anden-road-autodetect pts))
+      (if road (setq ref (urb:anden-road-grade-for road)))
+      (if ref
+        (progn
+          (setq edge (urb:anden-axis-edge-offset pts (car ref)))
+          (if (numberp edge) (list 'ANDEN ref edge pts)))))))
+
+;; punto mas cercano sobre un contorno CERRADO dado por sus vertices.
+;; Recorre la lista UNA vez (nth dentro del ciclo la volvia cuadratica y se
+;; llama por cada muestra de la malla: 17+ min en un anden de 251 vertices)
+(defun urb:closest-point-on-closed-pts (p pts / px py rest ax ay bx by dx dy len2 tt qx qy d best bd)
+  (setq px (car p) py (cadr p) rest (append pts (list (car pts))))
+  (while (cdr rest)
+    (setq ax (car (car rest)) ay (cadr (car rest))
+          bx (car (cadr rest)) by (cadr (cadr rest))
+          dx (- bx ax) dy (- by ay) len2 (+ (* dx dx) (* dy dy)))
+    (if (> len2 1e-18)
+      (progn
+        (setq tt (/ (+ (* (- px ax) dx) (* (- py ay) dy)) len2)
+              tt (max 0.0 (min 1.0 tt))
+              qx (+ ax (* tt dx)) qy (+ ay (* tt dy))
+              d (+ (* (- px qx) (- px qx)) (* (- py qy) (- py qy))))
+        (if (or (null bd) (< d bd)) (setq bd d best (list qx qy)))))
+    (setq rest (cdr rest)))
+  best)
+
+;; contorno del anden como polilinea TEMPORAL (una por calculo): la busqueda
+;; nativa vlax-curve es cientos de veces mas rapida que recorrer los
+;; vertices en LISP por cada muestra. Se borran en urb:anden-ref-curves-clear.
+(setq *urb-anden-ref-curves* nil)
+;; la lista de puntos es la llave por IDENTIDAD (eq): comparar con equal
+;; 1272 vertices por cada muestra seria otra vez lento
+(defun urb:pts-temp-curve (pts / hit obj)
+  (setq hit (vl-some '(lambda (h) (if (eq (car h) pts) h)) *urb-anden-ref-curves*))
+  (if (and hit (not (vlax-erased-p (cdr hit))))
+    (cdr hit)
+    (progn
+      (setq obj (vl-catch-all-apply 'vla-AddLightWeightPolyline
+                  (list (vla-get-ModelSpace (urb:doc))
+                        (mp:var-dbls (apply 'append (mapcar '(lambda (p) (list (car p) (cadr p))) pts))))))
+      (if (vl-catch-all-error-p obj)
+        nil
+        (progn
+          (vla-put-Closed obj :vlax-true)
+          (vla-put-Visible obj :vlax-false)
+          (setq *urb-anden-ref-curves* (cons (cons pts obj) *urb-anden-ref-curves*))
+          obj)))))
+
+(defun urb:anden-ref-curve (aref) (urb:pts-temp-curve (nth 3 aref)))
+
+(defun urb:anden-ref-curves-clear (/ item)
+  (foreach item *urb-anden-ref-curves*
+    (if (not (vlax-erased-p (cdr item))) (vl-catch-all-apply 'vla-Delete (list (cdr item)))))
+  (setq *urb-anden-ref-curves* nil))
+
+;; contorno de tierras de cada anden leido UNA vez por comando: recorrer la
+;; definicion del bloque (miles de losetas) costaba 10-50 s por lectura
+(setq *urb-anden-pts-cache* nil)
+(defun urb:anden-points-cached (ab / key hit pts)
+  (setq key (cdr (assoc 5 (entget ab)))
+        hit (assoc key *urb-anden-pts-cache*))
+  (if hit
+    (cdr hit)
+    (progn
+      (setq pts (vl-catch-all-apply 'urb:anden-earthwork-points (list ab)))
+      (if (vl-catch-all-error-p pts) (setq pts nil))
+      (setq *urb-anden-pts-cache* (cons (cons key pts) *urb-anden-pts-cache*))
+      pts)))
+
+;; cota de diseno en (x y) amarrada al borde del anden mas cercano
+(defun urb:anden-reference-design-z (aref x y / q curve)
+  (setq curve (urb:anden-ref-curve aref))
+  (if curve
+    (setq q (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list curve (list x y 0.0))))
+    (setq q (urb:closest-point-on-closed-pts (list x y) (nth 3 aref))))
+  (if (vl-catch-all-error-p q) (setq q (urb:closest-point-on-closed-pts (list x y) (nth 3 aref))))
+  (if q (urb:anden-grade-at-point (list (car q) (cadr q) 0.0) (nth 1 aref) (nth 2 aref))))
+
+;; anden tocado por un clic (nentsel: la entidad o uno de sus contenedores)
+(defun urb:anden-reference-from-pick (sel / cands item out)
+  (setq cands (list (car sel)))
+  (if (> (length sel) 3) (setq cands (append cands (nth 3 sel))))
+  (foreach item cands
+    (if (and (null out) item
+             (not (vl-catch-all-error-p (vl-catch-all-apply 'urb:anden-block-p (list item))))
+             (urb:anden-block-p item))
+      (setq out (urb:anden-design-reference item))))
+  out)
+
+;; anden mas cercano a un contorno (<= 10 m), para senderos sin via al lado
+(defun urb:anden-near-points (pts / step k sample best bestd en apts curve q d p
+                               xs ys x0 x1 y0 y1 r lo hi)
+  (if (> (length pts) 60)
+    (setq step (/ (length pts) 60) k 0
+          sample (vl-remove-if '(lambda (p) (/= 0 (rem (setq k (1+ k)) step))) pts))
+    (setq sample pts))
+  (setq bestd 10.0 xs (mapcar 'car pts) ys (mapcar 'cadr pts)
+        x0 (- (apply 'min xs) 10.0) x1 (+ (apply 'max xs) 10.0)
+        y0 (- (apply 'min ys) 10.0) y1 (+ (apply 'max ys) 10.0))
+  (foreach en (urb:all-anden-blocks)
+    ;; filtro barato: UNA caja envolvente por anden contra la caja del
+    ;; sendero + 10 m (pedirla por cada muestra costaba ~50 s)
+    (setq r (vl-catch-all-apply 'vla-GetBoundingBox (list (vlax-ename->vla-object en) 'lo 'hi)))
+    (if (and (not (vl-catch-all-error-p r))
+             (setq lo (vlax-safearray->list lo) hi (vlax-safearray->list hi))
+             (<= (car lo) x1) (>= (car hi) x0) (<= (cadr lo) y1) (>= (cadr hi) y0))
+      (progn
+        (setq apts (urb:anden-points-cached en)
+              curve (if apts (urb:pts-temp-curve apts)))
+        (if curve
+          (foreach p sample
+            (setq q (vl-catch-all-apply 'vlax-curve-getClosestPointTo
+                      (list curve (list (car p) (cadr p) 0.0))))
+            (if (not (vl-catch-all-error-p q))
+              (progn
+                (setq d (distance (list (car p) (cadr p)) (list (car q) (cadr q))))
+                (if (< d bestd) (setq bestd d best en)))))))))
+  best)
 
 ;; referencia de rasante de la via creada tocada por un clic (nentsel)
 (defun urb:road-reference-from-pick (sel / cands item road out)
@@ -24047,10 +24285,13 @@
               ;; queda DEBAJO del modulo -- andenes, zonas verdes y
               ;; prefabricados -- para que el area no quede contada dos
               ;; veces. Por defecto SI: es el caso normal.
-              ;; 2026-09-11: el acceso vehicular NO pregunta -- es una
-              ;; superposicion y su constructor ya recorto el anden bajo sus
-              ;; bordillos.
-              (if (and result (/= (car selection) "RAMPA-VEHICULAR"))
+              ;; 2026-09-11: el acceso vehicular no preguntaba (superposicion,
+              ;; solo recortaba el anden bajo sus bordillos). 5.6.2 (pedido
+              ;; del usuario: "rampas peatonales, vehiculares y pasos
+              ;; peatonales sobre un anden o zona verde: que se corte el anden
+              ;; y se recalcule el movimiento de tierras y el resto de
+              ;; cantidades"): ahora tambien pregunta.
+              (if result
                 (progn
                   (initget "Si No")
                   (setq kw (getkword
@@ -24084,7 +24325,7 @@
 (defun urb:create-pedestrian-ramp-command
   (selection / *error* doc undo-open undo-result base-pt dir-pt side-pt width kw
    depth tipo etapa subetapa axis-angle side-sign block-ref center-pt total-half done
-   ext ext-pt ext-sel ext-cp vproj dlg ncut picks mov pe u v pts)
+   ext ext-pt ext-sel ext-cp vproj dlg ncut picks mov pe u v pts recorte)
   ;; Rampa peatonal parametrica sobre el borde de la via, segun los
   ;; modulos de U-201: banda central lisa (2.00 o 3.00 m) + 2 aletas
   ;; laterales de 0.65 m con adoquin 20x10, fondo = ancho del anden
@@ -24203,6 +24444,24 @@
                 (prompt (strcat "\nPrefabricados cortados bajo la rampa: "
                   (itoa ncut) "."))
                 (prompt "\nNo habia sardinel/bordillo bajo la rampa."))))
+          ;; 5.6.2 (pedido del usuario): la rampa peatonal tambien recorta
+          ;; el anden y la zona verde que quedan DEBAJO del modulo -- antes
+          ;; solo cortaba los prefabricados y el area se contaba dos veces.
+          ;; Mismo motor de la rampa por contorno y del paso peatonal; el
+          ;; anden/zona recortado recalcula su movimiento de tierras.
+          (initget "Si No")
+          (setq kw (getkword
+            "\nRecortar anden/zona verde debajo de la rampa? [Si/No] <Si>: "))
+          (if (/= kw "No")
+            (progn
+              (setq recorte
+                (vl-catch-all-apply 'urb:recut-vecinos-bajo
+                  (list (urb:as-ename block-ref))))
+              (if (vl-catch-all-error-p recorte)
+                (prompt (strcat "\nEl recorte fallo: " (vl-catch-all-error-message recorte)))
+                (prompt (strcat "\nRecortados bajo la rampa: "
+                  (itoa (car recorte)) " anden(es) y "
+                  (itoa (cadr recorte)) " zona(s) verde(s).")))))
           ;; 2026-09-01: corte/relleno opcional de la rampa (mismo motor de
           ;; zona verde: cotas de diseno intuitivas + malla contra SUP_TN)
           (initget "Si No")
@@ -28476,6 +28735,65 @@
        ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
          "M3" "AREA" 0.40))
       "URB-SENDERO-ECOLOGICO" 0.40)
+    ;; ---------- 5.6.2 MATERIALES DE SENDERO de la convencion del plano
+    ;; (pedido del usuario, con la leyenda B2-A..B7): cada uno con su COLOR
+    ;; propio que no se repite (el relleno sale solido con transparencia,
+    ;; como la zona verde). Actividades con el nombre EXACTO que ya trae el
+    ;; presupuesto cuando existe (mulch, caucho reciclado, ecopavimento,
+    ;; demarcacion de ciclorruta); el deck no tiene fila y sale huerfano
+    ;; visible. Espesores de estructura REVISAR con el diseno de pavimentos:
+    ;; son el fondo del corte/relleno de cada material.
+    ;; Los codigos viejos SEND-TROTE / SEND-ECO se conservan arriba para que
+    ;; los senderos ya dibujados sigan cuantificando.
+    ("SEND-MULCH-ECO" "Sendero ecologico en mulch (B2-A)" "SENDERO" 96 "SENDERO"
+      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+       ("Geotextil tejido 2100" "M2" "AREA" 1.0)
+       ("Piso en mulch de madera inorganico" "M2" "AREA" 1.0)
+       ("Bordillo de confinamiento" "ML" "PER" 1.0)
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+         "M3" "AREA" 0.15))
+      "URB-SENDERO-MULCH-ECOLOGICO" 0.15)
+    ("SEND-MULCH-TROTE" "Sendero de trote en mulch (B2-B)" "SENDERO" 74 "TROTE"
+      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+       ("Geotextil tejido 2100" "M2" "AREA" 1.0)
+       ("Piso en mulch de madera inorganico" "M2" "AREA" 1.0)
+       ("Bordillo de confinamiento" "ML" "PER" 1.0)
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+         "M3" "AREA" 0.15))
+      "URB-SENDERO-MULCH-TROTE" 0.15)
+    ("SEND-CONC-OCRE" "Sendero en concreto ocre (B3)" "SENDERO" 40 "SENDERO"
+      (("Concreto 3000 psi" "M3" "AREA" 0.10)
+       ("Malla electrosoldada" "KG" "AREA" 2.36)
+       ("Subabase granular SBG-B" "M3" "AREA" 0.30)
+       ("Bordillo de confinamiento" "ML" "PER" 1.0)
+       ("MO Escobillado concreto" "M2" "AREA" 1.0)
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+         "M3" "AREA" 0.40))
+      "URB-SENDERO-CONCRETO-OCRE" 0.40)
+    ("SEND-ECOPAV" "Ecopavimento (B4)" "SENDERO" 9 "SENDERO"
+      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+       ("Subbase granular SBG" "M3" "AREA" 0.20)
+       ("superficie en ecopavimento" "M2" "AREA" 1.0)
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+         "M3" "AREA" 0.30))
+      "URB-SENDERO-ECOPAVIMENTO" 0.30)
+    ("BICICARRIL" "Bicicarril propuesto (B5-B)" "CICLORRUTA" 170 "CICLOR"
+      (("Demarcacion cicloruta" "ML" "PER" 1.0))
+      "URB-BICICARRIL" 0.0)
+    ("SEND-CAUCHO" "Superficie en caucho reciclado (B6)" "SENDERO" 32 "SENDERO"
+      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+       ("Subbase granular SBG" "M3" "AREA" 0.20)
+       ("Concreto 3000 psi" "M3" "AREA" 0.08)
+       ("superficie en caucho reciclado" "M2" "AREA" 1.0)
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+         "M3" "AREA" 0.35))
+      "URB-SENDERO-CAUCHO" 0.35)
+    ("SEND-DECK" "Superficie en deck de madera plastica (B7)" "SENDERO" 22 "SENDERO"
+      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+       ("Superficie en deck de madera plastica" "M2" "AREA" 1.0)
+       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+         "M3" "AREA" 0.20))
+      "URB-SENDERO-DECK" 0.20)
     ("PLAZOLETA" "Plazoleta en concreto" "SENDERO" 253 "SENDERO"
       (("Concreto 3000 psi" "M3" "AREA" 0.10)
        ("Malla electrosoldada" "KG" "AREA" 2.36)
@@ -29036,6 +29354,24 @@
 ;; el original cuando el bloque nuevo quedo completo. El movimiento de
 ;; tierras previo NO se copia: el recorte cambia el area y conservar esos
 ;; volumenes seria presentar cantidades obsoletas como validas.
+;; 5.6.2: movimiento de tierras de un anden SIN interaccion. Solo corre si
+;; hay una via creada a <= 10 m (su rasante completa); nunca abre un
+;; selector en medio de otro comando. Devuelve T si quedo calculado.
+(defun urb:recalc-earthworks-silent (block-ename / pts road r)
+  (setq pts (vl-catch-all-apply 'urb:anden-earthwork-points (list block-ename)))
+  (if (vl-catch-all-error-p pts) (setq pts nil))
+  (setq road (if pts (urb:anden-road-autodetect pts)))
+  (if road
+    (progn
+      (setq r (vl-catch-all-apply 'urb:run-anden-earthworks
+                (list block-ename nil 0.0 "SUP_TN" "Via creada")))
+      (if (and r (not (vl-catch-all-error-p r)))
+        (progn (prompt "\nMovimiento de tierras del anden recortado: recalculado con la via.") T)
+        (progn (prompt "\nMovimiento de tierras del anden recortado: no se pudo recalcular (EDITAR).") nil)))
+    (progn
+      (prompt "\nAnden recortado sin via creada al lado: su movimiento de tierras queda PENDIENTE (EDITAR).")
+      nil)))
+
 (defun urb:recut-one-anden-for-container
   (ename / data material etapa sub guia toperol format calculate surface
    grade-source pattern old-h old-mov boundary block-ref new-ename deleted)
@@ -29073,6 +29409,14 @@
           (if (and old-h new-ename)
             (urb:relink-anden-anillos old-h
               (cdr (assoc 5 (entget new-ename)))))
+          ;; 5.6.2 (pedido del usuario: "que al sobreponer la rampa o el paso
+          ;; se corte el anden y se recalcule el movimiento de tierras y el
+          ;; resto de cantidades"). Las cantidades ya salian del bloque
+          ;; regenerado, pero el corte/relleno se PERDIA: el bloque nuevo
+          ;; nacia sin URB_ANDEN_MOV. Se recalcula sin pedir clics cuando
+          ;; hay via creada al lado; si no, queda pendiente y se avisa.
+          (if (and new-ename (urb:yes-p calculate))
+            (urb:recalc-earthworks-silent new-ename))
           (list new-ename (if (urb:valid-anden-earthworks-data-p old-mov) T nil)))
         (progn
           (if new-ename (urb:delete-anden-block new-ename))
@@ -29238,6 +29582,34 @@
 ;; parte en varios pedazos (un paso peatonal que la cruza de lado a lado),
 ;; se crea UNA zona verde por pedazo -- si se conservara solo el mayor se
 ;; perderia area en silencio. Devuelve cuantas zonas quedaron, o nil.
+;; 5.6.2: corte/relleno de una zona verde sin interaccion (via creada a
+;; <= 10 m, su rasante completa hasta el espesor de tierra negra)
+(defun urb:green-earthworks-silent (block pts esp / road ref pl mov p)
+  (setq road (urb:anden-road-autodetect pts))
+  (if road
+    (progn
+      (setq ref (urb:anden-road-grade-for road))
+      (if ref
+        (progn
+          (entmake (append (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(100 . "AcDbPolyline")
+                                 (cons 90 (length pts)) '(70 . 1))
+                           (mapcar '(lambda (p) (cons 10 (list (car p) (cadr p)))) pts)))
+          (setq pl (entlast))
+          (setq mov (urb:earthworks-from-picks pl
+                      (list (list 0.0 (list (car (car pts)) (cadr (car pts))) ref)) esp))
+          (entdel pl)
+          (if mov
+            (progn
+              (urb:set-block-attribute block "CORTE_M3" (rtos (car mov) 2 2))
+              (urb:set-block-attribute block "RELLENO_M3" (rtos (cadr mov) 2 2))
+              (prompt (strcat "\nZona verde recortada: corte " (rtos (car mov) 2 2)
+                " m3 | relleno " (rtos (cadr mov) 2 2) " m3 (via adyacente)."))
+              mov))))
+      nil)
+    (progn
+      (prompt "\nZona verde recortada sin via al lado: su corte/relleno queda en cero hasta recalcularlo.")
+      nil)))
+
 (defun urb:recut-one-green (ename / data etapa sub esp boundary loops refs r)
   (setq data (urb:green-zone-data ename)
         etapa (urb:safe-string (nth 1 data) "1")
@@ -29254,7 +29626,12 @@
         (progn
           (foreach pts loops
             (setq r (urb:build-green-from-points pts etapa sub esp))
-            (if r (setq refs (cons r refs))))
+            (if r
+              (progn
+                ;; 5.6.2: el corte/relleno de la zona recortada se perdia;
+                ;; se recalcula sobre la zona nueva si hay via al lado
+                (vl-catch-all-apply 'urb:green-earthworks-silent (list r pts esp))
+                (setq refs (cons r refs)))))
           (if (null refs)
             nil
             (progn
@@ -29430,6 +29807,113 @@
           (setq total (+ total len) refs (cons ref refs))))))
   (if refs (list total (reverse refs)) nil))
 
+;; ---------- 5.6.2 PREFABRICADO POR COSTADO, INTERACTIVO (andenes y senderos) ----------
+;; Pedido del usuario: "quiero que me quites la parte de prefabricados de la
+;; ventana y que hagas como vias: que me seleccione cada costado y si lleva
+;; prefabricado, que prefabricado, que me permita elegir el sentido y cortar
+;; cuando no lo necesitan". Mismo patron de urb:create-road-sardineles:
+;; se resalta cada costado largo del contorno, se pregunta el tipo, el
+;; sentido (Interno = crece hacia dentro del elemento y descuenta area,
+;; Externo = hacia afuera) y se marcan pares INICIO/FIN de los tramos SIN
+;; prefabricado. Cada tramo util se construye con urb:poly-costado-build (el
+;; mismo motor probado, que ademas se interrumpe en los contenedores).
+;; Devuelve (descuento refs tipo-costado1 tipo-costado2 posicion ref-pos):
+;;   refs      referencias de bloque creadas
+;;   ref-pos   lista (ref . "Interno"/"Externo") para el vinculo con el anden
+;;   posicion  "Interno" si algun tramo quedo interno (para el colector)
+(defun urb:poly-costados-interactive (ename etapa sub destino
+                                     / chains winding descuento refs ref-pos tipos
+                                     pts en len kw tipo sentido gaps g1 g2 c1 c2
+                                     tt1 tt2 swap kept prev item seg sub-en sub-pts
+                                     r interno ed x)
+  (setq chains (urb:poly-costado-chains ename))
+  (if (null chains)
+    (progn
+      (prompt "\nNo se pudieron identificar los costados del contorno: sin prefabricado (use el boton Prefabricado si lo necesita).")
+      (list 0.0 nil "Ninguno" "Ninguno" "Externo" nil))
+    (progn
+      (setq winding
+        (if (< (urb:loop-signed-area
+                  (mapcar '(lambda (p) (cons p 0.0))
+                    (urb:lwpoly-points-with-arcs-fine ename))) 0.0) -1.0 1.0))
+      (setq descuento 0.0 refs nil ref-pos nil tipos nil interno nil)
+      (foreach pts chains
+        (setq en (urb:poly-chain-polyline pts) tipo "Ninguno")
+        (if en
+          (progn
+            (setq len (urb:highlight-chain en))
+            (initget "Bordillo Sardinel Canuela Ninguno")
+            (setq kw
+              (getkword
+                (strcat "\nPrefabricado en el costado resaltado ("
+                        (rtos len 2 2) " m)? [Bordillo/Sardinel/Canuela/Ninguno] <Ninguno>: ")))
+            (if (member kw '("Bordillo" "Sardinel" "Canuela")) (setq tipo kw))
+            (if (/= tipo "Ninguno")
+              (progn
+                (initget "Interno Externo")
+                (setq sentido
+                  (getkword
+                    (strcat "\n  Sentido del " tipo
+                            ": hacia dentro del elemento o hacia afuera? [Interno/Externo] <Interno>: ")))
+                (if (null sentido) (setq sentido "Interno"))
+                ;; tramos SIN prefabricado (cruces, accesos): pares inicio/fin
+                (setq gaps nil g1 T)
+                (while g1
+                  (setq g1 (getpoint "\n  INICIO de tramo SIN prefabricado (Enter si no hay mas): "))
+                  (if g1
+                    (progn
+                      (setq g2 (getpoint g1 "\n  FIN del tramo sin prefabricado: "))
+                      (if g2
+                        (progn
+                          (setq c1 (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list en g1))
+                                c2 (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list en g2)))
+                          (if (and (not (vl-catch-all-error-p c1)) (not (vl-catch-all-error-p c2)))
+                            (progn
+                              (setq tt1 (vlax-curve-getDistAtPoint en c1)
+                                    tt2 (vlax-curve-getDistAtPoint en c2))
+                              (if (and tt1 tt2)
+                                (progn
+                                  (if (> tt1 tt2) (setq swap tt1 tt1 tt2 tt2 swap))
+                                  (setq gaps (cons (list tt1 tt2) gaps)))))))))))
+                (setq gaps (vl-sort gaps '(lambda (a b) (< (car a) (car b)))))
+                (setq kept nil prev 0.0)
+                (foreach item gaps
+                  (if (> (- (car item) prev) 0.10) (setq kept (cons (list prev (car item)) kept)))
+                  (setq prev (max prev (cadr item))))
+                (if (> (- len prev) 0.10) (setq kept (cons (list prev len) kept)))
+                (foreach seg (reverse kept)
+                  ;; sub-cadena en el MISMO sentido del contorno (la regla del
+                  ;; lado interior de urb:poly-costado-build depende de eso)
+                  (setq sub-en (urb:chain-subpoly en (car seg) (cadr seg)))
+                  (if sub-en
+                    (progn
+                      (setq sub-pts nil ed (entget sub-en))
+                      (foreach itm ed
+                        (if (= (car itm) 10)
+                          (setq sub-pts (cons (list (cadr itm) (caddr itm) 0.0) sub-pts))))
+                      (setq sub-pts (reverse sub-pts))
+                      (entdel sub-en)
+                      (setq r (vl-catch-all-apply 'urb:poly-costado-build
+                                (list sub-pts tipo sentido etapa sub winding destino)))
+                      (if (and r (not (vl-catch-all-error-p r)))
+                        (progn
+                          (setq refs (append refs (cadr r)))
+                          (foreach x (cadr r) (setq ref-pos (cons (cons x sentido) ref-pos)))
+                          (if (urb:string-equal-p sentido "Interno")
+                            (setq interno T
+                                  descuento (+ descuento (* (car r) (urb:prefab-default-ancho tipo))))))
+                        (prompt (strcat "\n  No fue posible crear un tramo de " tipo "."))))))
+                (prompt (strcat "\n  " tipo " " sentido ": " (itoa (length kept)) " tramo(s)."))))
+            (urb:set-chain-highlight en nil)
+            (redraw)
+            (if (entget en) (entdel en))))
+        (setq tipos (append tipos (list tipo))))
+      (list descuento refs
+        (urb:safe-string (nth 0 tipos) "Ninguno")
+        (urb:safe-string (nth 1 tipos) "Ninguno")
+        (if interno "Interno" "Externo")
+        (reverse ref-pos)))))
+
 ;; construye los costados configurados de un poligono recien dibujado.
 ;; Devuelve (descuento refs): descuento = suma longitud x ancho de los
 ;; costados INTERNOS (0.0 si Externo), refs = lista de referencias de
@@ -29544,40 +30028,44 @@
                               descuento grp kw2 picks2 mov2 over2 costados finish-region)
   (setq capa (nth 6 entry))
   (urb:ensure-layer capa (nth 3 entry) T)
-  (setq con-cost
-    (or (not (urb:string-equal-p lado-der "Ninguno"))
-        (not (urb:string-equal-p lado-izq "Ninguno"))))
   (setq n 0)
   (prompt (strcat "\n" (nth 1 entry)
     ": cierre el poligono del contorno (Enter sin dibujar termina)."))
   (while (setq ename (urb:draw-closed-polyline))
     (setq obj (vlax-ename->vla-object ename))
     (vla-put-Layer obj capa)
-    (setq descuento 0.0 finish-region nil)
-    (if con-cost
+    (setq descuento 0.0 finish-region nil con-cost nil)
+    ;; 5.6.2 (pedido del usuario): fuera el prefabricado automatico de la
+    ;; ventana; como en las vias, se resalta cada costado y se pregunta si
+    ;; lleva prefabricado, cual, en que sentido y donde se corta. Solo
+    ;; senderos: el bioswale va siempre sin prefabricados.
+    (if (= appid "URB_SENDERO")
       (progn
-        (setq costados (urb:poly-costados-build ename lado-der lado-izq posicion etapa sub "Anden"))
-        (setq finish-region (urb:sendero-finish-region obj (cadr costados)))
-        (setq descuento (max 0.0 (- (vla-get-Area obj) (vla-get-Area finish-region))))))
-    ;; 2026-09-01 (pedido del usuario: "unifiques senderos con andenes,
-    ;; que sea un mismo simbolo"): los senderos peatonales llevan la
-    ;; RETICULA de loseta gris del anden (patron NET) en vez del relleno
-    ;; solido de color; la ciclorruta conserva su azul solido (referencia
-    ;; que el mismo usuario aprobo el 2026-08-24).
+        (setq costados
+          (vl-catch-all-apply 'urb:poly-costados-interactive
+            (list ename etapa sub "Anden")))
+        (if (vl-catch-all-error-p costados) (setq costados nil))
+        (if (and costados (cadr costados))
+          (progn
+            (setq con-cost T
+                  lado-der (nth 2 costados) lado-izq (nth 3 costados)
+                  posicion (nth 4 costados))
+            (setq finish-region (urb:sendero-finish-region obj (cadr costados)))
+            (setq descuento (max 0.0 (- (vla-get-Area obj) (vla-get-Area finish-region))))))))
+    ;; 5.6.2 (pedido del usuario: "actualmente me esta armando los hatch con
+    ;; cuadricula, quiero que cada material tenga su color predeterminado
+    ;; que no se repita y con transparencia asi como con zona verde"):
+    ;; relleno SOLIDO del color propio del material (catalogo, nth 3) con
+    ;; transparencia 60. Reemplaza la reticula NET gris de 2026-09-01.
     (setq hatch
       (vl-catch-all-apply
-        '(lambda ( / anden-look)
-          (setq anden-look
-            (and (= appid "URB_SENDERO")
-                 (not (urb:string-equal-p (nth 0 entry) "CICLORRUTA"))))
-          (if anden-look
-            (progn
-              (setq hatch (vla-AddHatch (urb:space) 0 "NET" (if finish-region :vlax-false :vlax-true)))
-              (vla-put-PatternScale hatch 0.40)
-              (vla-put-Color hatch 8))
-            (setq hatch (vla-AddHatch (urb:space) 1 "SOLID" (if finish-region :vlax-false :vlax-true))))
+        '(lambda ()
+          (setq hatch (vla-AddHatch (urb:space) 1 "SOLID" (if finish-region :vlax-false :vlax-true)))
           (vla-AppendOuterLoop hatch (urb:make-loop-array (if finish-region finish-region obj)))
           (vla-put-Layer hatch capa)
+          (vla-put-Color hatch (nth 3 entry))
+          (vl-catch-all-apply 'vlax-put-property
+            (list hatch 'EntityTransparency "60"))
           (urb:evaluate-render-hatch hatch)
           hatch)))
     (if (not (vl-catch-all-error-p hatch))
@@ -29882,6 +30370,80 @@
 (defun urb:send-selected (selection)
   (urb:poly-elemento-selected selection "URB_SENDERO"))
 
+;; ---------- 5.6.2 movimiento de tierras de un SENDERO ya dibujado ----------
+;; Pedido del usuario: "con ese sendero dime como puedo sacar el movimiento
+;; de tierras, no me esta dejando y tampoco tengo las cotas de elevacion".
+;; EDITAR no reconocia senderos (solo andenes, vias, zonas verdes y redes),
+;; y las cotas solo se pedian al dibujarlo. Ahora, desde EDITAR:
+;;  1. si hay una via creada a <= 10 m, se usa su rasante en TODO el
+;;     alineamiento (+ bordillo), sin pedir nada;
+;;  2. si no, se piden cotas de implantacion (pozo, etiqueta o Digitar);
+;; y se mide sobre el contorno + 1 m en los costados, hasta el espesor del
+;; material. Resultado en URB_SEND_MOV, que el presupuesto ya usa.
+(defun urb:sendero-earthworks (ename / datos entry pts road ref picks over mov espesor anden aref)
+  (setq datos (urb:get-xdata-strings ename "URB_SENDERO")
+        entry (assoc (urb:safe-string (car datos) "") *urb-send-tipos*)
+        *urb-anden-pts-cache* nil)
+  (urb:anden-ref-curves-clear)
+  (if (null entry)
+    (progn (prompt "\nSendero sin tipo reconocido: no se calcula el movimiento.") nil)
+    (progn
+      (setq espesor (urb:send-espesor-de entry)
+            pts (urb:lwpoly-points ename)
+            road (urb:anden-road-autodetect pts))
+      (if road
+        (progn
+          (setq ref (urb:anden-road-grade-for road))
+          (if ref
+            (progn
+              (prompt "\nVia creada junto al sendero: se usa su rasante en todo el alineamiento.")
+              (setq picks (list (list 0.0 (list (car (car pts)) (cadr (car pts))) ref))))
+            (prompt "\nLa via cercana no tiene rasante calculada."))))
+      ;; 5.6.2: via lejos -> se amarra a las cotas de DISENO del anden
+      ;; creado mas cercano (<= 10 m), que ya viene de la rasante de su via
+      (if (null picks)
+        (progn
+          (setq anden (vl-catch-all-apply 'urb:anden-near-points (list pts)))
+          (if (vl-catch-all-error-p anden) (setq anden nil))
+          (if anden (setq aref (vl-catch-all-apply 'urb:anden-design-reference (list anden))))
+          (if (vl-catch-all-error-p aref) (setq aref nil))
+          (cond
+            (aref
+              (prompt "\nAnden creado junto al sendero: se usan sus cotas de diseno (borde mas cercano).")
+              (setq picks (list (list 0.0 (list (car (car pts)) (cadr (car pts))) aref))))
+            (anden
+              (prompt "\nEl anden cercano no tiene via con rasante: no sirve de referencia.")))
+          (if (null picks) (urb:anden-ref-curves-clear))))
+      (if (null picks)
+        (progn
+          (prompt (strcat "\nSin via ni anden creado al lado: cotas de implantacion del sendero"
+                          " (clic en anden/pozo/etiqueta o Digitar; Enter = cancelar)."))
+          (setq picks (urb:pick-design-cotas))))
+      (if (and picks (>= (length picks) 1))
+        (progn
+          (setq over (vl-catch-all-apply 'urb:anden-overwidth-contour (list ename 1.0)))
+          (if (vl-catch-all-error-p over) (setq over nil))
+          (setq mov (urb:earthworks-from-picks (if over over ename) picks espesor))
+          (if over (urb:safe-delete (vlax-ename->vla-object over)))
+          (if mov
+            (progn
+              (urb:set-xdata-strings ename "URB_SEND_MOV"
+                (list (rtos (car mov) 2 2) (rtos (cadr mov) 2 2)))
+              (prompt (strcat "\n" (nth 1 entry) ": corte " (rtos (car mov) 2 2)
+                " m3 | relleno " (rtos (cadr mov) 2 2) " m3 (estructura "
+                (rtos espesor 2 2) " m" (if over ", con sobreancho lateral" "") ")."))
+              mov)
+            (progn (prompt "\nNo se pudo calcular: revise que el sendero este dentro de la superficie SUP_TN.") nil)))
+        (progn (prompt "\nMovimiento de tierras cancelado.") nil)))))
+
+(defun urb:edit-senderos-movimiento (enames / n e)
+  (setq n 0)
+  (foreach e enames
+    (if (urb:sendero-earthworks e) (setq n (1+ n))))
+  (prompt (strcat "\nMovimiento de tierras actualizado en " (itoa n) " de "
+    (itoa (length enames)) " sendero(s)."))
+  n)
+
 (defun urb:bioswale-selected (selection)
   (urb:poly-elemento-selected selection "URB_BIOSWALE"))
 
@@ -29895,7 +30457,7 @@
                                     / ss i be entry datos codigo etapa sub
                                     area per obj rows out zona handle
                                     receta fila qty con-anillo espesor
-                                    factor)
+                                    factor mov)
   (setq ss (ssget "_X" (list '(0 . "LWPOLYLINE") (list -3 (list appid))))
         out nil i 0)
   (if ss
@@ -29940,6 +30502,16 @@
               (max 0.0
                 (- area (atof (urb:safe-string (nth 6 datos) "0"))))))
           (setq espesor (urb:send-espesor-de entry))
+          ;; 5.6.2: corte/relleno del sendero (URB_SEND_MOV) SOLO como
+          ;; magnitudes parametricas CORTE/RELLENO, opcionales. Aclaracion del
+          ;; usuario: el pedido era calcularlo en AutoCAD, no cambiar la
+          ;; exportacion -- las filas de la receta (excavacion de caja) se
+          ;; quedan como estaban.
+          (setq mov (if (= appid "URB_SENDERO")
+                      (urb:get-xdata-strings be "URB_SEND_MOV")))
+          (if mov
+            (setq mov (list (atof (urb:safe-string (car mov) "0"))
+                            (atof (urb:safe-string (cadr mov) "0")))))
           (foreach receta (nth 5 entry)
             ;; 2026-08-24: capas de la receta EDITABLES desde la ventana
             ;; Estructura de senderos -- el factor efectivo sale de la
@@ -29976,12 +30548,15 @@
                     handle))
                 (if fila (setq rows (cons fila rows))))))
           ;; parametricas de la familia: AREA, PERIMETRO y UNIDAD
-          ;; disponibles para actividades del usuario
+          ;; disponibles para actividades del usuario (5.6.2: + CORTE y
+          ;; RELLENO cuando el movimiento de tierras esta calculado)
           (setq rows
             (append rows
               (urb:ppto-param-rows familia (nth 2 entry)
-                (list (cons "AREA" area) (cons "PERIMETRO" per)
-                      (cons "UNIDAD" 1.0))
+                (append
+                  (list (cons "AREA" area) (cons "PERIMETRO" per)
+                        (cons "UNIDAD" 1.0))
+                  (if mov (list (cons "CORTE" (car mov)) (cons "RELLENO" (cadr mov)))))
                 (nth 1 entry) "" "" etapa sub handle)))
           (setq rows (urb:ppto-rows+zona rows zona))
           (if (/= zona "")
@@ -30552,7 +31127,7 @@
     ("POZO SANITARIO" "ALC-SANITARIO" ("PROFUNDIDAD" "UNIDAD"))
     ("POZO PLUVIAL" "ALC-PLUVIAL" ("PROFUNDIDAD" "UNIDAD"))
     ("SUMIDERO" "ALC-PLUVIAL" ("UNIDAD"))
-    ("SENDERO" "SENDERO" ("AREA" "PERIMETRO" "UNIDAD"))
+    ("SENDERO" "SENDERO" ("AREA" "PERIMETRO" "CORTE" "RELLENO" "UNIDAD"))
     ("BIOSWALE" "ALC-PLUVIAL" ("AREA" "PERIMETRO" "UNIDAD"))
     ;; 5.6.0: canuela pluvial -- LONGITUD (ML), AREA (largo x ancho)
     ("CANUELA" "ALC-PLUVIAL" ("LONGITUD" "AREA" "UNIDAD"))
