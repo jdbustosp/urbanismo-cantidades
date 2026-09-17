@@ -1,5 +1,58 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-17 14:45 America/Bogota — 5.6.5 vía de referencia del andén, pendiente del andén y sobreexcavación
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 1f22b44. INSTALADA (el .lsp).
+
+1. RELLENOS DONDE DEBIA DAR CORTE (reporte del usuario). CAUSA RAIZ: la
+   deteccion de la via de un anden medía la distancia al BLOQUE de la via, y
+   para un bloque urb:point-to-entity-distance usa su CAJA ENVOLVENTE. Una
+   via diagonal larga "toca" a distancia 0 andenes que estan a cientos de
+   metros de su eje. Medido en el maestro: F20E5 eligio AB370 (eje a 220 m),
+   su estacion salio -220 m, la rasante se EXTRAPOLO y el diseño quedo
+   4.79 m sobre el terreno -> 2427 m3 de relleno en 367 m2. C1789 guardaba
+   0.00/2182.08 m3 cuando sus 40 muestras dan CORTE.
+   Ahora urb:anden-road-score: distancia al EJE real, se descarta la via si
+   el anden cae fuera de su tramo (no se extrapola), gana la via cuyo borde
+   de calzada coincide con el borde del anden y se usa la MEDIANA de las
+   distancias (F20E5 tocaba AB174 solo en el arranque y se aleja 104 m).
+   Resultado: C1789 pasa a corte 98.43 / relleno 27.27; F20E5 se queda SIN
+   via (ninguna lo gobierna) y pide cotas de implantacion, que es lo
+   correcto. Tope nuevo *urb-anden-crossfall-run* (6 m): la pendiente
+   transversal no se extrapola mas alla de esa distancia del borde.
+2. PENDIENTE DEL ANDEN: urb:anden-grade-at-point bajaba 2% alejandose de la
+   via; el anden DRENA HACIA LA VIA, asi que ahora sube. Son 4-8 cm, siempre
+   del lado del relleno (DD2CA paso de 280.27 a 406.24 m3 de relleno).
+3. SOBREEXCAVACION Y COEFICIENTES (pedido del usuario). Tres parametros
+   nuevos, en la ventana Movimiento de tierras Y en la de Perfiles de
+   pavimento (boton "Guardar sobreexcavacion"), guardados por dibujo:
+   material no portante bajo el terreno (0.50 m), expansion del corte (25%)
+   y sobreconsumo del relleno (20%).
+   En CADA punto, con c = terreno - subrasante: excavacion = max(c, h) y
+   relleno = max(0, h - c) (urb:cut-fill-at). Aplicado en los tres motores:
+   anden (urb:run-anden-earthworks), elementos por cotas
+   (urb:earthworks-from-picks: senderos, zonas verdes, rampas) y secciones
+   de via (urb:road-section-earthwork-areas, desplazando las ordenadas en h
+   y sumando la franja h x dx que siempre se excava).
+   Verificado: punto a punto h=0.5 -> delta 1.0 (1.0, 0), delta 0.2
+   (0.5, 0.3), delta -0.8 (0.5, 1.3). DD2CA: corte 522.38 = area 1044.76 x
+   0.5 exacto y relleno 406.24 -> 928.62 (+522.38). C1789 sube 431.11 en
+   corte y en relleno. Via AB174: +233.54 en corte y en relleno. Los
+   coeficientes NO cambian el volumen geometrico: se informan aparte (corte
+   suelto y material de relleno) y quedan en el texto del metodo.
+4. ANDEN BAJO EL BORDILLO: no reproducido en la copia disponible. Los 7
+   andenes del maestro NO se solapan con prefabricados, vias, zonas verdes,
+   senderos ni rampas (interseccion booleana 0.0 en todos). El recorte del
+   contorno SI funciona (anden curvo sintetico 230.74 -> 214.92 m2) y solo
+   descuenta lo que geometricamente cae dentro: en F20E5 el bordillo
+   "Interno" esta por fuera del contorno (interseccion 0). Falta el DWG
+   actual del usuario o el handle del anden de la foto.
+5. SENDEROS SIN DATOS DE BLOQUE: es por diseño (2026-08-24): contorno +
+   relleno en un GRUPO nombrado, no bloque, para leer area/perimetro
+   directo. Sus datos estan en XDATA (pestaña Extended Data de Propiedades).
+   Si se quiere bloque con atributos hay que cambiar tambien colectores,
+   EDITAR y recorte: pendiente de decision del usuario.
+
 ## 2026-09-17 11:15 America/Bogota — 5.6.4 andenes curvos 5x más rápidos y Ctrl+Z al dibujar contornos
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 9bfe51f. INSTALADA (el .lsp).

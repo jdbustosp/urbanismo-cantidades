@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.4")
+(setq *urb-version* "5.6.5")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -7012,7 +7012,43 @@
 
 (setq *urb-anden-road-crossfall* 0.02)
 (setq *urb-anden-crossfall* 0.02)
+;; 5.6.5: alcance maximo de la pendiente transversal desde el borde (m)
+(setq *urb-anden-crossfall-run* 6.0)
 (setq *urb-anden-curb-height* 0.15)
+
+;; ---------- 5.6.5 SOBREEXCAVACION Y ESPONJAMIENTO ----------
+;; Pedido del usuario: "la sobreexcavacion corresponde al material que no
+;; es portante; desde la cota del terreno natural la altura para llegar al
+;; suelo portante puede estar a los 50 cm o el parametro que pueda meter.
+;; Cuando son cortes de altura mayor a esos 50 cm no hay problema; si son
+;; menores, igual me toca excavar esos 50 del suelo portante, y eso afecta
+;; los llenos porque al excavar esos 50 los llenos hasta la cota que
+;; quiero se afectan".
+;; Por eso, en CADA punto de muestreo, con c = terreno - subrasante:
+;;   excavacion = max(c, altura no portante)
+;;   relleno    = max(0, altura no portante - c)
+;; Con altura 0 el resultado es el clasico (corte = c, relleno = -c).
+;; Los coeficientes NO cambian el volumen geometrico: se reportan aparte
+;; (corte suelto para acarreo, material necesario para el lleno).
+(setq *urb-overexc-depth* 0.50)   ; m de material no portante bajo el TN
+(setq *urb-cut-expansion* 0.25)   ; expansion del material excavado
+(setq *urb-fill-shrinkage* 0.20)  ; sobreconsumo del relleno compactado
+
+;; corte y relleno de UN punto, con sobreexcavacion incluida
+(defun urb:cut-fill-at (delta / h)
+  (setq h (if (numberp *urb-overexc-depth*) (max 0.0 *urb-overexc-depth*) 0.0))
+  (list (max delta h) (max 0.0 (- h delta))))
+
+(defun urb:cut-loose (volume)
+  (* volume (+ 1.0 (if (numberp *urb-cut-expansion*) *urb-cut-expansion* 0.0))))
+
+(defun urb:fill-material (volume)
+  (* volume (+ 1.0 (if (numberp *urb-fill-shrinkage*) *urb-fill-shrinkage* 0.0))))
+
+(defun urb:overexc-text ()
+  (strcat "sobreexcavacion " (rtos *urb-overexc-depth* 2 2) " m"
+          " | expansion " (rtos (* 100.0 *urb-cut-expansion*) 2 0) "%"
+          " | relleno +" (rtos (* 100.0 *urb-fill-shrinkage*) 2 0) "%"))
 
 (defun urb:read-lisp-safe (text / value)
   (if (/= (urb:safe-string text "") "")
@@ -7121,7 +7157,18 @@
               points (vl-remove-if
                        '(lambda (p) (/= 0 (rem (setq k (1+ k)) step)))
                        points)))
-      (setq ss (ssget "_X" '((-3 ("URB_VIA")))) i 0 bestd 10.0)
+      ;; 5.6.5 (reporte del usuario: "hay tramos de andenes que me estaba
+      ;; dando rellenos donde me tenia que dar corte"). La distancia se
+      ;; medía al BLOQUE de la via, y para un bloque
+      ;; urb:point-to-entity-distance usa su CAJA ENVOLVENTE: una via
+      ;; diagonal y larga "toca" a distancia 0 andenes que estan a cientos
+      ;; de metros de su eje. Medido en F20E5: gano AB370 (eje a 220 m), su
+      ;; estacion salio -220 m, la rasante se EXTRAPOLO y la cota de diseno
+      ;; quedo 4.79 m sobre el terreno -> relleno de 2427 m3 en 367 m2.
+      ;; Ahora se mide al EJE real, se descartan las vias cuya estacion
+      ;; queda fuera del tramo (no se extrapola) y gana la via cuyo borde
+      ;; de calzada coincide mejor con el borde del anden.
+      (setq ss (ssget "_X" '((-3 ("URB_VIA")))) i 0)
       (if ss
         (repeat (sslength ss)
           (setq e (ssname ss i)
@@ -7130,12 +7177,56 @@
                    (not (member road seen)))
             (progn
               (setq seen (cons road seen))
-              (foreach p points
-                (setq d (urb:point-to-entity-distance road p))
-                (if (and d (< d bestd)) (setq bestd d best road)))))
+              (setq d (urb:anden-road-score road points))
+              (if (and d (or (null bestd) (< d bestd)))
+                (setq bestd d best road))))
           (setq i (1+ i))))
       best)
     nil))
+
+;; Puntaje de una via como referencia de un anden: |distancia al eje -
+;; media calzada|. nil si la via no sirve (sin eje/rasante, lejos, o el
+;; anden cae fuera del tramo y habria que extrapolar la rasante).
+(defun urb:anden-road-score (road points / ref axis mov half dmin dmax dists med p c d est span start modo)
+  (setq ref (vl-catch-all-apply 'urb:anden-road-grade-for (list road)))
+  (if (or (vl-catch-all-error-p ref) (null ref)) (setq ref nil))
+  (setq axis (if ref (nth 0 ref)))
+  (if (and axis (urb:curve-entity-p axis))
+    (progn
+      (setq mov (vl-catch-all-apply 'urb:road-movement-data (list road)))
+      (setq half
+        (if (and (not (vl-catch-all-error-p mov)) mov (> (length mov) 5))
+          (* 0.5 (atof (urb:safe-string (nth 5 mov) "0")))
+          0.0))
+      (setq start (nth 2 ref) span (nth 3 ref) modo (nth 5 ref))
+      (foreach p points
+        (setq c (vl-catch-all-apply 'vlax-curve-getClosestPointTo
+                  (list axis (list (car p) (cadr p) 0.0))))
+        (if (not (vl-catch-all-error-p c))
+          (progn
+            (setq d (distance (list (car p) (cadr p)) (list (car c) (cadr c)))
+                  dists (cons d dists))
+            (if (or (null dmin) (< d dmin)) (setq dmin d))
+            ;; estacion del punto en el tramo de la via
+            (setq est (vlax-curve-getDistAtPoint axis c))
+            (if (urb:string-equal-p modo "LOCAL")
+              (setq est (if (urb:string-equal-p (nth 4 ref) "Final")
+                          (- (+ start span) est) (- est start))))
+            (if (or (null dmax) (> (abs (- est (/ span 2.0))) dmax))
+              (setq dmax (abs (- est (/ span 2.0))))))))
+      ;; La MEDIANA de las distancias, no la minima: F20E5 tocaba AB174 solo
+      ;; en su arranque (minima 2.9 m) pero se aleja hasta 104 m del eje, y
+      ;; la pendiente transversal aplicada sobre esa distancia inventaba
+      ;; 2 m de rasante. Un anden que de verdad acompaña a la via tiene
+      ;; casi todos sus puntos a media calzada del eje.
+      (setq dists (vl-sort dists '<)
+            med (if dists (nth (/ (length dists) 2) dists)))
+      ;; fuera del tramo (mas de 5 m por fuera en cualquier punto): la
+      ;; rasante tendria que extrapolarse -> esta via no gobierna el anden
+      (if (and med (< med (+ half 8.0))
+               (or (null span) (<= span 0.0)
+                   (and dmax (<= dmax (+ (/ span 2.0) 5.0)))))
+        (abs (- med half))))))
 
 ;; distancia en planta de un punto a una entidad: curva exacta; bloque u
 ;; otro objeto por su caja envolvente (0 si el punto cae dentro)
@@ -7322,10 +7413,19 @@
       raw-distance))
   (setq zaxis (urb:cota-at-axis-distance station records))
   (setq offset (distance point closest))
+  ;; 5.6.5: el anden DRENA HACIA LA VIA -- su punto mas bajo es el borde
+  ;; del bordillo y sube alejandose de la calzada. Antes bajaba (signo
+  ;; invertido): en un anden de 2 m eran 4 cm de diferencia, siempre del
+  ;; lado del relleno.
+  ;; 5.6.5: la pendiente transversal se aplica como maximo sobre
+  ;; *urb-anden-crossfall-run* metros. Mas alla el elemento se toma plano:
+  ;; sin este tope, un elemento ancho (o un contorno mal referenciado)
+  ;; acumulaba metros de rasante inventada (F20E5: 2 m en 104 m).
   (if zaxis
-    (- (+ (- zaxis (* *urb-anden-road-crossfall* edge-offset))
-          *urb-anden-curb-height*)
-       (* *urb-anden-crossfall* (max 0.0 (- offset edge-offset))))
+    (+ (- zaxis (* *urb-anden-road-crossfall* edge-offset))
+       *urb-anden-curb-height*
+       (* *urb-anden-crossfall*
+          (min *urb-anden-crossfall-run* (max 0.0 (- offset edge-offset)))))
     nil)
 )
 
@@ -7490,10 +7590,11 @@
                         finish-result))
                     (if (and (numberp terrain) (numberp finish))
                       (progn
-                        (setq delta (- terrain (- finish *urb-anden-depth*)))
-                        (if (> delta 0.0)
-                          (setq cut-depth (+ cut-depth (* weight delta)))
-                          (setq fill-depth (+ fill-depth (* weight (- delta)))))
+                        ;; 5.6.5: sobreexcavacion del material no portante
+                        (setq delta
+                          (urb:cut-fill-at (- terrain (- finish *urb-anden-depth*))))
+                        (setq cut-depth (+ cut-depth (* weight (car delta)))
+                              fill-depth (+ fill-depth (* weight (cadr delta))))
                         (setq count (1+ count))
                         (setq slope-result
                           (vl-catch-all-apply
@@ -7553,7 +7654,8 @@
                         (strcat "OK - " (urb:safe-string (nth 6 reference) "Rasante")
                           " - triangulos ponderados con sobreancho"
                           " | pendientes automaticas"
-                          " | estructura " (rtos *urb-anden-depth* 2 2) " m"))
+                          " | estructura " (rtos *urb-anden-depth* 2 2) " m"
+                          " | " (urb:overexc-text)))
                       (setq via-id
                         (urb:safe-string
                           (if (> (length reference) 7) (nth 7 reference) nil) ""))
@@ -8978,10 +9080,11 @@
               zdis (urb:design-z-from-picks picks (car p) (cadr p)))
         (if (and (numberp ztn) (numberp zdis))
           (progn
-            (setq covered (+ covered weight) delta (- ztn (- zdis depth)))
-            (if (> delta 0.0)
-              (setq cut (+ cut (* weight delta)))
-              (setq fill (+ fill (* weight (- delta))))))))
+            ;; 5.6.5: sobreexcavacion del material no portante incluida
+            (setq covered (+ covered weight)
+                  delta (urb:cut-fill-at (- ztn (- zdis depth))))
+            (setq cut (+ cut (* weight (car delta)))
+                  fill (+ fill (* weight (cadr delta)))))))
       (urb:anden-ref-curves-clear)
       (if (and (> total 1e-9) (> area 1e-9)
                (<= (abs (- area total)) (max 0.001 (* area 0.0001)))
@@ -16147,7 +16250,11 @@
       ("URB_ANDEN_DEFAULT_WIDTH" *urb-anden-default-width* 0.20 20.0)
       ;; 2026-08-24: editables desde la ventana Movimiento de tierras
       ("URB_ANDEN_DEPTH" *urb-anden-depth* 0.10 3.0)
-      ("URB_TRIT_SOBRE_CLAVE" *mp-triturado-sobre-clave* 0.0 2.0))
+      ("URB_TRIT_SOBRE_CLAVE" *mp-triturado-sobre-clave* 0.0 2.0)
+      ;; 5.6.5 sobreexcavacion y esponjamiento
+      ("URB_OVEREXC_DEPTH" *urb-overexc-depth* 0.0 3.0)
+      ("URB_CUT_EXPANSION" *urb-cut-expansion* 0.0 1.0)
+      ("URB_FILL_SHRINKAGE" *urb-fill-shrinkage* 0.0 1.0))
     (setq value
       (urb:parse-real
         (urb:safe-string (urb:config-read (car pair)) "")))
@@ -16390,6 +16497,34 @@
 ;; estructura del anden (la excavacion del anden = area x este espesor,
 ;; antes fijo en 0.60), triturado sobre la clave (cimentacion modelo 2
 ;; de redes) y la referencia de relleno Terreno/Subrasante como popup.
+;; 5.6.5: los tres campos de sobreexcavacion viven en DOS ventanas (la de
+;; Movimiento de tierras y la de Perfiles de pavimento, como se pidio), con
+;; la misma lectura, validacion y guardado.
+(defun urb:overexc-set-tiles ()
+  (set_tile "over_depth" (rtos *urb-overexc-depth* 2 2))
+  (set_tile "cut_exp" (rtos (* 100.0 *urb-cut-expansion*) 2 1))
+  (set_tile "fill_shrink" (rtos (* 100.0 *urb-fill-shrinkage*) 2 1)))
+
+(defun urb:overexc-capture (/ h e s)
+  (setq h (urb:parse-real (get_tile "over_depth"))
+        e (urb:parse-real (get_tile "cut_exp"))
+        s (urb:parse-real (get_tile "fill_shrink")))
+  (cond
+    ((or (null h) (< h 0.0) (> h 3.0))
+      (alert "El material no portante debe estar entre 0 y 3 m.") nil)
+    ((or (null e) (< e 0.0) (> e 100.0))
+      (alert "La expansion del corte debe estar entre 0 y 100 %.") nil)
+    ((or (null s) (< s 0.0) (> s 100.0))
+      (alert "El sobreconsumo del relleno debe estar entre 0 y 100 %.") nil)
+    (T
+      (setq *urb-overexc-depth* h
+            *urb-cut-expansion* (/ e 100.0)
+            *urb-fill-shrinkage* (/ s 100.0))
+      (urb:config-write "URB_OVEREXC_DEPTH" (rtos h 2 4))
+      (urb:config-write "URB_CUT_EXPANSION" (rtos (/ e 100.0) 2 6))
+      (urb:config-write "URB_FILL_SHRINKAGE" (rtos (/ s 100.0) 2 6))
+      T)))
+
 (defun urb:earthworks-capture (/ left right cross adoquin arena sbg trit
                                relleno)
   (setq left (urb:parse-real (get_tile "road_left"))
@@ -16415,6 +16550,7 @@
       (alert "La subbase SBG-C debe estar entre 0.01 y 2.0 m.") nil)
     ((or (null trit) (< trit 0.0) (> trit 2.0))
       (alert "El triturado sobre la clave debe estar entre 0 y 2.0 m.") nil)
+    ((null (urb:overexc-capture)) nil)
     (T
       (setq *urb-road-overwidth-left* left
             *urb-road-overwidth-right* right
@@ -16506,6 +16642,7 @@
         (set_tile "ad_sbg"
           (rtos (atof (nth 2 (nth 2 *urb-anden-structure*))) 2 3))
         (set_tile "trit_clave" (rtos *mp-triturado-sobre-clave* 2 2))
+        (urb:overexc-set-tiles)
         (setq modo
           (urb:safe-string (urb:config-read "MP_TRAMO_RELLENO_MODO")
             "Terreno"))
@@ -16929,6 +17066,11 @@
       '("urb_profile_manager : dialog { label = \"Perfiles estratigraficos de vias\";"
         ": list_box { label = \"Perfiles disponibles\"; key = \"profiles\"; height = 9; width = 48; }"
         ": row { : button { label = \"Nuevo\"; key = \"new\"; } : button { label = \"Editar\"; key = \"edit\"; } : button { label = \"Eliminar\"; key = \"delete\"; } }"
+        ": boxed_column { label = \"Sobreexcavacion y esponjamiento (todo el movimiento de tierras)\";"
+        ": row { : text { label = \"Material no portante bajo el terreno (m)\"; width = 38; } : edit_box { key = \"over_depth\"; edit_width = 12; } }"
+        ": row { : text { label = \"Expansion del material de corte (%)\"; width = 38; } : edit_box { key = \"cut_exp\"; edit_width = 12; } }"
+        ": row { : text { label = \"Sobreconsumo del relleno compactado (%)\"; width = 38; } : edit_box { key = \"fill_shrink\"; edit_width = 12; } }"
+        ": button { label = \"Guardar sobreexcavacion\"; key = \"save_over\"; width = 30; } }"
         "cancel_button; }"
         "urb_profile_editor : dialog { label = \"Perfil estratigrafico vial\";"
         ": edit_box { label = \"Nombre del perfil\"; key = \"name\"; edit_width = 30; }"
@@ -17073,6 +17215,8 @@
       (foreach profile profiles (add_list (car profile)))
       (end_list)
       (set_tile "profiles" "0")
+      (urb:overexc-set-tiles)
+      (action_tile "save_over" "(if (urb:overexc-capture) (alert \"Sobreexcavacion guardada en este dibujo.\"))")
       (action_tile "new" "(setq action \"new\" index (atoi (get_tile \"profiles\")))(done_dialog 1)")
       (action_tile "edit" "(setq action \"edit\" index (atoi (get_tile \"profiles\")))(done_dialog 1)")
       (action_tile "delete" "(setq action \"delete\" index (atoi (get_tile \"profiles\")))(done_dialog 1)")
@@ -21433,9 +21577,16 @@
               delta1 (- (cadr first) design1)
               delta2 (- (cadr second) design2)
               dx (- (car second) (car first))
+              ;; 5.6.5 sobreexcavacion: con h = material no portante, en
+              ;; cada ordenada excavacion = max(delta,h) y relleno =
+              ;; max(0,h-delta). Se reusa el corte exacto por cruce por
+              ;; cero desplazando las ordenadas en h y sumando la franja
+              ;; h x dx que SIEMPRE se excava.
               segment
-                (urb:road-earthwork-segment delta1 delta2 1.0 dx)
-              cut (+ cut (car segment))
+                (urb:road-earthwork-segment
+                  (- delta1 (max 0.0 *urb-overexc-depth*))
+                  (- delta2 (max 0.0 *urb-overexc-depth*)) 1.0 dx)
+              cut (+ cut (* (max 0.0 *urb-overexc-depth*) dx) (car segment))
               fill (+ fill (cadr segment))
               rest (cdr rest)))
       (list cut fill))
@@ -21448,9 +21599,8 @@
           (- terrain
              (- rasante depth
                 (* 0.25 width-total *urb-road-crossfall*))))
-        (list
-          (if (> delta 0.0) (* delta width-total) 0.0)
-          (if (< delta 0.0) (* (- delta) width-total) 0.0)))
+        (setq delta (urb:cut-fill-at delta))
+        (list (* (car delta) width-total) (* (cadr delta) width-total)))
       nil))
 )
 
@@ -25316,6 +25466,11 @@
         ": row { : text { label = \"Arena de nivelacion (m)\"; width = 38; } : edit_box { key = \"ad_arena\"; edit_width = 12; } }"
         ": row { : text { label = \"Subbase granular SBG-C (m)\"; width = 38; } : edit_box { key = \"ad_sbg\"; edit_width = 12; } }"
         ": text { label = \"Excavacion del anden = area x (suma de las 3 capas). Geotextil 15% traslapo fijo.\"; } }"
+        ": boxed_column { label = \"Sobreexcavacion y esponjamiento (vias, andenes, senderos y zonas verdes)\";"
+        ": row { : text { label = \"Material no portante bajo el terreno (m)\"; width = 38; } : edit_box { key = \"over_depth\"; edit_width = 12; } }"
+        ": row { : text { label = \"Expansion del material de corte (%)\"; width = 38; } : edit_box { key = \"cut_exp\"; edit_width = 12; } }"
+        ": row { : text { label = \"Sobreconsumo del relleno compactado (%)\"; width = 38; } : edit_box { key = \"fill_shrink\"; edit_width = 12; } }"
+        ": text { label = \"Si el corte es menor que esa altura, igual se excava hasta el suelo portante y el relleno crece.\"; } }"
         ": boxed_column { label = \"Redes\";"
         ": popup_list { label = \"Relleno de tramos de red hasta\"; key = \"relleno_ref\"; }"
         ": row { : text { label = \"Triturado sobre la clave (m)\"; width = 38; } : edit_box { key = \"trit_clave\"; edit_width = 12; } }"
@@ -30717,7 +30872,10 @@
                 (list (rtos (car mov) 2 2) (rtos (cadr mov) 2 2)))
               (prompt (strcat "\n" (nth 1 entry) ": corte " (rtos (car mov) 2 2)
                 " m3 | relleno " (rtos (cadr mov) 2 2) " m3 (estructura "
-                (rtos espesor 2 2) " m" (if over ", con sobreancho lateral" "") ")."))
+                (rtos espesor 2 2) " m" (if over ", con sobreancho lateral" "") ")."
+                "\n  Con coeficientes: corte suelto " (rtos (urb:cut-loose (car mov)) 2 2)
+                " m3 | material de relleno " (rtos (urb:fill-material (cadr mov)) 2 2)
+                " m3 (" (urb:overexc-text) ")."))
               mov)
             (progn (prompt "\nNo se pudo calcular: revise que el sendero este dentro de la superficie SUP_TN.") nil)))
         (progn (prompt "\nMovimiento de tierras cancelado.") nil)))))
