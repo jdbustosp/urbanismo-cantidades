@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.5")
+(setq *urb-version* "5.6.6")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -30464,9 +30464,137 @@
       (vl-exit-with-error (vl-catch-all-error-message result))))
   region)
 
+;; ---------- 5.6.6 SENDERO EN BLOQUE ----------
+;; Pedido del usuario: "para senderos si quiero que quede en bloque, que se
+;; vean sus respectivas medidas y movimiento de tierras, asi como con
+;; andenes y zonas verdes". Antes el sendero eran contorno + relleno en un
+;; GRUPO: sus datos solo se veian en la pestaña Extended Data. Ahora se
+;; empaqueta igual que la zona verde (urb:package-green-zone), con
+;; atributos invisibles legibles en Propiedades. La xdata sigue siendo
+;; URB_SENDERO -- con el mismo orden de campos -- para que el colector,
+;; EDITAR y el movimiento de tierras seleccionen igual los senderos viejos
+;; (polilinea) y los nuevos (bloque).
+(defun urb:package-sendero
+  (ename hatch entry etapa sub datos mov
+   / boundary area per esp vol point handle objects block-name blocks
+   block-definition copy-result insert-result block-ref block-ename xdata-result
+   descuento neta corte relleno)
+  (setq boundary (vlax-ename->vla-object ename)
+        area (vla-get-Area boundary)
+        per (vla-get-Length boundary)
+        esp (urb:send-espesor-de entry)
+        descuento (atof (urb:safe-string (nth 6 datos) "0"))
+        neta (max 0.0 (- area descuento))
+        vol (* neta esp)
+        corte (if mov (car mov) 0.0)
+        relleno (if mov (cadr mov) 0.0)
+        point (if (urb:lwpoly-points ename) (car (urb:lwpoly-points ename)) '(0.0 0.0 0.0))
+        handle (vla-get-Handle boundary)
+        objects (list boundary))
+  (if (and hatch (urb:valid-vla-object-p hatch))
+    (setq objects (append objects (list hatch))))
+  (setq block-name (strcat "URB_SENDERO_" handle "_" (itoa (getvar "MILLISECS")))
+        blocks (vla-get-Blocks (urb:doc))
+        block-definition (vla-Add blocks (vlax-3d-point '(0.0 0.0 0.0)) block-name)
+        copy-result
+          (vl-catch-all-apply 'vla-CopyObjects
+            (list (urb:doc) (urb:object-array-variant objects) block-definition)))
+  (if (vl-catch-all-error-p copy-result)
+    (progn
+      (urb:safe-delete block-definition)
+      (prompt (strcat "\nERROR al crear el bloque del sendero: "
+        (vl-catch-all-error-message copy-result)))
+      nil)
+    (progn
+      (urb:set-block-draw-order block-definition (urb:variant-object-list copy-result))
+      (foreach par
+        (list (cons "TIPO" (nth 1 entry))
+              (cons "CODIGO" (nth 0 entry))
+              (cons "ETAPA" etapa)
+              (cons "SUBETAPA" sub)
+              (cons "AREA_M2" (rtos area 2 2))
+              (cons "AREA_NETA_M2" (rtos neta 2 2))
+              (cons "PERIMETRO_M" (rtos per 2 2))
+              (cons "ESPESOR_M" (rtos esp 2 3))
+              (cons "VOLUMEN_ESTRUCTURA_M3" (rtos vol 2 2))
+              (cons "PREFABRICADO_DER" (urb:safe-string (nth 3 datos) "Ninguno"))
+              (cons "PREFABRICADO_IZQ" (urb:safe-string (nth 4 datos) "Ninguno"))
+              (cons "PREFABRICADO_POS" (urb:safe-string (nth 5 datos) "Externo"))
+              (cons "DESCUENTO_PREFAB_M2" (rtos descuento 2 2))
+              (cons "CORTE_M3" (rtos corte 2 2))
+              (cons "RELLENO_M3" (rtos relleno 2 2)))
+        (urb:add-invisible-attribute block-definition point
+          (car par) (car par) (cdr par)))
+      (setq insert-result
+        (vl-catch-all-apply 'vla-InsertBlock
+          (list (urb:space) (vlax-3d-point '(0.0 0.0 0.0)) block-name 1.0 1.0 1.0 0.0)))
+      (if (vl-catch-all-error-p insert-result)
+        (progn
+          (urb:safe-delete block-definition)
+          (prompt (strcat "\nERROR al insertar el sendero: "
+            (vl-catch-all-error-message insert-result)))
+          nil)
+        (progn
+          (setq block-ref insert-result block-ename (urb:as-ename block-ref))
+          (urb:ensure-layer (nth 6 entry) (nth 3 entry) T)
+          (vla-put-Layer block-ref (nth 6 entry))
+          (setq xdata-result (urb:set-xdata-strings block-ename "URB_SENDERO" datos))
+          (urb:set-xdata-strings block-ename "URB_SEND_BLOCK"
+            (list "SENDERO" (rtos area 2 8) (rtos per 2 8) (rtos esp 2 8)
+                  (rtos descuento 2 8)))
+          (if mov
+            (urb:set-xdata-strings block-ename "URB_SEND_MOV"
+              (list (rtos corte 2 2) (rtos relleno 2 2))))
+          (if xdata-result
+            (progn
+              (foreach o objects (urb:safe-delete o))
+              block-ref)
+            (progn
+              (urb:safe-delete block-ref)
+              (urb:safe-delete block-definition)
+              (prompt "\nERROR: no fue posible guardar los datos del sendero.")
+              nil)))))))
+
+;; copia temporal del contorno de un sendero en BLOQUE, con sus arcos, para
+;; poder medir sobreancho y tierras con las mismas funciones de siempre
+(defun urb:send-temp-contour (ename / obj bdef item cands mejor ed)
+  (setq obj (urb:as-vla-object ename)
+        bdef (vl-catch-all-apply 'vla-Item
+               (list (vla-get-Blocks (urb:doc)) (vla-get-Name obj))))
+  (if (vl-catch-all-error-p bdef)
+    nil
+    (progn
+      (vlax-for item bdef
+        (if (= (vla-get-ObjectName item) "AcDbPolyline")
+          (setq cands (cons item cands))))
+      (setq mejor (urb:largest-closed-polyline (reverse cands)))
+      (if mejor
+        (progn
+          (setq ed (entget (vlax-vla-object->ename mejor)))
+          (entmake (vl-remove-if '(lambda (p) (member (car p) '(-1 5 330 360 102 -3))) ed))
+          (entlast))))))
+
+;; contorno de un sendero: la polilinea suelta o la que vive en el bloque
+(defun urb:send-contour-points (ename / obj bdef item capa mejor cands)
+  (if (= (cdr (assoc 0 (entget ename))) "INSERT")
+    (progn
+      (setq obj (urb:as-vla-object ename)
+            bdef (vl-catch-all-apply 'vla-Item
+                   (list (vla-get-Blocks (urb:doc)) (vla-get-Name obj))))
+      (if (vl-catch-all-error-p bdef)
+        nil
+        (progn
+          (vlax-for item bdef
+            (if (member (vla-get-ObjectName item) '("AcDbPolyline" "AcDb2dPolyline"))
+              (setq cands (cons item cands))))
+          (setq mejor (urb:largest-closed-polyline (reverse cands)))
+          (if mejor (urb:lwpoly-points (vlax-vla-object->ename mejor))))))
+    (urb:lwpoly-points ename)))
+
 (defun urb:poly-element-draw (entry etapa sub lado-der lado-izq posicion
                               appid / capa ename obj hatch n con-cost
-                              descuento grp kw2 picks2 mov2 over2 costados finish-region)
+                              descuento grp kw2 picks2 mov2 over2 costados finish-region
+                              datos bloque)
   (setq capa (nth 6 entry))
   (urb:ensure-layer capa (nth 3 entry) T)
   (setq n 0)
@@ -30526,19 +30654,23 @@
         ;; clic seleccione ambos y un Supr borre ambos, que es lo que
         ;; se pidio). Los prefabricados de los costados NO entran al
         ;; grupo: son bloques propios, cada uno se borra por separado.
-        (vl-catch-all-apply
-          '(lambda ()
-            (setq grp
-              (vla-Add (vla-get-Groups (urb:doc))
-                (strcat appid "_" (cdr (assoc 5 (entget ename))))))
-            (vla-AppendItems grp
-              (urb:object-array-variant (list obj hatch)))))))
+        ;; 5.6.6: el SENDERO se empaqueta en bloque (ver
+        ;; urb:package-sendero); el grupo queda solo para el bioswale.
+        (if (/= appid "URB_SENDERO")
+          (vl-catch-all-apply
+            '(lambda ()
+              (setq grp
+                (vla-Add (vla-get-Groups (urb:doc))
+                  (strcat appid "_" (cdr (assoc 5 (entget ename))))))
+              (vla-AppendItems grp
+                (urb:object-array-variant (list obj hatch))))))))
     (if finish-region (urb:safe-delete finish-region))
-    (urb:set-xdata-strings ename appid
+    (setq datos
       (if con-cost
         (list (nth 0 entry) etapa sub lado-der lado-izq posicion
           (rtos descuento 2 6))
         (list (nth 0 entry) etapa sub)))
+    (urb:set-xdata-strings ename appid datos)
     ;; 2026-09-02 (pedido del usuario): corte/relleno OPCIONAL del sendero
     ;; contra SUP_TN con rasante de cotas clickeadas (via/pozo/etiqueta) --
     ;; mismo motor de la zona verde; queda en xdata URB_SEND_MOV.
@@ -30572,6 +30704,17 @@
                   (list (rtos (car mov2) 2 2) (rtos (cadr mov2) 2 2)))
                 (prompt (strcat "\nCorte: " (rtos (car mov2) 2 2)
                   " m3 | Relleno: " (rtos (cadr mov2) 2 2) " m3"))))))))
+    ;; 5.6.6: contorno + relleno quedan en un BLOQUE con sus medidas y su
+    ;; movimiento de tierras visibles en Propiedades (como zona verde)
+    (if (= appid "URB_SENDERO")
+      (progn
+        (setq bloque
+          (vl-catch-all-apply 'urb:package-sendero
+            (list ename (if (vl-catch-all-error-p hatch) nil hatch)
+                  entry etapa sub datos mov2)))
+        (if (or (vl-catch-all-error-p bloque) (null bloque))
+          (prompt "\nEl sendero quedo como contorno + relleno sueltos (no se pudo empaquetar).")
+          (prompt "\nSendero empaquetado en bloque: sus medidas y su movimiento de tierras salen en Propiedades."))))
     (setq n (1+ n))
     (prompt (strcat "\n" (nth 1 entry) " " (itoa n)
       " creado. Otro contorno (Enter termina): ")))
@@ -30821,64 +30964,111 @@
 ;;  2. si no, se piden cotas de implantacion (pozo, etiqueta o Digitar);
 ;; y se mide sobre el contorno + 1 m en los costados, hasta el espesor del
 ;; material. Resultado en URB_SEND_MOV, que el presupuesto ya usa.
-(defun urb:sendero-earthworks (ename / datos entry pts road ref picks over mov espesor anden aref)
-  (setq datos (urb:get-xdata-strings ename "URB_SENDERO")
-        entry (assoc (urb:safe-string (car datos) "") *urb-send-tipos*)
-        *urb-anden-pts-cache* nil)
+;; referencia por ANDEN creado (<= 10 m) cuando no hay via al lado
+(defun urb:sendero-picks-por-anden (pts / anden aref)
+  (setq anden (vl-catch-all-apply 'urb:anden-near-points (list pts)))
+  (if (vl-catch-all-error-p anden) (setq anden nil))
+  (if anden
+    (progn
+      (setq aref (vl-catch-all-apply 'urb:anden-design-reference (list anden)))
+      (if (vl-catch-all-error-p aref) (setq aref nil))
+    )
+  )
+  (cond
+    (aref
+      (prompt "\nAnden creado junto al sendero: se usan sus cotas de diseno (borde mas cercano).")
+      (list (list 0.0 (list (car (car pts)) (cadr (car pts))) aref))
+    )
+    (anden
+      (prompt "\nEl anden cercano no tiene via con rasante: no sirve de referencia.")
+      (urb:anden-ref-curves-clear)
+      nil
+    )
+    (T (urb:anden-ref-curves-clear) nil)
+  )
+)
+
+;; corte/relleno de un sendero ya con sus cotas resueltas
+(defun urb:sendero-mt-calcular (ename contorno picks espesor entry bloque / over mov)
+  (setq over (vl-catch-all-apply 'urb:anden-overwidth-contour (list contorno 1.0)))
+  (if (vl-catch-all-error-p over) (setq over nil))
+  (setq mov (urb:earthworks-from-picks (if over over contorno) picks espesor))
+  (if over (urb:safe-delete (vlax-ename->vla-object over)))
+  (if (null mov)
+    (prompt "\nNo se pudo calcular: revise que el sendero este dentro de la superficie SUP_TN.")
+    (progn
+      (urb:set-xdata-strings ename "URB_SEND_MOV"
+        (list (rtos (car mov) 2 2) (rtos (cadr mov) 2 2)))
+      ;; 5.6.6: en el bloque las cifras quedan tambien en Propiedades
+      (if bloque
+        (progn
+          (urb:set-block-attribute (urb:as-vla-object ename) "CORTE_M3" (rtos (car mov) 2 2))
+          (urb:set-block-attribute (urb:as-vla-object ename) "RELLENO_M3" (rtos (cadr mov) 2 2))
+        )
+      )
+      (prompt
+        (strcat "\n" (nth 1 entry) ": corte " (rtos (car mov) 2 2)
+          " m3 | relleno " (rtos (cadr mov) 2 2) " m3 (estructura "
+          (rtos espesor 2 2) " m" (if over ", con sobreancho lateral" "") ")."))
+      (prompt
+        (strcat "\n  Con coeficientes: corte suelto " (rtos (urb:cut-loose (car mov)) 2 2)
+          " m3 | material de relleno " (rtos (urb:fill-material (cadr mov)) 2 2)
+          " m3 (" (urb:overexc-text) ")."))
+    )
+  )
+  mov
+)
+
+;; EDITAR sobre un sendero: recalcula su corte/relleno. La cota de diseno
+;; sale, en orden, de la via creada a <= 10 m, del anden creado a <= 10 m
+;; (sus cotas de diseno) o de las cotas que se clickeen. 5.6.6: el sendero
+;; puede ser un BLOQUE -- su contorno vive dentro y se mide con una copia
+;; temporal que se borra al terminar.
+(defun urb:sendero-earthworks
+  (ename / datos entry pts road ref picks mov espesor bloque contorno)
+  (setq datos (urb:get-xdata-strings ename "URB_SENDERO"))
+  (setq entry (assoc (urb:safe-string (car datos) "") *urb-send-tipos*))
+  (setq *urb-anden-pts-cache* nil)
   (urb:anden-ref-curves-clear)
   (if (null entry)
-    (progn (prompt "\nSendero sin tipo reconocido: no se calcula el movimiento.") nil)
+    (prompt "\nSendero sin tipo reconocido: no se calcula el movimiento.")
     (progn
-      (setq espesor (urb:send-espesor-de entry)
-            pts (urb:lwpoly-points ename)
-            road (urb:anden-road-autodetect pts))
+      (setq bloque (= (cdr (assoc 0 (entget ename))) "INSERT"))
+      (setq contorno (if bloque (urb:send-temp-contour ename) ename))
+      (setq espesor (urb:send-espesor-de entry))
+      (setq pts (if contorno (urb:lwpoly-points contorno)))
+      (setq road (if pts (urb:anden-road-autodetect pts)))
       (if road
         (progn
           (setq ref (urb:anden-road-grade-for road))
           (if ref
             (progn
               (prompt "\nVia creada junto al sendero: se usa su rasante en todo el alineamiento.")
-              (setq picks (list (list 0.0 (list (car (car pts)) (cadr (car pts))) ref))))
-            (prompt "\nLa via cercana no tiene rasante calculada."))))
-      ;; 5.6.2: via lejos -> se amarra a las cotas de DISENO del anden
-      ;; creado mas cercano (<= 10 m), que ya viene de la rasante de su via
+              (setq picks (list (list 0.0 (list (car (car pts)) (cadr (car pts))) ref)))
+            )
+            (prompt "\nLa via cercana no tiene rasante calculada.")
+          )
+        )
+      )
+      (if (and (null picks) pts)
+        (setq picks (urb:sendero-picks-por-anden pts)))
       (if (null picks)
         (progn
-          (setq anden (vl-catch-all-apply 'urb:anden-near-points (list pts)))
-          (if (vl-catch-all-error-p anden) (setq anden nil))
-          (if anden (setq aref (vl-catch-all-apply 'urb:anden-design-reference (list anden))))
-          (if (vl-catch-all-error-p aref) (setq aref nil))
-          (cond
-            (aref
-              (prompt "\nAnden creado junto al sendero: se usan sus cotas de diseno (borde mas cercano).")
-              (setq picks (list (list 0.0 (list (car (car pts)) (cadr (car pts))) aref))))
-            (anden
-              (prompt "\nEl anden cercano no tiene via con rasante: no sirve de referencia.")))
-          (if (null picks) (urb:anden-ref-curves-clear))))
-      (if (null picks)
-        (progn
-          (prompt (strcat "\nSin via ni anden creado al lado: cotas de implantacion del sendero"
-                          " (clic en anden/pozo/etiqueta o Digitar; Enter = cancelar)."))
-          (setq picks (urb:pick-design-cotas))))
-      (if (and picks (>= (length picks) 1))
-        (progn
-          (setq over (vl-catch-all-apply 'urb:anden-overwidth-contour (list ename 1.0)))
-          (if (vl-catch-all-error-p over) (setq over nil))
-          (setq mov (urb:earthworks-from-picks (if over over ename) picks espesor))
-          (if over (urb:safe-delete (vlax-ename->vla-object over)))
-          (if mov
-            (progn
-              (urb:set-xdata-strings ename "URB_SEND_MOV"
-                (list (rtos (car mov) 2 2) (rtos (cadr mov) 2 2)))
-              (prompt (strcat "\n" (nth 1 entry) ": corte " (rtos (car mov) 2 2)
-                " m3 | relleno " (rtos (cadr mov) 2 2) " m3 (estructura "
-                (rtos espesor 2 2) " m" (if over ", con sobreancho lateral" "") ")."
-                "\n  Con coeficientes: corte suelto " (rtos (urb:cut-loose (car mov)) 2 2)
-                " m3 | material de relleno " (rtos (urb:fill-material (cadr mov)) 2 2)
-                " m3 (" (urb:overexc-text) ")."))
-              mov)
-            (progn (prompt "\nNo se pudo calcular: revise que el sendero este dentro de la superficie SUP_TN.") nil)))
-        (progn (prompt "\nMovimiento de tierras cancelado.") nil)))))
+          (prompt
+            (strcat "\nSin via ni anden creado al lado: cotas de implantacion del sendero"
+                    " (clic en anden/pozo/etiqueta o Digitar; Enter = cancelar)."))
+          (setq picks (urb:pick-design-cotas))
+        )
+      )
+      (if (and picks contorno)
+        (setq mov (urb:sendero-mt-calcular ename contorno picks espesor entry bloque))
+        (prompt "\nMovimiento de tierras cancelado.")
+      )
+      (if (and bloque contorno (entget contorno)) (entdel contorno))
+    )
+  )
+  mov
+)
 
 (defun urb:edit-senderos-movimiento (enames / n e)
   (setq n 0)
@@ -30901,8 +31091,11 @@
                                     / ss i be entry datos codigo etapa sub
                                     area per obj rows out zona handle
                                     receta fila qty con-anillo espesor
-                                    factor mov)
-  (setq ss (ssget "_X" (list '(0 . "LWPOLYLINE") (list -3 (list appid))))
+                                    factor mov atts bdatos)
+  ;; 5.6.6: el sendero nuevo es un BLOQUE con la misma xdata URB_SENDERO;
+  ;; area y perimetro salen de sus atributos (el bloque no los expone como
+  ;; propiedad). Los senderos viejos (polilinea suelta) siguen igual.
+  (setq ss (ssget "_X" (list '(0 . "LWPOLYLINE,INSERT") (list -3 (list appid))))
         out nil i 0)
   (if ss
     (repeat (sslength ss)
@@ -30915,8 +31108,19 @@
           (setq etapa (urb:safe-string (cadr datos) "1")
                 sub (urb:safe-string (caddr datos) "GEN")
                 obj (vlax-ename->vla-object be)
-                area (vla-get-Area obj)
-                per (vla-get-Length obj)
+                atts (if (= (cdr (assoc 0 (entget be))) "INSERT")
+                       (urb:block-attribute-values obj))
+                bdatos (if atts (urb:get-xdata-strings be "URB_SEND_BLOCK"))
+                area (if atts
+                       (atof (urb:safe-string
+                               (if (> (length bdatos) 1) (nth 1 bdatos)
+                                 (cdr (assoc "AREA_M2" atts))) "0"))
+                       (vla-get-Area obj))
+                per (if atts
+                      (atof (urb:safe-string
+                              (if (> (length bdatos) 2) (nth 2 bdatos)
+                                (cdr (assoc "PERIMETRO_M" atts))) "0"))
+                      (vla-get-Length obj))
                 handle (cdr (assoc 5 (entget be)))
                 zona (urb:ppto-zona-de be)
                 rows nil)

@@ -1,5 +1,42 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-17 18:10 America/Bogota — 5.6.6 sendero en BLOQUE y laboratorio rapido
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base a354eb6. INSTALADA (el .lsp).
+
+1. SENDERO EN BLOQUE (pedido del usuario: "que quede en bloque, que se vean
+   sus medidas y su movimiento de tierras, asi como andenes y zonas verdes").
+   Nuevo urb:package-sendero (espejo de urb:package-green-zone): contorno +
+   relleno en un bloque URB_SENDERO_<handle> con atributos invisibles TIPO,
+   CODIGO, ETAPA, SUBETAPA, AREA_M2, AREA_NETA_M2, PERIMETRO_M, ESPESOR_M,
+   VOLUMEN_ESTRUCTURA_M3, PREFABRICADO_DER/IZQ/POS, DESCUENTO_PREFAB_M2,
+   CORTE_M3 y RELLENO_M3. La xdata sigue siendo URB_SENDERO con los mismos
+   campos (+ URB_SEND_BLOCK con area/perimetro/espesor/descuento), asi que
+   EDITAR, el colector y el MT tratan igual los senderos viejos (polilinea)
+   y los nuevos. El colector acepta ahora LWPOLYLINE o INSERT. El bioswale
+   sigue con GRUPO. urb:send-temp-contour materializa el contorno del bloque
+   para medir sobreancho/tierras y lo borra al terminar.
+   Verificado (dibujo vacio, terreno simulado): bloque con 15 atributos,
+   EDITAR lo reconoce, 6 filas de presupuesto identicas a la polilinea
+   (concreto 6 m3 = 60 x 0.10; excavacion 24 = 60 x 0.40; bordillo 46 ML) y
+   MT sobre el bloque 45.00/0.00 m3 con h=0 y 50.63/5.63 con h=0.50
+   (la diferencia es la misma en corte y relleno: 5.625).
+2. urb:sendero-earthworks se partio en tres (urb:sendero-picks-por-anden,
+   urb:sendero-mt-calcular y ella misma) con cierres explicitos: la version
+   anidada tenia un desbalance que dejaba el MOTOR A MEDIO CARGAR (todas las
+   funciones posteriores quedaban sin definir y EXPORTAR/ANDEN fallaban).
+3. LABORATORIO RAPIDO (pedido del usuario: "busca la forma de verificaciones
+   y validaciones rapidas sobre planos"):
+   - work/claude_20260916_pluvial/mini_carga.lsp: carga el .lsp y reporta si
+     hay error de sintaxis + el tipo de una lista de funciones -> senala
+     DONDE se detuvo la carga. ~60 s, dibujo vacio.
+   - mini_sintaxis.lsp: localizador por (read) linea a linea.
+   - mini_senderos.lsp: prueba de extremo a extremo con TERRENO SIMULADO
+     (se redefine urb:surface-elevation) y cotas simuladas: 75 s contra 5
+     min de una corrida sobre la copia del maestro.
+   REGLA NUEVA: tras cada cambio del .lsp, correr mini_carga ANTES de
+   cualquier otra verificacion.
+
 ## 2026-09-17 14:45 America/Bogota — 5.6.5 vía de referencia del andén, pendiente del andén y sobreexcavación
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 1f22b44. INSTALADA (el .lsp).
