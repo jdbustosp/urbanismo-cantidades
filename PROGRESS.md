@@ -1,5 +1,43 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-17 08:50 America/Bogota — 5.6.3 el andén recortado conserva el sobreancho (costados de andenes curvos reales)
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base b4d6fc0. INSTALADA (el .lsp).
+
+Cierra el PENDIENTE de 5.6.2 (andén recortado bajo rampa/paso medía tierras sin
+sobreancho). Tres causas, medidas en DD2CA y F20E5 (copia de laboratorio):
+1. PUNTAS: en una punta oblicua la proyección sobre el eje elegía un segmento
+   diminuto vecino (DD2CA: 0.22 m en vez de la punta real de 3.80 m). Nuevo
+   urb:costado-tips-refine (en urb:poly-costado-chains): si la punta mide menos
+   de medio ancho (ancho = 2 área/perímetro) se toma el vecino (±4) cuya
+   longitud más se acerca al ancho. Beneficia también los prefabricados por
+   costado de andenes curvos.
+2. DESFASE: el costado denso (247 vértices de 0.25 m + microarcos) hacía fallar
+   OFFSET nativo y su respaldo. Nuevo último respaldo LISP
+   urb:offset-open-poly-manual (arcos densificados a <= 2°, normal promedio,
+   sin inglete). Signo igual a vla-Offset (positivo = derecha); la primera
+   versión tenía el signo al revés y ambos candidatos caían hacia adentro.
+3. LADO/CONTROL: si el camino de siempre falla, urb:anden-overwidth-combos
+   prueba los dos desfases de cada costado (4 combinaciones) y toma la de mayor
+   área válida (área > base, sin cruces, acotada). En puntas oblicuas el punto
+   medio del segmento que cierra la punta queda legítimamente a más de 1 m
+   (F20E5: 1.42 m): urb:anden-overwidth-bounded-skip-p no revisa esos dos
+   puntos medios (sí sus extremos, con 0.1 mm).
+El camino original no cambia para los andenes donde ya funcionaba.
+
+Verificado headless:
+- Sobreancho del contorno extraído: DD2CA 1039.26 m2 (bloque 1044.76);
+  F20E5 577.23 (bloque 582.34). Antes: nil en ambos.
+- Recorte completo de DD2CA: corte 0.12 / relleno 279.57 m3 con sobreancho
+  (original 0.12 / 280.50; en 5.6.2 sin sobreancho 0.00 / 186.74).
+- Regresión: rectángulo 40x3 -> sobreancho 200.0; costados simulados
+  Bordillo Externo + Sardinel Interno -> 2 x 40 ML; andén curvo sintético
+  completo (datos, bordillo, recorte, losetas, bloque) OK.
+OJO laboratorio: un *error* con (command "_.QUIT" "_N") GUARDÓ copia563.dwg
+tras "Function cancelled"; en los scripts de prueba *error* solo registra.
+Sigue sin reproducirse el cierre de AutoCAD con andenes curvos (caja negra
+activa) y falta la prueba en vivo del diálogo de costados.
+
 ## 2026-09-16 23:15 America/Bogota — 5.6.2 costados por tramo en andenes/senderos, materiales de senderos, tierras de senderos amarradas a vía o andén
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 58e7e9a. INSTALADA (el .lsp; sin cambio de DLL).

@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.2")
+(setq *urb-version* "5.6.3")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -6109,7 +6109,61 @@
              (urb:offset-poly poly width))))
       (if poly (urb:safe-delete (vlax-ename->vla-object poly)))
       (if (not (vl-catch-all-error-p attempt)) (setq result attempt))))
+  ;; 5.6.2: ultimo respaldo en LISP. Medido en el anden curvo DD2CA: el
+  ;; costado de 247 vertices (0.25 m + microarcos) hace que OFFSET nativo
+  ;; falle o se parta en piezas, y el anden recortado perdia el sobreancho.
+  (if (null result)
+    (progn
+      (setq attempt (vl-catch-all-apply 'urb:offset-open-poly-manual (list en width)))
+      (if (not (vl-catch-all-error-p attempt)) (setq result attempt))))
   result)
+
+;; desfase de una polilinea ABIERTA calculado vertice a vertice: arcos
+;; densificados (cuerda de <= 2 grados), vertices repetidos fuera, cada
+;; vertice movido 'width' por la normal promedio. Signo IGUAL a vla-Offset (medido en
+;; DD2CA: positivo = derecha del sentido de la polilinea).
+;; Sin factor de inglete: ningun punto queda a mas de 'width' del costado
+;; (lo exige urb:anden-overwidth-bounded-p).
+(defun urb:offset-open-poly-manual (en width / obj end i j b count theta raw pts lastp
+                                    out prev next n1 n2 nx ny len p q)
+  (setq obj (vlax-ename->vla-object en)
+        end (fix (+ 0.5 (vlax-curve-getEndParam en))) i 0)
+  (while (< i end)
+    (setq b (abs (vla-GetBulge obj i)) count 1)
+    (if (> b 1e-9)
+      (setq theta (* 4.0 (atan b))
+            count (max 1 (fix (+ 1.0 (/ theta (/ pi 90.0)))))))
+    (setq j 0)
+    (repeat count
+      (setq raw (cons (vlax-curve-getPointAtParam en (+ i (/ (float j) count))) raw) j (1+ j)))
+    (setq i (1+ i)))
+  (setq raw (reverse (cons (vlax-curve-getEndPoint en) raw)))
+  (foreach p raw
+    (if (or (null lastp) (> (distance (list (car p) (cadr p)) (list (car lastp) (cadr lastp))) 0.001))
+      (setq pts (cons p pts) lastp p)))
+  (setq pts (reverse pts))
+  (if (< (length pts) 2)
+    nil
+    (progn
+      (setq prev nil)
+      (while pts
+        (setq p (car pts) next (cadr pts) n1 nil n2 nil)
+        (if prev
+          (setq len (distance (list (car prev) (cadr prev)) (list (car p) (cadr p)))
+                n1 (list (/ (- (cadr prev) (cadr p)) len) (/ (- (car p) (car prev)) len))))
+        (if next
+          (setq len (distance (list (car p) (cadr p)) (list (car next) (cadr next)))
+                n2 (list (/ (- (cadr p) (cadr next)) len) (/ (- (car next) (car p)) len))))
+        (cond
+          ((and n1 n2)
+            (setq nx (+ (car n1) (car n2)) ny (+ (cadr n1) (cadr n2))
+                  len (sqrt (+ (* nx nx) (* ny ny))))
+            (if (< len 1e-9) (setq nx (car n2) ny (cadr n2)) (setq nx (/ nx len) ny (/ ny len))))
+          (n1 (setq nx (car n1) ny (cadr n1)))
+          (T (setq nx (car n2) ny (cadr n2))))
+        (setq out (cons (list (- (car p) (* width nx)) (- (cadr p) (* width ny))) out)
+              prev p pts (cdr pts)))
+      (urb:open-poly-from-points (reverse out) 0.0))))
 
 (defun urb:anden-overwidth-bounded-p (source result width / i n p near valid)
   ;; Control independiente del area/cruces: un miter puede no cruzarse y
@@ -6168,8 +6222,64 @@
                   (vla-get-Area (vlax-ename->vla-object ename)))
               (urb:polygon-self-intersects-p (urb:lwpoly-points-with-arcs result))
               (not (urb:anden-overwidth-bounded-p ename result width)))
-        (progn (entdel result) nil)
-        result))))
+        (progn (entdel result) (setq result nil))
+        result)))
+  ;; 5.6.2: respaldo cuando la eleccion de lado por punto medio falla
+  ;; (DD2CA: ambos lados del costado denso daban "dentro" y la union quedaba
+  ;; con un costado hacia adentro, area 677.99 < 679.54).
+  (if (and (null result) (= (length chains) 2))
+    (setq result (urb:anden-overwidth-combos ename chains width)))
+  result)
+
+;; Ambos desfases de cada costado y las 4 combinaciones, de mayor a menor
+;; area; gana la primera valida (area > base, sin cruces, acotada).
+;; Los 2 segmentos que CIERRAN las puntas unen los costados desplazados: en
+;; una punta oblicua su punto medio queda legitimamente a mas de 'width'
+;; (F20E5: 1.42 m); de esos dos se revisan los extremos, no el punto medio.
+(defun urb:anden-overwidth-combos (ename chains width / cands chain pl off pts c1 c2 combos c s
+                                   poly area base best)
+  (foreach chain chains
+    (setq pl (urb:poly-chain-polyline chain) c1 nil)
+    (foreach s (list width (- width))
+      (setq off (urb:anden-offset-safe pl s))
+      (if off
+        (progn
+          (setq pts (urb:lwpoly-vertex-bulges off))
+          (setq c1 (cons (mapcar '(lambda (p q) (list (car p) (cadr p) q)) (car pts) (cadr pts)) c1))
+          (entdel off))))
+    (entdel pl)
+    (setq cands (append cands (list c1))))
+  (setq base (vla-get-Area (vlax-ename->vla-object ename)))
+  (if (and (car cands) (cadr cands))
+    (progn
+      (foreach c1 (car cands)
+        (foreach c2 (cadr cands)
+          (setq poly (urb:poly-chain-polyline (append c1 c2)))
+          (vla-put-Closed (vlax-ename->vla-object poly) :vlax-true)
+          (setq area (vla-get-Area (vlax-ename->vla-object poly)))
+          (if (> area base)
+            (setq combos (cons (list area poly (length c1) (length c2)) combos))
+            (entdel poly))))
+      (foreach c (vl-sort combos '(lambda (x y) (> (car x) (car y))))
+        (if (and (null best)
+                 (not (urb:polygon-self-intersects-p (urb:lwpoly-points-with-arcs (cadr c))))
+                 (urb:anden-overwidth-bounded-skip-p ename (cadr c) width
+                   (list (- (nth 2 c) 0.5) (- (+ (nth 2 c) (nth 3 c)) 0.5))))
+          (setq best (cadr c))
+          (entdel (cadr c))))
+      best)))
+
+(defun urb:anden-overwidth-bounded-skip-p (source result width skip / i n p near valid)
+  (setq i 0 n (* 2 (fix (+ 0.5 (vlax-curve-getEndParam result)))) valid T)
+  (while (and valid (< i n))
+    (if (not (vl-some '(lambda (s) (equal s (* 0.5 i) 1e-6)) skip))
+      (progn
+        (setq p (vlax-curve-getPointAtParam result (* 0.5 i))
+              near (if p (vlax-curve-getClosestPointTo source p)))
+        (if (or (null near) (> (distance p near) (+ (abs width) 0.0001)))
+          (setq valid nil))))
+    (setq i (1+ i)))
+  valid)
 
 (defun urb:regions-union-copy (items / result item copy err pending next)
   ;; Unir por pares equilibrados: no reconstruir una region creciente por
@@ -29126,6 +29236,44 @@
         (list s1 s2))))
 )
 
+;; 5.6.2 (anden curvo real DD2CA, 251 vertices): en una punta OBLICUA la
+;; proyeccion sobre el eje elige un segmento diminuto vecino (0.22 m) en vez
+;; de la punta real (3.80 m = ancho). El segundo costado arrastraba la punta
+;; doblada, su OFFSET fallaba y el anden recortado perdia el sobreancho.
+;; Si la punta elegida mide menos de medio ancho (ancho = 2 area/perimetro),
+;; se toma el vecino (hasta 4 segmentos) cuya longitud mas se acerca al ancho.
+(defun urb:costado-tips-refine (pts tips / n i a b area per w lens rest best bd d out k other s)
+  ;; longitudes y area en UNA pasada (sin nth dentro del ciclo)
+  (setq n (length pts) area 0.0 per 0.0 rest (append pts (list (car pts))))
+  (while (cdr rest)
+    (setq a (car rest) b (cadr rest)
+          d (distance (list (car a) (cadr a)) (list (car b) (cadr b)))
+          lens (cons d lens) per (+ per d)
+          area (+ area (- (* (car a) (cadr b)) (* (car b) (cadr a))))
+          rest (cdr rest)))
+  (setq lens (reverse lens)
+        w (if (> per 0.0) (/ (abs area) per) 0.0))
+  (if (or (null tips) (<= w 1e-6) (/= (length tips) 2))
+    tips
+    (progn
+      (setq out tips)
+      (foreach s tips
+        (if (< (nth s lens) (* 0.5 w))
+          (progn
+            (setq other (if (= s (car out)) (cadr out) (car out)) best nil bd nil k -4)
+            (while (<= k 4)
+              (setq i (rem (+ s k n) n))
+              (if (and (/= i other)
+                       (/= (rem (1+ i) n) other) (/= (rem (1+ other) n) i)
+                       (>= (nth i lens) (* 0.5 w)) (<= (nth i lens) (* 2.0 w)))
+                (progn
+                  (setq d (abs (- (nth i lens) w)))
+                  (if (or (null bd) (< d bd)) (setq bd d best i))))
+              (setq k (1+ k)))
+            (if best
+              (setq out (subst best s out))))))
+      out)))
+
 ;; divide el contorno CERRADO en sus dos costados: quitando las dos
 ;; PUNTAS (urb:costado-tip-segments) quedan dos cadenas de vertices (los
 ;; lados largos). Devuelve (cadena-a cadena-b) -- cada una lista de
@@ -29158,7 +29306,8 @@
       ;; El eje de la envolvente orientada conserva la direccion LONGITUDINAL
       ;; del anden aunque el contorno rodee un contenedor.
       (setq tips
-        (urb:costado-tip-segments pts (urb:anden-axis-angle pts)))
+        (urb:costado-tips-refine pts
+          (urb:costado-tip-segments pts (urb:anden-axis-angle pts))))
       (if (null tips)
         nil
         (progn
