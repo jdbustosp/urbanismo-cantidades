@@ -1,5 +1,38 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-17 23:40 America/Bogota — 5.6.7 el andén ya no se descarta si el toperol no cabe; contenedor Tipo G
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 8a3de5c. INSTALADA (el .lsp).
+
+1. ANDÉN QUE NO SE CREABA (foto del usuario, contorno rodeando contenedores
+   de raíces): "Anden: 2 prefabricado(s)/contenedor(es) omitidos... TOPEROL:
+   0 domos generados. No se acepta el acabado" -> el control de calidad de
+   urb:build-anden-finish RECHAZABA todo el acabado y el andén no se creaba.
+   NO SE REPRODUJO con geometrías de prueba (rectángulo, entrantes de 4,20 x
+   1,20 arriba/abajo, contenedores Tipo G reales en los entrantes, franja del
+   lado de los contenedores y del lado opuesto: siempre salen domos).
+   Cambio: con 0 domos el andén se crea SIN toperol y avisa en voz alta; el
+   caso completo se guarda en %TEMP%\urbcant_toperol_fallo.txt (vértices y
+   bulges del contorno, costado de la vía elegido y cada contenedor /
+   prefabricado cercano con bloque, inserción y rotación) para reproducirlo
+   exacto. Verificado forzando 0 domos: 3 andenes aceptados y registro de 84
+   líneas con sus contenedores.
+   PENDIENTE: que el usuario envíe ese archivo tras el próximo caso.
+2. CONTENEDOR DE RAÍCES TIPO G (pedido del usuario: 4,20 de largo x 1,20 de
+   ancho): nueva entrada CONT-G en *urb-mob-tipos* ("CONTEN" 1.20 4.20),
+   con la misma codificación de las descripciones D/E/F. Verificado: el
+   bloque URB_MOB_CONT-G_C4P se crea y corta el andén como los demás.
+   Presupuesto: la fila "Suministro y construcción de contenedor de raíces
+   Tipo G (1,20x4,20)m" y su precio (0, por definir) se agregaron a la macro
+   AjustesPresupuesto_20260917.bas (ANDENES > Mobiliario, después del Tipo F).
+3. PRESUPUESTO (mismo día): el Excel de este equipo NO conserva las fórmulas
+   LET/XMATCH del libro (las descarta al abrir y las borra al guardar). Un
+   guardado dejó vacíos los subtotales; se RESTAURÓ el original (hash
+   F89BC1CA... idéntico). Los cambios pedidos quedaron como macro VBA para
+   ejecutar en el Excel del usuario: work/ppto_20260917/AjustesPresupuesto_20260917.bas.
+   REGLA: no abrir ni guardar ese libro con el Excel de BOG085CD119BDQN;
+   solo leerlo como zip/XML.
+
 ## 2026-09-17 18:10 America/Bogota — 5.6.6 sendero en BLOQUE y laboratorio rapido
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base a354eb6. INSTALADA (el .lsp).

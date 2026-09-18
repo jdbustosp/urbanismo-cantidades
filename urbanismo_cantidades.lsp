@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.6")
+(setq *urb-version* "5.6.7")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -5183,6 +5183,40 @@
   (> count 0)
 )
 
+;; 5.6.7: registro de diagnostico cuando el toperol no cabe. Escribe el
+;; contorno (x y bulge por vertice) y cada cortador cercano (prefabricado,
+;; contenedor, rampa) con su bloque, punto de insercion y rotacion.
+(defun urb:toperol-fallo-registrar (ename / fn f ed obj en cobj ins)
+  (setq fn (strcat (urb:safe-string (getenv "TEMP") "C:\\Temp") "\\urbcant_toperol_fallo.txt")
+        f (open fn "a"))
+  (if f
+    (progn
+      (write-line (strcat "=== " (urb:safe-string (menucmd "M=$(edtime,$(getvar,date),YYYY-MO-DD HH:MM:SS)") "?")
+                          " | " (urb:safe-string *urb-version* "?")
+                          " | " (urb:safe-string (getvar "DWGNAME") "?")
+                          " | contorno " (cdr (assoc 5 (entget ename))))
+                  f)
+      (setq ed (entget ename))
+      (foreach it ed
+        (cond
+          ((= (car it) 10)
+            (write-line (strcat "V " (rtos (cadr it) 2 4) " " (rtos (caddr it) 2 4)) f))
+          ((= (car it) 42)
+            (write-line (strcat "B " (rtos (cdr it) 2 8)) f))))
+      (write-line (strcat "LADO_VIA " (vl-princ-to-string *urb-current-tactile-side-point*)) f)
+      (setq obj (vlax-ename->vla-object ename))
+      (foreach en (urb:anden-cutout-blocks)
+        (setq cobj (urb:as-vla-object en))
+        (if (and cobj (urb:objects-bbox-overlap-p obj cobj 2.0))
+          (progn
+            (setq ins (vlax-safearray->list (vlax-variant-value (vla-get-InsertionPoint cobj))))
+            (write-line
+              (strcat "C " (vla-get-Name cobj) " " (rtos (car ins) 2 4) " " (rtos (cadr ins) 2 4)
+                      " rot " (rtos (vla-get-Rotation cobj) 2 6))
+              f))))
+      (close f)))
+  T)
+
 (defun urb:create-accessibility-features
   (ename guia toperol format / obj copy base-region points angle-value bounds
    umin umax vmin vmax center region parent-handle origin count limits
@@ -5562,10 +5596,23 @@
       (setq top-count (urb:count-toperol-symbols
         (urb:generated-objects (vla-get-Handle obj))))
       (prompt (strcat "\nTOPEROL: " (itoa top-count) " domos generados."))
+      ;; 5.6.7 (reporte del usuario con foto: "no me dejo crear el anden",
+      ;; contorno dibujado rodeando contenedores de raices): antes 0 domos
+      ;; RECHAZABA todo el acabado y el anden no se creaba. Ahora el anden
+      ;; se crea SIN toperol, se avisa en voz alta y se guarda el caso
+      ;; completo (contorno + contenedores/prefabricados cercanos) para
+      ;; reproducirlo exacto. No se reprodujo con geometrias de prueba.
       (if (= top-count 0)
         (progn
-          (setq result nil)
-          (prompt "\nNo se acepta el acabado: falta el toperol solicitado. Conserve este mensaje para diagnostico.")))))
+          (urb:bb-log "  TOPEROL 0 domos: el anden se crea SIN toperol")
+          (vl-catch-all-apply 'urb:toperol-fallo-registrar (list ename))
+          (prompt
+            (strcat
+              "\nATENCION: el toperol no cupo en este anden (la franja tactil"
+              " queda ocupada por contenedores/prefabricados o por la forma del"
+              " contorno). El anden se crea SIN toperol: revise ese tramo."
+              "\nSe guardo el caso en " (getenv "TEMP")
+              "\\urbcant_toperol_fallo.txt -- envielo para corregirlo."))))))
   ;; Si el acabado no pudo construirse, el contorno de trabajo se devuelve
   ;; a su elevacion original para que el usuario pueda repararlo o reintentar.
   (if (and flattened (not result)
@@ -28388,6 +28435,10 @@
     ("CONT-F" "Contenedor raices Tipo F (0,70x4,20)"
       "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo F (0,70x4,20)m"
       "CONTEN" 0.70 4.20)
+    ;; 2026-09-17 (pedido del usuario): contenedor de 4,20 m de largo x 1,20 m de ancho
+    ("CONT-G" "Contenedor raices Tipo G (1,20x4,20)"
+      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo G (1,20x4,20)m"
+      "CONTEN" 1.20 4.20)
     ;; ---------- mobiliario de PARQUE (2026-09-06): descripciones
     ;; EXACTAS de los capitulos por parque del presupuesto nuevo; el
     ;; redireccionamiento por zona los apunta al parque donde caen ----------
