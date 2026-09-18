@@ -1,5 +1,45 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-18 13:30 America/Bogota — 5.7.0 perfil longitudinal de la vía (esquema de cortes) con MOSTRAR/OCULTAR
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 7ae892d. INSTALADA (el .lsp).
+
+El usuario aprobó el esquema de la vía AB174 y pidió integrarlo con MOSTRAR/OCULTAR, igual que la tabla
+de memorias. Implementación:
+- Atributo nuevo `PERFIL` en el bloque de la vía (lo agrega `urb:package-road` en las vías nuevas y
+  `urb:upgrade-existing-road-properties` en las existentes, por defecto OCULTAR). Se escribe MOSTRAR u
+  OCULTAR en Properties, igual que MEMORIAS.
+- Mismo reactor diferido de MEMORIAS: `urb:attach-memory-reactor-to-block` engancha también el atributo
+  PERFIL con el tipo de pedido "PERFIL", y `urb:process-memory-requests` lo despacha a
+  `urb:set-road-profile-visibility`.
+- `urb:draw-road-profile` dibuja SOLO con las filas guardadas de la verificación (ldata URB_VIA_AUDIT):
+  no pide nada ni recalcula. Si la vía no tiene verificación guardada, se calcula una vez con la misma
+  regla segura de MEMORIAS (eje recuperable, rasante y superficie presentes); si no se puede, avisa.
+- Contenido del perfil:
+  - retícula de cotas cada metro con exageración vertical x10 (`*urb-profile-vexag*`);
+  - terreno natural, rasante, subrasante y fondo de excavación;
+  - hatches con transparencia: cajón en azul, excavación en rojo y lleno en verde;
+  - guitarra con abscisas redondas (paso 10/20/50 m según la longitud) más el inicio y el final, con
+    cota TN, rasante, subrasante, h de excavación y h de lleno;
+  - título con el cajón, la sobreexcavación y los volúmenes guardados.
+- Excavación = max(delta, h) y lleno = max(0, h − delta), la regla de `urb:cut-fill-at`.
+- Todo queda en un bloque `URB_PERFIL_<handle>_<ms>`, capa URB-VIA-PERFIL, con XDATA URB_VIA_PERFIL = el
+  handle de la vía. Se puede mover; al ocultarlo se guarda el punto (ldata URB_VIA_PERFIL_PT) y vuelve a
+  salir ahí. Los perfiles de vías que ya no existen (re-empacadas al EDITAR) se borran al mostrar
+  cualquier perfil.
+
+Verificación headless sobre una copia de copia561.dwg, vía AB174:
+- MOSTRAR → 1 bloque, 125 piezas (3 hatches, 32 polilíneas, 90 textos), en 266 ms.
+- OCULTAR por la vía del reactor → 0 bloques y atributo en OCULTAR.
+- Volver a mostrar después de mover el bloque → sale en el punto movido.
+- La tabla de memorias no se crea como efecto secundario.
+- Revisión visual: se renderizó la geometría extraída del bloque.
+
+Hallazgo: el TN guardado en la verificación de AB174 (2560.38 en K0+014.75) está ~0,49 m por encima de
+lo que devuelve hoy SUP_TN (2559.89). La verificación se calculó con otra superficie o con una versión
+anterior, y eso explica los 1.041,76 m³ guardados frente a los 758 recalculados. El perfil muestra lo
+GUARDADO: para refrescarlo hay que correr Verificación/EDITAR.
+
 ## 2026-09-18 12:10 America/Bogota — 5.6.9 conexión con el libro de SharePoint; libro con subtotales reparados y ajustes aplicados
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 16d86a5. INSTALADA (el .lsp).

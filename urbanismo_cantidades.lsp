@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.9")
+(setq *urb-version* "5.7.0")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -17962,7 +17962,8 @@
             (list
               (list "VIA_AREA_SOBREANCHO_M2" "Area con sobreancho m2" (rtos area 2 2))
               (list "VIA_SOBREANCHO_M2" "Area exclusiva de sobreancho m2" (rtos overarea 2 2))
-              (list "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAR"))
+              (list "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAR")
+              (list "PERFIL" "Perfil longitudinal - MOSTRAR u OCULTAR" "OCULTAR"))
             (if (not (member (car spec) tags))
               (progn
                 (urb:add-invisible-attribute bdef '(0.0 0.0 0.0)
@@ -17974,7 +17975,10 @@
           (urb:set-block-attribute obj "VIA_SOBREANCHO_M2" (rtos overarea 2 2))
           (if (= (urb:safe-string
                     (cdr (assoc "MEMORIAS" (urb:block-attribute-values obj))) "") "")
-            (urb:set-block-attribute obj "MEMORIAS" "OCULTAR"))))
+            (urb:set-block-attribute obj "MEMORIAS" "OCULTAR"))
+          (if (= (urb:safe-string
+                    (cdr (assoc "PERFIL" (urb:block-attribute-values obj))) "") "")
+            (urb:set-block-attribute obj "PERFIL" "OCULTAR"))))
       (setq i (1+ i))))
   added)
 
@@ -18051,6 +18055,8 @@
         (if mov (urb:safe-string (nth 1 mov) "0") "0"))
       (urb:add-invisible-attribute block-definition point
         "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAR")
+      (urb:add-invisible-attribute block-definition point
+        "PERFIL" "Perfil longitudinal - MOSTRAR u OCULTAR" "OCULTAR")
       (setq insert-result
         (vl-catch-all-apply
           'vla-InsertBlock
@@ -22144,6 +22150,296 @@
 
 (defun c:QMEMORIAVIA () (urb:toggle-road-memory-command))
 
+;; ------------------------------------------------------------------
+;; 5.7.0 PERFIL LONGITUDINAL DE LA VIA (esquema de cortes). Atributo
+;; PERFIL del bloque de la via, gemelo de MEMORIAS: MOSTRAR lo dibuja y
+;; OCULTAR lo borra (mismo reactor diferido). Se dibuja SOLO con las
+;; filas ya guardadas de la verificacion (ldata URB_VIA_AUDIT): no pide
+;; nada ni recalcula. Por abscisa, en el eje: subrasante = rasante -
+;; cajon, delta = TN - subrasante, excavacion = max(delta, h) y lleno =
+;; max(0, h - delta) con h = *urb-overexc-depth* (la regla de
+;; urb:cut-fill-at). Queda en un bloque propio que se puede mover; al
+;; ocultarlo se recuerda donde estaba y vuelve a salir ahi.
+(setq *urb-profile-vexag* 10.0)   ; exageracion vertical del perfil
+
+(defun urb:profile-interp (rows s index / prev result)
+  (foreach row rows
+    (if (null result)
+      (if (<= s (nth 0 row))
+        (setq result
+          (if (and prev (> (nth 0 row) (nth 0 prev)))
+            (+ (nth index prev)
+               (* (- (nth index row) (nth index prev))
+                  (/ (- s (nth 0 prev)) (- (nth 0 row) (nth 0 prev)))))
+            (nth index row)))
+        (setq prev row))))
+  (if result result (nth index (last rows))))
+
+(defun urb:profile-pline (pts color closed)
+  (entmakex
+    (append
+      (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(8 . "URB-VIA-PERFIL")
+            (cons 62 color) '(100 . "AcDbPolyline")
+            (cons 90 (length pts)) (cons 70 (if closed 1 0)))
+      (mapcar '(lambda (p) (list 10 (car p) (cadr p))) pts))))
+
+(defun urb:profile-text (pt h str color align)
+  ;; align: 0 izquierda, 1 centro, 2 derecha; siempre centrado vertical
+  (entmakex
+    (list '(0 . "TEXT") '(8 . "URB-VIA-PERFIL") (cons 62 color)
+          (list 10 (car pt) (cadr pt) 0.0) (list 11 (car pt) (cadr pt) 0.0)
+          (cons 40 h) (cons 1 str) (cons 72 align) (cons 73 2))))
+
+;; hatch solido con transparencia; la polilinea de borde se borra
+(defun urb:profile-hatch (pts color / pl hatch)
+  (setq pl (urb:profile-pline pts color T))
+  (if pl
+    (progn
+      (setq hatch
+        (vl-catch-all-apply 'urb:add-solid-hatch
+          (list (vlax-ename->vla-object pl) "URB-VIA-PERFIL" color)))
+      (entdel pl)
+      (if (vl-catch-all-error-p hatch)
+        nil
+        (progn
+          (vl-catch-all-apply 'vla-put-EntityTransparency (list hatch "55"))
+          (vlax-vla-object->ename hatch))))
+    nil))
+
+;; INSERTs de perfil de la via (parent-handle nil = todos)
+(defun urb:road-profile-entities (parent-handle / ss i e d out)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA_PERFIL")))) i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq e (ssname ss i)
+            d (urb:get-xdata-strings-entget e "URB_VIA_PERFIL"))
+      (if (and d (or (null parent-handle) (= (car d) parent-handle)))
+        (setq out (cons e out)))
+      (setq i (1+ i))))
+  out)
+
+(defun urb:road-profile-visible-p (parent-handle)
+  (if (urb:road-profile-entities parent-handle) T nil))
+
+;; perfiles cuya via ya no existe (la via se re-empaco al EDITAR y
+;; cambio de handle): se borran para no dejar perfiles viejos sueltos
+(defun urb:delete-orphan-road-profiles (/ e d p n)
+  (setq n 0)
+  (foreach e (urb:road-profile-entities nil)
+    (setq d (urb:get-xdata-strings-entget e "URB_VIA_PERFIL")
+          p (if d (handent (car d)) nil))
+    (if (or (null p) (null (entget p)))
+      (progn (entdel e) (setq n (1+ n)))))
+  n)
+
+(defun urb:draw-road-profile
+  (road data stored / audit rows h vx d0 d1 len s0 th rh obj minpt maxpt
+   base x0 y0 yp zmin zmax zbase ztop pts-tn pts-ras pts-sub pts-bot
+   pts-fill maxfill ents e z s step stations y k tn ras sub delta exc fil
+   labels vals txt color depth handle bname bdef ins cut fill name keep)
+  (setq audit (nth 0 stored)
+        rows (vl-remove-if-not
+               '(lambda (r) (and (listp r) (> (length r) 3)
+                                 (numberp (nth 0 r)) (numberp (nth 1 r))
+                                 (numberp (nth 2 r)) (numberp (nth 3 r))))
+               audit)
+        h (if (numberp *urb-overexc-depth*) (max 0.0 *urb-overexc-depth*) 0.0)
+        vx (if (numberp *urb-profile-vexag*) *urb-profile-vexag* 10.0)
+        handle (cdr (assoc 5 (entget road))))
+  (if (< (length rows) 2)
+    (progn (prompt "\nLa verificacion guardada no tiene secciones suficientes para el perfil.") nil)
+    (progn
+      (setq d0 (nth 0 (car rows)) d1 (nth 0 (last rows)) len (- d1 d0)
+            s0 (urb:station-number (urb:safe-string (nth 10 data) "0+000"))
+            depth (- (nth 2 (car rows)) (nth 3 (car rows)))
+            th (max (* 0.60 (max 0.20 (getvar "TEXTSIZE"))) (/ len 150.0))
+            rh (* th 2.6))
+      ;; punto: el que tenia la ultima vez (si el usuario lo movio) o a la
+      ;; derecha de la via, abajo
+      (setq keep (vl-catch-all-apply 'vlax-ldata-get (list road "URB_VIA_PERFIL_PT")))
+      (if (and keep (not (vl-catch-all-error-p keep)) (listp keep) (numberp (car keep)))
+        (setq base keep)
+        (progn
+          (setq obj (vlax-ename->vla-object road))
+          (if (vl-catch-all-error-p
+                (vl-catch-all-apply 'vla-GetBoundingBox (list obj 'minpt 'maxpt)))
+            (setq base '(0.0 0.0 0.0))
+            (setq minpt (vlax-safearray->list minpt)
+                  maxpt (vlax-safearray->list maxpt)
+                  base (list (+ (car maxpt) (* th 20.0)) (cadr minpt) 0.0)))))
+      (setq x0 (car base) y0 (cadr base)
+            yp (+ y0 (* 6.0 rh) (* 2.0 th)))
+      ;; alturas por seccion
+      (setq zmin nil zmax nil)
+      (foreach r rows
+        (setq tn (nth 1 r) ras (nth 2 r) sub (nth 3 r) delta (- tn sub)
+              exc (max delta h) fil (max 0.0 (- h delta)))
+        (setq pts-tn (cons (list (+ x0 (- (nth 0 r) d0)) tn) pts-tn)
+              pts-ras (cons (list (+ x0 (- (nth 0 r) d0)) ras) pts-ras)
+              pts-sub (cons (list (+ x0 (- (nth 0 r) d0)) sub) pts-sub)
+              pts-bot (cons (list (+ x0 (- (nth 0 r) d0)) (- tn exc)) pts-bot)
+              pts-fill (cons (list (+ x0 (- (nth 0 r) d0)) (+ (- tn exc) fil)) pts-fill))
+        (if (or (null maxfill) (> fil maxfill)) (setq maxfill fil))
+        (foreach z (list tn ras (- tn exc))
+          (if (or (null zmin) (< z zmin)) (setq zmin z))
+          (if (or (null zmax) (> z zmax)) (setq zmax z))))
+      (setq zbase (float (fix (- zmin 0.2)))
+            ztop (float (1+ (fix (+ zmax 0.05)))))
+      ;; cota -> Y del dibujo
+      (defun urb:pf-y (z) (+ yp (* (- z zbase) vx)))
+      (defun urb:pf-pts (pts) (mapcar '(lambda (p) (list (car p) (urb:pf-y (cadr p)))) pts))
+      (setq pts-tn (urb:pf-pts (reverse pts-tn)) pts-ras (urb:pf-pts (reverse pts-ras))
+            pts-sub (urb:pf-pts (reverse pts-sub)) pts-bot (urb:pf-pts (reverse pts-bot))
+            pts-fill (urb:pf-pts (reverse pts-fill)))
+      (urb:ensure-layer "URB-VIA-PERFIL" 4 T)
+      ;; reticula de cotas cada metro
+      (setq z zbase)
+      (while (<= z ztop)
+        (setq ents (cons (urb:profile-pline
+                           (list (list x0 (urb:pf-y z)) (list (+ x0 len) (urb:pf-y z))) 8 nil) ents)
+              ents (cons (urb:profile-text (list (- x0 th) (urb:pf-y z)) (* th 0.8)
+                           (rtos z 2 0) 8 2) ents)
+              z (+ z 1.0)))
+      ;; rellenos: excavacion, lleno, cajon
+      (setq ents (cons (urb:profile-hatch (append pts-tn (reverse pts-bot)) 1) ents))
+      (if (> maxfill 0.001)
+        (setq ents (cons (urb:profile-hatch (append pts-fill (reverse pts-bot)) 3) ents)))
+      (setq ents (cons (urb:profile-hatch (append pts-ras (reverse pts-sub)) 5) ents))
+      ;; lineas
+      (setq ents (cons (urb:profile-pline pts-bot 1 nil) ents)
+            ents (cons (urb:profile-pline pts-sub 8 nil) ents)
+            ents (cons (urb:profile-pline pts-tn 32 nil) ents)
+            ents (cons (urb:profile-pline pts-ras 5 nil) ents))
+      ;; abscisas de la guitarra
+      ;; abscisas REDONDAS (0+020, 0+040...) mas el inicio y el final;
+      ;; se omite la redonda que quede pegada a un extremo
+      (setq step (cond ((<= len 120.0) 10.0) ((<= len 400.0) 20.0) (T 50.0))
+            s (- (* step (1+ (fix (/ (+ s0 0.001) step)))) s0)
+            stations (list 0.0))
+      (if (< s (* 0.45 step)) (setq s (+ s step)))
+      (while (< s (- len (* 0.45 step)))
+        (setq stations (cons s stations) s (+ s step)))
+      (setq stations (reverse (cons len stations)))
+      ;; guitarra: 6 filas
+      (setq labels '("Abscisa" "Cota TN" "Rasante" "Subrasante" "h excavacion" "h lleno"))
+      (setq k 0)
+      (repeat 7
+        (setq ents (cons (urb:profile-pline
+                           (list (list (- x0 (* th 15.0)) (+ y0 (* k rh)))
+                                 (list (+ x0 len (* th 3.0)) (+ y0 (* k rh)))) 8 nil) ents)
+              k (1+ k)))
+      (setq k 0)
+      (foreach txt labels
+        (setq y (+ y0 (* (- 5 k) rh) (* 0.5 rh))
+              ents (cons (urb:profile-text (list (- x0 (* th 14.5)) y) th txt 7 0) ents)
+              k (1+ k)))
+      (foreach s stations
+        (setq tn (urb:profile-interp rows (+ d0 s) 1)
+              ras (urb:profile-interp rows (+ d0 s) 2)
+              sub (urb:profile-interp rows (+ d0 s) 3)
+              delta (- tn sub) exc (max delta h) fil (max 0.0 (- h delta))
+              vals (list (urb:format-station (+ s0 s)) (rtos tn 2 2) (rtos ras 2 2)
+                         (rtos sub 2 2) (rtos exc 2 2) (rtos fil 2 2))
+              k 0)
+        ;; linea vertical de la abscisa, solo en la reticula (no tacha los
+        ;; numeros de la guitarra)
+        (setq ents (cons (urb:profile-pline
+                           (list (list (+ x0 s) (urb:pf-y zbase)) (list (+ x0 s) (urb:pf-y ztop))) 8 nil) ents))
+        (foreach txt vals
+          (setq y (+ y0 (* (- 5 k) rh) (* 0.5 rh))
+                color (cond ((and (= k 4) (> exc (+ h 0.001))) 1)
+                            ((and (= k 5) (> fil 0.0)) 3)
+                            (T 7))
+                ents (cons (urb:profile-text (list (+ x0 s) y) (* th 0.8) txt color 1) ents)
+                k (1+ k))))
+      ;; titulo y leyenda
+      (setq name (urb:safe-string (nth 1 data) "VIA")
+            cut (nth 2 stored) fill (nth 3 stored))
+      (setq ents (cons (urb:profile-text (list x0 (+ (urb:pf-y ztop) (* th 4.5))) (* th 1.3)
+                         (strcat "PERFIL LONGITUDINAL - " name) 7 0) ents)
+            ents (cons (urb:profile-text (list x0 (+ (urb:pf-y ztop) (* th 2.5))) (* th 0.8)
+                         (strcat "Escala H 1:1  V x" (rtos vx 2 0)
+                                 " | cajon " (rtos depth 2 2) " m | sobreexcavacion "
+                                 (rtos h 2 2) " m | excavacion "
+                                 (if (numberp cut) (rtos cut 2 2) "-") " m3 | lleno "
+                                 (if (numberp fill) (rtos fill 2 2) "-") " m3") 7 0) ents)
+            ents (cons (urb:profile-text (list x0 (+ (urb:pf-y ztop) (* th 1.0))) (* th 0.8)
+                         "Cafe: terreno natural | Azul: rasante y cajon | Rojo: excavacion | Verde: lleno" 8 0) ents))
+      (setq ents (vl-remove nil ents))
+      ;; bloque propio para poder moverlo como una pieza
+      (setq bname (strcat "URB_PERFIL_" handle "_" (itoa (getvar "MILLISECS")))
+            bdef (vla-Add (vla-get-Blocks (urb:doc)) (vlax-3d-point base) bname))
+      (if (vl-catch-all-error-p
+            (vl-catch-all-apply 'vla-CopyObjects
+              (list (urb:doc)
+                    (urb:object-array-variant (mapcar 'vlax-ename->vla-object ents))
+                    bdef)))
+        (progn
+          ;; sin bloque: se dejan sueltas pero etiquetadas
+          (foreach e ents (urb:set-xdata-strings e "URB_VIA_PERFIL" (list handle)))
+          (prompt "\nAVISO: el perfil quedo en piezas sueltas (no se pudo agrupar en bloque).")
+          (length ents))
+        (progn
+          (foreach e ents (entdel e))
+          (setq ins (vla-InsertBlock (urb:space) (vlax-3d-point base) bname 1.0 1.0 1.0 0.0))
+          (vla-put-Layer ins "URB-VIA-PERFIL")
+          (urb:set-xdata-strings (vlax-vla-object->ename ins) "URB_VIA_PERFIL" (list handle))
+          (prompt (strcat "\nPerfil de " name ": " (itoa (length stations))
+                          " abscisas, " (itoa (length rows)) " secciones."))
+          1)))))
+
+(defun urb:set-road-profile-visibility
+  (road show / data handle stored axis n old-busy ents ins pt had-table)
+  (setq data (urb:get-xdata-strings road "URB_VIA")
+        handle (cdr (assoc 5 (entget road))))
+  (if (and data handle)
+    (progn
+      ;; recordar donde estaba (si el usuario lo movio) y borrarlo
+      (setq ents (urb:road-profile-entities handle))
+      (foreach ins ents
+        (if (= (cdr (assoc 0 (entget ins))) "INSERT")
+          (progn
+            (setq pt (cdr (assoc 10 (entget ins))))
+            (vl-catch-all-apply 'vlax-ldata-put (list road "URB_VIA_PERFIL_PT" pt))))
+        (entdel ins))
+      (if show
+        (progn
+          (urb:delete-orphan-road-profiles)
+          (setq stored (urb:road-audit-stored road))
+          ;; misma regla que MEMORIAS: calcular aqui solo si es 100% seguro
+          (if (null stored)
+            (progn
+              (setq axis (urb:road-axis-recover road data
+                           (if (> (length data) 22) (nth 22 data) "")))
+              (if (and axis
+                       (urb:road-design-grade-records road data)
+                       (urb:surface-available-p (if (> (length data) 6) (nth 6 data) "")))
+                (progn
+                  (prompt "\nCalculando la verificacion por primera vez...")
+                  (setq had-table (urb:road-memory-table-visible-p handle)
+                        *urb-road-audit-point* nil)
+                  (vl-catch-all-apply 'urb:try-road-earthworks (list road axis))
+                  (if (not had-table) (urb:delete-road-audit-tables handle))
+                  (setq stored (urb:road-audit-stored road))))))
+          (if stored
+            (setq n (vl-catch-all-apply 'urb:draw-road-profile (list road data stored)))
+            (prompt (strcat "\nEsta via aun no tiene guardada su verificacion de movimiento"
+                            " de tierras: corra una vez el boton Verificacion (o EDITAR)"
+                            " y vuelva a pedir el PERFIL.")))
+          (if (vl-catch-all-error-p n)
+            (progn
+              (prompt (strcat "\nERROR al dibujar el perfil: " (vl-catch-all-error-message n)))
+              (setq n nil)))))
+      (setq old-busy *urb-memory-reactor-busy* *urb-memory-reactor-busy* T)
+      (if (/= (strcase (urb:safe-string
+                (cdr (assoc "PERFIL" (urb:block-attribute-values road))) ""))
+              (if (and show n) "MOSTRAR" "OCULTAR"))
+        (vl-catch-all-apply 'mp:setatt-one
+          (list road "PERFIL" (if (and show n) "MOSTRAR" "OCULTAR"))))
+      (setq *urb-memory-reactor-busy* old-busy)
+      (if show (if n T nil) T))
+    nil))
+
 ;; 2026-08-13: toggle sobre la SELECCION ACTUAL, sin preguntar nada --
 ;; lo dispara el menu contextual de clic derecho ("Mostrar/ocultar
 ;; memorias") que agrega la cinta .NET. Acepta vias y tramos mezclados.
@@ -22469,18 +22765,22 @@
           (progn
             (setq requested-show (= (caddr entry) 1)
                   visible
-                    (if (= (car entry) "VIA")
-                      (urb:road-memory-table-visible-p (cadr entry))
-                      (mp:tramo-memory-table-visible-p (cadr entry))))
+                    (cond
+                      ((= (car entry) "VIA")
+                        (urb:road-memory-table-visible-p (cadr entry)))
+                      ((= (car entry) "PERFIL")
+                        (urb:road-profile-visible-p (cadr entry)))
+                      (T (mp:tramo-memory-table-visible-p (cadr entry)))))
             ;; Un segundo evento con el mismo estado no vuelve a construir
             ;; ni borrar la tabla. Esto corta reentradas de Properties/.NET.
             (setq result
               (if (eq requested-show (if visible T nil))
                 T
                 (vl-catch-all-apply
-                  (if (= (car entry) "VIA")
-                    'urb:set-road-memory-visibility
-                    'mp:set-tramo-memory-visibility)
+                  (cond
+                    ((= (car entry) "VIA") 'urb:set-road-memory-visibility)
+                    ((= (car entry) "PERFIL") 'urb:set-road-profile-visibility)
+                    (T 'mp:set-tramo-memory-visibility))
                   (list ename requested-show))))
             (if (or (vl-catch-all-error-p result) (not result))
               (setq failed (1+ (if failed failed 0)))
@@ -22530,12 +22830,20 @@
                         (cons :vlr-modified
                           'urb:on-memory-attribute-modified)))
               (foreach attribute attrs
-                (if (= (strcase (vla-get-TagString attribute)) "MEMORIAS")
+                ;; 5.7.0: PERFIL (solo vias) usa el mismo reactor con su
+                ;; propio tipo de pedido
+                (if (or (= (strcase (vla-get-TagString attribute)) "MEMORIAS")
+                        (and (= kind "VIA")
+                             (= (strcase (vla-get-TagString attribute)) "PERFIL")))
                   (progn
                     (setq result
                       (vl-catch-all-apply
                         'vlr-object-reactor
-                        (list (list attribute) (list kind handle) callbacks)))
+                        (list (list attribute)
+                              (list (if (= (strcase (vla-get-TagString attribute)) "PERFIL")
+                                      "PERFIL" kind)
+                                    handle)
+                              callbacks)))
                     (if (not (vl-catch-all-error-p result))
                       (progn
                         (setq reactor result)
