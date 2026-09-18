@@ -1,5 +1,37 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-18 18:10 America/Bogota — 5.7.3 guía y toperol siguen los quiebres del andén junto a contenedores; eje de vía abocinada
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base ecbc03a. INSTALADA.
+
+1. GUÍA Y TOPEROL "TORCIDOS" (foto del usuario).
+   - La bitácora %TEMP%\urbcant_anden_etapas.log mostró "cadena guia NINGUNA" en TODOS los andenes de
+     hoy con 32-60 vértices sin arcos junto a contenedores (09:13, 14:33, 14:46, 14:55 y 16:36).
+   - La regla de urb:create-accessibility-features (andén cerca de un contenedor y sin arcos →
+     driving-chain nil) mandaba al método de eje único, que traza guía y toperol como UNA franja recta
+     para todo el andén.
+   - La regla existía porque las esquinas de 90° de los entrantes de los contenedores partían la cadena
+     táctil (corte a 45°).
+   - Nuevo urb:ring-remove-notches: quita del anillo los entrantes (cuerda ≤ 6 m, profundidad ≤ 1,6 m,
+     alineados con los bordes vecinos a < 30°) y la cadena se vuelve a buscar. El recorte contra el
+     contenedor lo sigue haciendo la región base.
+   - Verificado con el andén real URB_ANDEN_13D362 (copia del maestro): 370 → 311 vértices, cadena de 60
+     aristas; guía y toperol generados como franjas paralelas que siguen cada quiebre (render revisado).
+2. EJE DE VÍA ABOCINADA (foto: eje naranja que arrancaba en una esquina).
+   - Extremos por PCA: bordes transversales (|cos| < 0,6 con la dirección principal, ≥ 1 m) de
+     proyección mínima y máxima; si no hay dos válidos, criterio anterior.
+   - Ancho típico = percentil 30 (no la mediana) y tolerancia max(0,25 m; 5 %).
+   - Donde el ancho no es típico, el centro va sobre la RECTA entre centros buenos. Los centros de los
+     bordes extremos son anclas, y el parámetro sale de la proyección, no del índice (el índice daba
+     zigzag).
+   - urb:percentile / urb:median con vl-sort-i (vl-sort borra duplicados).
+   - Nuevo urb:confirm-auto-axis: el eje se muestra en magenta con [Si/Extremos/Dibujar].
+   - Verificado:
+     - vía abocinada sintética: extremos (0 7), inicio y fin en los centros de los bordes, sin zigzag;
+     - bahía de 3 m a un lado: desvío 0,000 m.
+- Error propio en el test, para no repetir: usar `sin` como variable en un harness pisa la función
+  seno y todo lo que la usa da "syntax error".
+
 ## 2026-09-18 16:10 America/Bogota — 5.7.2 apertura rápida, plano liviano, cotas de pozo, eje nuevo, perfil con pozos, 2026
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 9ee8e99. INSTALADA completa (lsp, cargador, DLL 2023 v572, DLL 2025/2026, manifiesto).

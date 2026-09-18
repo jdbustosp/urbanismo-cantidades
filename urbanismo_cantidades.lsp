@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.2")
+(setq *urb-version* "5.7.3")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -3818,6 +3818,56 @@
       (if best best (urb:longest-chain chains))))
 )
 
+;; 5.7.3 (reporte del usuario, foto: "el toperol y la guia quedaron
+;; torcidos"). Un anden dibujado RODEANDO contenedores de raices tiene
+;; entrantes rectangulares en el costado de la via; sus esquinas de 90
+;; grados partian la cadena tactil en pedazos, y por eso el motor la
+;; descartaba y trazaba guia y toperol como UNA franja recta para todo el
+;; anden -- en un anden con quiebres esa franja queda cruzada. Aqui se
+;; quitan del ANILLO los entrantes cortos (cuerda <= 6 m, profundidad <=
+;; 1,6 m, alineados con los bordes vecinos a menos de 30 grados); los
+;; quiebres reales del anden (lados largos) se conservan. Solo se usa para
+;; hallar la cadena guia: el recorte contra el contenedor lo sigue haciendo
+;; la region base.
+(defun urb:ring-remove-notches (pts / ring n i j k a b ok out changed guard dirprev dirnext chord)
+  (setq ring (urb:dedupe-ring-points pts) changed T guard 0)
+  (defun urb:rn-ang (p q) (angle (list (car p) (cadr p)) (list (car q) (cadr q))))
+  (defun urb:rn-dang (a1 a2 / d)
+    (setq d (abs (- a1 a2)))
+    (while (> d pi) (setq d (abs (- d (* 2.0 pi)))))
+    d)
+  (while (and changed (< guard 50) (> (length ring) 5))
+    (setq changed nil guard (1+ guard) n (length ring) i 0)
+    (while (and (not changed) (< i n))
+      (setq j (+ i 2))
+      (while (and (not changed) (<= j (+ i 5)) (< (- j i) (- n 2)))
+        (setq a (nth i ring) b (nth (rem j n) ring)
+              chord (distance (list (car a) (cadr a)) (list (car b) (cadr b))))
+        (if (and (<= chord 6.0) (> chord 0.3))
+          (progn
+            (setq ok T k (1+ i))
+            (while (and ok (< k j))
+              (if (> (urb:dist-point-seg (nth (rem k n) ring) a b) 1.6) (setq ok nil))
+              (setq k (1+ k)))
+            (if ok
+              (progn
+                (setq dirprev (urb:rn-ang (nth (rem (+ i n -1) n) ring) a)
+                      dirnext (urb:rn-ang b (nth (rem (1+ j) n) ring)))
+                (if (and (< (urb:rn-dang dirprev (urb:rn-ang a b)) (* pi (/ 30.0 180.0)))
+                         (< (urb:rn-dang dirnext (urb:rn-ang a b)) (* pi (/ 30.0 180.0))))
+                  (progn
+                    ;; quitar los vertices intermedios i+1..j-1 (modulo n)
+                    (setq out nil k 0)
+                    (foreach p ring
+                      (if (not (and (> (if (< k i) (+ k n) k) i)
+                                    (< (if (< k i) (+ k n) k) j)))
+                        (setq out (cons p out)))
+                      (setq k (1+ k)))
+                    (setq ring (reverse out) changed T)))))))
+        (setq j (1+ j)))
+      (setq i (1+ i))))
+  ring)
+
 ;; distancia minima (en planta) de los puntos de una cadena a un punto
 (defun urb:chain-min-distance (chain ref / d best r)
   (setq best nil r (list (car ref) (cadr ref)))
@@ -5253,11 +5303,18 @@
           ;; conservar el eje con arcos y recortar contra base-region. Forzar
           ;; nil aqui perdia casi toda la guia/toperol fuera de la cuerda.
           ;; Conservar el respaldo anterior para contornos rectilineos entrantes.
+          ;; 5.7.3: antes aqui se DESCARTABA la cadena (driving-chain nil)
+          ;; y la franja salia recta y cruzada en andenes con quiebres. Ahora
+          ;; se quitan los entrantes de los contenedores del anillo y se
+          ;; vuelve a buscar la cadena: sigue los quiebres reales del anden.
+          ;; Si el anden es recto la cadena sale de 1 arista y se usa el
+          ;; metodo de eje unico de siempre.
           (if (and (urb:anden-near-root-container-p ename)
                    (not (vl-some '(lambda (p)
                      (and (= (car p) 42) (not (equal (cdr p) 0.0 1e-12))))
                      (entget ename))))
-            (setq driving-chain nil))
+            (setq driving-chain
+              (urb:anden-tactile-chain (urb:ring-remove-notches points))))
           ;; 5.6.8 caja negra: que ruta toma la franja tactil y como termina
           (urb:bb-log (strcat "  tactil: cadena guia "
             (if driving-chain (itoa (length driving-chain)) "NINGUNA") " pts"
@@ -19530,13 +19587,52 @@
 ;; contornos con arcos, jogs de cruces o muchos vertices, sin pedirle
 ;; clics al usuario. e1 = el extremo mas cercano al PRIMER vertice
 ;; dibujado (direccion de abscisado predecible). Devuelve (e1 e2) o nil.
-(defun urb:road-end-edges (boundary / vb pts n i j mi mj d best e1 e2 swap)
+;; 5.7.3 (reporte del usuario, foto de una via abocinada en un cruce): el
+;; criterio "par de bordes mas alejados" tomaba como extremo un tramo corto
+;; del lado CURVO y el eje arrancaba en una esquina. Ahora: direccion
+;; principal de la via (PCA de los vertices); candidatos = bordes
+;; TRANSVERSALES (|cos| con la direccion principal < 0,6) de al menos 1 m;
+;; extremos = el candidato de proyeccion minima y el de maxima. Si no hay
+;; dos candidatos validos se usa el criterio anterior.
+(defun urb:road-end-edges-pca (pts / n cx cy sxx syy sxy ang ux uy i a b len c proj lo hi e1 e2)
+  (setq n (length pts) cx 0.0 cy 0.0 sxx 0.0 syy 0.0 sxy 0.0)
+  (foreach p pts (setq cx (+ cx (car p)) cy (+ cy (cadr p))))
+  (setq cx (/ cx n) cy (/ cy n))
+  (foreach p pts
+    (setq sxx (+ sxx (* (- (car p) cx) (- (car p) cx)))
+          syy (+ syy (* (- (cadr p) cy) (- (cadr p) cy)))
+          sxy (+ sxy (* (- (car p) cx) (- (cadr p) cy)))))
+  (setq ang (* 0.5 (atan (* 2.0 sxy) (- sxx syy))) ux (cos ang) uy (sin ang) i 0)
+  (while (< i n)
+    (setq a (nth i pts) b (nth (rem (1+ i) n) pts) len (distance a b))
+    (if (>= len 1.0)
+      (progn
+        (setq c (abs (/ (+ (* (- (car b) (car a)) ux) (* (- (cadr b) (cadr a)) uy)) len))
+              proj (+ (* (- (* 0.5 (+ (car a) (car b))) cx) ux)
+                      (* (- (* 0.5 (+ (cadr a) (cadr b))) cy) uy)))
+        (if (< c 0.6)
+          (progn
+            (if (or (null lo) (< proj (car lo))) (setq lo (list proj i)))
+            (if (or (null hi) (> proj (car hi))) (setq hi (list proj i)))))))
+    (setq i (1+ i)))
+  ;; no adyacentes (si comparten vertice una de las cadenas laterales
+  ;; quedaria vacia)
+  (if (and lo hi (/= (cadr lo) (cadr hi))
+           (/= (rem (1+ (cadr lo)) n) (cadr hi))
+           (/= (rem (1+ (cadr hi)) n) (cadr lo))
+           (> (- (car hi) (car lo)) 1.0))
+    (list (cadr lo) (cadr hi))
+    nil))
+
+(defun urb:road-end-edges (boundary / vb pts n i j mi mj d best e1 e2 swap pca)
   (setq vb (urb:lwpoly-vertex-bulges boundary))
   (setq pts (car vb) n (length pts))
+  (if (>= n 4) (setq pca (urb:road-end-edges-pca pts)))
+  (if pca (setq e1 (car pca) e2 (cadr pca) best 1.0))
   (if (< n 4)
     nil
     (progn
-      (setq i 0)
+      (setq i (if pca n 0))
       (while (< i n)
         (setq mi (urb:edge-midpoint pts i))
         (setq j (1+ i))
@@ -19589,10 +19685,19 @@
 ;;  - el eje empieza y termina SIEMPRE en el punto medio de los bordes
 ;;    extremos del contorno.
 (defun urb:median (vals / s n)
-  (setq s (vl-sort vals '<) n (length s))
+  (setq s (mapcar '(lambda (k) (nth k vals)) (vl-sort-i vals '<)) n (length s))
   (if (= n 0) 0.0
     (if (= (rem n 2) 1) (nth (/ n 2) s)
       (* 0.5 (+ (nth (1- (/ n 2)) s) (nth (/ n 2) s))))))
+
+(defun urb:percentile (vals q / s n)
+  (setq s (mapcar '(lambda (k) (nth k vals)) (vl-sort-i vals '<)) n (length s))
+  (if (= n 0) 0.0 (nth (min (1- n) (fix (* q (1- n)))) s)))
+
+(defun urb:axis-proj-param (m p q / dx dy l2)
+  (setq dx (- (car q) (car p)) dy (- (cadr q) (cadr p)) l2 (+ (* dx dx) (* dy dy)))
+  (if (< l2 1e-12) 0.0
+    (max 0.0 (min 1.0 (/ (+ (* (- (car m) (car p)) dx) (* (- (cadr m) (cadr p)) dy)) l2)))))
 
 (defun urb:axis-lerp (p q tt)
   (list (+ (car p) (* tt (- (car q) (car p)))) (+ (cadr p) (* tt (- (cadr q) (cadr p))))))
@@ -19625,18 +19730,34 @@
                         (distance (list (car pa) (cadr pa)) (list (car pb) (cadr pb))))
                   samples)))
         (setq k (1+ k)))
+      ;; 5.7.3: ancho TIPICO = percentil 30 (no la mediana): en una via
+      ;; corta abocinada en un cruce la mitad o mas de las muestras estan en
+      ;; el abocinamiento y la mediana ya era "ancho de cruce". Los
+      ;; abocinamientos y bahias solo ENSANCHAN, asi que el ancho tipico es
+      ;; el de la parte baja de la distribucion.
       (setq samples (reverse samples)
-            wmed (urb:median (mapcar 'caddr samples))
-            tol (max 0.5 (* 0.15 wmed))
+            wmed (urb:percentile (mapcar 'caddr samples) 0.30)
+            tol (max 0.25 (* 0.05 wmed))
             n (length samples))
+      ;; centros de los bordes extremos: anclas del principio y del final
+      (setq vb (urb:lwpoly-vertex-bulges boundary) pts (car vb)
+            start-mid (urb:edge-midpoint pts e1)
+            end-mid (urb:edge-midpoint pts e2)
+            start-mid (list (car start-mid) (cadr start-mid))
+            end-mid (list (car end-mid) (cadr end-mid)))
+      (if (and samples
+               (> (distance start-mid (urb:axis-lerp (car (car samples)) (cadr (car samples)) 0.5))
+                  (distance end-mid (urb:axis-lerp (car (car samples)) (cadr (car samples)) 0.5))))
+        (setq k start-mid start-mid end-mid end-mid k))
       ;; buenos = ancho tipico; lista (indice centro) de los buenos, que se
-      ;; recorre con un cursor (sin nth dentro del ciclo)
+      ;; recorre con un cursor (sin nth dentro del ciclo). Los centros de
+      ;; los bordes extremos entran como buenos en -1 y n.
       (setq i 0 good nil)
       (foreach s samples
         (if (<= (abs (- (caddr s) wmed)) tol)
           (setq good (cons (list i (urb:axis-lerp (car s) (cadr s) 0.5)) good)))
         (setq i (1+ i)))
-      (setq good (reverse good))
+      (setq good (append (list (list -1 start-mid)) (reverse good) (list (list n end-mid))))
       (setq i 0 mids nil prev nil next good)
       (foreach s samples
         (setq pa (car s) pb (cadr s) w (caddr s))
@@ -19649,29 +19770,33 @@
             (setq next (car next))
             (setq ref
               (cond
+                ;; 5.7.3: parametro por PROYECCION del centro natural sobre
+                ;; la recta entre centros buenos (el indice de muestra no
+                ;; sirve: sobre el lado curvo las muestras no avanzan parejo
+                ;; y el eje salia en zigzag)
                 ((and prev next)
                   (urb:axis-lerp (cadr prev) (cadr next)
-                    (/ (float (- i (car prev))) (max 1 (- (car next) (car prev))))))
+                    (urb:axis-proj-param (urb:axis-lerp pa pb 0.5) (cadr prev) (cadr next))))
                 (prev (cadr prev))
                 (T (cadr next))))
             (setq ux (/ (- (car pb) (car pa)) w) uy (/ (- (cadr pb) (cadr pa)) w)
                   cand1 (list (+ (car pa) (* ux 0.5 wmed)) (+ (cadr pa) (* uy 0.5 wmed)))
                   cand2 (list (- (car pb) (* ux 0.5 wmed)) (- (cadr pb) (* uy 0.5 wmed))))
-            (setq mids (cons (if (<= (distance cand1 ref) (distance cand2 ref)) cand1 cand2) mids))
+            ;; bahia a UN lado: el candidato anclado al lado regular cae
+            ;; sobre la linea de los centros buenos (se usa, sigue curvas).
+            ;; Abocinamiento hacia el extremo: ningun candidato cae cerca y
+            ;; el eje va RECTO entre el ultimo centro bueno y el centro del
+            ;; borde final (la linea amarilla del reporte).
+            ;; (medido: alternar entre candidato anclado y recta dejaba un
+            ;; quiebre en zigzag donde empieza el abocinamiento; la recta
+            ;; entre centros buenos cubre los dos casos sin saltos)
+            (setq mids (cons ref mids))
             ;; restaurar el cursor (next se uso como elemento suelto)
             (setq next (vl-member-if '(lambda (g) (> (car g) i)) good))))
         (setq i (1+ i)))
       (setq mids (reverse mids))
       ;; extremos: centro de los bordes extremos del contorno (se descartan
       ;; las muestras a menos de 0,5 m de ellos para no hacer "gancho")
-      (setq vb (urb:lwpoly-vertex-bulges boundary) pts (car vb)
-            start-mid (urb:edge-midpoint pts e1)
-            end-mid (urb:edge-midpoint pts e2)
-            start-mid (list (car start-mid) (cadr start-mid))
-            end-mid (list (car end-mid) (cadr end-mid)))
-      (if (> (distance start-mid (last mids)) (distance start-mid (car mids)))
-        nil
-        (setq mids (reverse mids)))
       (setq out nil)
       (foreach p mids
         (if (and (> (distance p start-mid) 0.5) (> (distance p end-mid) 0.5))
@@ -19719,6 +19844,43 @@
           ename)
         nil))
     nil))
+
+;; 5.7.3 (pedido del usuario: "el alineamiento tiene que quedar como el
+;; amarillo, me lo creo como el naranja"): el eje automatico se MUESTRA y
+;; se confirma antes de seguir. Extremos = el usuario toca los 2 bordes
+;; extremos del contorno y se recalcula; Dibujar = eje a mano. Devuelve
+;; el eje aceptado (o nil si se cancela).
+(defun urb:confirm-auto-axis (boundary axis / ans obj p1 p2 pts e1 e2 done)
+  (while (and axis (not done))
+    (setq obj (vlax-ename->vla-object axis))
+    (vl-catch-all-apply 'vla-put-Color (list obj 6))
+    (vl-catch-all-apply 'vla-put-ConstantWidth (list obj 0.15))
+    (vl-catch-all-apply 'vla-Update (list obj))
+    (initget "Si Extremos Dibujar")
+    (setq ans (getkword "\nEje automatico (magenta). Es correcto? [Si/Extremos/Dibujar] <Si>: "))
+    (cond
+      ((or (null ans) (= ans "Si"))
+        (vl-catch-all-apply 'vla-put-Color (list obj 256))
+        (vl-catch-all-apply 'vla-put-ConstantWidth (list obj 0.0))
+        (setq done T))
+      ((= ans "Extremos")
+        (setq p1 (getpoint "\nClic sobre el borde del INICIO de la via: ")
+              p2 (if p1 (getpoint "\nClic sobre el borde del FINAL de la via: ")))
+        (if (and p1 p2)
+          (progn
+            (setq pts (car (urb:lwpoly-vertex-bulges boundary))
+                  e1 (urb:nearest-edge-index pts p1)
+                  e2 (urb:nearest-edge-index pts p2))
+            (if (and e1 e2 (/= e1 e2))
+              (progn
+                (entdel axis)
+                (setq axis (urb:road-axis-from-chains boundary e1 e2))
+                (if axis (setq *urb-road-end-edges* (list e1 e2))))
+              (prompt "\nLos dos clics cayeron en el mismo borde; se conserva el eje.")))))
+      ((= ans "Dibujar")
+        (entdel axis)
+        (setq axis (urb:select-or-draw-road-axis "Nuevo") done T))))
+  axis)
 
 ;; Resalta una cadena temporal con entidad magenta gruesa y selection glow.
 ;; A diferencia de grdraw solo, el resaltado persiste mientras getkword espera.
@@ -20312,6 +20474,7 @@
           (if (and boundary auto-axis)
             (progn
               (setq axis (urb:road-axis-from-boundary boundary))
+              (if axis (setq axis (urb:confirm-auto-axis boundary axis)))
               (if axis
                 (prompt "\nEje central calculado automaticamente del contorno.")
                 (progn
