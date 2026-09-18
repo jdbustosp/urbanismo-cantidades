@@ -1,5 +1,32 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-18 14:10 America/Bogota — 5.7.1 perfil por clic derecho
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 0214f00. INSTALADA completa (lsp + DLL 2023 v571 + manifiesto).
+
+Reporte del usuario: VIA-06 con PERFIL=MOSTRAR y sin perfil. El log de la cinta registró
+"1 pedido(s) en 31 ms" y la consola decía "1 sin datos suficientes".
+
+Diagnóstico:
+- Sobre una copia de URB_MASTER_GENERAL.dwg (guardado 13:15), las 13 vías tienen verificación guardada y
+  las 13 dibujan su perfil (VIA-06: 88 secciones, 390 ms). No era un problema de datos.
+- Causa más probable: versiones mezcladas en la sesión viva. La copia 5.6.9 del bundle cargó después del
+  repo 5.7.0 y pisó `urb:process-memory-requests`, que despachó el pedido PERFIL como si fuera un tramo.
+  Es el mismo síntoma que se vio en el primer test headless.
+
+Cambios:
+- Clic derecho "Mostrar/ocultar perfil" en el menú contextual del DLL 2023 (`OnContextPerfil` →
+  `QPERFILSEL`), junto a "Mostrar/ocultar memorias".
+- `c:QPERFILSEL` alterna el perfil de las vías seleccionadas (ignora lo que no sea vía).
+- Si falta la verificación, un `alert` nombra la pieza que falta (eje, rasante o superficie). Los errores
+  de dibujo también salen en `alert`.
+- DLL recompilado como UrbCantRibbon2023_v571.dll (nombre nuevo porque el anterior está bloqueado mientras
+  Civil 3D esté abierto).
+- NO aplica al build 2025 (.NET 8): allí el menú contextual sigue deshabilitado por el crash conocido.
+
+Verificación headless con copia561: QPERFILSEL con 9 vías seleccionadas dibuja 9 perfiles y el segundo
+clic los deja en 0. El clic en el menú real no se probó headless: requiere una sesión visible.
+
 ## 2026-09-18 13:30 America/Bogota — 5.7.0 perfil longitudinal de la vía (esquema de cortes) con MOSTRAR/OCULTAR
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 7ae892d. INSTALADA (el .lsp).

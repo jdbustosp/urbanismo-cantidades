@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.0")
+(setq *urb-version* "5.7.1")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -22423,12 +22423,22 @@
                   (setq stored (urb:road-audit-stored road))))))
           (if stored
             (setq n (vl-catch-all-apply 'urb:draw-road-profile (list road data stored)))
-            (prompt (strcat "\nEsta via aun no tiene guardada su verificacion de movimiento"
-                            " de tierras: corra una vez el boton Verificacion (o EDITAR)"
-                            " y vuelva a pedir el PERFIL.")))
+            (alert
+              (strcat "No se puede dibujar el perfil de "
+                      (urb:safe-string (nth 1 data) "la via") ":\n"
+                      "la via no tiene guardada su verificacion de movimiento de tierras"
+                      (cond
+                        ((null axis) " y no se encontro su EJE.")
+                        ((null (urb:road-design-grade-records road data))
+                          " y no tiene RASANTE guardada.")
+                        ((not (urb:surface-available-p (if (> (length data) 6) (nth 6 data) "")))
+                          (strcat " y la superficie '" (urb:safe-string (nth 6 data) "")
+                                  "' no esta en el dibujo."))
+                        (T "."))
+                      "\n\nCorra una vez EDITAR (o Verificacion) sobre la via y vuelva a pedir el perfil.")))
           (if (vl-catch-all-error-p n)
             (progn
-              (prompt (strcat "\nERROR al dibujar el perfil: " (vl-catch-all-error-message n)))
+              (alert (strcat "ERROR al dibujar el perfil: " (vl-catch-all-error-message n)))
               (setq n nil)))))
       (setq old-busy *urb-memory-reactor-busy* *urb-memory-reactor-busy* T)
       (if (/= (strcase (urb:safe-string
@@ -22439,6 +22449,37 @@
       (setq *urb-memory-reactor-busy* old-busy)
       (if show (if n T nil) T))
     nil))
+
+;; 5.7.1: clic derecho "Mostrar/ocultar perfil" (lo agrega la cinta .NET,
+;; igual que el de memorias). Toggle sobre las VIAS de la seleccion.
+(defun c:QPERFILSEL (/ ss i road h done shown hidden failed)
+  (setq ss (ssget "_I"))
+  (if (null ss)
+    (progn (prompt "\nSeleccione vias: ") (setq ss (ssget))))
+  (if ss
+    (progn
+      (setq i 0 shown 0 hidden 0 failed 0)
+      (repeat (sslength ss)
+        (setq road (urb:road-parent-from-entity (ssname ss i)))
+        (if (and road (not (member road done)))
+          (progn
+            (setq done (cons road done)
+                  h (cdr (assoc 5 (entget road))))
+            (if (urb:road-profile-visible-p h)
+              (progn (urb:set-road-profile-visibility road nil)
+                     (setq hidden (1+ hidden)))
+              (if (urb:set-road-profile-visibility road T)
+                (setq shown (1+ shown))
+                (setq failed (1+ failed))))))
+        (setq i (1+ i)))
+      (sssetfirst nil nil)
+      (prompt (strcat "\nPerfil: " (itoa shown) " mostrado(s), " (itoa hidden)
+                      " oculto(s)" (if (> failed 0) (strcat ", " (itoa failed) " sin datos") "")
+                      "."))
+      (if (and (= (length done) 0))
+        (prompt "\nLa seleccion no tiene vias creadas por el programa.")))
+    (prompt "\nNada seleccionado."))
+  (princ))
 
 ;; 2026-08-13: toggle sobre la SELECCION ACTUAL, sin preguntar nada --
 ;; lo dispara el menu contextual de clic derecho ("Mostrar/ocultar

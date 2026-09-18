@@ -172,6 +172,12 @@ namespace UrbanismoCantidades
                         "Mostrar/ocultar memorias");
                 item.Click += OnContextMemorias;
                 _memoriasMenu.MenuItems.Add(item);
+                // 5.7.1: perfil longitudinal de la via, gemelo de memorias
+                Autodesk.AutoCAD.Windows.MenuItem perfil =
+                    new Autodesk.AutoCAD.Windows.MenuItem(
+                        "Mostrar/ocultar perfil");
+                perfil.Click += OnContextPerfil;
+                _memoriasMenu.MenuItems.Add(perfil);
                 Autodesk.AutoCAD.ApplicationServices.Application
                     .AddObjectContextMenuExtension(
                         Autodesk.AutoCAD.Runtime.RXObject.GetClass(
@@ -197,6 +203,21 @@ namespace UrbanismoCantidades
             catch (System.Exception ex)
             {
                 Log("ERROR clic memorias: " + ex.Message);
+            }
+        }
+
+        private static void OnContextPerfil(object sender, EventArgs e)
+        {
+            try
+            {
+                Autodesk.AutoCAD.ApplicationServices.Document doc =
+                    Application.DocumentManager.MdiActiveDocument;
+                if (doc != null)
+                    doc.SendStringToExecute("QPERFILSEL ", true, false, true);
+            }
+            catch (System.Exception ex)
+            {
+                Log("ERROR clic perfil: " + ex.Message);
             }
         }
 
