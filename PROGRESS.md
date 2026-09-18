@@ -1,5 +1,43 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-18 12:10 America/Bogota — 5.6.9 conexión con el libro de SharePoint; libro con subtotales reparados y ajustes aplicados
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 16d86a5. INSTALADA (el .lsp).
+
+1. "NO se pudo abrir el libro: Microsoft Excel no puede obtener acceso al
+   archivo" (foto del usuario). Dos causas medidas:
+   - Un libro de carpeta sincronizada con SharePoint reporta FullName como
+     URL (https://colsubsidio365.sharepoint.com/.../urbanismo maipore.xlsx).
+     urb:ppto-attach-excel comparaba con la ruta local, nunca lo encontraba
+     abierto e intentaba abrirlo otra vez. Ahora reconoce por nombre de
+     archivo cuando FullName es URL (urb:ppto-url-filename, %20 -> espacio).
+   - Un Excel oculto SIN libros quedaba vivo (PID desde las 9:04) porque
+     tras Quit no se liberaba la memoria COM: se agregó (gc) (gc) tras cada
+     release de la aplicación, y el attach cierra un Excel oculto sin libros
+     antes de crear uno nuevo (nunca toca un Excel visible).
+   Verificado: libro cerrado -> MEMORIAS OK + 1460 actividades leídas (37 s);
+   libro abierto en el Excel VISIBLE del usuario -> se conecta a esa misma
+   instancia (FullName https), 1460 actividades en 3 s, el Excel del usuario
+   queda abierto.
+2. LIBRO urbanismo maipore.xlsx (no es del repo; respaldos en
+   Documents/URBANISMO/work/ppto_20260918):
+   - CAUSA REAL de los subtotales "borrados": las 276 fórmulas LET de la
+     columna E (escritas por scripts_libro/reescribir_pe42.ps1) no tenían
+     xl/metadata.xml ni cm="1"; Excel (M365 16.0.20326, el mismo del
+     usuario) las descarta al abrir, incluso con doble clic. No era la
+     versión de Excel (corrige lo anotado el 2026-09-17).
+   - Reparación: E = SUMIFS($AP:$AP,$A:$A,5,<col>,ROW()) con columnas
+     auxiliares AS..AV (FILA_N1..N4). Los 276 subtotales coinciden al peso
+     con los anteriores (diferencia máxima 0). Guardar por COM ya es seguro.
+   - Ajustes pedidos APLICADOS en el libro (ya no como macro): CCTV acueducto
+     y pluvial, vactor pluvial y sanitario, reparaciones EAAB $75.000.000,
+     retiro/reinstalación de luminarias, consumo de energía AP, capítulo
+     nuevo GESTIÓN, REVISIÓN Y CERTIFICACIONES (planos récord GB, gestor
+     EAAB GB, topografía MES, pólizas RETIE/RETILAB 0,005 % de redes secas =
+     $524.440 c/u, revisión de diseños 6 % = $7.634.550.722 e interventoría
+     3 % = $3.817.275.361 sobre $127.242.512.029 de obra) y contenedor Tipo G.
+     Total por ejecutar 134.851.652.648 -> 146.386.033.861.
+
 ## 2026-09-18 00:05 America/Bogota — 5.6.8 el andén se crea aunque falle la franja táctil
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base e938faa. INSTALADA (el .lsp).

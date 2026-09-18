@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.8")
+(setq *urb-version* "5.6.9")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -32230,6 +32230,16 @@
   (vlax-put-property cell 'Value2 value)
   (vlax-release-object cell))
 
+;; ultimo segmento de una URL (https://.../carpeta/libro.xlsx -> libro.xlsx),
+;; con los %20 de SharePoint devueltos a espacios
+(defun urb:ppto-url-filename (url / pos s)
+  (setq s url pos (vl-string-search "/" s))
+  (while pos
+    (setq s (substr s (+ pos 2)) pos (vl-string-search "/" s)))
+  (while (setq pos (vl-string-search "%20" s))
+    (setq s (strcat (substr s 1 pos) " " (substr s (+ pos 4)))))
+  s)
+
 ;; Devuelve (app wb propia-p) o (nil nil mensaje).
 (defun urb:ppto-attach-excel (path / lock app wbs count i wb name result)
   (setq lock
@@ -32249,11 +32259,35 @@
             '(lambda ()
               (vlax-get-property
                 (urb:ppto-obj (vlax-get-property wbs 'Item i)) 'FullName))))
+        ;; 5.6.9 (reporte del usuario: "no me esta dejando conectar al libro"):
+        ;; un libro de una carpeta sincronizada con SharePoint/OneDrive
+        ;; reporta FullName como URL (https://...sharepoint.com/.../x.xlsx),
+        ;; nunca como la ruta local. La comparacion exacta fallaba, el plugin
+        ;; intentaba abrirlo OTRA VEZ en una instancia oculta y Excel
+        ;; respondia "no puede obtener acceso al archivo". Ahora tambien se
+        ;; reconoce por NOMBRE de archivo cuando FullName es una URL.
         (if (and (not (vl-catch-all-error-p name))
-                 (= (strcase name) (strcase path)))
+                 (or (= (strcase name) (strcase path))
+                     (and (wcmatch (strcase name) "HTTP*")
+                          (= (strcase (urb:ppto-url-filename name))
+                             (strcase (strcat (vl-filename-base path)
+                                              (vl-filename-extension path)))))))
           (setq wb (urb:ppto-obj (vlax-get-property wbs 'Item i))))
         (setq i (1+ i)))
-      (vlax-release-object wbs)))
+      (vlax-release-object wbs)
+      ;; 5.6.9: un Excel OCULTO y SIN libros es un sobrante de un intento
+      ;; anterior (visto hoy: PID vivo desde la manana, 0 libros, y cada
+      ;; "Reintentar abrir" chocaba con el). Se cierra y se sigue con uno
+      ;; nuevo; nunca se toca un Excel visible del usuario.
+      (if (and (null wb) (= count 0)
+               (not (vl-catch-all-error-p
+                      (vl-catch-all-apply 'vlax-get-property (list app 'Visible))))
+               (= (vlax-get-property app 'Visible) :vlax-false))
+        (progn
+          (vl-catch-all-apply 'vlax-invoke-method (list app 'Quit))
+          (vl-catch-all-apply 'vlax-release-object (list app))
+          (gc) (gc)
+          (prompt "\nPresupuesto: se cerro un Excel oculto sobrante de un intento anterior.")))))
   (cond
     (wb (list app wb nil))
     ;; 2) lock ~$: puede ser un HUERFANO de un Excel que cerro mal (visto
@@ -32285,7 +32319,7 @@
           (if (vl-catch-all-error-p result)
             (progn
               (vl-catch-all-apply 'vlax-invoke-method (list app 'Quit))
-              (vlax-release-object app)
+              (vlax-release-object app) (gc) (gc)
               (list nil nil
                 (strcat "No fue posible abrir el libro: "
                   (vl-catch-all-error-message result))))
@@ -36325,7 +36359,7 @@
                   '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
                 (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
                 (vlax-release-object wb)
-                (vlax-release-object app)))
+                (vlax-release-object app) (gc) (gc)))
             (cond
               ((vl-catch-all-error-p result)
                 (setq *urb-ppto-last-summary*
@@ -36436,7 +36470,7 @@
             '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
           (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
           (vlax-release-object wb)
-          (vlax-release-object app)))
+          (vlax-release-object app) (gc) (gc)))
       (if (vl-catch-all-error-p result)
         (list (strcat "PROBLEMA validando el libro: "
                 (vl-catch-all-error-message result)))
@@ -36523,7 +36557,7 @@
             '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
           (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
           (vlax-release-object wb)
-          (vlax-release-object app)))
+          (vlax-release-object app) (gc) (gc)))
       (if (vl-catch-all-error-p result)
         (alert (strcat "PROBLEMA eligiendo la hoja:\n\n"
           (vl-catch-all-error-message result))))
@@ -36677,7 +36711,7 @@
             '(lambda () (vlax-invoke-method wb 'Close :vlax-false)))
           (vl-catch-all-apply '(lambda () (vlax-invoke-method app 'Quit)))
           (vlax-release-object wb)
-          (vlax-release-object app)))
+          (vlax-release-object app) (gc) (gc)))
       (if (vl-catch-all-error-p result)
         (list (strcat "PROBLEMA leyendo el libro: "
                 (vl-catch-all-error-message result)) "" nil)
