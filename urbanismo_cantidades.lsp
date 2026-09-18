@@ -70,7 +70,9 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.1")
+(setq *urb-version* "5.7.2")
+;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
+(setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -208,6 +210,9 @@
 ;; Records (distancia-eje cota) del modo Pendiente con 3+ cotas (pozos
 ;; sobre la via); se limpia al terminar cada creacion de via.
 (setq *urb-road-picked-stations* nil)
+;; 5.7.2: fuente de cada cota tomada (pozo/via/texto) para el PERFIL
+(setq *urb-road-picks-raw* nil *urb-road-picked-sources* nil)
+(setq *urb-profile-ask-point* nil)
 ;; Pendiente en % cuando el usuario solo tiene UNA cota de referencia
 ;; (2026-09-10: "puede que tenga via al principio pero no al final").
 ;; Se limpia igual que las otras dos.
@@ -16745,14 +16750,80 @@
 ;; su contenedor ya se purgo) + una de Regapps (las appid huerfanas de
 ;; xdata NO caen con All y pesan en dibujos viejos). No toca nada en
 ;; uso: -PURGE solo elimina definiciones sin referencias.
-(defun urb:purge-command ()
+;; 5.7.2 (pedido del usuario: "esta muy pesado y se demora mucho en
+;; moverse... sin perder precision"). Medido en el maestro (39,5 MB): la
+;; purga clasica solo retiro 4 de 1169 definiciones -- no es ahi donde esta
+;; el peso. El 60% de lo dibujado son las piezas tactiles DENTRO de los
+;; andenes: 32.929 circulos (domos de toperol) en URB-ANDEN-LOSETA-TOPEROL-20X20
+;; y 23.922 lineas/polilineas en URB-ANDEN-LOSETA-GUIA-20X20. Sus CANTIDADES
+;; viven en la XDATA/atributos del anden, no en el dibujo, asi que congelar
+;; esas dos capas acelera el zoom/pan/regen sin cambiar ni un numero, y se
+;; deshace con la misma opcion.
+(setq *urb-light-layers*
+  '("URB-ANDEN-LOSETA-TOPEROL-20X20" "URB-ANDEN-LOSETA-GUIA-20X20"))
+
+(defun urb:light-mode-state (/ lay frozen total)
+  (setq frozen 0 total 0)
+  (foreach lay *urb-light-layers*
+    (if (tblsearch "LAYER" lay)
+      (progn
+        (setq total (1+ total))
+        (if (= 1 (logand 1 (cdr (assoc 70 (tblsearch "LAYER" lay)))))
+          (setq frozen (1+ frozen))))))
+  (cond ((= total 0) "SIN CAPAS") ((= frozen total) "ACTIVO") (T "APAGADO")))
+
+(defun urb:light-mode-set (on / lay obj n)
+  (setq n 0)
+  (foreach lay *urb-light-layers*
+    (if (tblsearch "LAYER" lay)
+      (progn
+        (setq obj (vla-Item (vla-get-Layers (urb:doc)) lay))
+        (if (not (vl-catch-all-error-p
+                   (vl-catch-all-apply 'vla-put-Freeze (list obj (if on :vlax-true :vlax-false)))))
+          (setq n (1+ n))))))
+  (vl-catch-all-apply '(lambda () (vla-Regen (urb:doc) acAllViewports)))
+  n)
+
+(defun urb:count-table (name / a n)
+  (setq n 0 a (tblnext name T))
+  (while a (setq n (1+ n) a (tblnext name)))
+  n)
+
+(defun urb:count-blocks (/ n)
+  (setq n 0)
+  (vlax-for b (vla-get-Blocks (urb:doc)) (setq n (1+ n)))
+  n)
+
+(defun urb:purge-command (/ b0 r0 b1 r1 state answer)
+  (setq b0 (urb:count-blocks) r0 (urb:count-table "APPID"))
   (prompt "\nDepurando definiciones sin uso (3 pasadas)...")
   (repeat 3
     (vl-catch-all-apply
       '(lambda () (command "_.-PURGE" "_A" "*" "_N"))))
   (vl-catch-all-apply
     '(lambda () (command "_.-PURGE" "_R" "*" "_N")))
-  (prompt "\nDepuracion terminada: bloques, capas, estilos, grupos y regapps sin uso eliminados. Guarde el dibujo para que el archivo baje de peso.")
+  (setq b1 (urb:count-blocks) r1 (urb:count-table "APPID"))
+  (prompt (strcat "\nDepuracion: definiciones de bloque " (itoa b0) " -> " (itoa b1)
+                  " | regapps " (itoa r0) " -> " (itoa r1) "."))
+  ;; modo liviano
+  (setq state (urb:light-mode-state))
+  (if (/= state "SIN CAPAS")
+    (progn
+      (initget "Activar Restaurar Nada")
+      (setq answer
+        (getkword
+          (strcat "\nModo liviano (congela el detalle tactil de los andenes; NO cambia cantidades)"
+                  " -- hoy " state " [Activar/Restaurar/Nada] <"
+                  (if (= state "ACTIVO") "Nada" "Activar") ">: ")))
+      (if (null answer) (setq answer (if (= state "ACTIVO") "Nada" "Activar")))
+      (cond
+        ((= answer "Activar")
+          (urb:light-mode-set T)
+          (prompt "\nModo liviano ACTIVO: guia y toperol de andenes congelados. Las cantidades no cambian."))
+        ((= answer "Restaurar")
+          (urb:light-mode-set nil)
+          (prompt "\nDetalle tactil de andenes visible de nuevo.")))))
+  (prompt "\nGuarde el dibujo para que el archivo baje de peso.")
   (princ))
 
 (defun mp:configured-tramo-value (canonical legacy default lo hi / value)
@@ -17932,7 +18003,7 @@
 
 (defun urb:upgrade-existing-road-properties
   (/ ss i road data mov obj blocks bdef bname tags item victims length-value
-   left right area overarea added sync-result spec)
+   left right area overarea added sync-result spec added-before vals)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA"))))
         i 0 blocks (vla-get-Blocks (urb:doc)) added 0)
   (if ss
@@ -17953,6 +18024,7 @@
               ((= (vla-get-ObjectName item) "AcDbMText")
                 (setq victims (cons item victims)))))
           (foreach item victims (if (urb:safe-delete item) (setq added (1+ added))))
+          (setq added-before added)
           (setq area (atof (urb:safe-string (nth 17 data) "0"))
                 length-value (atof (urb:safe-string (nth 18 data) "0"))
                 left (atof (urb:safe-string (nth 14 data) "0"))
@@ -17969,10 +18041,17 @@
                 (urb:add-invisible-attribute bdef '(0.0 0.0 0.0)
                   (car spec) (cadr spec) (caddr spec))
                 (setq added (1+ added)))))
-          (setq sync-result
-            (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bname)))
-          (urb:set-block-attribute obj "VIA_AREA_SOBREANCHO_M2" (rtos area 2 2))
-          (urb:set-block-attribute obj "VIA_SOBREANCHO_M2" (rtos overarea 2 2))
+          ;; 5.7.2: ATTSYNC solo si a ESTA definicion le falto algo (antes
+          ;; corria en cada via en cada apertura: 1,6 s en el maestro) y
+          ;; los valores solo se reescriben si cambiaron
+          (if (> added added-before)
+            (setq sync-result
+              (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bname))))
+          (setq vals (urb:block-attribute-values obj))
+          (if (/= (cdr (assoc "VIA_AREA_SOBREANCHO_M2" vals)) (rtos area 2 2))
+            (urb:set-block-attribute obj "VIA_AREA_SOBREANCHO_M2" (rtos area 2 2)))
+          (if (/= (cdr (assoc "VIA_SOBREANCHO_M2" vals)) (rtos overarea 2 2))
+            (urb:set-block-attribute obj "VIA_SOBREANCHO_M2" (rtos overarea 2 2)))
           (if (= (urb:safe-string
                     (cdr (assoc "MEMORIAS" (urb:block-attribute-values obj))) "") "")
             (urb:set-block-attribute obj "MEMORIAS" "OCULTAR"))
@@ -18695,9 +18774,90 @@
 ;; mensajes nombran las cuatro fuentes y, con UNA sola cota, se pide la
 ;; PENDIENTE y con eso se arma la rasante (el mismo camino de "cota inicial
 ;; + pendiente" que el motor ya sabia usar).
-(defun urb:pick-road-cotas-loop (picks / sel obj txt value point msg n done slope)
+;; 5.7.2 FUENTE de cada cota (pedido del usuario: "mi pozo esta en el
+;; circulo naranja pero mi cota esta en la parte verde... la localizacion
+;; de esa cota queda donde esta la elevacion que senalo?"). Antes SI: la
+;; cota se ubicaba en el punto del CLIC sobre el texto, que puede estar a
+;; varios metros del pozo. Ahora:
+;;  - clic sobre un POZO del modelo: la cota va en el CENTRO del pozo;
+;;  - clic sobre una ETIQUETA: se busca un pozo del modelo a <= 25 m con
+;;    una cota igual (+-0,006); si aparece, la cota va en ese pozo; si no,
+;;    se pide el punto al que pertenece (Enter = donde esta el texto).
+;; Cada pick queda (valor punto tipo nombre) y la lista cruda se guarda en
+;; *urb-road-picks-raw* para que el PERFIL dibuje pozos y cotas de via.
+(defun urb:pick-model-punto-info (sel / cands item ed obj bname atts v out id)
+  (setq cands (list (car sel)))
+  (if (> (length sel) 3) (setq cands (append cands (nth 3 sel))))
+  (foreach item cands
+    (if (and (null out) item (setq ed (entget item))
+             (= (cdr (assoc 0 ed)) "INSERT"))
+      (progn
+        (setq obj (vl-catch-all-apply 'vlax-ename->vla-object (list item)))
+        (setq bname (if (vl-catch-all-error-p obj) ""
+                      (vl-catch-all-apply 'vla-get-EffectiveName (list obj))))
+        (if (vl-catch-all-error-p bname) (setq bname ""))
+        (if (wcmatch (strcase (mp:safe-str bname)) "MP_PUNTO_*")
+          (progn
+            (setq atts (mp:att-alist item)
+                  id (mp:getval "ID" atts (mp:getval "CODIGO" atts "")))
+            (setq v (mp:numeric-real (mp:getval "COTA_TAPA" atts "")))
+            (if (null v) (setq v (mp:numeric-real (mp:getval "COTA_TN_INI" atts ""))))
+            (if (null v) (setq v (mp:numeric-real (mp:getval "COTA_RASANTE" atts ""))))
+            (if v (setq out (list v (cdr (assoc 10 ed)) id))))))))
+  out)
+
+;; pozo del modelo cerca de una etiqueta cuyo valor coincide con alguna de
+;; sus cotas: devuelve (punto id) o nil
+(defun urb:pozo-for-cota-label (value point / r ss i e obj bname atts best bestd d id)
+  (setq r 25.0
+        ss (ssget "_X"
+             (list '(0 . "INSERT")
+                   '(-4 . ">,>,*") (list 10 (- (car point) r) (- (cadr point) r) 0.0)
+                   '(-4 . "<,<,*") (list 10 (+ (car point) r) (+ (cadr point) r) 0.0)))
+        i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq e (ssname ss i) i (1+ i)
+            obj (vlax-ename->vla-object e)
+            bname (vl-catch-all-apply 'vla-get-EffectiveName (list obj)))
+      (if (and (not (vl-catch-all-error-p bname))
+               (wcmatch (strcase bname) "MP_PUNTO_*"))
+        (progn
+          (setq atts (mp:att-alist e))
+          (if (vl-some
+                '(lambda (a)
+                   (and (wcmatch (strcase (car a)) "COTA*")
+                        (mp:numeric-real (cdr a))
+                        (equal (mp:numeric-real (cdr a)) value 0.006)))
+                atts)
+            (progn
+              (setq d (distance (list (car point) (cadr point))
+                                (list (car (cdr (assoc 10 (entget e))))
+                                      (cadr (cdr (assoc 10 (entget e)))))))
+              (if (or (null bestd) (< d bestd))
+                (setq bestd d
+                      best (list (cdr (assoc 10 (entget e)))
+                                 (mp:getval "ID" atts (mp:getval "CODIGO" atts "")))))))))))
+  best)
+
+(defun urb:pick-road-name (sel / cands item road data out)
+  (setq cands (list (car sel)))
+  (if (> (length sel) 3) (setq cands (append cands (nth 3 sel))))
+  (foreach item cands
+    (if (and (null out) item)
+      (progn
+        (setq road (vl-catch-all-apply 'urb:road-parent-from-entity (list item)))
+        (if (and road (not (vl-catch-all-error-p road))
+                 (setq data (urb:get-xdata-strings road "URB_VIA")))
+          (setq out (urb:safe-string (nth 1 data) "VIA"))))))
+  out)
+
+(defun urb:pick-road-cotas-loop (picks / sel obj txt value point msg n done slope
+                                 kind label info pz)
   (setq done nil)
-  (setq *urb-road-picked-slope* nil)
+  (setq *urb-road-picked-slope* nil
+        *urb-road-picks-raw* nil
+        *urb-road-picked-sources* nil)
   (while (not done)
     (setq n (length picks))
     (setq msg
@@ -18736,7 +18896,7 @@
                 (setq slope
                   (getreal "\nPendiente de la via en % <0>: "))
                 (setq *urb-road-picked-slope* (if slope slope 0.0))
-                (setq picks (list (list value nil)))
+                (setq picks (list (list value nil "DIGITADA" "")))
                 (prompt
                   (strcat "\nRasante digitada: " (rtos value 2 3)
                     " msnm con pendiente "
@@ -18754,32 +18914,53 @@
         ;; forzaba la abscisa local 0+000 de la via fuente; por eso una
         ;; conexion cerca de 0+210 heredaba 2560.96 en vez de interpolar
         ;; aproximadamente 2556.89 entre las cotas vecinas.
+        (setq point (cadr sel) kind nil label "")
         (setq value (urb:cota-from-pick sel))
         (if value
-          (prompt
-            (strcat
-              "\nCota interpolada de la RASANTE en el punto seleccionado: "
-              (rtos value 2 3)))
           (progn
-            ;; pozo/caja del modelo: cota de tapa/rasante del bloque
-            (setq value (urb:cota-from-model-punto sel))
-            (if value
-              (prompt
-                (strcat "\nCota tomada del POZO/ELEMENTO del modelo: "
-                  (rtos value 2 3)))
+            (setq kind "VIA" label (urb:safe-string (urb:pick-road-name sel) "VIA"))
+            (prompt
+              (strcat
+                "\nCota interpolada de la RASANTE en el punto seleccionado: "
+                (rtos value 2 3))))
+          (progn
+            ;; pozo/caja del modelo: cota de tapa/rasante del bloque, y la
+            ;; cota se ubica en el CENTRO del pozo, no donde cayo el clic
+            (setq info (urb:pick-model-punto-info sel))
+            (if info
+              (progn
+                (setq value (car info) point (cadr info)
+                      kind "POZO" label (urb:safe-string (caddr info) ""))
+                (prompt
+                  (strcat "\nCota tomada del POZO " label " del modelo: "
+                    (rtos value 2 3) " (ubicada en el centro del pozo)")))
               (progn
                 (setq value (urb:selected-cota-number sel))
                 (if value
-                  (prompt
-                    (strcat "\nCota leida de la etiqueta: "
-                      (rtos value 2 3))))))))
+                  (progn
+                    (prompt
+                      (strcat "\nCota leida de la etiqueta: " (rtos value 2 3)))
+                    (setq pz (urb:pozo-for-cota-label value point))
+                    (if pz
+                      (progn
+                        (setq point (car pz) kind "POZO"
+                              label (urb:safe-string (cadr pz) ""))
+                        (prompt (strcat " -> pertenece al POZO " label
+                                        "; se ubica en el centro del pozo.")))
+                      (progn
+                        (setq kind "TEXTO")
+                        (setq pz (getpoint
+                                   (strcat "\nClic en el POZO o punto al que pertenece esa cota"
+                                           " <Enter = donde esta el texto>: ")))
+                        (if pz (setq point pz))))))))))
         (if (null value)
-          (setq value
-            (getreal "\nNo se pudo leer la cota; digitela (Enter omite): ")))
-        (if value
           (progn
-            (setq point (cadr sel))
-            (setq picks (append picks (list (list value point)))))))))
+            (setq value
+              (getreal "\nNo se pudo leer la cota; digitela (Enter omite): "))
+            (setq kind "DIGITADA" label "")))
+        (if value
+          (setq picks (append picks (list (list value point kind label))))))))
+  (setq *urb-road-picks-raw* picks)
   picks)
 
 ;; 2026-09-01 (pedido del usuario: "que pasa si no tengo una via cerca o
@@ -19046,7 +19227,20 @@
 ;; Proyecta cada cota seleccionada sobre el eje (en el punto del clic) y
 ;; devuelve records (distancia-en-el-eje cota) ordenados, listos para
 ;; urb:cota-at-axis-distance.
-(defun urb:picked-cotas-to-stations (picks axis / result item point closest d)
+(defun urb:picked-cotas-to-stations (picks axis / result item point closest d sources)
+  ;; 5.7.2: en paralelo (sin tocar el resultado de 2 elementos que usa el
+  ;; movimiento de tierras) se arma la FUENTE de cada cota para el perfil
+  (foreach item picks
+    (if (and (cadr item) (> (length item) 2))
+      (progn
+        (setq closest
+          (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list axis (cadr item))))
+        (if (not (vl-catch-all-error-p closest))
+          (progn
+            (setq d (vl-catch-all-apply 'vlax-curve-getDistAtPoint (list axis closest)))
+            (if (not (vl-catch-all-error-p d))
+              (setq sources (cons (list d (car item) (nth 2 item) (nth 3 item)) sources))))))))
+  (setq *urb-road-picked-sources* sources)
   (foreach item picks
     (setq point (cadr item))
     (if point
@@ -19383,21 +19577,41 @@
 
 ;; Eje central por promedio punto a punto de las 2 cadenas laterales.
 ;; Devuelve el ename del eje (LWPOLYLINE en URB-VIA) o nil.
+;; 5.7.2 (reporte del usuario con fotos): (1) donde la via NO es uniforme
+;; (bahia, abocinamiento en un cruce) el eje se desviaba hacia el ensanche:
+;; el promedio con el punto mas cercano del otro lado se corre la MITAD del
+;; ensanche. (2) a veces el eje terminaba en una PUNTA (esquina) y no en el
+;; centro del borde final. Ahora:
+;;  - se mide el ancho en cada muestra y su MEDIANA (ancho tipico);
+;;  - donde el ancho se sale de lo tipico (> max(0,5 m; 15%)), el centro se
+;;    ancla al lado REGULAR: a media calzada tipica desde ese borde, eligiendo
+;;    el candidato que sigue la linea de los centros buenos vecinos;
+;;  - el eje empieza y termina SIEMPRE en el punto medio de los bordes
+;;    extremos del contorno.
+(defun urb:median (vals / s n)
+  (setq s (vl-sort vals '<) n (length s))
+  (if (= n 0) 0.0
+    (if (= (rem n 2) 1) (nth (/ n 2) s)
+      (* 0.5 (+ (nth (1- (/ n 2)) s) (nth (/ n 2) s))))))
+
+(defun urb:axis-lerp (p q tt)
+  (list (+ (car p) (* tt (- (car q) (car p)))) (+ (cadr p) (* tt (- (cadr q) (cadr p))))))
+
 (defun urb:road-axis-from-chains (boundary e1 e2 / chains ca cb la lb k steps
-   frac pa pb mids ename)
+   frac pa pb mids ename samples wmed tol n i good prev next cand1 cand2 ref
+   ux uy w pts vb start-mid end-mid out)
   (setq chains (urb:road-side-chains boundary e1 e2))
   (if chains
     (progn
       (setq ca (car chains) cb (cadr chains))
       (setq la (vlax-curve-getDistAtParam ca (vlax-curve-getEndParam ca)))
       (setq lb (vlax-curve-getDistAtParam cb (vlax-curve-getEndParam cb)))
-      (setq steps (max 8 (min 60 (fix (/ (max la lb) 2.0)))))
+      ;; muestreo cada ~1 m (antes ~2 m, tope 60): el ancho se lee mejor
+      (setq steps (max 8 (min 400 (fix (max la lb)))))
       ;; 2026-08-11 v5: emparejamiento por PROYECCION PERPENDICULAR (punto
-      ;; mas cercano de la otra cadena), no por fraccion de longitud -- con
-      ;; cadenas asimetricas (jogs de cruces, esquinas redondeadas) el
-      ;; emparejamiento por fraccion desalineaba las parejas y el eje salia
-      ;; en zigzag (reporte del usuario: "eje super torcido").
-      (setq k 0 mids nil)
+      ;; mas cercano de la otra cadena), no por fraccion de longitud.
+      ;; samples: (pa pb ancho)
+      (setq k 0 samples nil)
       (while (<= k steps)
         (setq frac (/ (float k) steps))
         (setq pa (vlax-curve-getPointAtDist ca (* frac la)))
@@ -19406,13 +19620,63 @@
             (vl-catch-all-apply 'vlax-curve-getClosestPointTo (list cb pa))
             nil))
         (if (and pa pb (not (vl-catch-all-error-p pb)))
-          (setq mids
-            (cons
-              (list (* 0.5 (+ (car pa) (car pb)))
-                    (* 0.5 (+ (cadr pa) (cadr pb))))
-              mids)))
+          (setq samples
+            (cons (list (list (car pa) (cadr pa)) (list (car pb) (cadr pb))
+                        (distance (list (car pa) (cadr pa)) (list (car pb) (cadr pb))))
+                  samples)))
         (setq k (1+ k)))
+      (setq samples (reverse samples)
+            wmed (urb:median (mapcar 'caddr samples))
+            tol (max 0.5 (* 0.15 wmed))
+            n (length samples))
+      ;; buenos = ancho tipico; lista (indice centro) de los buenos, que se
+      ;; recorre con un cursor (sin nth dentro del ciclo)
+      (setq i 0 good nil)
+      (foreach s samples
+        (if (<= (abs (- (caddr s) wmed)) tol)
+          (setq good (cons (list i (urb:axis-lerp (car s) (cadr s) 0.5)) good)))
+        (setq i (1+ i)))
+      (setq good (reverse good))
+      (setq i 0 mids nil prev nil next good)
+      (foreach s samples
+        (setq pa (car s) pb (cadr s) w (caddr s))
+        ;; cursor: prev = ultimo bueno con indice <= i; next = primero > i
+        (while (and next (<= (car (car next)) i))
+          (setq prev (car next) next (cdr next)))
+        (if (or (and prev (= (car prev) i)) (< w 1e-6) (null good))
+          (setq mids (cons (urb:axis-lerp pa pb 0.5) mids))
+          (progn
+            (setq next (car next))
+            (setq ref
+              (cond
+                ((and prev next)
+                  (urb:axis-lerp (cadr prev) (cadr next)
+                    (/ (float (- i (car prev))) (max 1 (- (car next) (car prev))))))
+                (prev (cadr prev))
+                (T (cadr next))))
+            (setq ux (/ (- (car pb) (car pa)) w) uy (/ (- (cadr pb) (cadr pa)) w)
+                  cand1 (list (+ (car pa) (* ux 0.5 wmed)) (+ (cadr pa) (* uy 0.5 wmed)))
+                  cand2 (list (- (car pb) (* ux 0.5 wmed)) (- (cadr pb) (* uy 0.5 wmed))))
+            (setq mids (cons (if (<= (distance cand1 ref) (distance cand2 ref)) cand1 cand2) mids))
+            ;; restaurar el cursor (next se uso como elemento suelto)
+            (setq next (vl-member-if '(lambda (g) (> (car g) i)) good))))
+        (setq i (1+ i)))
       (setq mids (reverse mids))
+      ;; extremos: centro de los bordes extremos del contorno (se descartan
+      ;; las muestras a menos de 0,5 m de ellos para no hacer "gancho")
+      (setq vb (urb:lwpoly-vertex-bulges boundary) pts (car vb)
+            start-mid (urb:edge-midpoint pts e1)
+            end-mid (urb:edge-midpoint pts e2)
+            start-mid (list (car start-mid) (cadr start-mid))
+            end-mid (list (car end-mid) (cadr end-mid)))
+      (if (> (distance start-mid (last mids)) (distance start-mid (car mids)))
+        nil
+        (setq mids (reverse mids)))
+      (setq out nil)
+      (foreach p mids
+        (if (and (> (distance p start-mid) 0.5) (> (distance p end-mid) 0.5))
+          (setq out (cons p out))))
+      (setq mids (append (list start-mid) (reverse out) (list end-mid)))
       ;; suavizado: promedio movil de 3 (extremos intactos) para limar el
       ;; residuo de los jogs
       (if (> (length mids) 4)
@@ -19429,6 +19693,17 @@
             (setq k (1+ k)))
           (setq frac (cons (nth (1- (length mids)) mids) frac))
           (setq mids (reverse frac))))
+      ;; 5.7.2: con muestreo cada ~1 m se aligera la polilinea: se quitan
+      ;; los vertices que se desvian menos de 2 cm de la recta entre el
+      ;; ultimo conservado y el siguiente
+      (if (> (length mids) 3)
+        (progn
+          (setq out (list (car mids)) k (cdr mids))
+          (while (cdr k)
+            (if (> (urb:dist-point-seg (car k) (car out) (cadr k)) 0.02)
+              (setq out (cons (car k) out)))
+            (setq k (cdr k)))
+          (setq mids (reverse (cons (last mids) out)))))
       (entdel ca)
       (entdel cb)
       (if (> (length mids) 1)
@@ -19909,7 +20184,7 @@
 
 (defun urb:store-selected-road-grade
   (boundary axis-start span direction
-   / data records item local c0 c1)
+   / data records item local c0 c1 src k)
   ;; Persiste la rasante escogida por el usuario ANTES de intentar leer la
   ;; superficie. Asi una via sin TN calculada sigue sirviendo como fuente
   ;; de cota inicial para otra via.
@@ -19941,6 +20216,28 @@
       (setq c0 (car *urb-road-picked-cotas*)
             c1 (urb:cota-por-pendiente c0 *urb-road-picked-slope* span)
             records (list (list 0.0 c0) (list span c1)))))
+  ;; 5.7.2: fuentes de las cotas (pozo / via / texto / digitada) en
+  ;; abscisa LOCAL, para que el PERFIL las dibuje
+  (if records
+    (progn
+      (setq src nil)
+      (if (and *urb-road-picked-stations* *urb-road-picked-sources*)
+        (foreach item *urb-road-picked-sources*
+          (setq src (cons (list (if (urb:string-equal-p direction "Final")
+                                  (- (+ axis-start span) (car item))
+                                  (- (car item) axis-start))
+                                (nth 1 item) (nth 2 item) (nth 3 item))
+                          src)))
+        (if *urb-road-picks-raw*
+          (progn
+            (setq k 0)
+            (foreach item *urb-road-picks-raw*
+              (if (and (< k 2) (> (length item) 2))
+                (setq src (cons (list (if (= k 0) 0.0 span) (car item) (nth 2 item) (nth 3 item)) src)))
+              (setq k (1+ k))))))
+      (vl-catch-all-apply 'vlax-ldata-put
+        (list boundary "URB_VIA_RASANTE_SRC" (reverse src)))))
+  (setq *urb-road-picks-raw* nil *urb-road-picked-sources* nil)
   (if records
     (progn
       (setq data (urb:get-xdata-strings boundary "URB_VIA"))
@@ -22190,6 +22487,137 @@
           (list 10 (car pt) (cadr pt) 0.0) (list 11 (car pt) (cadr pt) 0.0)
           (cons 40 h) (cons 1 str) (cons 72 align) (cons 73 2))))
 
+(defun urb:profile-text-rot (pt h str color align rot)
+  (entmakex
+    (list '(0 . "TEXT") '(8 . "URB-VIA-PERFIL") (cons 62 color)
+          (list 10 (car pt) (cadr pt) 0.0) (list 11 (car pt) (cadr pt) 0.0)
+          (cons 40 h) (cons 1 str) (cons 50 rot) (cons 72 align) (cons 73 2))))
+
+(defun urb:profile-circle (pt r color)
+  (entmakex
+    (list '(0 . "CIRCLE") '(8 . "URB-VIA-PERFIL") (cons 62 color)
+          (list 10 (car pt) (cadr pt) 0.0) (cons 40 r))))
+
+;; 5.7.2 capa POR VIA (URB-VIA-PERFIL-<via>): quien abra el dibujo sin el
+;; programa instalado puede prender/apagar cada perfil desde el
+;; administrador de capas
+(defun urb:profile-layer-name (name / out ch i)
+  (setq out "" i 1 name (urb:safe-string name "VIA"))
+  (while (<= i (strlen name))
+    (setq ch (substr name i 1)
+          out (strcat out (if (member ch '("<" ">" "/" "\\" "\"" ":" ";" "?" "*" "|" "," "=" "`")) "_" ch))
+          i (1+ i)))
+  (strcat "URB-VIA-PERFIL-" out))
+
+;; posicion recordada del perfil: primero en la via, luego por NOMBRE de
+;; via en el diccionario del dibujo (sobrevive a EDITAR, que re-empaca la
+;; via y le cambia el handle)
+(defun urb:profile-saved-point (road name / keep)
+  (setq keep (vl-catch-all-apply 'vlax-ldata-get (list road "URB_VIA_PERFIL_PT")))
+  (if (or (vl-catch-all-error-p keep) (not (and (listp keep) (numberp (car keep)))))
+    (progn
+      (setq keep (vl-catch-all-apply 'vlax-ldata-get (list "URB_PERFIL_POS" name)))
+      (if (or (vl-catch-all-error-p keep) (not (and (listp keep) (numberp (car keep)))))
+        (setq keep nil))))
+  keep)
+
+(defun urb:profile-save-point (road name pt)
+  (if road (vl-catch-all-apply 'vlax-ldata-put (list road "URB_VIA_PERFIL_PT" pt)))
+  (if (and name (/= name ""))
+    (vl-catch-all-apply 'vlax-ldata-put (list "URB_PERFIL_POS" name pt))))
+
+;; punto automatico: a la derecha de TODAS las vias y perfiles existentes,
+;; a la altura de la via (antes caia encima de la agrupacion)
+(defun urb:profile-auto-point (road th / ss i o mn mx maxx miny r)
+  (foreach flt (list '((0 . "INSERT") (-3 ("URB_VIA"))) '((0 . "INSERT") (-3 ("URB_VIA_PERFIL"))))
+    (setq ss (ssget "_X" flt) i 0)
+    (if ss
+      (repeat (sslength ss)
+        (setq o (vlax-ename->vla-object (ssname ss i)) i (1+ i)
+              r (vl-catch-all-apply 'vla-GetBoundingBox (list o 'mn 'mx)))
+        (if (not (vl-catch-all-error-p r))
+          (progn
+            (setq mx (vlax-safearray->list mx))
+            (if (or (null maxx) (> (car mx) maxx)) (setq maxx (car mx))))))))
+  (setq r (vl-catch-all-apply 'vla-GetBoundingBox (list (vlax-ename->vla-object road) 'mn 'mx)))
+  (if (not (vl-catch-all-error-p r))
+    (setq miny (cadr (vlax-safearray->list mn))))
+  (list (+ (if maxx maxx 0.0) (* th 25.0)) (if miny miny 0.0) 0.0))
+
+;; marcas del perfil: pozos y cotas de referencia de la rasante.
+;; Fuentes guardadas al tomar las cotas (ldata URB_VIA_RASANTE_SRC) y,
+;; para vias hechas antes, pozos del modelo sobre el eje de la via.
+;; Cada marca: (abscisa-local cota tipo nombre)
+(defun urb:road-ldata-stored (road key / v bname ent)
+  (setq v (vl-catch-all-apply 'vlax-ldata-get (list road key)))
+  (if (vl-catch-all-error-p v) (setq v nil))
+  (if (null v)
+    (progn
+      (setq bname (vl-catch-all-apply '(lambda () (vla-get-Name (vlax-ename->vla-object road)))))
+      (if (not (vl-catch-all-error-p bname))
+        (progn
+          (setq ent (cdr (assoc -2 (tblsearch "BLOCK" bname))))
+          (while (and ent (null v))
+            (setq v (vl-catch-all-apply 'vlax-ldata-get (list ent key)))
+            (if (vl-catch-all-error-p v) (setq v nil))
+            (setq ent (entnext ent)))))))
+  v)
+
+(defun urb:road-profile-marks (road data len / src out ref axis axis-start span direction
+                               mode ss i e obj bname atts z q raw st half mov w)
+  (setq src (urb:road-ldata-stored road "URB_VIA_RASANTE_SRC"))
+  (foreach m (if (listp src) src nil)
+    (if (and (listp m) (numberp (car m)) (numberp (cadr m))
+             (>= (car m) -0.5) (<= (car m) (+ len 0.5)))
+      (setq out (cons m out))))
+  ;; pozos del modelo sobre la via (vias viejas o pozos intermedios que
+  ;; no se clickearon)
+  (setq ref (vl-catch-all-apply 'urb:anden-road-grade-for (list road)))
+  (if (and ref (not (vl-catch-all-error-p ref)))
+    (progn
+      (setq axis (nth 0 ref) axis-start (nth 2 ref) span (nth 3 ref)
+            direction (nth 4 ref) mode (nth 5 ref)
+            mov (urb:road-movement-data road)
+            w (if (and mov (> (length mov) 5)) (atof (urb:safe-string (nth 5 mov) "0")) 0.0)
+            half (+ (* 0.5 (max w 6.0)) 1.0)
+            ss (ssget "_X" '((0 . "INSERT"))) i 0)
+      (if ss
+        (repeat (sslength ss)
+          (setq e (ssname ss i) i (1+ i))
+          (if (wcmatch (strcase (cdr (assoc 2 (entget e)))) "MP_PUNTO_POZO*,`*U*")
+            (progn
+              (setq obj (vlax-ename->vla-object e)
+                    bname (vl-catch-all-apply 'vla-get-EffectiveName (list obj)))
+              (if (and (not (vl-catch-all-error-p bname))
+                       (wcmatch (strcase bname) "MP_PUNTO_POZO*"))
+                (progn
+                  (setq q (vl-catch-all-apply 'vlax-curve-getClosestPointTo
+                            (list axis (cdr (assoc 10 (entget e))))))
+                  (if (and (not (vl-catch-all-error-p q))
+                           (<= (distance (list (car q) (cadr q))
+                                         (list (car (cdr (assoc 10 (entget e))))
+                                               (cadr (cdr (assoc 10 (entget e))))))
+                               half))
+                    (progn
+                      (setq raw (vlax-curve-getDistAtPoint axis q)
+                            st (if (urb:string-equal-p mode "LOCAL")
+                                 (if (urb:string-equal-p direction "Final")
+                                   (- (+ axis-start span) raw) (- raw axis-start))
+                                 raw))
+                      (if (and (>= st -0.5) (<= st (+ len 0.5))
+                               (not (vl-some '(lambda (m) (and (= (nth 2 m) "POZO")
+                                                               (< (abs (- (car m) st)) 1.0)))
+                                             out)))
+                        (progn
+                          (setq atts (mp:att-alist e)
+                                z (mp:numeric-real (mp:getval "COTA_TAPA" atts "")))
+                          (if (null z) (setq z (mp:numeric-real (mp:getval "COTA_TN_INI" atts ""))))
+                          (if z
+                            (setq out (cons (list st z "POZO"
+                                                  (mp:getval "ID" atts (mp:getval "CODIGO" atts "")))
+                                            out)))))))))))))))
+  (vl-sort out '(lambda (a b) (< (car a) (car b)))))
+
 ;; hatch solido con transparencia; la polilinea de borde se borra
 (defun urb:profile-hatch (pts color / pl hatch)
   (setq pl (urb:profile-pline pts color T))
@@ -22229,8 +22657,23 @@
     (setq d (urb:get-xdata-strings-entget e "URB_VIA_PERFIL")
           p (if d (handent (car d)) nil))
     (if (or (null p) (null (entget p)))
-      (progn (entdel e) (setq n (1+ n)))))
+      (progn (urb:profile-remove-insert e nil) (setq n (1+ n)))))
   n)
+
+;; 5.7.2: borra un perfil guardando ANTES donde estaba (en la via y por
+;; nombre de via) y retira su definicion de bloque, para que mostrar/
+;; ocultar no vaya acumulando definiciones URB_PERFIL_* en el dibujo
+(defun urb:profile-remove-insert (e road / ed d bname)
+  (setq ed (entget e) d (urb:get-xdata-strings-entget e "URB_VIA_PERFIL"))
+  (if (= (cdr (assoc 0 ed)) "INSERT")
+    (progn
+      (urb:profile-save-point road (if (> (length d) 1) (cadr d) "") (cdr (assoc 10 ed)))
+      (setq bname (cdr (assoc 2 ed)))
+      (entdel e)
+      (if (wcmatch bname "URB_PERFIL_*")
+        (vl-catch-all-apply
+          '(lambda () (vla-Delete (vla-Item (vla-get-Blocks (urb:doc)) bname))))))
+    (entdel e)))
 
 (defun urb:draw-road-profile
   (road data stored / audit rows h vx d0 d1 len s0 th rh obj minpt maxpt
@@ -22254,19 +22697,21 @@
             depth (- (nth 2 (car rows)) (nth 3 (car rows)))
             th (max (* 0.60 (max 0.20 (getvar "TEXTSIZE"))) (/ len 150.0))
             rh (* th 2.6))
-      ;; punto: el que tenia la ultima vez (si el usuario lo movio) o a la
-      ;; derecha de la via, abajo
-      (setq keep (vl-catch-all-apply 'vlax-ldata-get (list road "URB_VIA_PERFIL_PT")))
-      (if (and keep (not (vl-catch-all-error-p keep)) (listp keep) (numberp (car keep)))
-        (setq base keep)
-        (progn
-          (setq obj (vlax-ename->vla-object road))
-          (if (vl-catch-all-error-p
-                (vl-catch-all-apply 'vla-GetBoundingBox (list obj 'minpt 'maxpt)))
-            (setq base '(0.0 0.0 0.0))
-            (setq minpt (vlax-safearray->list minpt)
-                  maxpt (vlax-safearray->list maxpt)
-                  base (list (+ (car maxpt) (* th 20.0)) (cadr minpt) 0.0)))))
+      ;; 5.7.2 punto: (1) donde el usuario lo dejo la ultima vez (por via o
+      ;; por nombre); (2) desde el clic derecho, el punto que el usuario
+      ;; indique; (3) automatico, a la derecha de TODAS las vias y perfiles
+      ;; (antes caia sobre la agrupacion)
+      (setq name (urb:safe-string (nth 1 data) "VIA")
+            keep (urb:profile-saved-point road name))
+      (cond
+        (keep (setq base keep))
+        ((and *urb-profile-ask-point*
+              (setq base (getpoint (strcat "\nUbique el perfil de " name
+                                           " (esquina inferior izquierda de la reticula)"
+                                           " <Enter = automatico>: "))))
+          (setq base (list (car base) (cadr base) 0.0)))
+        (T (setq base (urb:profile-auto-point road th))))
+      (urb:profile-save-point road name base)
       (setq x0 (car base) y0 (cadr base)
             yp (+ y0 (* 6.0 rh) (* 2.0 th)))
       ;; alturas por seccion
@@ -22310,6 +22755,28 @@
             ents (cons (urb:profile-pline pts-sub 8 nil) ents)
             ents (cons (urb:profile-pline pts-tn 32 nil) ents)
             ents (cons (urb:profile-pline pts-ras 5 nil) ents))
+      ;; 5.7.2 pozos y cotas de referencia de la rasante (pedido del
+      ;; usuario: "que me muestre dibujado el pozo y su elevacion... y si la
+      ;; cota inicial es con respecto a una via que aparezca la cota de la
+      ;; via"). Linea vertical + circulo en la cota + rotulo vertical.
+      (foreach m (vl-catch-all-apply 'urb:road-profile-marks (list road data len))
+        (if (and (listp m) (numberp (car m)) (numberp (cadr m)))
+          (progn
+            (setq s (max 0.0 (min len (car m)))
+                  z (cadr m)
+                  color (cond ((= (nth 2 m) "POZO") 6) ((= (nth 2 m) "VIA") 5) (T 2))
+                  txt (cond
+                        ((= (nth 2 m) "POZO")
+                          (strcat "POZO " (urb:safe-string (nth 3 m) "") "  cota " (rtos z 2 2)))
+                        ((= (nth 2 m) "VIA")
+                          (strcat (urb:safe-string (nth 3 m) "VIA") "  rasante " (rtos z 2 2)))
+                        (T (strcat "Cota " (rtos z 2 2)))))
+            (setq ents (cons (urb:profile-pline
+                               (list (list (+ x0 s) (urb:pf-y zbase)) (list (+ x0 s) (urb:pf-y ztop)))
+                               color nil) ents)
+                  ents (cons (urb:profile-circle (list (+ x0 s) (urb:pf-y z)) (* th 0.45) color) ents)
+                  ents (cons (urb:profile-text-rot (list (- (+ x0 s) (* th 0.5)) (- (urb:pf-y ztop) (* th 0.3)))
+                               (* th 0.75) txt color 2 (* 0.5 pi)) ents)))))
       ;; abscisas de la guitarra
       ;; abscisas REDONDAS (0+020, 0+040...) mas el inicio y el final;
       ;; se omite la redonda que quede pegada a un extremo
@@ -22353,8 +22820,7 @@
                 ents (cons (urb:profile-text (list (+ x0 s) y) (* th 0.8) txt color 1) ents)
                 k (1+ k))))
       ;; titulo y leyenda
-      (setq name (urb:safe-string (nth 1 data) "VIA")
-            cut (nth 2 stored) fill (nth 3 stored))
+      (setq cut (nth 2 stored) fill (nth 3 stored))
       (setq ents (cons (urb:profile-text (list x0 (+ (urb:pf-y ztop) (* th 4.5))) (* th 1.3)
                          (strcat "PERFIL LONGITUDINAL - " name) 7 0) ents)
             ents (cons (urb:profile-text (list x0 (+ (urb:pf-y ztop) (* th 2.5))) (* th 0.8)
@@ -22364,7 +22830,7 @@
                                  (if (numberp cut) (rtos cut 2 2) "-") " m3 | lleno "
                                  (if (numberp fill) (rtos fill 2 2) "-") " m3") 7 0) ents)
             ents (cons (urb:profile-text (list x0 (+ (urb:pf-y ztop) (* th 1.0))) (* th 0.8)
-                         "Cafe: terreno natural | Azul: rasante y cajon | Rojo: excavacion | Verde: lleno" 8 0) ents))
+                         "Cafe: terreno natural | Azul: rasante y cajon | Rojo: excavacion | Verde: lleno | Magenta: pozos" 8 0) ents))
       (setq ents (vl-remove nil ents))
       ;; bloque propio para poder moverlo como una pieza
       (setq bname (strcat "URB_PERFIL_" handle "_" (itoa (getvar "MILLISECS")))
@@ -22376,14 +22842,15 @@
                     bdef)))
         (progn
           ;; sin bloque: se dejan sueltas pero etiquetadas
-          (foreach e ents (urb:set-xdata-strings e "URB_VIA_PERFIL" (list handle)))
+          (foreach e ents (urb:set-xdata-strings e "URB_VIA_PERFIL" (list handle name)))
           (prompt "\nAVISO: el perfil quedo en piezas sueltas (no se pudo agrupar en bloque).")
           (length ents))
         (progn
           (foreach e ents (entdel e))
           (setq ins (vla-InsertBlock (urb:space) (vlax-3d-point base) bname 1.0 1.0 1.0 0.0))
-          (vla-put-Layer ins "URB-VIA-PERFIL")
-          (urb:set-xdata-strings (vlax-vla-object->ename ins) "URB_VIA_PERFIL" (list handle))
+          (urb:ensure-layer (urb:profile-layer-name name) 4 T)
+          (vla-put-Layer ins (urb:profile-layer-name name))
+          (urb:set-xdata-strings (vlax-vla-object->ename ins) "URB_VIA_PERFIL" (list handle name))
           (prompt (strcat "\nPerfil de " name ": " (itoa (length stations))
                           " abscisas, " (itoa (length rows)) " secciones."))
           1)))))
@@ -22396,12 +22863,7 @@
     (progn
       ;; recordar donde estaba (si el usuario lo movio) y borrarlo
       (setq ents (urb:road-profile-entities handle))
-      (foreach ins ents
-        (if (= (cdr (assoc 0 (entget ins))) "INSERT")
-          (progn
-            (setq pt (cdr (assoc 10 (entget ins))))
-            (vl-catch-all-apply 'vlax-ldata-put (list road "URB_VIA_PERFIL_PT" pt))))
-        (entdel ins))
+      (foreach ins ents (urb:profile-remove-insert ins road))
       (if show
         (progn
           (urb:delete-orphan-road-profiles)
@@ -22452,7 +22914,9 @@
 
 ;; 5.7.1: clic derecho "Mostrar/ocultar perfil" (lo agrega la cinta .NET,
 ;; igual que el de memorias). Toggle sobre las VIAS de la seleccion.
-(defun c:QPERFILSEL (/ ss i road h done shown hidden failed)
+(defun c:QPERFILSEL (/ ss i road h done shown hidden failed *urb-profile-ask-point*)
+  ;; desde el clic derecho SI se puede pedir el punto la primera vez
+  (setq *urb-profile-ask-point* T)
   (setq ss (ssget "_I"))
   (if (null ss)
     (progn (prompt "\nSeleccione vias: ") (setq ss (ssget))))
@@ -22892,6 +23356,16 @@
                           (cons reactor *urb-memory-attribute-reactors*))))))))))))
   reactor))
 
+(defun urb:insert-has-memory-tag-p (ename / e d found)
+  (setq e (entnext ename))
+  (while (and e (not found)
+              (setq d (entget e))
+              (= (cdr (assoc 0 d)) "ATTRIB"))
+    (if (member (strcase (cdr (assoc 2 d))) '("MEMORIAS" "PERFIL"))
+      (setq found T))
+    (setq e (entnext e)))
+  found)
+
 (defun urb:install-memory-property-reactors (/ reactor ss i)
   (if (and (boundp '*urb-memory-attribute-reactors*)
            *urb-memory-attribute-reactors*)
@@ -22905,10 +23379,15 @@
         *urb-memory-command-scheduled* nil
         ss (ssget "_X" '((0 . "INSERT") (66 . 1)))
         i 0)
+  ;; 5.7.2 (medido en el maestro: 10,4 s por apertura): antes se pedia el
+  ;; nombre efectivo, se inferia la base y se leian por ActiveX los
+  ;; atributos de CADA bloque con atributos (644). Ahora un recorrido
+  ;; barato por entnext descarta los que no tienen MEMORIAS/PERFIL.
   (if ss
     (repeat (sslength ss)
-      (vl-catch-all-apply 'urb:attach-memory-reactor-to-block
-        (list (ssname ss i)))
+      (if (urb:insert-has-memory-tag-p (ssname ss i))
+        (vl-catch-all-apply 'urb:attach-memory-reactor-to-block
+          (list (ssname ss i))))
       (setq i (1+ i))))
   (setq *urb-memory-command-reactor*
     (vlr-command-reactor
@@ -25876,7 +26355,7 @@
         ": button { label = \"Espesor de linea y tamano de datos de tramos\"; key = \"tramo_appearance\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Capas y limpieza\";"
         ": button { label = \"Organizar capas del plugin (filtro URBANISMO)\"; key = \"layers_organize\"; height = 2; width = 40; }"
-        ": button { label = \"Depurar dibujo (purgar elementos basura)\"; key = \"purge_dwg\"; height = 2; width = 40; }"
+        ": button { label = \"Depurar y aligerar dibujo (purga + modo liviano)\"; key = \"purge_dwg\"; height = 2; width = 40; }"
         ": button { label = \"Version instalada y sesion\"; key = \"version_info\"; height = 2; width = 40; } }"
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
         "urb_earthworks : dialog { label = \"Movimiento de tierras\";"
@@ -38433,6 +38912,9 @@
 (vl-catch-all-apply 'mp:load-tramo-appearance-settings nil)
 (vl-catch-all-apply 'urb:load-geometric-settings nil)
 (vl-catch-all-apply 'urb:purge-empty-hatches nil)
+;; 5.7.2 (pedido del usuario): sin el globo "Unreconciled New Layers" en
+;; cada apertura (el motor y los xrefs crean capas; avisarlo no aporta)
+(vl-catch-all-apply 'setvar (list "LAYERNOTIFY" 0))
 ;; 2026-09-14 (medido: el motor tardaba 43,8 s en cargar sobre una copia
 ;; del maestro de 33 MB contra 1,5 s en dibujo limpio -- 42,4 s de
 ;; diferencia). urb:repair-anden-hatches recorre TODOS los bloques del

@@ -45,6 +45,10 @@ if ($ValidateOnly) {
 
 New-Item -ItemType Directory -Force -Path $contents | Out-Null
 Copy-Item $lsp (Join-Path $contents "urbanismo_cantidades.lsp") -Force
+# 5.7.2: el manifiesto carga este cargador (no el motor completo) para que
+# el motor corra UNA vez por documento aunque el acaddoc.lsp ya lo cargo
+$cargador = Join-Path $repo "bundle\urbcant_cargador.lsp"
+if (Test-Path $cargador) { Copy-Item $cargador (Join-Path $contents "urbcant_cargador.lsp") -Force }
 
 # 2026-08-11 fase .NET: la pestana la dibuja el DLL (ribbon dinamico).
 # El cuix YA NO se instala (si quedara, la pestana saldria duplicada por

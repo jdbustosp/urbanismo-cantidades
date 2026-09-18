@@ -89,6 +89,14 @@ namespace UrbanismoCantidades
                 // correcto antes de reactivar aqui.
 #if !NETCOREAPP
                 AddMemoriasContextMenu();
+#else
+                // 5.7.2: 2025/2026 SI tienen clic derecho. La clase se busca
+                // por NOMBRE en el diccionario de clases (no por el tipo .NET,
+                // que es lo que reventaba) y se registra en el primer Idle,
+                // con el documento listo. Guarda anti-bucle: si Civil se cerro
+                // DURANTE el registro, el marcador queda y el siguiente
+                // arranque se lo salta (y lo dice en el log).
+                Application.Idle += OnIdleAddContextMenu;
 #endif
                 if (ComponentManager.Ribbon == null)
                     ComponentManager.ItemInitialized += OnItemInitialized;
@@ -161,6 +169,38 @@ namespace UrbanismoCantidades
 
         private static Autodesk.AutoCAD.Windows.ContextMenuExtension _memoriasMenu;
 
+        private static RXClass BlockReferenceClass()
+        {
+#if NETCOREAPP
+            return SystemObjects.ClassDictionary.At("AcDbBlockReference") as RXClass;
+#else
+            return RXObject.GetClass(typeof(AcDb.BlockReference));
+#endif
+        }
+
+        private static void OnIdleAddContextMenu(object sender, EventArgs e)
+        {
+            Application.Idle -= OnIdleAddContextMenu;
+            string marker = Path.Combine(Path.GetTempPath(), "urbcant_menu_registrando.txt");
+            try
+            {
+                if (File.Exists(marker))
+                {
+                    Log("Menu contextual OMITIDO: el arranque anterior se cerro al registrarlo" +
+                        " (borre " + marker + " para reintentar)");
+                    return;
+                }
+                File.WriteAllText(marker, DateTime.Now.ToString("s"));
+                AddMemoriasContextMenu();
+                File.Delete(marker);
+            }
+            catch (System.Exception ex)
+            {
+                Log("ERROR menu contextual (Idle): " + ex.Message);
+                try { File.Delete(marker); } catch (System.Exception) { }
+            }
+        }
+
         private static void AddMemoriasContextMenu()
         {
             try
@@ -180,8 +220,7 @@ namespace UrbanismoCantidades
                 _memoriasMenu.MenuItems.Add(perfil);
                 Autodesk.AutoCAD.ApplicationServices.Application
                     .AddObjectContextMenuExtension(
-                        Autodesk.AutoCAD.Runtime.RXObject.GetClass(
-                            typeof(AcDb.BlockReference)),
+                        BlockReferenceClass(),
                         _memoriasMenu);
                 Log("Menu contextual de memorias registrado");
             }

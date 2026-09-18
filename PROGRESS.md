@@ -1,5 +1,73 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-18 16:10 America/Bogota — 5.7.2 apertura rápida, plano liviano, cotas de pozo, eje nuevo, perfil con pozos, 2026
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 9ee8e99. INSTALADA completa (lsp, cargador, DLL 2023 v572, DLL 2025/2026, manifiesto).
+
+Todo se midió o verificó headless sobre copias de URB_MASTER_GENERAL.dwg (39,5 MB).
+
+1. APERTURA LENTA.
+   - Causa principal: el motor se cargaba DOS veces por dibujo. El acaddoc.lsp lo cargaba desde el repo y
+     luego el ComponentEntry del bundle cargaba la copia local completa. Cada carga repetía migraciones y
+     reactores, y si la copia local era más vieja pisaba funciones (el caso de 5.7.1).
+   - Ahora el manifiesto carga `bundle/urbcant_cargador.lsp`, que solo carga el motor si falta en ese
+     documento. Verificado: `*urb-load-count*` = 1, fuente = repo.
+   - Costos medidos por carga:
+     - `urb:install-memory-property-reactors`: 10,4 s → 4,0 s. Un prefiltro por entnext
+       (`urb:insert-has-memory-tag-p`) salta los INSERT sin MEMORIAS/PERFIL.
+     - `urb:upgrade-existing-road-properties`: 1,6 s → 0,16 s. ATTSYNC solo si faltó un atributo, y los
+       valores solo se escriben si cambiaron.
+     - Carga completa: 14,5 s → 6,9 s, y ahora una sola vez.
+   - LAYERNOTIFY 0 quita el globo "Unreconciled New Layers".
+   - "High Quality Geometry disabled" es un aviso de rendimiento de AutoCAD por la cantidad de geometría;
+     se ataca con el punto 2.
+2. PLANO PESADO.
+   - La purga clásica solo retiraba 4 de 1.169 definiciones.
+   - El peso real está en el detalle táctil DENTRO de los 15 andenes: 32.929 círculos en
+     URB-ANDEN-LOSETA-TOPEROL-20X20 y ~23.900 piezas en URB-ANDEN-LOSETA-GUIA-20X20. Es el 60 % de lo
+     dibujado.
+   - Además había 10.229 regapps (2.697 `$RECOVER…` y 1.771 `AUDIT_D_…`).
+   - "Depurar y aligerar dibujo" (Configuración):
+     - purga con reporte antes/después: regapps 10.229 → 43, bloques 1.173 → 1.166;
+     - MODO LIVIANO que congela esas 2 capas. Las cantidades salen de XDATA/atributos, así que no cambia
+       ningún número; regen 859 → 563 ms. Se revierte con Restaurar.
+3. COTA DE POZO DESDE ETIQUETA.
+   - Antes la cota se ubicaba en el punto del CLIC sobre el texto, que puede estar a varios metros del
+     pozo.
+   - Ahora el clic sobre un POZO usa el centro del pozo.
+   - El clic sobre una ETIQUETA busca un MP_PUNTO_* a ≤ 25 m con una cota igual (±0,006) y la ubica en
+     ese pozo. Si no lo encuentra, pide el punto (Enter = donde está el texto).
+   - Verificado: valor 2571,166 → pozo 40; un valor ajeno → nil.
+4. EJE NUEVO (`urb:road-axis-from-chains`).
+   - Muestreo cada ~1 m y ancho típico = mediana.
+   - Donde el ancho se sale (> max(0,5 m; 15 %)), el centro se ancla al lado regular, eligiendo el
+     candidato que sigue a los centros buenos vecinos.
+   - El eje empieza y termina en el punto medio de los bordes extremos.
+   - Los vértices que se desvían menos de 2 cm se eliminan.
+   - Verificado con una vía sintética de 100 m × 7 m con bahía de 3 m a un lado y extremo sesgado:
+     inicio (0; -996,5) y fin (98,5; -996,5) exactos, desvío máximo 0,16 m (antes ~1,5 m).
+5. PERFIL.
+   - Pozos en el perfil (línea, círculo y rótulo vertical "POZO id cota"), de dos fuentes:
+     - las fuentes guardadas al tomar las cotas (ldata URB_VIA_RASANTE_SRC: POZO/VIA/TEXTO/DIGITADA, con
+       abscisa local);
+     - los pozos del modelo sobre el eje (vías viejas).
+   - La cota de vía de referencia sale como "VIA-xx rasante z".
+   - Verificado: 7 vías con pozos (VIA-11: 6).
+   - Posición:
+     - la primera vez, el clic derecho pide el punto (Enter = automático);
+     - el punto automático queda a la derecha de todas las vías y perfiles, ya no encima de la agrupación;
+     - la posición se recuerda por vía y por NOMBRE (sobrevive a EDITAR);
+     - al ocultar se borra también la definición URB_PERFIL_*. Verificado: tras mover + 3 ciclos, misma
+       posición y 1 sola definición.
+   - Capa por vía URB-VIA-PERFIL-<via>, para prender/apagar cada perfil sin el programa.
+6. CIVIL 3D 2025/2026.
+   - UrbCantRibbon2025.dll recompilado con el clic derecho ACTIVADO. La clase se busca por nombre
+     (`SystemObjects.ClassDictionary.At("AcDbBlockReference")`) en vez de `RXObject.GetClass(typeof)`, que
+     reventaba.
+   - Se registra en el primer Idle y tiene una guarda anti-bucle: un marcador en %TEMP% hace que, si Civil
+     se cerró durante el registro, el siguiente arranque se lo salte.
+   - NO PROBADO en 2026 (no hay 2025/2026 en este equipo).
+
 ## 2026-09-18 14:10 America/Bogota — 5.7.1 perfil por clic derecho
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 0214f00. INSTALADA completa (lsp + DLL 2023 v571 + manifiesto).

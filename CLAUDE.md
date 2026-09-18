@@ -16,6 +16,9 @@ El LSP legado `MAIPORE_BLOQUES_REDES_ELECT_...lsp` sigue en `VARIOS\BLOQUES PPTO
   del bundle si el repo no está disponible. O sea: se instala UNA VEZ por máquina y de ahí
   en adelante cualquier cambio del `.lsp` lo reconoce cualquier PC con solo reiniciar
   Civil 3D. Al arrancar imprime `urbcant <version> (repo|bundle local)` para saber cuál cargó.
+- Desde v5.7.2 el manifiesto del bundle NO carga el motor completo: carga `bundle/urbcant_cargador.lsp`,
+  que solo carga el motor si falta en ese documento (antes corría dos veces por apertura y la copia
+  local vieja pisaba al repo). Diagnóstico: `*urb-load-count*` debe ser 1.
 - Sí hay que correr `INSTALAR.bat` cuando cambia el **DLL de la cinta, el `PackageContents.xml`
   o los iconos** (eso sigue viviendo en el bundle local).
 - En un PC nuevo o tras esta migración: correr `INSTALAR.bat` una vez; si el Startup Suite
