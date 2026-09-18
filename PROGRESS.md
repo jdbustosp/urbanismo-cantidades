@@ -1,5 +1,27 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-18 00:05 America/Bogota — 5.6.8 el andén se crea aunque falle la franja táctil
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base e938faa. INSTALADA (el .lsp).
+
+Segundo reporte del mismo andén (contorno 10C240 del maestro, 36 vértices,
+327,48 m2, 13 contenedores Tipo C a ambos lados, 2 rampas y 3 prefabricados
+cortando): con 5.6.7 ya no se rechazaba por toperol, pero la caja negra dio
+"TERMINA acabado SIN RESULTADO": cuando guía/toperol no se generan, su
+resultado vacío REEMPLAZABA al de las losetas en urb:build-anden-finish.
+Cambio: solo se reemplaza si la franja táctil sí se generó; si no, el andén
+se crea con sus losetas y avisa.
+Reproducción: el caso real se leyó de %TEMP%\urbcant_toperol_fallo.txt y
+del maestro guardado a las 23:38 (copia en work/). En headless el andén SE
+CREA completo con toperol (7208 domos, bloque de 305,88 m2 neto) con el
+punto de lado de vía registrado y también con el clic exacto en la esquina:
+la falla en vivo depende de algo de la sesión que no queda en el archivo.
+Caja negra nueva en urb:create-accessibility-features: cadena guía, área
+base, lado de vía, elección y resultado de las rutas OFFSET / SEGMENTOS.
+OJO laboratorio: el cierre QUIT de los scripts GUARDÓ una copia del maestro
+(la corrida siguiente ya no encontró el contorno): copiar SIEMPRE desde el
+original antes de cada corrida.
+
 ## 2026-09-17 23:40 America/Bogota — 5.6.7 el andén ya no se descarta si el toperol no cabe; contenedor Tipo G
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 8a3de5c. INSTALADA (el .lsp).

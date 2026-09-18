@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.6.7")
+(setq *urb-version* "5.6.8")
 (setq *urb-memory-reactor-busy* nil)
 (setq *urb-memory-pending* nil)
 (setq *urb-memory-command-scheduled* nil)
@@ -5253,6 +5253,12 @@
                      (and (= (car p) 42) (not (equal (cdr p) 0.0 1e-12))))
                      (entget ename))))
             (setq driving-chain nil))
+          ;; 5.6.8 caja negra: que ruta toma la franja tactil y como termina
+          (urb:bb-log (strcat "  tactil: cadena guia "
+            (if driving-chain (itoa (length driving-chain)) "NINGUNA") " pts"
+            " | area base " (rtos (vla-get-Area base-region) 2 2)
+            " | lado via " (vl-princ-to-string *urb-current-tactile-side-point*)
+            " | eleccion " (vl-princ-to-string *urb-current-tactile-side-choice*)))
           (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
             (progn
               ;; metodo principal: franja como OFFSET de la curva real
@@ -5263,13 +5269,22 @@
                 (vl-catch-all-apply
                   'urb:create-accessibility-features-offset
                   (list base-region points driving-chain guia toperol format parent-handle)))
+              (urb:bb-log (strcat "  tactil: ruta OFFSET -> "
+                (cond ((vl-catch-all-error-p offset-result)
+                        (strcat "ERROR " (urb:safe-string (vl-catch-all-error-message offset-result) "?")))
+                      (offset-result "OK")
+                      (T "SIN RESULTADO"))))
               (if (and (not (vl-catch-all-error-p offset-result)) offset-result)
                 offset-result
-                (urb:create-accessibility-features-segmented
-                  base-region points
-                  (urb:chain-simplify-by-direction driving-chain
-                    (* pi (/ 5.0 180.0)))
-                  guia toperol format parent-handle)))
+                (progn
+                  (setq offset-result
+                    (urb:create-accessibility-features-segmented
+                      base-region points
+                      (urb:chain-simplify-by-direction driving-chain
+                        (* pi (/ 5.0 180.0)))
+                      guia toperol format parent-handle))
+                  (urb:bb-log (strcat "  tactil: ruta SEGMENTOS -> " (if offset-result "OK" "SIN RESULTADO")))
+                  offset-result)))
             (progn
               (setq angle-value (urb:anden-axis-angle points))
               (setq bounds (urb:project-bounds points angle-value))
@@ -5585,10 +5600,22 @@
       (setq accessibility-result
         (urb:create-accessibility-features ename guia toperol format))
       (urb:bb-log "  TERMINA guia y toperol")))
+  ;; 5.6.8 (segundo reporte del mismo anden: "no me volvio a dejar crear
+  ;; ese anden"): si la guia/toperol no se pudieron generar, su resultado
+  ;; vacio REEMPLAZABA al de las losetas y el anden se perdia completo
+  ;; aunque el acabado principal estuviera bien. Ahora solo se reemplaza
+  ;; cuando la franja tactil si se genero; si no, el anden se crea con sus
+  ;; losetas y se avisa (el control de toperol de abajo registra el caso).
   (if (and result
            (or (urb:yes-p guia)
                (urb:yes-p toperol)))
-    (setq result accessibility-result))
+    (if accessibility-result
+      (setq result accessibility-result)
+      (progn
+        (urb:bb-log "  guia/toperol sin resultado: se conserva el acabado de losetas")
+        (prompt
+          (strcat "\nATENCION: la franja tactil (guia/toperol) no se pudo generar en"
+                  " este anden; se crea con sus losetas. Revise la guia y el toperol de este tramo.")))))
   ;; La guia no puede ocultar el fallo del toperol con un count > 0.
   ;; Verificar entidades reales antes del empaquetado, no solo un T del generador.
   (if (urb:yes-p toperol)
