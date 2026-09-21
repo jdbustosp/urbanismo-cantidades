@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.5")
+(setq *urb-version* "5.7.6")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -265,7 +265,11 @@
       'getpoint
       (list
         "\nMarque un punto del lado de la VIA/sardinel (lado del toperol): ")))
-  (if (vl-catch-all-error-p result) nil result)
+  ;; GETPOINT devuelve UCS; los vertices del contorno y las operaciones
+  ;; ActiveX estan en WCS. Guardar siempre WCS para que un UCS girado no
+  ;; invierta el costado elegido.
+  (if (vl-catch-all-error-p result) nil
+    (if result (trans result 1 0) nil))
 )
 
 (defun urb:tactile-side-point-from-choice
@@ -3874,11 +3878,18 @@
   ring)
 
 ;; distancia minima (en planta) de los puntos de una cadena a un punto
-(defun urb:chain-min-distance (chain ref / d best r)
-  (setq best nil r (list (car ref) (cadr ref)))
-  (foreach p chain
-    (setq d (distance (list (car p) (cadr p)) r))
-    (if (or (null best) (< d best)) (setq best d)))
+(defun urb:chain-min-distance (chain ref / d best r prev p)
+  ;; Distancia a la CADENA, no solo a sus vertices. Un costado largo y
+  ;; recto puede tener vertices unicamente en los extremos; el costado
+  ;; contrario puede tener un vertice intermedio y ganar erroneamente aun
+  ;; cuando el clic este pegado al primer costado.
+  (setq best nil r (list (car ref) (cadr ref)) prev (car chain))
+  (foreach p (cdr chain)
+    (setq d (urb:dist-point-seg r prev p))
+    (if (or (null best) (< d best)) (setq best d))
+    (setq prev p))
+  ;; Cadena degenerada de un punto: conservar una distancia valida.
+  (if (and (null best) prev) (setq best (distance r prev)))
   (if best best 1e12)
 )
 
@@ -5001,12 +5012,15 @@
       (setq a b)))
   (vl-sort hits '<))
 
-(defun urb:guide-adaptive-chain (chain rings goff module inward / len n step i d p ang hits cap caps prev out row off pts)
-  ;; Distancia nominal al costado salvo estrechamientos. Anticipar el
-  ;; obstaculo con transicion maxima 0.15m/m, sin cortar la guia en el borde.
+(defun urb:guide-uniform-offset (chain rings goff module inward / len n step i d p ang hits cap best valid)
+  ;; Una UNICA distancia para todo el tramo. La 5.7.5 variaba el offset
+  ;; cada 25 cm y produjo una guia serpenteante aunque el toperol fuera
+  ;; recto. Se toma el menor espacio disponible del corredor completo;
+  ;; asi la guia puede acercarse uniformemente al toperol en un anden
+  ;; estrecho, pero nunca se tuerce de una estacion a la siguiente.
   (setq len (urb:curve-length chain) n (max 1 (fix (+ 1.0 (/ len 0.25))))
-        step (/ len n) i 0)
-  (repeat (1+ n)
+        step (/ len n) i 0 valid T)
+  (while (and valid (<= i n))
     (setq d (* i step) p (urb:curve-pt chain (min (- len 0.001) (max 0.001 d)))
           ang (+ (urb:curve-tangent chain (min (- len 0.001) (max 0.001 d))) (* inward 0.5 pi))
           hits (vl-remove-if-not '(lambda (v)
@@ -5014,29 +5028,17 @@
                  (not (urb:point-in-region-polygons-p (polar p ang (+ v 0.0001)) rings))))
             (urb:ray-ring-distances p ang rings))
           cap (if hits (min (+ goff (* 0.5 module)) (- (car hits) (* 0.5 module) 0.06)) nil))
+    (if (and cap (or (null best) (< cap best))) (setq best cap))
     (if (or (null cap) (< cap (+ (* 1.5 module) 0.04)))
-      (setq caps (cons (list d p ang nil) caps))
-      (setq caps (cons (list d p ang cap) caps)))
+      (setq best nil valid nil))
     (setq i (1+ i)))
-  (if (not (vl-some '(lambda (r) (null (nth 3 r))) caps))
-    (progn
-      (foreach row (reverse caps)
-        (setq off (nth 3 row))
-        (if prev (setq off (min off (+ prev (* 0.15 step)))))
-        (setq out (cons (list (car row) (cadr row) (caddr row) off) out) prev off))
-      (setq prev nil)
-      (foreach row out
-        (setq off (nth 3 row))
-        (if prev (setq off (min off (+ prev (* 0.15 step)))))
-        (setq pts (cons (polar (cadr row) (caddr row) off) pts) prev off))
-      (urb:open-poly-from-points
-        (urb:chain-simplify-by-direction pts (* pi (/ 0.5 180.0))) 0.0))))
+  (if best (- best (* 0.5 module)) nil))
 
 (defun urb:create-accessibility-features-offset
   (base-region points driving-chain guia toperol format parent-handle
    / module goff chain-poly len box elevation off-sign perp-sign
      mid-d mid-pt mid-ang cand test-off count layer span
-     ok-top ok-gui rescate guide-chain guide-rings)
+     ok-top ok-gui rescate guide-offset guide-rings)
   (setq module (urb:loseta-module format))
   (setq goff *urb-guide-offset*)
   (setq box (urb:object-box-points base-region)
@@ -5092,14 +5094,13 @@
             (if (> module 0.30)
               "URB-ANDEN-LOSETA-GUIA-40X40" "URB-ANDEN-LOSETA-GUIA-20X20"))
           (setq guide-rings (urb:region-polygons base-region)
-                guide-chain (urb:guide-adaptive-chain chain-poly guide-rings goff module perp-sign))
-          (if guide-chain
+                guide-offset (urb:guide-uniform-offset chain-poly guide-rings goff module perp-sign))
+          (if guide-offset
             (progn
               (if (urb:build-offset-strip
-                    base-region guide-chain (- (* 0.5 module)) (* 0.5 module) 1.0 1.0
+                    base-region chain-poly guide-offset (+ guide-offset module) off-sign perp-sign
                     layer "GUIA" module parent-handle elevation span)
-                (setq count (1+ count) ok-gui T))
-              (entdel guide-chain))
+                (setq count (1+ count) ok-gui T)))
             (prompt "\nGUIA: no hay paso continuo suficiente; se verifica el respaldo segmentado."))))
       (entdel chain-poly)
       (if (or (not ok-top) (not ok-gui))

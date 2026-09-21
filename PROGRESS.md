@@ -1,5 +1,27 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-21 11:29 America/Bogota — v5.7.6 guía uniforme y costado táctil exacto
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit: pendiente al redactar esta
+entrada.
+
+El usuario mostró una guía serpenteante y un toperol en el lado contrario al
+marcado. Se corrigieron tres causas: la guía de 5.7.5 variaba su offset cada
+0,25 m (ahora usa un único offset limitado por el menor ancho disponible), la
+elección de lado medía solo vértices (ahora distancia exacta a segmentos), y
+el punto de `getpoint` quedaba en UCS mientras la geometría se procesa en WCS
+(ahora se transforma al capturarlo).
+
+Verificado en Civil 3D 2023 real sobre copia local: caso sintético que hacía
+fallar la selección anterior, corredor trapezoidal y andén real de ~188 m. El
+lado productivo fue el más cercano al clic; generación aceptada, una referencia
+de bloque y cero piezas sueltas. En el contorno real, variación máxima de
+separación: 6,690 mm y 7,508 mm en los bordes de guía; 0,818 mm en el toperol.
+El toperol quedó a 0,20 m del lado seleccionado. La lámina localizada confirmó
+que guía y toperol siguen los mismos quiebres sin serpenteo. Evidencia y límites:
+`diagnosticos/anden576/RESULTADO.md`. Versión 5.7.6 instalada en este equipo;
+requiere reiniciar Civil 3D y recrear/editar el andén existente.
+
 ## 2026-09-21 07:37 America/Bogota — 5.7.5 continuidad táctil y huella vial real
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Informe y harness:
