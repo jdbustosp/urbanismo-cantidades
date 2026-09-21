@@ -1,0 +1,22 @@
+VERSION 5.7.3 SURFACE #<VLA-OBJECT IAeccTinSurface 000001e7e77b9aa0>
+ROAD VIA-17 area=1114.676052 depth=1.000000 width=6.208094
+extra=0.00 step=2.500 cut/fill/skipped=(606.989 102.923 0) sections=73 ms=94
+extra=0.00 step=1.250 cut/fill/skipped=(607.116 102.889 0) sections=145 ms=141
+extra=0.00 step=0.625 cut/fill/skipped=(607.137 102.852 0) sections=289 ms=297
+extra=2.00 step=2.500 cut/fill/skipped=(809.048 127.716 0) sections=73 ms=63
+extra=2.00 step=1.250 cut/fill/skipped=(809.158 127.618 0) sections=145 ms=125
+extra=2.00 step=0.625 cut/fill/skipped=(809.154 127.532 0) sections=289 ms=265
+ROAD VIA-08 area=917.584876 depth=0.930000 width=7.373855
+extra=0.00 step=2.500 cut/fill/skipped=(868.906 0.0 0) sections=51 ms=47
+extra=0.00 step=1.250 cut/fill/skipped=(868.925 0.0 0) sections=101 ms=78
+extra=0.00 step=0.625 cut/fill/skipped=(868.931 0.0 0) sections=201 ms=188
+extra=2.00 step=2.500 cut/fill/skipped=(1116.0 0.0 0) sections=51 ms=47
+extra=2.00 step=1.250 cut/fill/skipped=(1116.01 0.0 0) sections=101 ms=79
+extra=2.00 step=0.625 cut/fill/skipped=(1116.02 0.0 0) sections=201 ms=171
+PRODUCTION_THIN area=0.00000000 expected=2 vertices=240
+TRI step=0.5000 integral=2.46428571 expected=2.4
+TRI step=0.2500 integral=2.44565217 expected=2.4
+TRI step=0.1250 integral=2.40489130 expected=2.4
+TRI step=0.0625 integral=2.40270619 expected=2.4
+FINISHED
+ERROR extra right paren on input

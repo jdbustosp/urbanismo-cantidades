@@ -1,0 +1,5 @@
+Controlled 2m2 rectangle, actual SUP_TN, fixed finish=TNcentre+0.40m. This tests shared volume integrator, not each UI/offset builder.
+ANDEN engine=(1.0 0.6) fine=(1.0 0.6) ms=93
+SENDERO-test engine=(1.0 1.1) fine=(1.0 1.1) ms=94
+ZONA_VERDE engine=(1.0 1.4) fine=(1.0 1.4) ms=109
+FINISHED

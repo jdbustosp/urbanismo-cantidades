@@ -1,0 +1,42 @@
+VERSION 5.7.4
+PASS native engine loaded
+PASS calzada + 1m/side
+PASS nominal fallback / asymmetric overwidth
+VIA-17 RESULT (809.048 127.716) MOV (809.05 127.72 AREAS_EXTREMAS_7_ORDENADAS_BOMBEO_2.00% - rasante por tramos (10 cotas seleccionadas) 73 0 8.21 1.00   ((0.0 2556.64) (20.0 2557.23) (40.0 2557.82) (60.0 2558.4) (80.0 2559.02) (100.0 2559.76) (120.0 2560.5) (140.0 2561.24) (160.0 2561.97) (179.552 2562.7))) ms=204
+PASS complete real surface computation
+PASS persisted width includes overwidth
+VIA-17 POLYGON step=0.500 area=1114.676196 cut=613.450107 fill=100.864968 missing=0
+VIA-17 POLYGON step=0.250 area=1114.676196 cut=613.586592 fill=100.951158 missing=0
+PASS VIA17 revised automatic axis exists
+VIA17 revised axis start=(83104.7 95457.7 0.0) end=(83035.4 95297.7 0.0)
+PASS axis change removes old grade
+PASS axis change removes old volumes
+PASS original road data unchanged
+VIA-08 RESULT (1116.0 0.0) MOV (1116.00 0.00 AREAS_EXTREMAS_7_ORDENADAS_BOMBEO_2.00% - rasante por tramos (10 cotas seleccionadas) 51 0 9.37 0.93   ((0.0 2556.6) (14.88 2556.3) (29.88 2556.01) (44.88 2555.72) (59.88 2555.43) (74.88 2555.13) (89.88 2554.84) (104.88 2554.55) (119.88 2554.26) (124.438 2554.17))) ms=141
+PASS complete real surface computation
+PASS persisted width includes overwidth
+VIA-08 POLYGON step=0.500 area=917.584828 cut=868.774912 fill=0.000000 missing=0
+VIA-08 POLYGON step=0.250 area=917.584828 cut=868.800480 fill=0.000000 missing=0
+PASS missing terrain rejected by production compute
+PASS missing terrain clears previous computed quantities
+PASS missing terrain explicit pending status
+PENDING_COMPACT crest_at_7.5=100.000000 expected=101
+FINISHED
+VERSION 5.7.4
+PASS native engine loaded
+PASS calzada + 1m/side
+PASS nominal fallback / asymmetric overwidth
+VIA-17 RESULT (809.048 127.716) MOV (809.05 127.72 AREAS_EXTREMAS_7_ORDENADAS_BOMBEO_2.00% - rasante por tramos (10 cotas seleccionadas) 82 0 8.21 1.00   ((0.0 2556.64) (20.0 2557.23) (40.0 2557.82) (60.0 2558.4) (80.0 2559.02) (100.0 2559.76) (120.0 2560.5) (140.0 2561.24) (160.0 2561.97) (179.552 2562.7))) ms=219
+PASS complete real surface computation
+PASS persisted width includes overwidth
+VIA-17 POLYGON step=0.500 area=1114.676192 cut=613.559270 fill=100.913441 missing=0
+VIA-17 POLYGON step=0.250 area=1114.676192 cut=613.572905 fill=100.906450 missing=0
+PASS VIA17 revised automatic axis exists
+VIA17 revised axis start=(83104.7 95457.7 0.0) end=(83035.4 95297.7 0.0)
+PASS axis change removes old grade
+PASS axis change removes old volumes
+PASS original road data unchanged
+VIA-08 RESULT (1116.0 0.0) MOV (1116.00 0.00 AREAS_EXTREMAS_7_ORDENADAS_BOMBEO_2.00% - rasante por tramos (10 cotas seleccionadas) 59 0 9.37 0.93   ((0.0 2556.6) (14.88 2556.3) (29.88 2556.01) (44.88 2555.72) (59.88 2555.43) (74.88 2555.13) (89.88 2554.84) (104.88 2554.55) (119.88 2554.26) (124.438 2554.17))) ms=188
+PASS complete real surface computation
+PASS persisted width includes overwidth
+VIA-08 POLYGON step=0.500 area=917.584823 cut=868.810290 fill=0.000000 missing=0

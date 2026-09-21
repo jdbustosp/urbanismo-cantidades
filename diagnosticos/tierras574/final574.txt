@@ -1,0 +1,44 @@
+VERSION 5.7.4
+PASS collinear middle preserved
+PASS collinear unordered interpolation
+quadrature=(6.0 20.0 2.4) samples=68 ms=16
+PASS triangle exact area and linear integrals
+quadrature=(2.0 10.0 0.2) samples=40 ms=0
+PASS thin rectangle no lost samples
+quadrature=(5.0 5.5 5.5) samples=40 ms=15
+PASS concave L exact area and moments
+quadrature=(2.0 166010.0 190000.0) samples=40 ms=0
+PASS large WCS and reverse orientation
+PASS production dispatcher 240 vertices
+quadrature=(1114.68 9.26048e+07 1.06316e+08) samples=41048 ms=6016
+PASS actual curved road footprint area
+PASS full grade stored before TN calculation
+PASS road packaged
+PASS full grade survives block packaging
+PASS full grade survives edit extraction
+PASS axis replacement invalidates full grade too
+PASS grade breakpoint sampled off regular grid
+FINISHED
+VERSION 5.7.4
+PASS collinear middle preserved
+PASS collinear unordered interpolation
+quadrature=(6.0 20.0 2.4) samples=68 ms=0
+PASS triangle exact area and linear integrals
+quadrature=(2.0 10.0 0.2) samples=40 ms=0
+PASS thin rectangle no lost samples
+quadrature=(5.0 5.5 5.5) samples=40 ms=15
+PASS concave L exact area and moments
+quadrature=(2.0 166010.0 190000.0) samples=40 ms=0
+PASS large WCS and reverse orientation
+PASS production dispatcher 240 vertices
+quadrature=(1114.68 9.26048e+07 1.06316e+08) samples=41048 ms=2515
+PASS actual curved road footprint area
+PASS full grade stored before TN calculation
+PASS 82-point grade keeps XDATA compatible
+PASS road packaged
+PASS full grade survives block packaging
+PASS full grade survives edit extraction
+PASS sidewalk consumer gets complete grade
+PASS axis replacement invalidates full grade too
+PASS grade breakpoint sampled off regular grid
+FINISHED

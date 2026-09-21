@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.3")
+(setq *urb-version* "5.7.4")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -7409,8 +7409,7 @@
       (if axis
         (urb:remember-road-axis road data via-id axis))
       (setq mov (urb:road-movement-data road))
-      (if (and mov (> (length mov) 9))
-        (setq records (urb:read-lisp-safe (nth 9 mov))))
+      (setq records (urb:road-design-grade-records road data))
       (if (not (urb:grade-records-valid-p records)) (setq records nil))
       (if records
         (setq record-mode "LOCAL" method "Via creada - rasante guardada"))
@@ -9054,6 +9053,26 @@
 
 (setq *urb-picks-edge-offset* nil)
 
+(defun urb:design-z-collinear-picks (picks x y / origin far span dx dy records p d)
+  ;; El orden de clic no define los extremos. Ordenar por proyeccion y
+  ;; conservar cada cota intermedia, en vez de inventar una sola pendiente.
+  (setq origin (cadr (car picks)) span 0.0)
+  (foreach p picks
+    (setq d (distance origin (cadr p)))
+    (if (> d span) (setq span d far (cadr p))))
+  (if (> span 1e-8)
+    (progn
+      (setq dx (/ (- (car far) (car origin)) span)
+            dy (/ (- (cadr far) (cadr origin)) span))
+      (foreach p picks
+        (setq records (cons (list
+          (+ (* (- (car (cadr p)) (car origin)) dx)
+             (* (- (cadr (cadr p)) (cadr origin)) dy)) (car p)) records)))
+      (setq records (vl-sort records '(lambda (a b) (< (car a) (car b)))))
+      (urb:cota-at-axis-distance
+        (+ (* (- x (car origin)) dx) (* (- y (cadr origin)) dy)) records))
+    (car (car picks))))
+
 (defun urb:design-z-from-picks-plane (picks x y / n sx sy sz sxx syy sxy sxz syz
    det a b c p p1 p2 z1 z2 dx dy len2 t0 ox oy)
   (setq n (length picks))
@@ -9078,8 +9097,7 @@
                    (* (- sxy) (- (* sxy n) (* sy sx)))
                    (* sx (- (* sxy sy) (* syy sx)))))
       (if (< (abs det) 1e-9)
-        ;; puntos colineales: caer a la rasante lineal de los 2 extremos
-        (urb:design-z-from-picks (list (car picks) (last picks)) x y)
+        (urb:design-z-collinear-picks picks x y)
         (progn
           (setq a (/ (+ (* sxz (- (* syy n) (* sy sy)))
                         (* (- sxy) (- (* syz n) (* sy sz)))
@@ -9132,39 +9150,64 @@
     (urb:earthwork-scanline-samples points 0.5)
     (urb:earthwork-triangle-samples points)))
 
-(defun urb:earthwork-scanline-samples (points step / pts rest a b edges xmin xmax ymin ymax
-                                       y xs k x0 x1 c cx lo hi z out total area e)
-  (setq pts (mapcar '(lambda (p) (list (car p) (cadr p))) points)
-        z (if (caddr (car points)) (caddr (car points)) 0.0)
-        rest (append pts (list (car pts))) area 0.0)
-  (while (cdr rest)
-    (setq a (car rest) b (cadr rest)
-          area (+ area (- (* (car a) (cadr b)) (* (car b) (cadr a)))))
-    (if (/= (cadr a) (cadr b)) (setq edges (cons (list a b) edges)))
-    (setq rest (cdr rest)))
-  (setq area (* 0.5 (abs area))
-        xmin (apply 'min (mapcar 'car pts)) xmax (apply 'max (mapcar 'car pts))
-        ymin (apply 'min (mapcar 'cadr pts)) ymax (apply 'max (mapcar 'cadr pts))
-        y (+ ymin (* 0.5 step)) total 0.0)
-  (while (< y ymax)
-    (setq xs nil)
-    (foreach e edges
-      (setq a (car e) b (cadr e))
-      (if (or (and (<= (cadr a) y) (< y (cadr b))) (and (<= (cadr b) y) (< y (cadr a))))
-        (setq xs (cons (+ (car a) (/ (* (- y (cadr a)) (- (car b) (car a))) (- (cadr b) (cadr a)))) xs))))
-    (setq xs (vl-sort xs '<))
-    (while (cdr xs)
-      (setq x0 (car xs) x1 (cadr xs) xs (cddr xs)
-            c (fix (/ (- x0 xmin) step)))
-      (while (< (setq cx (+ xmin (* c step))) x1)
-        (setq lo (max x0 cx) hi (min x1 (+ cx step)))
-        (if (> hi lo)
-          (setq out (cons (list (list (* 0.5 (+ lo hi)) y z) (* (- hi lo) step)) out)
-                total (+ total (* (- hi lo) step))))
-        (setq c (1+ c))))
-    (setq y (+ y step)))
-  (if (> total 1e-9)
-    (mapcar '(lambda (s) (list (car s) (* (cadr s) (/ area total)))) out)))
+(defun urb:earthwork-strip-x (edge y / a b)
+  (setq a (car edge) b (cadr edge))
+  (+ (car a) (* (- y (cadr a))
+    (/ (- (car b) (car a)) (- (cadr b) (cadr a))))))
+
+(defun urb:earthwork-scanline-samples (points step / pts rest a b edges levels y0 y1 ym
+   hits edge pair l0 l1 r0 r1 n k f0 f1 p0 p1 p2 p3 tri weight ox oy z out height)
+  ;; 5.7.4: trapecios recortados entre TODOS los niveles de vertices.
+  ;; Cada celda aporta area y centroide reales, sin normalizacion global.
+  ;; Evita perder remates <0.25m y conserva integrales de planos lineales.
+  ;; Coordenadas locales: estabilidad en las coordenadas grandes del DWG.
+  (if (and (> (length points) 2) (> step 0.0))
+    (progn
+      (setq ox (caar points) oy (cadar points)
+            z (if (caddr (car points)) (caddr (car points)) 0.0)
+            pts (mapcar '(lambda (p) (list (- (car p) ox) (- (cadr p) oy))) points)
+            rest (append pts (list (car pts)))
+            levels (vl-sort (mapcar 'cadr pts) '<))
+      (while (cdr rest)
+        (setq a (car rest) b (cadr rest))
+        (if (/= (cadr a) (cadr b)) (setq edges (cons (list a b) edges)))
+        (setq rest (cdr rest)))
+      (while (cdr levels)
+        (setq y0 (car levels) y1 (cadr levels))
+        (while (< y0 (- y1 1e-10))
+          (setq height (min step (- y1 y0)) ym (+ y0 (* 0.5 height)) hits nil)
+          (foreach edge edges
+            (setq a (car edge) b (cadr edge))
+            (if (or (and (<= (cadr a) ym) (< ym (cadr b)))
+                    (and (<= (cadr b) ym) (< ym (cadr a))))
+              (setq hits (cons (list (urb:earthwork-strip-x edge ym) edge) hits))))
+          (setq hits (mapcar '(lambda (i) (nth i hits))
+            (vl-sort-i hits '(lambda (a b) (< (car a) (car b))))))
+          (while (cdr hits)
+            (setq pair (list (cadar hits) (cadadr hits)) hits (cddr hits)
+                  l0 (urb:earthwork-strip-x (car pair) y0)
+                  l1 (urb:earthwork-strip-x (car pair) (+ y0 height))
+                  r0 (urb:earthwork-strip-x (cadr pair) y0)
+                  r1 (urb:earthwork-strip-x (cadr pair) (+ y0 height))
+                  n (max 1 (fix (+ 0.999999999 (/ (max (- r0 l0) (- r1 l1)) step)))) k 0)
+            (repeat n
+              (setq f0 (/ (float k) n) f1 (/ (float (1+ k)) n)
+                    p0 (list (+ l0 (* f0 (- r0 l0))) y0)
+                    p1 (list (+ l0 (* f1 (- r0 l0))) y0)
+                    p2 (list (+ l1 (* f1 (- r1 l1))) (+ y0 height))
+                    p3 (list (+ l1 (* f0 (- r1 l1))) (+ y0 height)))
+              (foreach tri (list (list p0 p1 p2) (list p0 p2 p3))
+                (setq a (mapcar '- (cadr tri) (car tri))
+                      b (mapcar '- (caddr tri) (car tri))
+                      weight (* 0.5 (abs (- (* (car a) (cadr b)) (* (cadr a) (car b))))))
+                (if (> weight 1e-14)
+                  (setq out (cons (list
+                    (list (+ ox (/ (apply '+ (mapcar 'car tri)) 3.0))
+                          (+ oy (/ (apply '+ (mapcar 'cadr tri)) 3.0)) z) weight) out))))
+              (setq k (1+ k))))
+          (setq y0 (+ y0 height)))
+        (setq levels (cdr levels)))
+      out)))
 
 (defun urb:earthwork-triangle-samples (points / pending tri a b c ab bc ca mid w out)
   (setq pending (urb:triangulate-polygon points))
@@ -13253,8 +13296,7 @@
       (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
       (if (not axis) (setq axis (urb:select-or-draw-road-axis "Existente")))
       (setq mov (urb:road-movement-data road))
-      (if (and mov (> (length mov) 9))
-        (setq records (urb:read-lisp-safe (nth 9 mov))))
+      (setq records (urb:road-design-grade-records road data))
       (if (not (urb:grade-records-valid-p records)) (setq records nil))
       (setq span
         (atof
@@ -18526,7 +18568,9 @@
   ;; La rasante de diseno se puede consultar aunque no exista superficie
   ;; TN y, por tanto, aun no se haya calculado movimiento de tierras.
   (setq mov (urb:road-movement-data road))
-  (if (and mov (> (length mov) 9))
+  (setq records (urb:road-ldata-stored road "URB_VIA_RASANTE_FULL"))
+  (if (not (urb:grade-records-valid-p records)) (setq records nil))
+  (if (and (null records) mov (> (length mov) 9))
     (setq records (urb:read-lisp-safe (nth 9 mov))))
   (if (not (urb:grade-records-valid-p records)) (setq records nil))
   (if (and (null records) (> (length data) 32))
@@ -20339,6 +20383,24 @@
     nil)
 )
 
+(defun urb:invalidate-road-movement (boundary clear-grade reason / data index)
+  ;; Nunca conservar cantidades calculadas para otro eje o una cobertura
+  ;; incompleta. Las cotas se pueden conservar si el eje no ha cambiado.
+  (setq data (urb:get-xdata-strings boundary "URB_VIA"))
+  (if data
+    (progn
+      (setq data (urb:replace-nth 19 reason data) index 23)
+      (while (< index (min (length data) (if clear-grade 33 30)))
+        (setq data (urb:replace-nth index "" data) index (1+ index)))
+      (urb:set-xdata-strings boundary "URB_VIA" data)
+      (urb:set-xdata-strings boundary "URB_VIA_MOV" nil)
+      (vl-catch-all-apply 'vlax-ldata-delete (list boundary "URB_VIA_AUDIT"))
+      (if clear-grade
+        (progn
+          (vl-catch-all-apply 'vlax-ldata-delete (list boundary "URB_VIA_RASANTE_SRC"))
+          (vl-catch-all-apply 'vlax-ldata-delete (list boundary "URB_VIA_RASANTE_FULL"))))))
+  nil)
+
 ;; Cota al final de un tramo a partir de la cota inicial, la pendiente en %
 ;; y la longitud. Pura, para poder autoprobarla.
 (defun urb:cota-por-pendiente (c0 slope span)
@@ -20402,12 +20464,15 @@
   (setq *urb-road-picks-raw* nil *urb-road-picked-sources* nil)
   (if records
     (progn
+      (vlax-ldata-put boundary "URB_VIA_RASANTE_FULL" records)
       (setq data (urb:get-xdata-strings boundary "URB_VIA"))
       (while (< (length data) 33)
         (setq data (append data (list ""))))
       (setq data (urb:replace-nth 30 (rtos c0 2 8) data)
             data (urb:replace-nth 31 (rtos c1 2 8) data)
-            data (urb:replace-nth 32 (urb:serialize-lisp records) data))
+            data (urb:replace-nth 32 (urb:serialize-lisp
+              (urb:compact-road-grade-samples
+                (mapcar '(lambda (r) (list (car r) nil (cadr r))) records))) data))
       (urb:set-xdata-strings boundary "URB_VIA" data)))
   records
 )
@@ -20692,7 +20757,8 @@
 (defun urb:edit-road
   (boundary / old dialog axis surface data obj area range axis-start
    axis-length label start interval handle via-id block-ref original-block
-   edit-completed cota-info picks cota-capa cota-textos)
+   edit-completed cota-info picks cota-capa cota-textos old-axis axis-choice
+   owned-axis axis-changed)
   ;; Si la via ya esta empacada en un bloque (atributos visibles en
   ;; Properties), se desempaca primero: se recupera el contorno crudo
   ;; con su xdata intacta y se sigue el mismo flujo de siempre; al
@@ -20729,9 +20795,46 @@
               ;; de nuevo.
               (if (not axis)
                 (setq axis (urb:cached-road-axis via-id)))
+              (setq old-axis axis)
+              (if axis
+                (progn
+                  (initget "Conservar Recalcular Seleccionar")
+                  (setq axis-choice (getkword
+                    "\nEje de la via [Conservar/Recalcular/Seleccionar] <Conservar>: "))
+                  (cond
+                    ((= axis-choice "Recalcular")
+                      (setq axis (urb:road-axis-from-boundary boundary))
+                      (if axis (setq axis (urb:confirm-auto-axis boundary axis)))
+                      (setq owned-axis axis))
+                    ((= axis-choice "Seleccionar")
+                      (setq axis (urb:select-or-draw-road-axis "Existente"))))))
               (if (not axis)
-                (setq axis (urb:select-or-draw-road-axis (nth 4 dialog))))
-              (if axis (urb:cache-road-axis via-id axis))
+                (if (not old-axis)
+                  (setq axis (urb:select-or-draw-road-axis (nth 4 dialog)))))
+              (setq axis-changed (and axis (not (equal axis old-axis))))
+              (if axis-changed
+                (progn
+                  ;; La rasante antigua esta en abscisas del eje antiguo.
+                  ;; No trasladarla silenciosamente al nuevo recorrido.
+                  (setq *urb-road-picked-cotas* nil *urb-road-picked-stations* nil
+                        *urb-road-picked-slope* nil *urb-road-picked-sources* nil
+                        *urb-road-picks-raw* nil)
+                  (if (not (urb:string-equal-p (nth 6 dialog) "Textos por capa"))
+                    (progn
+                      (prompt "\nEje cambiado: vuelva a definir las cotas de rasante para este recorrido.")
+                      (setq picks (urb:pick-road-cotas))
+                      (cond
+                        ((or (>= (length picks) 2)
+                             (and (= (length picks) 1) (numberp *urb-road-picked-slope*)))
+                          (if (> (length picks) 2)
+                            (setq *urb-road-picked-stations* (urb:picked-cotas-to-stations picks axis))
+                            (setq *urb-road-picked-cotas* (mapcar 'car picks))))
+                        (T (setq axis nil)
+                           (prompt "\nSin rasante nueva: no se reemplaza la via.")))))
+                  (if axis
+                    (progn
+                      (urb:invalidate-road-movement boundary T "PENDIENTE: EJE CAMBIADO")
+                      (setq old (urb:get-xdata-strings boundary "URB_VIA"))))))
               (if axis
                 (progn
                   (setq surface (urb:resolve-road-surface (nth 5 dialog)))
@@ -20840,7 +20943,7 @@
                       ;; capa se vuelve a marcar LA CAPA de cotas (y se
                       ;; recalibra contra el eje), por pendiente se vuelven a
                       ;; tomar las cotas como antes.
-                      (if (urb:ask-edit-movimiento "la via")
+                      (if (and (not axis-changed) (urb:ask-edit-movimiento "la via"))
                         (if (urb:string-equal-p (nth 6 dialog) "Textos por capa")
                           (progn
                             (setq cota-info
@@ -20911,6 +21014,7 @@
                               "\nNo se pudo reemplazar la via anterior; se conservo intacta."))
                           (progn
                             (setq edit-completed T)
+                            (urb:cache-road-axis via-id axis)
                             (setq boundary (urb:as-ename block-ref))
                             (vla-Regen (urb:doc) 1)
                             (alert (urb:road-memory-from-data boundary
@@ -20930,6 +21034,8 @@
       (setq obj
         (vl-catch-all-apply 'vlax-ename->vla-object (list boundary)))
       (if (not (vl-catch-all-error-p obj)) (urb:safe-delete obj))))
+  (if (and owned-axis (not edit-completed) (entget owned-axis))
+    (entdel owned-axis))
   (princ))
 
 ;; Si el usuario ya tiene la via seleccionada (un clic selecciona todo
@@ -21953,7 +22059,7 @@
 (defun urb:road-section-samples
   (surface axis axis-start span interval direction width-total
    cota-stations cota-coverage station-start
-   / s d section terrain rasante profile result positions end-station next-grid)
+   / s d section terrain rasante profile result positions end-station next-grid knot)
   ;; Secciones en inicio/final reales y en las abscisas redondas de proyecto.
   ;; Para inicio 0+015.33: 15.33, 20, 25... 50, 54.12.
   (setq positions (list 0.0))
@@ -21966,6 +22072,14 @@
       (append positions (list (- next-grid station-start))))
     (setq next-grid (+ next-grid interval)))
   (if (> span 1e-6) (setq positions (append positions (list span))))
+  ;; Incluir quiebres de rasante aunque no caigan en la malla regular.
+  (if cota-coverage
+    (foreach knot cota-stations
+      (setq s (if (urb:string-equal-p direction "Final")
+        (- (+ axis-start span) (car knot)) (- (car knot) axis-start)))
+      (if (and (> s 1e-6) (< s (- span 1e-6)))
+        (setq positions (cons s positions)))))
+  (setq positions (vl-sort positions '<))
   (foreach s positions
     (setq d
       (+ axis-start
@@ -23638,6 +23752,12 @@
     (prompt "\nEl objeto seleccionado no es una via cuantificable."))
   (princ))
 
+(defun urb:road-earthwork-width (area span nominal left right / calzada)
+  ;; AREA de URB_VIA es calzada, no huella de tierras (ver package-road).
+  ;; Sigue siendo un ancho MEDIO: no reemplaza integrar el contorno real.
+  (setq calzada (if (> span 0.01) (/ area span) 0.0))
+  (+ (if (> calzada 0.01) calzada nominal) left right))
+
 (defun urb:compute-road-earthworks
   (boundary data axis / surface depth area axis-length axis-start nominal
    left right width-total design-width geometry-width interval sample-interval direction texts radius span stations raw-stations
@@ -23692,18 +23812,18 @@
       (setq design-width (+ nominal left right)
             geometry-width
               (if (> axis-length 0.01) (/ area axis-length) 0.0))
-      ;; El ancho medio geometrico hace que ancho x longitud reproduzca el
-      ;; area real del contorno, incluso en curvas y sobreanchos variables.
-      ;; El ancho nominal queda como respaldo y control de discrepancia.
+      ;; El area guardada corresponde a CALZADA. Los sobreanchos se suman
+      ;; una vez, igual que en VIA_AREA_SOBREANCHO_M2. El ancho medio no
+      ;; representa la distribucion local de anchos variables.
       (setq width-total
-        (if (> geometry-width 0.01) geometry-width design-width))
+        (urb:road-earthwork-width area axis-length nominal left right))
       (if (and (> design-width 0.01) (> geometry-width 0.01)
-               (> (/ (abs (- geometry-width design-width)) design-width) 0.02))
+               (> (/ (abs (- width-total design-width)) design-width) 0.02))
         (prompt
           (strcat
-            "\nControl de ancho: geometria " (rtos geometry-width 2 2)
+            "\nControl de ancho: calzada + sobreanchos " (rtos width-total 2 2)
             " m vs. diseno " (rtos design-width 2 2)
-            " m. El movimiento usa el ancho geometrico.")))
+            " m. El movimiento usa el ancho medio mas los sobreanchos.")))
       (setq interval (atof (nth 11 data)))
       (if (<= interval 0.01) (setq interval 10.0))
       (setq sample-interval
@@ -23922,6 +24042,13 @@
               (setq cut (nth 0 totals))
               (setq fill (nth 1 totals))
               (setq skipped (nth 2 totals))
+              (if (> skipped 0)
+                (progn
+                  (urb:invalidate-road-movement boundary nil "PENDIENTE: COBERTURA TN INCOMPLETA")
+                  (prompt (strcat "\nTierras PENDIENTES: " (itoa skipped)
+                    " secciones sin cobertura TN/rasante. No se guardan cantidades parciales."))
+                  nil)
+                (progn
               ;; Estado y movimiento se escriben juntos dentro de URB_VIA;
               ;; asi el bloque no depende de una segunda aplicacion XDATA.
               (urb:set-road-movement-data boundary
@@ -23937,6 +24064,10 @@
                   (if cota-final (rtos cota-final 2 4) "")
                   (urb:serialize-lisp
                     (urb:compact-road-grade-samples samples))))
+              ;; Perfil completo en diccionario: no perder quiebres por el
+              ;; limite de 255 caracteres de la copia compatible XDATA.
+              (vlax-ldata-put boundary "URB_VIA_RASANTE_FULL"
+                (mapcar '(lambda (s) (list (car s) (nth 2 s))) samples))
               ;; 2026-08-13: las FILAS de la tabla de verificacion se
               ;; persisten en TODO calculo (ldata URB_VIA_AUDIT), se
               ;; dibuje o no la tabla -- asi el clic derecho
@@ -23972,7 +24103,7 @@
                   (rtos cut 2 2) " m3 | relleno "
                   (rtos fill 2 2) " m3."))
               (setq *urb-earthwork-stage* "calculo finalizado")
-              (list cut fill))))))))
+              (list cut fill))))))))))
 
 ;; Se llama solo desde crear/editar via; nunca interrumpe el flujo.
 ;; Recibe el eje ya resuelto (no lo vuelve a buscar con handent, que no

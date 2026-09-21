@@ -1,5 +1,28 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-21 06:23 America/Bogota — 5.7.4 ejes editables y tierras verificadas
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base f37211b; commit de esta entrega.
+Evidencia y limites: diagnosticos/tierras574/RESULTADO.md y registros nativos.
+Instalada localmente5.7.4 (motor/manifiesto; DLL/cargador sin cambios).
+SHA fuente=probada=instalada E398954AC7772530CD70D36A2561FCA7060F8BA539AC6161015B8D4CF09A4335.
+
+- EDITAR via permite Conservar/Recalcular/Seleccionar eje. Cambio de eje
+  invalida cantidades/rasante anterior y pide cotas nuevas o reproyecta capa.
+- Tierras de vias incluye sobreanchos que se omitian al usar area de calzada.
+  No guarda parciales ante secciones sin TN/rasante; invalida volumen anterior.
+- Barrido para contornos densos usa trapecios recortados y centroides reales,
+  sin normalizacion global; conserva remates estrechos y momentos lineales.
+- Cotas colineales por tramos, sin descartar intermedias. Rasante completa
+  persistida en ldata; consultas del anden la usan; XDATA compacta compatible.
+  Secciones incluyen quiebres fuera de la malla regular.
+- Civil2023 real: 82cotas sobreviven empaquetado/extraccion; casos analiticos
+  y SUP_TN pasan. Anden real374.33m2: acabado17.922s, empaque9.359s,
+  regen0.844s; bloque unico/plano,0piezas sueltas, particion de areas correcta.
+- NO cerrado: exactitud con ancho vial variable (aun ancho medio), convergencia
+  automatica de volumen, todos los acabados visibles, UI completa ni Civil2026.
+  No se modifico el maestro. No atribuir28.125s a tierras/guardado del DWG.
+
 ## 2026-09-18 18:10 America/Bogota — 5.7.3 guía y toperol siguen los quiebres del andén junto a contenedores; eje de vía abocinada
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base ecbc03a. INSTALADA.
