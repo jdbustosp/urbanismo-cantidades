@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.7")
+(setq *urb-version* "5.7.8")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -3588,6 +3588,25 @@
     (cons T (- gray-w phase-mod))
     (cons nil (- period phase-mod))))
 
+(defun urb:segment-phase-info
+  (u1 u2 actual-umin actual-umax cumulative total reverse-pattern
+   / decreasing local-reverse start-u station phase)
+  ;; Fase REAL en el borde de una cuna a inglete. La cuna sobresale antes
+  ;; y despues de la cuerda del tramo; usar CUMULATIVE directamente en su
+  ;; umin reiniciaba el gris/blanco unos centimetros corrido y producia la
+  ;; pieza triangular que se veia en andenes de curva suave. Tambien se
+  ;; respeta si la cadena recorre el eje U en sentido decreciente.
+  (setq decreasing (< u2 u1)
+        local-reverse
+          (if reverse-pattern (not decreasing) decreasing)
+        start-u (if local-reverse actual-umax actual-umin)
+        station
+          (+ cumulative
+             (if decreasing (- u1 start-u) (- start-u u1)))
+        phase (if reverse-pattern (- total station) station))
+  (list local-reverse phase)
+)
+
 (defun urb:decorate-composite-region
   (base-region angle-value format parent-handle reverse-pattern phase-offset
    fallback-points
@@ -4033,7 +4052,9 @@
   (base-region driving-chain format parent-handle reverse-pattern
    / edges edge angle-value cosine sine u1 u2 umin umax
    bounds-all vmin-all vmax-all slice count points-all
-   cum-offset total-length phase-offset bisectors edge-index bis span)
+   cum-offset total-length phase-offset bisectors edge-index bis span
+   slice-points slice-bounds actual-umin actual-umax phase-info
+   local-reverse)
   ;; Modula el anden segmento por segmento siguiendo el contorno real en vez
   ;; de un unico eje: cada arista del lado guia recorta su propia franja del
   ;; anden (el resto del ancho se recorta solo por el boolean contra el
@@ -4076,16 +4097,28 @@
               vmin-all (nth 2 bounds-all)
               vmax-all (nth 3 bounds-all))
         (setq slice (urb:clip-stripe base-region umin umax vmin-all vmax-all angle-value))))
-    (setq phase-offset
-      (if reverse-pattern
-        (- total-length (+ cum-offset (- umax umin)))
-        cum-offset))
     (if slice
       (progn
+        ;; La cuna a inglete no empieza exactamente en p1: sus esquinas
+        ;; se prolongan segun la bisectriz. Medir esos limites reales y
+        ;; continuar alli la fase global evita la cuna gris/blanca
+        ;; diagonal entre dos tramos visualmente rectos.
+        (setq slice-points (urb:region-outline-points slice))
+        (if (null slice-points)
+          (setq slice-points (urb:object-box-points slice)))
+        (setq slice-bounds (urb:project-bounds slice-points angle-value)
+              actual-umin (nth 0 slice-bounds)
+              actual-umax (nth 1 slice-bounds)
+              phase-info
+                (urb:segment-phase-info
+                  u1 u2 actual-umin actual-umax cum-offset total-length
+                  reverse-pattern)
+              local-reverse (car phase-info)
+              phase-offset (cadr phase-info))
         (urb:decorate-composite-region
-          slice angle-value format parent-handle reverse-pattern phase-offset nil)
+          slice angle-value format parent-handle local-reverse phase-offset nil)
         (setq count (1+ count))))
-    (setq cum-offset (+ cum-offset (- umax umin)))
+    (setq cum-offset (+ cum-offset (nth 2 edge)))
     (setq edge-index (1+ edge-index)))
   (urb:safe-delete base-region)
   (> count 0)
@@ -4107,6 +4140,24 @@
             (setq drift (max drift
               (urb:axis-angle-distance (nth 3 e1) (nth 3 edge)))))
           drift))))
+)
+
+(defun urb:chain-off-axis-length (chain tolerance / edges edge reference longest total)
+  ;; Longitud que realmente cambia de rumbo respecto al tramo dominante.
+  ;; Un vertice residual de pocos centimetros puede tener 10-40 grados de
+  ;; diferencia y, con el maximo angular puro, convertia un anden recto en
+  ;; dos tramos con una cuna diagonal. La longitud ponderada distingue ese
+  ;; residuo de una curva o quiebre arquitectonico sostenido.
+  (setq edges (urb:open-chain-edges chain)
+        reference nil longest -1.0 total 0.0)
+  (foreach edge edges
+    (if (> (nth 2 edge) longest)
+      (setq longest (nth 2 edge) reference (nth 3 edge))))
+  (if reference
+    (foreach edge edges
+      (if (> (urb:axis-angle-distance reference (nth 3 edge)) tolerance)
+        (setq total (+ total (nth 2 edge))))))
+  total
 )
 
 ;; 2026-09-12: une aristas consecutivas que van casi en la misma direccion,
@@ -4140,13 +4191,20 @@
 ;; Un anden se modula POR TRAMOS cuando es largo y gira: con un solo eje
 ;; las losetas del final quedan torcidas respecto al eje del anden
 ;; (medido en el master: 189,76 m que giran 23,3 grados).
-(defun urb:anden-needs-segmented-p (chain / largo)
+(defun urb:anden-needs-segmented-p (chain / largo deriva longitud-girada)
   (if (null chain)
     nil
     (progn
-      (setq largo (urb:chain-total-length chain))
+      (setq largo (urb:chain-total-length chain)
+            deriva (urb:chain-direction-drift chain)
+            longitud-girada
+              (urb:chain-off-axis-length chain (* pi (/ 2.0 180.0))))
       (and (> largo 0.40)
-           (> (urb:chain-direction-drift chain) (* pi (/ 2.0 180.0)))))))
+           (> deriva (* pi (/ 2.0 180.0)))
+           ;; Debe existir al menos medio metro Y 1 % del recorrido fuera
+           ;; del eje dominante. Un remate de 3-25 cm se recorta con el
+           ;; patron recto; no merece una modulacion propia.
+           (> longitud-girada (max 0.50 (* 0.01 largo)))))))
 
 (defun urb:create-composite-loseta
   (ename format / obj copy base-region points fine-points parent-handle clusters
@@ -38772,6 +38830,38 @@
         ;; largo y girando: SI
         (urb:anden-needs-segmented-p
           '((0.0 0.0 0.0) (30.0 0.0 0.0) (60.0 0.0 0.0) (90.0 30.0 0.0)))))
+    ;; 2026-09-21 (foto: anden visualmente recto con una cuna diagonal en
+    ;; 0+145): un remate residual de centimetros no puede convertir todo el
+    ;; material en dos orientaciones. El quiebre sostenido si debe hacerlo.
+    (list "Un remate corto no parte un anden recto"
+      (and
+        (not
+          (urb:anden-needs-segmented-p
+            '((0.0 0.0 0.0) (99.596 0.0 0.0)
+              (99.627 0.0065 0.0))))
+        (< (urb:chain-off-axis-length
+             '((0.0 0.0 0.0) (99.596 0.0 0.0)
+               (99.627 0.0065 0.0))
+             (* pi (/ 2.0 180.0)))
+           0.04)
+        (urb:anden-needs-segmented-p
+          '((0.0 0.0 0.0) (50.0 0.0 0.0)
+            (55.0 2.0 0.0) (80.0 12.0 0.0)))))
+    (list "La fase de una cuna usa su extension real"
+      (and
+        ;; La cuna empieza 10 cm antes de la cuerda: su fase tambien.
+        (equal '(nil -0.1)
+          (urb:segment-phase-info 0.0 10.0 -0.1 10.1 0.0 20.0 nil)
+          1e-9)
+        ;; La misma geometria recorrida de derecha a izquierda invierte
+        ;; el barrido local, pero conserva la estacion fisica -0.1.
+        (equal '(T -0.1)
+          (urb:segment-phase-info 20.0 10.0 9.9 20.1 0.0 20.0 nil)
+          1e-9)
+        ;; Invertir el patron conserva el extremo global de referencia.
+        (equal '(T 9.9)
+          (urb:segment-phase-info 0.0 10.0 -0.1 10.1 0.0 20.0 T)
+          1e-9)))
     ;; 2026-09-12: un arco muestreado fino se reduce a pocos TRAMOS RECTOS,
     ;; para que el material no quede en abanico continuo (lo que el usuario
     ;; rechazo el 2026-08-09) ni torcido al final.

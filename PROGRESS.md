@@ -1,5 +1,23 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-21 16:05 America/Bogota — v5.7.8 continuidad en andenes de curva suave
+
+Agente: Codex. Equipo: BOG085CD119BDQN.
+
+La pieza diagonal reportada se reprodujo sobre una copia del maestro. El
+andén `104A88` combina dos casos: en la lectura de vértices aparece un residuo
+de 3,2 cm que antes disparaba un tramo falso; reconstruyendo sus arcos es una
+curva gradual real de 100,339 m y 23,508°, que sí necesita conservar ejes
+locales. La cuña visual provenía de continuar el patrón desde la cuerda y no
+desde el límite real del inglete. Se ponderan ahora los cambios por longitud y
+la fase gris/blanco se calcula en el límite real, también cuando el recorrido
+va en U decreciente. Una curva real de 179,166 m sigue segmentándose.
+
+Civil 3D 2023 real: 60/60 verificaciones; reconstrucción de `104A88` aceptada,
+una referencia de bloque y cero piezas sueltas. No cambian áreas, cantidades ni
+número de entidades. Evidencia y límites en
+`diagnosticos/anden578/RESULTADO.md`.
+
 ## 2026-09-21 14:30 America/Bogota — v5.7.7 fluidez, PURGE seguro y lado tactil anclado
 
 Agente: Codex. Equipo: BOG085CD119BDQN.
