@@ -1,5 +1,26 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-21 07:37 America/Bogota — 5.7.5 continuidad táctil y huella vial real
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Informe y harness:
+`diagnosticos/tierras575/RESULTADO.md` y `verify575.lsp`.
+
+- Andén real 374,333717 m²: guía adaptativa continua en curvas y
+  estrechamientos, observada aislando guía/toperol en un render completo y
+  cuatro ampliaciones. Sin círculo grande. Bloque único, cero sueltas, cero
+  anidados, error de partición 0,000001 m². Dos tiempos: 35,282 s y 54,062 s;
+  mejora frente a ~5 min, no se declara instantáneo.
+- Tierras de vías ya no usan ancho promedio: construyen la huella real con
+  sobreanchos laterales e integran TN/rasante por celdas hasta converger 0,5 %.
+  Caso trapezoidal exacto y vías reales VIA-17/VIA-08 con SUP_TN pasaron;
+  auditoría 0,25/0,125 m, cobertura completa, atributos/ldata/bloque coherentes.
+- Sellado de reparación de hatches por esquema `HATCH_RENDER_V1`, no por cada
+  versión: actualizar el motor ya no obliga a repetir el censo pesado.
+- Maestro intacto. Verificado en Civil 3D 2023; no se ejecutó 2025/2026.
+- Instalada 5.7.5 completa con Civil cerrado. SHA motor repo=instalado
+  `D9F771824A51D624148FF76E3908D3B7EF9B479A7F9D433E5817C50BB8F7868F`;
+  manifiesto repo=instalado `256F5D9A2DE08BD5562AE7E70B7D594AD58200561485B0F9A54AF3F4A2B56532`.
+
 ## 2026-09-21 06:23 America/Bogota — 5.7.4 ejes editables y tierras verificadas
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base f37211b; commit de esta entrega.

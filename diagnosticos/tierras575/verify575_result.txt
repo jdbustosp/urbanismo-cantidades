@@ -1,0 +1,28 @@
+VERSION 5.7.5
+PASS engine version
+SYNTH_FOOTPRINT (40.0499 30.0 nil T 4)
+PASS variable-width footprint exists
+SYNTH area=40.04987562 moment_x=216.91604477 old_average=200.00000000
+PASS variable-width exact perpendicular footprint area
+PASS variable-width integral follows local width, not average width
+PASS VIA-17 real boundary/axis/grade available
+PASS VIA-17 production uses converged real footprint
+VIA-17 result=(814.142 126.332) footprint=1468.127293 step025=(814.142 126.332) step0125=(814.144 126.335)
+PASS VIA-17 stored footprint area equals geometry
+PASS VIA-17 complete TN coverage over footprint
+PASS VIA-17 0.25/0.125m volume convergence within 0.5%
+PASS VIA-17 property total area equals earthwork footprint
+PASS VIA-17 property exclusive overwidth equals geometry
+PASS VIA-17 footprint metadata survives packaging
+PASS VIA-17 original road unchanged
+PASS VIA-08 real boundary/axis/grade available
+PASS VIA-08 production uses converged real footprint
+VIA-08 result=(1106.46 0.0) footprint=1155.927680 step025=(1106.46 0.0) step0125=(1106.46 0.0)
+PASS VIA-08 stored footprint area equals geometry
+PASS VIA-08 complete TN coverage over footprint
+PASS VIA-08 0.25/0.125m volume convergence within 0.5%
+PASS VIA-08 property total area equals earthwork footprint
+PASS VIA-08 property exclusive overwidth equals geometry
+PASS VIA-08 footprint metadata survives packaging
+PASS VIA-08 original road unchanged
+FINISHED

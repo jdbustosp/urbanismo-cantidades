@@ -1,0 +1,14 @@
+VERSION 5.7.5
+PASS actual target exists
+FINISH_AREA=374.333717
+BUILD_MS=36907
+PASS complete finish builder accepted guide and toperol
+PASS block packaged
+PASS one block reference
+PASS zero loose generated pieces (full modelspace scan)
+PASS both tactile layers inside block
+PARTITION=374.333718 NET=374.333717
+PASS finish quantity partition within 0.01m2
+TIMES build=36907 pack=16093 regen=1062 total=54062
+COUNTS=(4785 3574 618 0) ATTRIBUTES=((ANDEN_RELLENO_M3 . 0) (ANDEN_CORTE_M3 . 0) (ADOQUIN_20X10_UND . 8851) (ADOQUIN_20X10_M2 . 177.009944) (LOSETA_TOPEROL_UND . 705) (LOSETA_GUIA_UND . 715) (LOSETA_TOPEROL_ML . 141.04) (LOSETA_GUIA_ML . 142.91) (LOSETA_LISA_UND . 3514) (LOSETA_LISA_M2 . 140.533484) (LOSETA_TOPEROL . Si) (LOSETA_GUIA . Si) (SUBETAPA . 4B) (ETAPA . 4) (AREA_NETA . Si) (LOSETA_TOPEROL_M2 . 28.207604) (LOSETA_GUIA_M2 . 28.582686) (SOBREANCHO_DER_M . 1.000000) (SOBREANCHO_IZQ_M . 1.000000) (AREA_CON_SOBREANCHO_M2 . 677.352848) (AREA_SIN_SOBREANCHO_M2 . 374.333717) (AREA_BRUTA_M2 . 374.33) (AREA_M2 . 374.33))
+FINISHED (no terrain calculation, no DWG save, no full-render validation)

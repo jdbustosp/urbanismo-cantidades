@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.4")
+(setq *urb-version* "5.7.5")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -2730,18 +2730,23 @@
     (prompt (strcat "\nANDEN: " (itoa failed) " rellenos pendientes de revision.")))
   n)
 
-;; 2026-09-14: envoltorio con sello de version. La reparacion sigue
+;; 2026-09-14: envoltorio con sello de esquema. La reparacion sigue
 ;; disponible entera (urb:repair-anden-hatches) para llamarla a mano o
-;; cuando cambie la version del motor; lo que se evita es repetir el
-;; barrido completo del dibujo en cada apertura sin nada que reparar.
-(defun urb:repair-anden-hatches-si-hace-falta (/ sello actual n)
-  (setq actual (if (boundp '*urb-version*) *urb-version* "?")
-        sello (urb:safe-string (urb:config-read "URB_HATCH_REPAIR_VER") ""))
-  (if (= sello actual)
-    0
-    (progn
+;; cuando cambie EL ALGORITMO; una version de entrega nueva no debe repetir
+;; el barrido completo del dibujo sin nada que reparar. Los DWG que ya
+;; tienen el antiguo sello por version se migran al esquema sin otro censo.
+(defun urb:repair-anden-hatches-si-hace-falta (/ sello legacy actual n)
+  (setq actual "HATCH_RENDER_V1"
+        sello (urb:safe-string (urb:config-read "URB_HATCH_REPAIR_SCHEMA") "")
+        legacy (urb:safe-string (urb:config-read "URB_HATCH_REPAIR_VER") ""))
+  (cond
+    ((= sello actual) 0)
+    ((and (= sello "") (/= legacy ""))
+      (urb:config-write "URB_HATCH_REPAIR_SCHEMA" actual)
+      0)
+    (T
       (setq n (urb:repair-anden-hatches))
-      (urb:config-write "URB_HATCH_REPAIR_VER" actual)
+      (urb:config-write "URB_HATCH_REPAIR_SCHEMA" actual)
       n)))
 
 (defun urb:add-solid-hatch (boundary layer color / hatch)
@@ -4979,11 +4984,59 @@
                   symbols-ok))))))))
 )
 
+(defun urb:ray-ring-distances (p ang rings / ux uy a b ex ey px py den tt uu hits ring)
+  (setq ux (cos ang) uy (sin ang))
+  (foreach ring rings
+    (setq a (last ring))
+    (foreach b ring
+      (setq ex (- (car b) (car a)) ey (- (cadr b) (cadr a))
+            px (- (car a) (car p)) py (- (cadr a) (cadr p))
+            den (- (* ux ey) (* uy ex)))
+      (if (> (abs den) 1e-12)
+        (progn
+          (setq tt (/ (- (* px ey) (* py ex)) den)
+                uu (/ (- (* px uy) (* py ux)) den))
+          (if (and (> tt 1e-5) (>= uu -1e-8) (<= uu 1.00000001))
+            (setq hits (cons tt hits)))))
+      (setq a b)))
+  (vl-sort hits '<))
+
+(defun urb:guide-adaptive-chain (chain rings goff module inward / len n step i d p ang hits cap caps prev out row off pts)
+  ;; Distancia nominal al costado salvo estrechamientos. Anticipar el
+  ;; obstaculo con transicion maxima 0.15m/m, sin cortar la guia en el borde.
+  (setq len (urb:curve-length chain) n (max 1 (fix (+ 1.0 (/ len 0.25))))
+        step (/ len n) i 0)
+  (repeat (1+ n)
+    (setq d (* i step) p (urb:curve-pt chain (min (- len 0.001) (max 0.001 d)))
+          ang (+ (urb:curve-tangent chain (min (- len 0.001) (max 0.001 d))) (* inward 0.5 pi))
+          hits (vl-remove-if-not '(lambda (v)
+            (and (urb:point-in-region-polygons-p (polar p ang (- v 0.0001)) rings)
+                 (not (urb:point-in-region-polygons-p (polar p ang (+ v 0.0001)) rings))))
+            (urb:ray-ring-distances p ang rings))
+          cap (if hits (min (+ goff (* 0.5 module)) (- (car hits) (* 0.5 module) 0.06)) nil))
+    (if (or (null cap) (< cap (+ (* 1.5 module) 0.04)))
+      (setq caps (cons (list d p ang nil) caps))
+      (setq caps (cons (list d p ang cap) caps)))
+    (setq i (1+ i)))
+  (if (not (vl-some '(lambda (r) (null (nth 3 r))) caps))
+    (progn
+      (foreach row (reverse caps)
+        (setq off (nth 3 row))
+        (if prev (setq off (min off (+ prev (* 0.15 step)))))
+        (setq out (cons (list (car row) (cadr row) (caddr row) off) out) prev off))
+      (setq prev nil)
+      (foreach row out
+        (setq off (nth 3 row))
+        (if prev (setq off (min off (+ prev (* 0.15 step)))))
+        (setq pts (cons (polar (cadr row) (caddr row) off) pts) prev off))
+      (urb:open-poly-from-points
+        (urb:chain-simplify-by-direction pts (* pi (/ 0.5 180.0))) 0.0))))
+
 (defun urb:create-accessibility-features-offset
   (base-region points driving-chain guia toperol format parent-handle
    / module goff chain-poly len box elevation off-sign perp-sign
      mid-d mid-pt mid-ang cand test-off count layer span
-     ok-top ok-gui rescate)
+     ok-top ok-gui rescate guide-chain guide-rings)
   (setq module (urb:loseta-module format))
   (setq goff *urb-guide-offset*)
   (setq box (urb:object-box-points base-region)
@@ -5038,10 +5091,16 @@
           (setq layer
             (if (> module 0.30)
               "URB-ANDEN-LOSETA-GUIA-40X40" "URB-ANDEN-LOSETA-GUIA-20X20"))
-          (if (urb:build-offset-strip
-                base-region chain-poly goff (+ goff module) off-sign perp-sign
-                layer "GUIA" module parent-handle elevation span)
-            (setq count (1+ count) ok-gui T))))
+          (setq guide-rings (urb:region-polygons base-region)
+                guide-chain (urb:guide-adaptive-chain chain-poly guide-rings goff module perp-sign))
+          (if guide-chain
+            (progn
+              (if (urb:build-offset-strip
+                    base-region guide-chain (- (* 0.5 module)) (* 0.5 module) 1.0 1.0
+                    layer "GUIA" module parent-handle elevation span)
+                (setq count (1+ count) ok-gui T))
+              (entdel guide-chain))
+            (prompt "\nGUIA: no hay paso continuo suficiente; se verifica el respaldo segmentado."))))
       (entdel chain-poly)
       (if (or (not ok-top) (not ok-gui))
         (progn
@@ -18102,7 +18161,7 @@
 
 (defun urb:upgrade-existing-road-properties
   (/ ss i road data mov obj blocks bdef bname tags item victims length-value
-   left right area overarea added sync-result spec added-before vals)
+   left right area overarea footprint-info footprint-area added sync-result spec added-before vals)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA"))))
         i 0 blocks (vla-get-Blocks (urb:doc)) added 0)
   (if ss
@@ -18128,10 +18187,22 @@
                 length-value (atof (urb:safe-string (nth 18 data) "0"))
                 left (atof (urb:safe-string (nth 14 data) "0"))
                 right (atof (urb:safe-string (nth 15 data) "0"))
-                overarea (* length-value (+ left right)))
+                overarea (* length-value (+ left right))
+                footprint-info (vlax-ldata-get road "URB_VIA_HUELLA")
+                footprint-area
+                  (if (and (listp footprint-info)
+                           (numberp (car footprint-info))
+                           (>= (car footprint-info) area))
+                    (car footprint-info) nil))
+          ;; Desde 5.7.5 el calculo de tierras deja el area exacta de la
+          ;; huella desplazada. En vias curvas o de ancho variable no es
+          ;; igual a longitud * sobreancho; mantener atributos y memoria
+          ;; sobre la misma geometria que produjo los volumenes.
+          (if footprint-area (setq overarea (- footprint-area area)))
           (foreach spec
             (list
-              (list "VIA_AREA_SOBREANCHO_M2" "Area con sobreancho m2" (rtos area 2 2))
+              (list "VIA_AREA_SOBREANCHO_M2" "Area con sobreancho m2"
+                (rtos (if footprint-area footprint-area (+ area overarea)) 2 2))
               (list "VIA_SOBREANCHO_M2" "Area exclusiva de sobreancho m2" (rtos overarea 2 2))
               (list "MEMORIAS" "Memorias - use QMEMORIAVIA" "OCULTAR")
               (list "PERFIL" "Perfil longitudinal - MOSTRAR u OCULTAR" "OCULTAR"))
@@ -18147,8 +18218,10 @@
             (setq sync-result
               (vl-catch-all-apply 'vl-cmdf (list "_.ATTSYNC" "_N" bname))))
           (setq vals (urb:block-attribute-values obj))
-          (if (/= (cdr (assoc "VIA_AREA_SOBREANCHO_M2" vals)) (rtos area 2 2))
-            (urb:set-block-attribute obj "VIA_AREA_SOBREANCHO_M2" (rtos area 2 2)))
+          (if (/= (cdr (assoc "VIA_AREA_SOBREANCHO_M2" vals))
+                  (rtos (if footprint-area footprint-area (+ area overarea)) 2 2))
+            (urb:set-block-attribute obj "VIA_AREA_SOBREANCHO_M2"
+              (rtos (if footprint-area footprint-area (+ area overarea)) 2 2)))
           (if (/= (cdr (assoc "VIA_SOBREANCHO_M2" vals)) (rtos overarea 2 2))
             (urb:set-block-attribute obj "VIA_SOBREANCHO_M2" (rtos overarea 2 2)))
           (if (= (urb:safe-string
@@ -18171,11 +18244,13 @@
 (defun urb:package-road
   (ename / boundary data mov handle objects point block-name blocks
    block-definition copy-result block-ref obj insert-result block-ename
-   xdata-result road-length left right overwidth-area)
+   xdata-result road-length left right overwidth-area footprint-info
+   footprint-area base-area)
   (setq boundary (vlax-ename->vla-object ename))
   (urb:ensure-layer "URB-VIA" 8 T)
   (setq data (urb:get-xdata-strings ename "URB_VIA"))
   (setq mov (urb:road-movement-data ename))
+  (setq footprint-info (vlax-ldata-get ename "URB_VIA_HUELLA"))
   (setq handle (vla-get-Handle boundary))
   (setq objects (cons boundary (urb:road-generated-objects handle)))
   (setq point
@@ -18212,13 +18287,20 @@
       (setq road-length (atof (urb:safe-string (nth 18 data) "0"))
             left (atof (urb:safe-string (nth 14 data) "0"))
             right (atof (urb:safe-string (nth 15 data) "0"))
-            overwidth-area (* road-length (+ left right)))
+            base-area (atof (urb:safe-string (nth 17 data) "0"))
+            overwidth-area (* road-length (+ left right))
+            footprint-area
+              (if (and (listp footprint-info)
+                       (numberp (car footprint-info))
+                       (>= (car footprint-info) base-area))
+                (car footprint-info) nil))
+      (if footprint-area (setq overwidth-area (- footprint-area base-area)))
       (urb:add-invisible-attribute block-definition point
         "VIA_AREA_SOBREANCHO_M2" "Area con sobreancho m2"
         ;; 2026-08-30: el contorno (nth 17) es la CALZADA; este
         ;; atributo suma el sobreancho adicional para ser fiel a su
         ;; nombre
-        (rtos (+ (atof (urb:safe-string (nth 17 data) "0")) overwidth-area) 2 2))
+        (rtos (if footprint-area footprint-area (+ base-area overwidth-area)) 2 2))
       (urb:add-invisible-attribute block-definition point
         "VIA_SOBREANCHO_M2" "Area exclusiva de sobreancho m2"
         (rtos overwidth-area 2 2))
@@ -18258,6 +18340,11 @@
               nil)
             (progn
               (vla-put-Layer block-ref "URB-VIA")
+              ;; CopyObjects no conserva de forma fiable el diccionario
+              ;; LDATA del contorno. Transferir explicitamente la huella
+              ;; que respalda atributos, memorias y movimiento de tierras.
+              (if footprint-info
+                (vlax-ldata-put block-ename "URB_VIA_HUELLA" footprint-info))
               (setq xdata-result
                 (urb:set-xdata-strings block-ename "URB_VIA" data))
               (if xdata-result
@@ -23758,13 +23845,157 @@
   (setq calzada (if (> span 0.01) (/ area span) 0.0))
   (+ (if (> calzada 0.01) calzada nominal) left right))
 
+(defun urb:point-line-distance (p a b / dx dy den)
+  (setq dx (- (car b) (car a)) dy (- (cadr b) (cadr a))
+        den (sqrt (+ (* dx dx) (* dy dy))))
+  (if (< den 1e-12) (distance p a)
+    (/ (abs (- (* dx (- (cadr p) (cadr a)))
+                 (* dy (- (car p) (car a))))) den)))
+
+(defun urb:curve-end-tangent-intersection (curve at-start a b / param p d q hit)
+  (setq param (if at-start
+                (vlax-curve-getStartParam curve)
+                (vlax-curve-getEndParam curve))
+        p (vlax-curve-getPointAtParam curve param)
+        d (vlax-curve-getFirstDeriv curve param))
+  (if (and p d)
+    (progn
+      (setq q (list (+ (car p) (car d)) (+ (cadr p) (cadr d))))
+      (setq hit (inters p q a b nil))))
+  (if hit (list (car hit) (cadr hit)) nil))
+
+(defun urb:road-clip-offset-chain (curve cap1 cap2 / vb pts bulges p0 pn first-cap last-cap hit)
+  ;; OFFSET desplaza tambien los extremos longitudinalmente cuando el
+  ;; costado es oblicuo. Recortarlos contra las rectas de los bordes
+  ;; inicial/final mantiene exactamente la huella dentro de sus tapas.
+  (setq vb (urb:lwpoly-vertex-bulges curve) pts (car vb) bulges (cadr vb)
+        p0 (car pts) pn (last pts))
+  (if (<= (urb:point-line-distance p0 (car cap1) (cadr cap1))
+          (urb:point-line-distance p0 (car cap2) (cadr cap2)))
+    (setq first-cap cap1 last-cap cap2)
+    (setq first-cap cap2 last-cap cap1))
+  (setq hit (urb:curve-end-tangent-intersection curve T (car first-cap) (cadr first-cap)))
+  (if hit (setq pts (cons hit (cdr pts))))
+  (setq hit (urb:curve-end-tangent-intersection curve nil (car last-cap) (cadr last-cap)))
+  (if hit (setq pts (reverse (cons hit (cdr (reverse pts))))))
+  (list pts bulges))
+
+(defun urb:road-earthwork-footprint (boundary axis left right direction / ends chains pl p near raw ang side width off pts all ring result failed gap test vb basepts cap1 cap2 result-area base-area self-cross bounded)
+  ;; Huella REAL: desplazar solo los costados, nunca promediar sus anchos.
+  ;; Izquierda/derecha relativas al sentido de abscisado. Tapas sin prolongar.
+  (setq *urb-last-road-footprint-diagnostic* nil)
+  (if (and (<= left 1e-9) (<= right 1e-9))
+    (urb:as-ename (vla-Copy (vlax-ename->vla-object boundary)))
+    (progn
+      (setq ends (urb:road-end-edges boundary) ring (urb:lwpoly-points-with-arcs-fine boundary)
+            gap (getvar "OFFSETGAPTYPE"))
+      (if ends
+        (progn
+          (setq vb (urb:lwpoly-vertex-bulges boundary) basepts (car vb)
+                cap1 (list (nth (car ends) basepts)
+                  (nth (rem (1+ (car ends)) (length basepts)) basepts))
+                cap2 (list (nth (cadr ends) basepts)
+                  (nth (rem (1+ (cadr ends)) (length basepts)) basepts)))))
+      (setvar "OFFSETGAPTYPE" 1)
+      (if ends (setq chains (urb:road-side-chains boundary (car ends) (cadr ends))))
+      (foreach pl chains
+        (setq p (urb:curve-pt pl (* 0.5 (urb:curve-length pl)))
+              near (vlax-curve-getClosestPointTo axis p)
+              raw (vlax-curve-getDistAtPoint axis near)
+              ang (urb:curve-tangent axis raw)
+              side (+ (* (- (car p) (car near)) (- (sin ang)))
+                      (* (- (cadr p) (cadr near)) (cos ang))))
+        (if (urb:string-equal-p direction "Final") (setq side (- side)))
+        (setq width (if (> side 0.0) left right))
+        (setq off (if (<= width 1e-9) (urb:as-ename (vla-Copy (vlax-ename->vla-object pl)))
+                    (urb:anden-offset-safe pl width)))
+        (if (and off (> width 1e-9))
+          (progn
+            (setq test (urb:curve-pt off (* 0.5 (urb:curve-length off))))
+            (if (urb:point-in-poly-p test ring)
+              (progn (entdel off) (setq off (urb:anden-offset-safe pl (- width)))))))
+        (if off
+          (progn
+            (setq pts (urb:road-clip-offset-chain off cap1 cap2))
+            (setq all (append all (mapcar '(lambda (p b) (list (car p) (cadr p) b)) (car pts) (cadr pts))))
+            (entdel off))
+          (setq failed T))
+        (entdel pl))
+      (setvar "OFFSETGAPTYPE" gap)
+      (if (and (= (length chains) 2) (not failed))
+        (progn
+          (setq result (urb:poly-chain-polyline all))
+          (vla-put-Closed (vlax-ename->vla-object result) :vlax-true)
+          (setq result-area (vla-get-Area (vlax-ename->vla-object result))
+                base-area (vla-get-Area (vlax-ename->vla-object boundary))
+                self-cross (urb:polygon-self-intersects-p (urb:lwpoly-points-with-arcs result))
+                ;; En el encuentro de un costado oblicuo con la tapa, el
+                ;; miter queda a width/cos(angulo), ligeramente mayor que
+                ;; width aunque el desplazamiento perpendicular sea exacto.
+                ;; Admitir hasta 1.5x (angulo <=48 grados); picos agudos o
+                ;; offsets descontrolados siguen rechazados.
+                bounded (urb:anden-overwidth-bounded-p boundary result
+                  (+ 0.001 (* 1.5 (max left right))))
+                *urb-last-road-footprint-diagnostic*
+                  (list result-area base-area self-cross bounded (length all)))
+          (if (or (< result-area base-area) self-cross (not bounded))
+            (progn (entdel result) (setq result nil)))))
+      (if (null *urb-last-road-footprint-diagnostic*)
+        (setq *urb-last-road-footprint-diagnostic*
+          (list "NO_RESULT" (if chains (length chains) 0) failed (length all))))
+      result)))
+
+(defun urb:road-plan-integral (points surface axis raw-grade axis-start span direction depth step bin-size / cells sample p w near raw st tn finish cf cut fill covered total missing bins key old row rows ds)
+  (setq cells (urb:earthwork-scanline-samples points step)
+        cut 0.0 fill 0.0 covered 0.0 total 0.0 missing 0)
+  (foreach sample cells
+    (setq p (car sample) w (cadr sample) total (+ total w)
+          near (vlax-curve-getClosestPointTo axis p)
+          raw (vlax-curve-getDistAtPoint axis near)
+          st (if (urb:string-equal-p direction "Final") (- (+ axis-start span) raw) (- raw axis-start))
+          tn (urb:surface-elevation surface (car p) (cadr p))
+          finish (urb:cota-at-axis-distance raw raw-grade))
+    (if (and (numberp tn) (numberp finish) (>= st -0.05) (<= st (+ span 0.05)))
+      (progn
+        (setq finish (- finish (* (distance (list (car p) (cadr p)) (list (car near) (cadr near))) *urb-road-crossfall*))
+              cf (urb:cut-fill-at (- tn (- finish depth)))
+              cut (+ cut (* w (car cf))) fill (+ fill (* w (cadr cf))) covered (+ covered w)
+              key (min (fix (/ (max 0.0 st) bin-size)) (max 0 (1- (fix (+ 0.999999 (/ span bin-size))))))
+              old (assoc key bins))
+        (if (null old) (setq old (list key 0.0 0.0 0.0 0.0 0.0)))
+        (setq row (list key (+ (nth 1 old) w) (+ (nth 2 old) (* w tn)) (+ (nth 3 old) (* w finish))
+                     (+ (nth 4 old) (* w (car cf))) (+ (nth 5 old) (* w (cadr cf)))))
+        (if (assoc key bins) (setq bins (subst row (assoc key bins) bins)) (setq bins (cons row bins))))
+      (setq missing (1+ missing))))
+  (foreach row (vl-sort bins '(lambda (a b) (< (car a) (car b))))
+    (setq ds (min bin-size (- span (* (car row) bin-size)))
+          tn (/ (nth 2 row) (nth 1 row)) finish (/ (nth 3 row) (nth 1 row)))
+    (setq rows (cons (list (min span (* (1+ (car row)) bin-size)) tn finish (- finish depth)
+      (- tn (- finish depth)) (/ (nth 4 row) ds) (/ (nth 5 row) ds) (nth 4 row) (nth 5 row)) rows)))
+  (list cut fill missing total (length cells) (reverse rows)))
+
+(defun urb:road-plan-converged (footprint surface axis raw-grade axis-start span direction depth bin-size / points area step prev current delta ok)
+  (setq points (urb:anden-earthwork-raw-points footprint)
+        area (vla-get-Area (vlax-ename->vla-object footprint)) step 0.5)
+  (while (and (not ok) (>= step 0.1249))
+    (setq current (urb:road-plan-integral points surface axis raw-grade axis-start span direction depth step bin-size))
+    (if (or (> (nth 2 current) 0) (<= (nth 3 current) 1e-9)
+            (> (abs (- area (nth 3 current))) (max 0.001 (* area 0.0001))))
+      (setq step 0.0)
+      (progn
+        (if prev
+          (setq ok (and (<= (abs (- (car current) (car prev))) (max 0.02 (* 0.005 (abs (car current)))))
+                        (<= (abs (- (cadr current) (cadr prev))) (max 0.02 (* 0.005 (abs (cadr current))))))))
+        (if (not ok) (setq prev current step (* 0.5 step))))))
+  (if ok (append current (list step area)) nil))
+
 (defun urb:compute-road-earthworks
   (boundary data axis / surface depth area axis-length axis-start nominal
    left right width-total design-width geometry-width interval sample-interval direction texts radius span stations raw-stations
    station-start-number coverage
    samples old-mov old-cota0 old-cota-final grade-result totals metodo
    cota0 cota-final cut fill skipped audit-result
-   cov-min cov-max cov-it guard-records)
+   cov-min cov-max cov-it guard-records footprint plan-result raw-grade audit-rows)
   (setq *urb-earthwork-stage* "inicio del calculo")
   (setq old-mov (urb:road-movement-data boundary))
   (setq old-cota0
@@ -24037,16 +24268,22 @@
               (setq cota0 (nth 2 grade-result))
               (setq cota-final (nth 3 grade-result))
               (setq *urb-earthwork-stage* "integracion de corte y relleno")
-              (setq totals
-                (urb:road-integrate-earthworks samples width-total depth))
+              (setq raw-grade (mapcar '(lambda (s)
+                (list (if (urb:string-equal-p direction "Final") (- (+ axis-start span) (car s)) (+ axis-start (car s))) (nth 2 s))) samples))
+              (setq footprint (urb:road-earthwork-footprint boundary axis left right direction))
+              (setq plan-result (if footprint (urb:road-plan-converged footprint surface axis raw-grade axis-start span direction depth interval)))
+              (if footprint (entdel footprint))
+              (setq totals (if plan-result (list (car plan-result) (cadr plan-result) 0) (list 0.0 0.0 1)))
+              (if plan-result
+                (setq metodo (strcat "HUELLA_REAL_CONVERGENCIA_0.5%_PASO_" (rtos (nth 6 plan-result) 2 3) "m")
+                      audit-rows (nth 5 plan-result)))
               (setq cut (nth 0 totals))
               (setq fill (nth 1 totals))
               (setq skipped (nth 2 totals))
               (if (> skipped 0)
                 (progn
-                  (urb:invalidate-road-movement boundary nil "PENDIENTE: COBERTURA TN INCOMPLETA")
-                  (prompt (strcat "\nTierras PENDIENTES: " (itoa skipped)
-                    " secciones sin cobertura TN/rasante. No se guardan cantidades parciales."))
+                  (urb:invalidate-road-movement boundary nil "PENDIENTE: REVISAR HUELLA/TN/CONVERGENCIA")
+                  (prompt "\nTierras PENDIENTES: revisar huella, cobertura TN/rasante o convergencia. No se conserva un volumen parcial ni por ancho promedio.")
                   nil)
                 (progn
               ;; Estado y movimiento se escriben juntos dentro de URB_VIA;
@@ -24068,6 +24305,7 @@
               ;; limite de 255 caracteres de la copia compatible XDATA.
               (vlax-ldata-put boundary "URB_VIA_RASANTE_FULL"
                 (mapcar '(lambda (s) (list (car s) (nth 2 s))) samples))
+              (vlax-ldata-put boundary "URB_VIA_HUELLA" (list (nth 7 plan-result) (nth 6 plan-result) (nth 4 plan-result)))
               ;; 2026-08-13: las FILAS de la tabla de verificacion se
               ;; persisten en TODO calculo (ldata URB_VIA_AUDIT), se
               ;; dibuje o no la tabla -- asi el clic derecho
@@ -24077,7 +24315,7 @@
               (vl-catch-all-apply 'vlax-ldata-put
                 (list boundary "URB_VIA_AUDIT"
                   (list
-                    (urb:road-earthwork-audit-rows samples width-total depth)
+                    audit-rows
                     metodo cut fill)))
               ;; 2026-08-11: la tabla de verificacion YA NO se crea sola al
               ;; crear/editar la via (aparecia lejos del contorno y estorbaba).
@@ -24089,9 +24327,8 @@
                   (setq *urb-earthwork-stage* "creacion de tabla de verificacion")
                   (setq audit-result
                     (vl-catch-all-apply
-                      'urb:create-road-earthwork-audit
-                      (list boundary axis samples width-total depth data
-                        cut fill metodo)))
+                    'urb:draw-road-audit-table
+                      (list boundary axis audit-rows data cut fill metodo)))
                   (if (vl-catch-all-error-p audit-result)
                     (prompt
                       (strcat
@@ -39215,9 +39452,8 @@
 ;; dibujo y TODOS los objetos de cada uno con un entget por objeto, y
 ;; corria en CADA carga del motor, o sea en CADA apertura de dibujo.
 ;; La reparacion es idempotente: una vez estabilizados los rellenos de un
-;; dibujo con una version dada del motor, repetirla no cambia nada. Se
-;; sella el dibujo con la version que ya lo reparo y se salta mientras
-;; coincida. Al subir de version vuelve a correr una sola vez.
+;; dibujo con un esquema dado, repetirla no cambia nada. El sello cambia
+;; solo cuando cambie el algoritmo de reparacion, no en cada entrega.
 (vl-catch-all-apply 'urb:repair-anden-hatches-si-hace-falta nil)
 (if (and (not *urb-suppress-auto-migration*)
          (/= (getenv "URB_TEST_SUPPRESS_AUTO_MIGRATION") "1"))
