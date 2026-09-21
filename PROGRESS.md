@@ -2,8 +2,7 @@
 
 ## 2026-09-21 11:29 America/Bogota — v5.7.6 guía uniforme y costado táctil exacto
 
-Agente: Codex. Equipo: BOG085CD119BDQN. Commit: pendiente al redactar esta
-entrada.
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit de implementación: `98fdfd0`.
 
 El usuario mostró una guía serpenteante y un toperol en el lado contrario al
 marcado. Se corrigieron tres causas: la guía de 5.7.5 variaba su offset cada
