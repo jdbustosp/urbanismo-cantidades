@@ -1,0 +1,5 @@
+(setq *urb-suppress-auto-migration* T)
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/urbanismo_cantidades.lsp")
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/diagnosticos/anden577/core.lsp")
+_.QUIT
+_N

@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.6")
+(setq *urb-version* "5.7.7")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -196,6 +196,11 @@
 (setq *urb-prefab-mode-list* '("Interior" "Exterior"))
 (setq *urb-unit-warning-dwg* nil)
 (setq *urb-current-tactile-side-point* nil)
+;; Proyeccion exacta del clic sobre el borde que existia cuando el usuario
+;; eligio el lado de la via. El contorno se recorta despues contra bordillos y
+;; contenedores; conservar solo el clic exterior podia hacer que, tras ese
+;; recorte, la cadena opuesta pareciera mas cercana.
+(setq *urb-current-tactile-side-anchor* nil)
 ;; Distancia de la fila de GUIA al borde de la via (m). U-201 usa 2.50 en
 ;; los modulos de curva (fila tactil intermedia); antes estaba fijo en
 ;; 1.20. Configurable en un solo lugar por si otro proyecto usa otra.
@@ -270,6 +275,38 @@
   ;; invierta el costado elegido.
   (if (vl-catch-all-error-p result) nil
     (if result (trans result 1 0) nil))
+)
+
+(defun urb:tactile-side-anchor (points reference / clean ring a b dx dy len2 tval candidate d best best-d)
+  ;; Punto del CONTORNO mas cercano al clic. A diferencia de guardar el clic
+  ;; tal cual, este ancla identifica geometricamente el costado elegido y no
+  ;; cambia si luego el contorno se recorta o si la via queda lejos del anden.
+  (setq clean (if points (urb:dedupe-ring-points points) nil))
+  (if (and clean reference (> (length clean) 1))
+    (progn
+      (setq ring (append clean (list (car clean)))
+            best nil best-d nil)
+      (while (cadr ring)
+        (setq a (car ring) b (cadr ring)
+              dx (- (car b) (car a))
+              dy (- (cadr b) (cadr a))
+              len2 (+ (* dx dx) (* dy dy)))
+        (if (> len2 1e-16)
+          (progn
+            (setq tval
+              (/ (+ (* (- (car reference) (car a)) dx)
+                    (* (- (cadr reference) (cadr a)) dy))
+                 len2))
+            (setq tval (max 0.0 (min 1.0 tval))
+                  candidate
+                    (list (+ (car a) (* tval dx))
+                          (+ (cadr a) (* tval dy)))
+                  d (distance (list (car reference) (cadr reference)) candidate))
+            (if (or (null best-d) (< d best-d))
+              (setq best candidate best-d d))))
+        (setq ring (cdr ring)))
+      best)
+    nil)
 )
 
 (defun urb:tactile-side-point-from-choice
@@ -3789,8 +3826,15 @@
   (setq ref nil)
   (if *urb-current-tactile-side-choice*
     (setq ref (urb:tactile-side-point-from-choice *urb-current-tactile-side-choice* clean)))
+  (if (and (null ref) *urb-current-tactile-side-anchor*)
+    (setq ref *urb-current-tactile-side-anchor*))
   (if (and (null ref) *urb-current-tactile-side-point*)
-    (setq ref *urb-current-tactile-side-point*))
+    ;; Llamadas internas/pruebas que solo fijan el clic tambien reciben la
+    ;; misma proteccion: proyectarlo al borde final antes de comparar cadenas.
+    (progn
+      (setq ref
+        (urb:tactile-side-anchor clean *urb-current-tactile-side-point*))
+      (if (null ref) (setq ref *urb-current-tactile-side-point*))))
   (if (or (null ref) (null chains))
     (if chains (urb:longest-chain chains) nil)
     (progn
@@ -4626,9 +4670,15 @@
       nil))
   (if (null reference-point)
     (setq reference-point
-      (if *urb-current-tactile-side-point*
-        *urb-current-tactile-side-point*
-        (car points))))
+      (cond
+        (*urb-current-tactile-side-anchor* *urb-current-tactile-side-anchor*)
+        (*urb-current-tactile-side-point*
+          (setq reference-point
+            (urb:tactile-side-anchor points *urb-current-tactile-side-point*))
+          (if (null reference-point)
+            (setq reference-point *urb-current-tactile-side-point*))
+          reference-point)
+        (T (car points)))))
   (setq reference-v
     (urb:point-v-coordinate reference-point angle-value))
   (if (<= (abs (- reference-v vmin))
@@ -5319,6 +5369,7 @@
           ((= (car it) 42)
             (write-line (strcat "B " (rtos (cdr it) 2 8)) f))))
       (write-line (strcat "LADO_VIA " (vl-princ-to-string *urb-current-tactile-side-point*)) f)
+      (write-line (strcat "ANCLA_LADO " (vl-princ-to-string *urb-current-tactile-side-anchor*)) f)
       (setq obj (vlax-ename->vla-object ename))
       (foreach en (urb:anden-cutout-blocks)
         (setq cobj (urb:as-vla-object en))
@@ -5380,6 +5431,7 @@
             (if driving-chain (itoa (length driving-chain)) "NINGUNA") " pts"
             " | area base " (rtos (vla-get-Area base-region) 2 2)
             " | lado via " (vl-princ-to-string *urb-current-tactile-side-point*)
+            " | ancla " (vl-princ-to-string *urb-current-tactile-side-anchor*)
             " | eleccion " (vl-princ-to-string *urb-current-tactile-side-choice*)))
           (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
             (progn
@@ -8084,6 +8136,7 @@
     (if (and ename (not block-ref))
       (vl-catch-all-apply 'urb:discard-unpacked-anden (list ename)))
     (setq *urb-current-tactile-side-point* nil
+          *urb-current-tactile-side-anchor* nil
           *urb-current-tactile-side-choice* nil)
     (if old-fillmode
       (progn (setvar "FILLMODE" old-fillmode) (vla-Regen doc 1)))
@@ -8099,6 +8152,7 @@
     (vl-catch-all-apply 'vla-StartUndoMark (list doc)))
   (setq undo-open (not (vl-catch-all-error-p undo-result)))
   (setq *urb-current-tactile-side-point* nil
+        *urb-current-tactile-side-anchor* nil
         *urb-current-tactile-side-choice* nil)
   ;; Orientacion y extremo viven DENTRO del dialogo. El lado de la via
   ;; (toperol) se marca con UN click despues de dibujar: con andenes
@@ -8148,8 +8202,13 @@
       (setq anden-points (urb:lwpoly-points ename))
       (setq anden-area (vla-get-Area (vlax-ename->vla-object ename)))
       (if (or (urb:yes-p guia) (urb:yes-p toperol))
-        (setq *urb-current-tactile-side-point*
-          (urb:prompt-tactile-side-point)))
+        (progn
+          (setq *urb-current-tactile-side-point*
+            (urb:prompt-tactile-side-point))
+          (setq *urb-current-tactile-side-anchor*
+            (urb:tactile-side-anchor
+              (urb:lwpoly-points-with-arcs-fine ename)
+              *urb-current-tactile-side-point*))))
       ;; 2026-08-12 curva v2 (pantallazo del usuario: seguia diagonal):
       ;; si el contorno tiene ARCOS, la orientacion de la modulacion se
       ;; marca con 2 puntos PARALELOS a las bandas del anden/rampa vecino
@@ -8294,6 +8353,7 @@
       (prompt "\nNo se creo una polilinea valida.")
         (prompt "\nComando cancelado.")))
   (setq *urb-current-tactile-side-point* nil
+        *urb-current-tactile-side-anchor* nil
         *urb-current-tactile-side-choice* nil)
   ;; Restaurar FILLMODE al valor original del usuario no alcanza si no se
   ;; regenera despues: el REGEN de mas arriba (FILLMODE=1, para que se vea
@@ -9007,6 +9067,14 @@
   (if saved
     (setq clip-result
       (vl-catch-all-apply 'urb:anden-clip-contour (list boundary))))
+  ;; En EDITAR el clic se pide antes de extraer cada contorno. Resolver aqui
+  ;; su ancla sobre la geometria final hace que una seleccion multiple y los
+  ;; recortes posteriores no puedan reutilizar el costado equivocado.
+  (if (and saved *urb-current-tactile-side-point*)
+    (setq *urb-current-tactile-side-anchor*
+      (urb:tactile-side-anchor
+        (urb:lwpoly-points-with-arcs-fine boundary)
+        *urb-current-tactile-side-point*)))
   (if saved
     (setq result
       (urb:call-edit-stage
@@ -9651,6 +9719,7 @@
   (setq doc (urb:doc))
   (defun *error* (message)
     (setq *urb-current-tactile-side-point* nil
+          *urb-current-tactile-side-anchor* nil
           *urb-current-tactile-side-choice* nil)
     (if undo-open
       (progn
@@ -9664,6 +9733,7 @@
     (vl-catch-all-apply 'vla-StartUndoMark (list doc)))
   (setq undo-open (not (vl-catch-all-error-p undo-result)))
   (setq *urb-current-tactile-side-point* nil
+        *urb-current-tactile-side-anchor* nil
         *urb-current-tactile-side-choice* nil)
   (setq cleaned (urb:clean-selector-layer))
   (if (> cleaned 0)
@@ -9792,8 +9862,12 @@
               (setq surface (urb:safe-string surface "SUP_TN"))
               (setq grade-source (urb:safe-string grade-source "Via creada"))
               (if (or (urb:yes-p guia) (urb:yes-p toperol))
-                (setq *urb-current-tactile-side-point*
-                  (urb:prompt-tactile-side-point)))
+                (progn
+                  (setq *urb-current-tactile-side-point*
+                    (urb:prompt-tactile-side-point))
+                  ;; El ancla se calcula por cada contorno dentro de
+                  ;; urb:rebuild-working-boundary.
+                  (setq *urb-current-tactile-side-anchor* nil)))
               (setq deleted 0 updated 0 failed 0)
               (foreach ename parents
                 (setq old-pattern-mode (urb:anden-pattern-mode ename)
@@ -10030,6 +10104,7 @@
                 "\nLa seleccion no contiene elementos editables."))))))))
     (prompt "\nNo se selecciono ningun objeto."))
   (setq *urb-current-tactile-side-point* nil
+        *urb-current-tactile-side-anchor* nil
         *urb-current-tactile-side-choice* nil)
   (if undo-open
     (progn
@@ -16916,10 +16991,11 @@
 ;; andenes: 32.929 circulos (domos de toperol) en URB-ANDEN-LOSETA-TOPEROL-20X20
 ;; y 23.922 lineas/polilineas en URB-ANDEN-LOSETA-GUIA-20X20. Sus CANTIDADES
 ;; viven en la XDATA/atributos del anden, no en el dibujo, asi que congelar
-;; esas dos capas acelera el zoom/pan/regen sin cambiar ni un numero, y se
-;; deshace con la misma opcion.
+;; esas capas (incluidas sus variantes 40x40) acelera el zoom/pan/regen sin
+;; cambiar ni un numero, y se deshace con la misma opcion explicita.
 (setq *urb-light-layers*
-  '("URB-ANDEN-LOSETA-TOPEROL-20X20" "URB-ANDEN-LOSETA-GUIA-20X20"))
+  '("URB-ANDEN-LOSETA-TOPEROL-20X20" "URB-ANDEN-LOSETA-GUIA-20X20"
+    "URB-ANDEN-LOSETA-TOPEROL-40X40" "URB-ANDEN-LOSETA-GUIA-40X40"))
 
 (defun urb:light-mode-state (/ lay frozen total)
   (setq frozen 0 total 0)
@@ -16953,7 +17029,32 @@
   (vlax-for b (vla-get-Blocks (urb:doc)) (setq n (1+ n)))
   n)
 
-(defun urb:purge-command (/ b0 r0 b1 r1 state answer)
+(defun urb:light-mode-command (/ state answer)
+  ;; Accion separada de PURGE: ocultar detalle tactil es util para navegar
+  ;; dibujos grandes, pero nunca debe parecer una eliminacion causada por la
+  ;; depuracion. Aqui siempre requiere una eleccion explicita del usuario.
+  (setq state (urb:light-mode-state))
+  (if (= state "SIN CAPAS")
+    (prompt "\nEste dibujo aun no contiene capas tactiles para ocultar.")
+    (progn
+      (initget "Activar Restaurar Cancelar")
+      (setq answer
+        (getkword
+          (strcat
+            "\nModo fluido -- hoy " state
+            " [Activar/Restaurar/Cancelar] <Cancelar>: ")))
+      (cond
+        ((= answer "Activar")
+          (urb:light-mode-set T)
+          (prompt
+            "\nModo fluido ACTIVO: guia y toperol solo estan congelados; no se borraron y sus cantidades se conservan."))
+        ((= answer "Restaurar")
+          (urb:light-mode-set nil)
+          (prompt "\nDetalle de guia y toperol visible de nuevo."))
+        (T (prompt "\nNo se cambio la visibilidad del dibujo.")))))
+  (princ))
+
+(defun urb:purge-command (/ b0 r0 b1 r1)
   (setq b0 (urb:count-blocks) r0 (urb:count-table "APPID"))
   (prompt "\nDepurando definiciones sin uso (3 pasadas)...")
   (repeat 3
@@ -16964,25 +17065,8 @@
   (setq b1 (urb:count-blocks) r1 (urb:count-table "APPID"))
   (prompt (strcat "\nDepuracion: definiciones de bloque " (itoa b0) " -> " (itoa b1)
                   " | regapps " (itoa r0) " -> " (itoa r1) "."))
-  ;; modo liviano
-  (setq state (urb:light-mode-state))
-  (if (/= state "SIN CAPAS")
-    (progn
-      (initget "Activar Restaurar Nada")
-      (setq answer
-        (getkword
-          (strcat "\nModo liviano (congela el detalle tactil de los andenes; NO cambia cantidades)"
-                  " -- hoy " state " [Activar/Restaurar/Nada] <"
-                  (if (= state "ACTIVO") "Nada" "Activar") ">: ")))
-      (if (null answer) (setq answer (if (= state "ACTIVO") "Nada" "Activar")))
-      (cond
-        ((= answer "Activar")
-          (urb:light-mode-set T)
-          (prompt "\nModo liviano ACTIVO: guia y toperol de andenes congelados. Las cantidades no cambian."))
-        ((= answer "Restaurar")
-          (urb:light-mode-set nil)
-          (prompt "\nDetalle tactil de andenes visible de nuevo.")))))
-  (prompt "\nGuarde el dibujo para que el archivo baje de peso.")
+  (prompt
+    "\nGuarde el dibujo para que el archivo baje de peso. PURGE no oculto ni borro guia o toperol.")
   (princ))
 
 (defun mp:configured-tramo-value (canonical legacy default lo hi / value)
@@ -26887,7 +26971,8 @@
         ": button { label = \"Espesor de linea y tamano de datos de tramos\"; key = \"tramo_appearance\"; height = 2; width = 40; } }"
         ": boxed_column { label = \"Capas y limpieza\";"
         ": button { label = \"Organizar capas del plugin (filtro URBANISMO)\"; key = \"layers_organize\"; height = 2; width = 40; }"
-        ": button { label = \"Depurar y aligerar dibujo (purga + modo liviano)\"; key = \"purge_dwg\"; height = 2; width = 40; }"
+        ": button { label = \"Depurar dibujo (PURGE; no oculta objetos)\"; key = \"purge_dwg\"; height = 2; width = 40; }"
+        ": button { label = \"Modo fluido: ocultar/restaurar guia y toperol\"; key = \"light_dwg\"; height = 2; width = 40; }"
         ": button { label = \"Version instalada y sesion\"; key = \"version_info\"; height = 2; width = 40; } }"
         ": button { label = \"Volver\"; key = \"back\"; is_cancel = true; width = 14; } }"
         "urb_earthworks : dialog { label = \"Movimiento de tierras\";"
@@ -38728,13 +38813,16 @@
     ;; 30 m del clic y la tapa ganaba. Con 1 sola arista el motor no
     ;; entraba a la ruta de offset y el toperol quedaba en una esquina.
     (list "La cadena guia es el costado largo, no la tapa del extremo"
-      ((lambda (anillo clic / prev-pt prev-ch cadena)
+      ((lambda (anillo clic / prev-pt prev-anchor prev-ch cadena)
         (setq prev-pt *urb-current-tactile-side-point*
+              prev-anchor *urb-current-tactile-side-anchor*
               prev-ch *urb-current-tactile-side-choice*)
         (setq *urb-current-tactile-side-choice* nil)
-        (setq *urb-current-tactile-side-point* clic)
+        (setq *urb-current-tactile-side-point* clic
+              *urb-current-tactile-side-anchor* nil)
         (setq cadena (urb:anden-tactile-chain anillo))
-        (setq *urb-current-tactile-side-point* prev-pt)
+        (setq *urb-current-tactile-side-point* prev-pt
+              *urb-current-tactile-side-anchor* prev-anchor)
         (setq *urb-current-tactile-side-choice* prev-ch)
         (and cadena
              ;; el costado (60 m), no la tapa (1,5 m)
@@ -38980,7 +39068,8 @@
         ("earthworks_config" "earthworks_config")
         ("tramo_appearance" "tramo_appearance")
         ("layers_organize" "layers_organize")
-        ("purge_dwg" "purge_dwg") ("version_info" "version_info"))))
+        ("purge_dwg" "purge_dwg") ("light_dwg" "light_dwg")
+        ("version_info" "version_info"))))
   (cond
     ((or (null action) (= action "back")) "back")
     ((= action "etapas_config") (urb:etapas-manager-command))
@@ -38995,6 +39084,7 @@
       (vl-catch-all-apply '(lambda () (command "_URBLAYERFILTER")) nil)
       (princ))
     ((= action "purge_dwg") (urb:purge-command))
+    ((= action "light_dwg") (urb:light-mode-command))
     ((= action "version_info") (urb:version-info-command)))
   (if (or (null action) (= action "back")) "back" nil))
 

@@ -1,5 +1,24 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-21 14:30 America/Bogota — v5.7.7 fluidez, PURGE seguro y lado tactil anclado
+
+Agente: Codex. Equipo: BOG085CD119BDQN.
+
+Se separo `PURGE` del modo fluido: depurar ya no congela guia/toperol por
+defecto; el modo fluido ahora es una opcion explicita que congela/restaura las
+cuatro capas tactiles 20x20/40x40 sin tocar cantidades. El lado de la via guarda
+la proyeccion del clic sobre el borde real y la prioriza despues de recortes por
+prefabricados/contenedores y durante EDITAR.
+
+Civil 3D 2023 real, copia local de fixture 42 MB: PURGE mantuvo visibles las
+capas; modo fluido activo/restaurado; andén real ~188 m generado con guia y
+toperol, una referencia de bloque y cero piezas sueltas. Tiempo sin tierras ni
+guardado: 38,985 s build + 26,843 s empaquetado = 65,828 s. Evidencia y limites
+en `diagnosticos/anden577/RESULTADO.md`. La captura 2026 muestra DLL correcto
+para 2025/2026 y motor final 5.7.6, pero tambien una carga previa 5.7.3; el otro
+PC debe reinstalar/sincronizar y reiniciar para quedar solo con la entrega
+actual.
+
 ## 2026-09-21 11:29 America/Bogota — v5.7.6 guía uniforme y costado táctil exacto
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Commit de implementación: `98fdfd0`.
