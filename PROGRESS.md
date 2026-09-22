@@ -1,5 +1,27 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-22 01:10 America/Bogota — 5.7.14 texto doble-codificado, senderos a andenes, sobrantes = excavación, luminaria "CAMBIO"
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base f3c3aa0.
+
+1. **Texto doble-codificado.** 125 líneas del .lsp tenían acentos codificados dos veces ("instalaciÃ³n",
+   204 caracteres). AutoCAD lee el archivo como UTF-8, así que en tiempo de ejecución los conceptos salían
+   con "Ã³" y no coincidían exacto con el libro (p. ej. el banco de ductos MT 6Ø6" y el cable 3x70 quedaban
+   "SIN MATCH").
+   - Se repararon por par cp1252→UTF-8, sin fallos.
+   - Ninguna de las 93 equivalencias guardadas dependía del texto roto.
+   - Verificado headless: el motor carga y los conceptos salen con tildes correctas.
+2. **Senderos:** la familia SENDERO se enrutaba a "parques y zonas verdes", capítulo que no existe; ahora
+   va a "andenes" (decisión del usuario del 18-sep).
+3. **Sobrantes de redes húmedas = excavación completa.** El relleno se cobra entero en recebo B-200
+   importado, así que sale todo lo excavado. Antes era excavación − relleno y dejaba sin presupuestar
+   ~20.000 m³ en el maestro.
+   - Export: `exc`. Atributo SOBRANTE_M3: `surplus excavation`.
+   - Verificado: sanitario 15.141 / pluvial 3.869 / acueducto 3.996 m³, igual a la excavación.
+4. **Luminaria que solo se cambia:** tipo nuevo "CAMBIO (retiro y reinstalacion)" en *mp-lum-list*.
+   - El export lo manda a "Retiro y reinstalación de luminarias nuevas" en su etapa/subetapa.
+   - Se marca desde EDITAR o al crear la luminaria (mismo diálogo).
+
 ## 2026-09-22 01:40 America/Bogota — 5.7.13 las excavaciones de andenes vuelven a exportarse al Excel
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 7415cdf (5.7.12 de Codex).

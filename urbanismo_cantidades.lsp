@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.13")
+(setq *urb-version* "5.7.14")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -176,20 +176,20 @@
             "M.O. instalacion de sardinel prefabricado" "SARDINEL"))
     ((wcmatch tipo "*SARDINEL*")
       (list "Sardinel prefabricado A-10"
-            "M.O. instalaciÃ³n de sardinel prefabricado" "SARDINEL"))
+            "M.O. instalación de sardinel prefabricado" "SARDINEL"))
     ((wcmatch tipo "*CANUELA*")
-      (list "Suministro de caÃ±uela prefabricada"
-            "M.O. instalaciÃ³n de caÃ±uela prefabricada" "BORDILLO"))
+      (list "Suministro de cañuela prefabricada"
+            "M.O. instalación de cañuela prefabricada" "BORDILLO"))
     ;; 2026-09-11 (pedido del usuario: capas y presupuesto de los
     ;; prefabricados de las rampas): las aletas del acceso vehicular son la
     ;; pieza de remate A-105 del plano, y en el libro se cuentan por UNIDAD
     ;; (una por aleta), no por metro -- de ahi el cuarto elemento PIEZA.
     ((wcmatch tipo "*A-105*")
       (list "Suministro pieza remate A-105 para rampa"
-            "M.O. instalaciÃ³n pieza remate A-105" "BORDILLO" "PIEZA"))
+            "M.O. instalación pieza remate A-105" "BORDILLO" "PIEZA"))
     (T
       (list "Bordillo prefabricado A-80"
-            "M.O. instalaciÃ³n de bordillo prefabricado" "BORDILLO"))))
+            "M.O. instalación de bordillo prefabricado" "BORDILLO"))))
 ;; anillo perimetral de anden/sendero (v4.50)
 (setq *urb-anillo-prefab-list* '("Ninguno" "Bordillo" "Sardinel" "Canuela"))
 (setq *urb-anillo-pos-list* '("Externo" "Interno"))
@@ -779,7 +779,7 @@
     (T nil))
 )
 
-;; 2026-09-07 (rediseÃ±o pedido por el usuario): el dialogo va por DOS
+;; 2026-09-07 (rediseño pedido por el usuario): el dialogo va por DOS
 ;; niveles -- Tipologia = CATEGORIA (Andenes / Senderos / Equipamientos)
 ;; y Material/acabado = la VARIANTE de esa categoria.
 ;; La rampa salio de aqui (tiene su boton propio). El bloque de
@@ -2487,7 +2487,7 @@
 
 (defun urb:dominant-anden-axis-clusters
   (points / clusters first second)
-  ;; Diez grados absorben pequeÃ±os quiebres de levantamiento sin mezclar
+  ;; Diez grados absorben pequeños quiebres de levantamiento sin mezclar
   ;; brazos realmente diferentes. El segundo eje debe aportar al menos
   ;; 20% de la longitud del principal y separarse como minimo 15 grados.
   (setq clusters
@@ -5949,7 +5949,7 @@
       (prompt
         (strcat
           "\n*** El contorno dibujado se cruza a si mismo (forma tipo"
-          " \"moÃ±o\") ***"
+          " \"moño\") ***"
           "\nEsto genera un relleno con una mancha ancha/anomala en"
           " vez de una franja pareja."
           "\nEl contorno queda dibujado para que lo revise/corrija;"
@@ -8575,7 +8575,7 @@
       (setq anillo-refs (cadr costados-res)
             anillo-pos (nth 5 costados-res))
       ;; Vinculo temporal al contorno: permite que el generador de acabado
-      ;; encuentre los costados reciÃ©n creados. Tras empaquetar se sustituye
+      ;; encuentre los costados recién creados. Tras empaquetar se sustituye
       ;; por el handle definitivo del bloque de anden.
       (if anillo-refs
         (foreach aref anillo-refs
@@ -9361,7 +9361,7 @@
   ;; Las versiones 4.17.3 preliminares guardaban el sentido en otra APPID.
   ;; Se retira antes de escribir URB_ANDEN para evitar dos XDATA separadas.
   (urb:clear-xdata-app boundary "URB_ANDEN_PATTERN")
-  ;; Misma validacion que urb:draw-closed-polyline (moÃ±o/ancho anomalo):
+  ;; Misma validacion que urb:draw-closed-polyline (moño/ancho anomalo):
   ;; este es el OTRO camino (edicion, no dibujo nuevo) que regenera el
   ;; acabado sobre un contorno -- sin este chequeo aqui, una polilinea que
   ;; llegue deformada (edicion de grips, seleccion manual, etc.) generaba
@@ -10141,7 +10141,7 @@
       (setq mp-entities (urb:selected-mp-entities selection))
       (setq senderos (urb:send-selected selection))
       ;; Una seleccion mixta ya no descarta objetos silenciosamente. Se
-      ;; rechaza completa para que el usuario sepa exactamente quÃ© se editÃ³.
+      ;; rechaza completa para que el usuario sepa exactamente qué se editó.
       (setq mixed-count
         (+ (if roads 1 0)
            (if parents 1 0)
@@ -11607,7 +11607,10 @@
 (setq *mp-mat-ducto-list* '("PVC" "IMC" "RMC" "EMT" "OTRO"))
 (setq *mp-cond-bt-list* '("3x4+4 THW" "3x6+6 THW" "3x8+8 THW" "2x4 THW" "2x6 THW" "1x4 THW" "1x6 THW" "OTRO"))
 (setq *mp-elem-elec-list* '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "LUMINARIA_AP" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E"))
-(setq *mp-lum-list* '("DECOLED 100 W" "RALED II" "AREALED II" "OTRA"))
+;; 5.7.14: "CAMBIO (retiro y reinstalacion)" marca una luminaria EXISTENTE
+;; que solo se cambia: se exporta a "Retiro y reinstalacion de luminarias
+;; nuevas" en su etapa/subetapa, no como suministro nuevo.
+(setq *mp-lum-list* '("DECOLED 100 W" "RALED II" "AREALED II" "OTRA" "CAMBIO (retiro y reinstalacion)"))
 (setq *mp-led-list* '("32 LED" "48 LED" "64 LED" "160 LED" "OTRO"))
 
 (defun mp:layer (name color / doc layers lay)
@@ -13398,7 +13401,7 @@
   (setq d (mp:diametro-label vals))
   (setq mat (mp:getval "MATERIAL" vals ""))
   (cond
-    ;; 2026-08-28: etiqueta compacta estilo plano record ("Ã˜8" PVC L=34");
+    ;; 2026-08-28: etiqueta compacta estilo plano record ("Ø8" PVC L=34");
     ;; tramos ACU muy cortos (<8 m, conectores entre accesorios de un
     ;; mismo cruce) SIN etiqueta -- eran la causa de cota sobre cota
     ((= base "TRAMO_ACUEDUCTO")
@@ -14444,7 +14447,8 @@
                 (T 0.0))
             bedding-volume (* length-value width bedding)
             fill (max 0.0 (- excavation bedding-volume element-volume))
-            surplus (max 0.0 (- excavation fill))
+            ;; 5.7.14: el relleno es recebo importado -> sale todo lo excavado
+            surplus excavation
             replacement (* length-value replacement-width)
             vals (mp:alist-set vals "EXCAVACION_M3" (rtos excavation 2 3))
             vals (mp:alist-set vals "CAMA_M3" (rtos bedding-volume 2 3))
@@ -21936,7 +21940,7 @@
       (if (not (vl-catch-all-error-p inner-transform))
         (setq inner-origin (nth 0 inner-transform)))
       ;; El handle de la referencia COGO identifica una etiqueta fisica.
-      ;; Sus varias geometrÃ­as candidatas conservan el mismo identificador,
+      ;; Sus varias geometrías candidatas conservan el mismo identificador,
       ;; lo que permite elegir despues una sola posicion representativa.
       (setq source-id
         (urb:safe-string
@@ -26943,7 +26947,7 @@
    block-name blocks block-definition copy-result insert-result block-ref
    block-ename)
   ;; Geometria segun los bloques B RAMPA T1/T2 reales de U-201 (disecados
-  ;; 2026-08-09, espÃ©cimen sin rotar "T2 - 3.00MT - Anden 4.00MT"):
+  ;; 2026-08-09, espécimen sin rotar "T2 - 3.00MT - Anden 4.00MT"):
   ;;  - franjas laterales de 0.20 m a TODO el fondo del anden, con
   ;;    relleno solido (las columnas grises del plano)
   ;;  - superficie de rampa TRAPEZOIDAL: ancho W+0.60 contra la via
@@ -28197,7 +28201,7 @@
                   stage substage "ML" length-value handle quantity-status "" "")
                 records))
             ;; Una entidad representa un tramo, no una pieza comercial. La
-            ;; salida UND=1 se retiro porque inducÃ­a a contar tramos como piezas.
+            ;; salida UND=1 se retiro porque inducía a contar tramos como piezas.
             (if (= quantity-status "REVISAR")
               (setq controls
                 (cons
@@ -29643,7 +29647,7 @@
             current-map)))
       (progn
         ;; Los registros de otros DWG se conservan, pero al migrar una tabla
-        ;; antigua tambiÃ©n se neutralizan cantidades con estado no aprobado.
+        ;; antigua también se neutralizan cantidades con estado no aprobado.
         (setq adjusted row)
         (if (urb:string-equal-p (nth type-index row) "CANTIDAD")
           (progn
@@ -30313,7 +30317,11 @@
     ("RED-GAS" . "red de gas")
     ("ELECTRICA-MT" . "red de media tension")
     ("ELECTRICA-BT-AP" . "red de baja tension")
-    ("SENDERO" . "parques y zonas verdes")
+    ;; 5.7.14 (decision del usuario 2026-09-18: "senderos y andenes todo
+    ;; lo que se dibuje se va redireccionar al mismo capitulo de andenes").
+    ;; El capitulo "parques y zonas verdes" no existe en el libro y todo
+    ;; sendero salia SIN MATCH.
+    ("SENDERO" . "andenes")
     ;; 2026-09-11 (reporte del usuario: "la zona verde la dibuja pero no me
     ;; la esta trayendo al presupuesto"): la zona verde no tenia red ni
     ;; fuente de filas. Capitulo 2.2.7 ZONA VERDE de perfiles viales; en un
@@ -30348,52 +30356,52 @@
 ;; catalogo: (codigo etiqueta actividad-ppto forma ancho largo)
 (setq *urb-mob-tipos*
   '(("CANECA" "Caneca doble M-121"
-      "Suministro e instalaciÃ³n de dos canecas M-121" "CIRC" 0.50 0.50)
+      "Suministro e instalación de dos canecas M-121" "CIRC" 0.50 0.50)
     ("BANCA-M30" "Banca en concreto M-30"
-      "Suministro e instalaciÃ³n de banca en concreto con espaldar M-30"
+      "Suministro e instalación de banca en concreto con espaldar M-30"
       "RECT" 2.00 0.70)
     ("BANCA-L206" "Banca L=2,06m"
-      "Suministro e instalaciÃ³n de banca L=2,06m (CIO106682)"
+      "Suministro e instalación de banca L=2,06m (CIO106682)"
       "RECT" 2.06 0.60)
     ("PARADERO" "Paradero de buses M-10"
-      "Suministro e instalaciÃ³n de paradero de buses Tipo M-10"
+      "Suministro e instalación de paradero de buses Tipo M-10"
       "RECT" 3.00 1.50)
     ("PROTECTOR-ARBOL" "Protector de arbol M-91"
-      "Suministro e instalaciÃ³n de protector de Ã¡rbol de dos tubos Tipo M-91"
+      "Suministro e instalación de protector de árbol de dos tubos Tipo M-91"
       "CIRC" 1.00 1.00)
     ("ARBOL" "Arbol"
-      "Suministro e instalaciÃ³n de Ã¡rbol" "ARBOL" 1.20 1.20)
+      "Suministro e instalación de árbol" "ARBOL" 1.20 1.20)
     ("SENAL-SITP" "Senal paradero SITP SI-08"
-      "SeÃ±al vertical Paradero SITP SI-08 / Plaqueta" "CIRC" 0.30 0.30)
+      "Señal vertical Paradero SITP SI-08 / Plaqueta" "CIRC" 0.30 0.30)
     ;; el bolardo vive en los capitulos de RAMPA del ppto (verificado
     ;; 2026-08-20 contra el libro), no en ANDENES -- red propia (campo 7)
     ("BOLARDO" "Bolardo alto M-63"
-      "Suministro e instalaciÃ³n de bolardo alto en hierro Tipo M-63"
+      "Suministro e instalación de bolardo alto en hierro Tipo M-63"
       "CIRC" 0.25 0.25 "RAMPA-PEATONAL")
     ("CONT-RAICES" "Contenedor raices 2,0x1,2"
-      "Suministro y construcciÃ³n de contenedor de raÃ­ces (Dimensiones: 2,0x1,2m). Incluye tierra negra"
+      "Suministro y construcción de contenedor de raíces (Dimensiones: 2,0x1,2m). Incluye tierra negra"
       "CONTEN" 2.00 1.20)
     ("CONT-A" "Contenedor raices Tipo A (2,00x2,20)"
-      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo A (2,00x2,20)m"
+      "Suministro y construcción de contenedor de raíces Tipo A (2,00x2,20)m"
       "CONTEN" 2.00 2.20)
     ("CONT-B" "Contenedor raices Tipo B (1,50x2,20)"
-      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo B (1,50x2,20)m"
+      "Suministro y construcción de contenedor de raíces Tipo B (1,50x2,20)m"
       "CONTEN" 1.50 2.20)
     ("CONT-C" "Contenedor raices Tipo C (1,20x2,20)"
-      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo C (1,20x2,20)m"
+      "Suministro y construcción de contenedor de raíces Tipo C (1,20x2,20)m"
       "CONTEN" 1.20 2.20)
     ("CONT-D" "Contenedor raices Tipo D (0,84x4,20)"
-      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo D (0,84x4,20)m"
+      "Suministro y construcción de contenedor de raíces Tipo D (0,84x4,20)m"
       "CONTEN" 0.84 4.20)
     ("CONT-E" "Contenedor raices Tipo E (0,70x4,20)"
-      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo E (0,70x4,20)m"
+      "Suministro y construcción de contenedor de raíces Tipo E (0,70x4,20)m"
       "CONTEN" 0.70 4.20)
     ("CONT-F" "Contenedor raices Tipo F (0,70x4,20)"
-      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo F (0,70x4,20)m"
+      "Suministro y construcción de contenedor de raíces Tipo F (0,70x4,20)m"
       "CONTEN" 0.70 4.20)
     ;; 2026-09-17 (pedido del usuario): contenedor de 4,20 m de largo x 1,20 m de ancho
     ("CONT-G" "Contenedor raices Tipo G (1,20x4,20)"
-      "Suministro y construcciÃ³n de contenedor de raÃ­ces Tipo G (1,20x4,20)m"
+      "Suministro y construcción de contenedor de raíces Tipo G (1,20x4,20)m"
       "CONTEN" 1.20 4.20)
     ;; ---------- mobiliario de PARQUE (2026-09-06): descripciones
     ;; EXACTAS de los capitulos por parque del presupuesto nuevo; el
@@ -30414,8 +30422,8 @@
       "D5-02 deslizadero recto en polimero" "RECT" 3.50 1.00)
     ("JUEGO-D5-03" "Columpio en canasta (D5-03)"
       "D5-03 columpio en canasta" "RECT" 3.00 2.00)
-    ("JUEGO-D5-05" "Red piramidal pequeÃ±a (D5-05)"
-      "D5-05 red piramidal pequeÃ±a" "CIRC" 3.00 3.00)
+    ("JUEGO-D5-05" "Red piramidal pequeña (D5-05)"
+      "D5-05 red piramidal pequeña" "CIRC" 3.00 3.00)
     ("JUEGO-D5-09" "Presas de escalada (D5-09)"
       "D5-09 presas infantiles de escalada" "RECT" 2.40 1.20)
     ("JUEGO-D2-02" "Laberinto de troncos (D2-02)"
@@ -31113,17 +31121,17 @@
 ;; 2026-08-24 el usuario lo edita en Ajustes en vez de verlo en la
 ;; ventana de creacion (urb:send-espesor-de aplica el valor efectivo).
 (setq *urb-send-tipos*
-  '(;; 2026-09-07 (rediseÃ±o del dialogo): ANDEN EN CONCRETO -- variante
+  '(;; 2026-09-07 (rediseño del dialogo): ANDEN EN CONCRETO -- variante
     ;; del anden nativo cuando el material no es loseta; su presupuesto
     ;; va a la red ANDEN (o al capitulo del parque si se dibuja adentro)
     ("ANDEN-CONC" "Anden en concreto" "ANDEN" 9 ""
-      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
        ("Concreto 3000 psi" "M3" "AREA" 0.10)
        ("Malla electrosoldada" "KG" "AREA" 2.36)
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.40))
       "URB-ANDEN-CONCRETO" 0.40)
     ("SEND-TROTE" "Sendero de trote" "SENDERO" 40 "TROTE"
@@ -31132,7 +31140,7 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.40))
       "URB-SENDERO-TROTE" 0.40)
     ("SEND-ECO" "Sendero ecologico" "SENDERO" 74 "SENDERO"
@@ -31141,7 +31149,7 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.40))
       "URB-SENDERO-ECOLOGICO" 0.40)
     ;; ---------- 5.6.2 MATERIALES DE SENDERO de la convencion del plano
@@ -31155,19 +31163,19 @@
     ;; Los codigos viejos SEND-TROTE / SEND-ECO se conservan arriba para que
     ;; los senderos ya dibujados sigan cuantificando.
     ("SEND-MULCH-ECO" "Sendero ecologico en mulch (B2-A)" "SENDERO" 96 "SENDERO"
-      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("Piso en mulch de madera inorganico" "M2" "AREA" 1.0)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.15))
       "URB-SENDERO-MULCH-ECOLOGICO" 0.15)
     ("SEND-MULCH-TROTE" "Sendero de trote en mulch (B2-B)" "SENDERO" 74 "TROTE"
-      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("Piso en mulch de madera inorganico" "M2" "AREA" 1.0)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.15))
       "URB-SENDERO-MULCH-TROTE" 0.15)
     ("SEND-CONC-OCRE" "Sendero en concreto ocre (B3)" "SENDERO" 40 "SENDERO"
@@ -31176,31 +31184,31 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.40))
       "URB-SENDERO-CONCRETO-OCRE" 0.40)
     ("SEND-ECOPAV" "Ecopavimento (B4)" "SENDERO" 9 "SENDERO"
-      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
        ("Subbase granular SBG" "M3" "AREA" 0.20)
        ("superficie en ecopavimento" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.30))
       "URB-SENDERO-ECOPAVIMENTO" 0.30)
     ("BICICARRIL" "Bicicarril propuesto (B5-B)" "CICLORRUTA" 170 "CICLOR"
       (("Demarcacion cicloruta" "ML" "PER" 1.0))
       "URB-BICICARRIL" 0.0)
     ("SEND-CAUCHO" "Superficie en caucho reciclado (B6)" "SENDERO" 32 "SENDERO"
-      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
        ("Subbase granular SBG" "M3" "AREA" 0.20)
        ("Concreto 3000 psi" "M3" "AREA" 0.08)
        ("superficie en caucho reciclado" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.35))
       "URB-SENDERO-CAUCHO" 0.35)
     ("SEND-DECK" "Superficie en deck de madera plastica (B7)" "SENDERO" 22 "SENDERO"
-      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
+      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
        ("Superficie en deck de madera plastica" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.20))
       "URB-SENDERO-DECK" 0.20)
     ("PLAZOLETA" "Plazoleta en concreto" "SENDERO" 253 "SENDERO"
@@ -31209,29 +31217,29 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.40))
       "URB-PLAZOLETA" 0.40)
     ("CICLORRUTA" "Ciclorruta" "CICLORRUTA" 150 "CICLOR"
-      (("Descapote mecÃ¡nico de material vegetal (Incluye cargue y retiro externo)"
+      (("Descapote mecánico de material vegetal (Incluye cargue y retiro externo)"
          "M2" "AREA" 1.0)
-       ("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
-       ("Suministro, extendida y compactaciÃ³n de Rodadura AsfÃ¡ltica MD-13"
+       ("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
+       ("Suministro, extendida y compactación de Rodadura Asfáltica MD-13"
          "M3" "AREA" 0.08)
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.38)
        ("Bordillo prefabricado A-80" "UN" "PER" 1.25)
-       ("M.O. instalaciÃ³n de bordillo prefabricado" "ML" "PER" 1.0))
+       ("M.O. instalación de bordillo prefabricado" "ML" "PER" 1.0))
       "URB-CICLORRUTA" 0.38)
     ("RAMPA-CONC" "Rampa en concreto (ancho variable)" "RAMPA-PEATONAL" 31 ""
-      (("CompactaciÃ³n de subrasante (Incluye nivelaciÃ³n)" "M2" "AREA" 1.0)
-       ("Suministro y construcciÃ³n de remate de rampa en concreto fundido en sitio"
+      (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
+       ("Suministro y construcción de remate de rampa en concreto fundido en sitio"
          "M2" "AREA" 1.0)
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
-       ("ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)"
+       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
          "M3" "AREA" 0.40))
       "URB-RAMPA-CONCRETO" 0.40)
     ;; ---------- EQUIPAMIENTOS DE PARQUE (2026-09-06, pedido del
@@ -31327,7 +31335,7 @@
        ("mortero de nivelacion" "M3" "AREA" 0.04)
        ("superficie en caucho reciclado" "M2" "AREA" 1.0))
       "URB-PISTA-CAUCHO" 0.35)
-    ("PARQUE-NINOS" "Parque de niÃ±os (piso)" "PARQUE-NINOS" 41 "PARQUE DE NI"
+    ("PARQUE-NINOS" "Parque de niños (piso)" "PARQUE-NINOS" 41 "PARQUE DE NI"
       (("Localizacion y replanteo" "M2" "AREA" 1.0)
        ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.40)
        ("Subabase granular SBG-B" "M3" "AREA" 0.20)
@@ -31374,13 +31382,13 @@
 ;; de la cartilla). Actividades EXACTAS del capitulo 2.5.3.7 del ppto.
 (setq *urb-bioswale-tipo*
   '("BIOSWALE" "Bioswale / biorretenedor" "ALC-PLUVIAL" 140 "BIORETENEDORES"
-     (("ExcavaciÃ³n manual para bioswale/bioretenedor" "M3" "AREA" 0.60)
-      ("Cargue, transporte y disposiciÃ³n de sobrantes" "M3" "AREA" 0.60)
+     (("Excavación manual para bioswale/bioretenedor" "M3" "AREA" 0.60)
+      ("Cargue, transporte y disposición de sobrantes" "M3" "AREA" 0.60)
       ("Base de gravilla permeable para bioretenedor" "M3" "AREA" 0.20)
-      ("Suministro y colocaciÃ³n de gravilla 25-40 mm (capa drenante)" "M3" "AREA" 0.12)
-      ("Suministro y colocaciÃ³n de gravilla 10-15 mm (capa filtrante)" "M3" "AREA" 0.15)
-      ("Relleno con material orgÃ¡nico para bioretenedor" "M3" "AREA" 0.13)
-      ("TuberÃ­a perforada PVC Ã˜6\" para drenaje de bioswale" "ML" "PER" 0.5)
+      ("Suministro y colocación de gravilla 25-40 mm (capa drenante)" "M3" "AREA" 0.12)
+      ("Suministro y colocación de gravilla 10-15 mm (capa filtrante)" "M3" "AREA" 0.15)
+      ("Relleno con material orgánico para bioretenedor" "M3" "AREA" 0.13)
+      ("Tubería perforada PVC Ø6\" para drenaje de bioswale" "ML" "PER" 0.5)
       ("Rejilla de drenaje para bioswale" "UN" "UN" 1.0)
       ("Jardineria" "M2" "AREA" 1.0))
      "URB-BIOSWALE" 0.60))
@@ -32503,7 +32511,7 @@
 ;; dibuja el contorno cerrado + relleno + xdata + prefabricado por
 ;; costados AUTOMATICO para UN elemento de la familia "poligono cerrado"
 ;; (senderos o bioswale comparten el mismo motor). appid es la xdata
-;; donde vive el tipo (URB_SENDERO o URB_BIOSWALE); su compaÃ±era
+;; donde vive el tipo (URB_SENDERO o URB_BIOSWALE); su compañera
 ;; "<appid>_GEN" identifica el hatch de relleno hacia el contorno padre.
 ;; 2026-08-24 v3 (pedido del usuario): los costados NO se trazan a mano
 ;; -- el programa identifica solo los dos lados largos del poligono
@@ -33240,7 +33248,7 @@
             (setq factor
               (cond
                 ((urb:string-equal-p (nth 0 receta)
-                   "ExcavaciÃ³n mecÃ¡nica en material comÃºn (Incluye cargue, transporte y disposiciÃ³n externa)")
+                   "Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)")
                   espesor)
                 ((urb:string-equal-p (nth 0 receta) "Concreto 3000 psi")
                   (urb:send-capa-cfg "URB_SEND_CONCRETO" (nth 3 receta)))
@@ -33252,7 +33260,7 @@
                        "Subbase granular SBG"))
                   (urb:send-capa-cfg "URB_SEND_SBG" (nth 3 receta)))
                 ((urb:string-equal-p (nth 0 receta)
-                   "Suministro, extendida y compactaciÃ³n de Rodadura AsfÃ¡ltica MD-13")
+                   "Suministro, extendida y compactación de Rodadura Asfáltica MD-13")
                   (urb:send-capa-cfg "URB_SEND_ASFALTO" (nth 3 receta)))
                 (T (nth 3 receta))))
             (setq qty
@@ -33357,7 +33365,7 @@
       (setq i (1+ i))))
   out)
 
-;; ---------- SEÃ‘ALIZACION Y DEMARCACION (2026-09-06, pedido del
+;; ---------- SEÑALIZACION Y DEMARCACION (2026-09-06, pedido del
 ;; usuario: comando APARTE de anden/senderos). Tres clases:
 ;;  LINEA   -> polilineas seleccionadas/dibujadas; cantidad = longitud x
 ;;             factor (factor <1 en discontinuas = ocupacion pintada;
@@ -33370,29 +33378,29 @@
 ;; este catalogo si el APU real difiere.
 (setq *urb-senal-tipos*
   '(("LC-AM-12" "Linea continua amarilla a=0,12" "LINEA"
-      "LÃ­nea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
+      "Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
     ("LC-AM-15" "Linea continua amarilla a=0,15" "LINEA"
-      "LÃ­nea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,15m)" "ML" 1.0)
+      "Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,15m)" "ML" 1.0)
     ("LC-BL-12" "Linea continua blanca a=0,12" "LINEA"
-      "LÃ­nea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
+      "Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 1.0)
     ("LC-BL-CICLO" "Linea continua blanca ciclorruta a=0,10" "LINEA"
-      "LÃ­nea continua de color blanco para ciclorruta - Pintura acrÃ­lica (a=0,10m)" "ML" 1.0)
+      "Línea continua de color blanco para ciclorruta - Pintura acrílica (a=0,10m)" "ML" 1.0)
     ("LD-BL-1X1" "Linea discontinua blanca 1m x 1m" "LINEA"
-      "LÃ­nea discontinua de color blanco 1m x 1m - Pintura de dos componentes metil metacrilato (a=0,20m)" "ML" 0.5)
+      "Línea discontinua de color blanco 1m x 1m - Pintura de dos componentes metil metacrilato (a=0,20m)" "ML" 0.5)
     ("LD-BL-3X5" "Linea discontinua blanca 3m x 5m" "LINEA"
-      "LÃ­nea discontinua de color blanco 3m x 5m - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 0.375)
+      "Línea discontinua de color blanco 3m x 5m - Pintura de dos componentes metil metacrilato (a=0,12m)" "ML" 0.375)
     ("LD-AM-CICLO" "Linea discontinua amarilla ciclorruta 1m x 2m" "LINEA"
-      "LÃ­nea discontinua de color amarillo para ciclorruta 1m x 2m - Pintura acrÃ­lica (a=0,10m)" "ML" 0.3333)
+      "Línea discontinua de color amarillo para ciclorruta 1m x 2m - Pintura acrílica (a=0,10m)" "ML" 0.3333)
     ("RESALTO" "Resalto en concreto" "LINEA"
-      "Suministro e instalaciÃ³n de resalto en concreto" "ML" 1.0)
+      "Suministro e instalación de resalto en concreto" "ML" 1.0)
     ("CEBRA" "Linea cebreada paso peatones (eje del paso)" "LINEA"
-      "LÃ­nea cebreada para paso de peatones (a=0,4m) - Pintura de dos componentes metil metacrilato" "M2" 2.0)
+      "Línea cebreada para paso de peatones (a=0,4m) - Pintura de dos componentes metil metacrilato" "M2" 2.0)
     ("PARE-06" "Linea de Pare a=0,6 (metil)" "LINEA"
-      "LÃ­nea de Pare - Pintura de dos componentes metil metacrilato (a=0,6m)" "M2" 0.6)
+      "Línea de Pare - Pintura de dos componentes metil metacrilato (a=0,6m)" "M2" 0.6)
     ("PARE-02" "Linea de Pare a=0,2 (acrilica)" "LINEA"
-      "LÃ­nea de Pare - Pintura acrÃ­lica (a=0,2m)" "M2" 0.2)
+      "Línea de Pare - Pintura acrílica (a=0,2m)" "M2" 0.2)
     ("POMPEYANO" "Demarcacion rampas de pompeyano (eje)" "LINEA"
-      "DemarcaciÃ³n de rampas de pompeyano (Color amarillo) - Pintura de dos componentes metil metacrilato" "M2" 1.0)
+      "Demarcación de rampas de pompeyano (Color amarillo) - Pintura de dos componentes metil metacrilato" "M2" 1.0)
     ("CRUCE-CICLO" "Cruce ciclorruta por calzada (eje)" "LINEA"
       "Cruce ciclorruta por calzada (0,4m x 0,4m) - Pintura de dos componentes metil metacrilato" "M2" 1.2)
     ("CRUCE-CICLO-AZ" "Cruce ciclorruta calzada azul (eje)" "LINEA"
@@ -33412,47 +33420,47 @@
     ("FL-FR-DER-IZQ" "Flecha frente, derecha o izquierda" "SIMBOLO"
       "Flecha de frente, a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato" "M2" 1.8)
     ("FL-CICLO" "Flecha de frente ciclocarril" "SIMBOLO"
-      "Flecha de frente para ciclocarril - Pintura acrÃ­lica" "M2" 0.8)
+      "Flecha de frente para ciclocarril - Pintura acrílica" "M2" 0.8)
     ("PICT-BICI" "Pictograma de bicicleta" "SIMBOLO"
-      "Pictograma de bicicleta - Pintura acrÃ­lica" "M2" 1.0)
+      "Pictograma de bicicleta - Pintura acrílica" "M2" 1.0)
     ("PICT-PEATON" "Pictograma cruce peatonal" "SIMBOLO"
       "Pictograma de cruce peatonal - Pintura de dos componentes metil metacrilato" "M2" 1.5)
     ("LETRAS" "Demarcacion de letras" "SIMBOLO"
-      "DemarcaciÃ³n de letras - Pintura acrÃ­lica" "M2" 1.5)
+      "Demarcación de letras - Pintura acrílica" "M2" 1.5)
     ("VEL-20" "Maxima velocidad 20 km/h" "SIMBOLO"
-      "DemarcaciÃ³n mÃ¡xima velocidad permitida (20 km/h) - Pintura de dos componentes metil metacrilato" "M2" 3.0)
+      "Demarcación máxima velocidad permitida (20 km/h) - Pintura de dos componentes metil metacrilato" "M2" 3.0)
     ("TRIANGULOS" "Sentido transito pompeyano (triangulos)" "SIMBOLO"
-      "Sentido del trÃ¡nsito en pompeyanos (TriÃ¡ngulos) - Pintura de dos componentes metil metacrilato" "M2" 0.5)
+      "Sentido del tránsito en pompeyanos (Triángulos) - Pintura de dos componentes metil metacrilato" "M2" 0.5)
     ("SV-60" "Senal vertical 0,60x0,60" "SENAL"
-      "SeÃ±al vertical (0,60mx0,60m)" "UN" 1.0)
+      "Señal vertical (0,60mx0,60m)" "UN" 1.0)
     ("SV-CICLO-D" "Senal ciclorruta doble 0,45" "SENAL"
-      "SeÃ±al vertical ciclorruta doble (0,45m x 0,45m)" "UN" 1.0)
+      "Señal vertical ciclorruta doble (0,45m x 0,45m)" "UN" 1.0)
     ("SV-CICLO-S" "Senal ciclorruta sencilla 0,45" "SENAL"
-      "SeÃ±al vertical ciclorruta sencilla (0,45m x 0,45m)" "UN" 1.0)
+      "Señal vertical ciclorruta sencilla (0,45m x 0,45m)" "UN" 1.0)
     ("SV-CICLO-INI" "Senal Inicio ciclorruta" "SENAL"
-      "SeÃ±al vertical ciclorruta sencilla \"Inicio ciclorruta\"" "UN" 1.0)
+      "Señal vertical ciclorruta sencilla \"Inicio ciclorruta\"" "UN" 1.0)
     ("SV-CICLO-FIN" "Senal Fin ciclorruta" "SENAL"
-      "SeÃ±al vertical ciclorruta sencilla \"Fin ciclorruta\"" "UN" 1.0)
+      "Señal vertical ciclorruta sencilla \"Fin ciclorruta\"" "UN" 1.0)
     ("SV-SP46A" "Senal SP-46A / SR-30" "SENAL"
-      "SeÃ±al vertical SP-46A / SR-30" "UN" 1.0)
+      "Señal vertical SP-46A / SR-30" "UN" 1.0)
     ("SV-SPB03" "Senal SPB-03" "SENAL"
-      "SeÃ±al vertical SPB-03" "UN" 1.0)
+      "Señal vertical SPB-03" "UN" 1.0)
     ("SV-SPB04" "Senal SPB-04" "SENAL"
-      "SeÃ±al vertical SPB-04" "UN" 1.0)
+      "Señal vertical SPB-04" "UN" 1.0)
     ("SV-SPC01" "Senal SPC-01 / SPC-01" "SENAL"
-      "SeÃ±al vertical SPC-01 / SPC-01" "UN" 1.0)
+      "Señal vertical SPC-01 / SPC-01" "UN" 1.0)
     ("SV-SPC01R" "Senal SPC-01 / SRC-01" "SENAL"
-      "SeÃ±al vertical SPC-01 / SRC-01" "UN" 1.0)
+      "Señal vertical SPC-01 / SRC-01" "UN" 1.0)
     ("SV-SP59A" "Senal cruce ciclistas SP-59A" "SENAL"
-      "SeÃ±al vertical ubicaciÃ³n de cruce ciclistas SP-59A" "UN" 1.0)
+      "Señal vertical ubicación de cruce ciclistas SP-59A" "UN" 1.0)
     ("SV-SP46" "Senal cruce peatonal SP-46" "SENAL"
-      "SeÃ±al vertical ubicaciÃ³n de cruce peatonal SP-46" "UN" 1.0)
+      "Señal vertical ubicación de cruce peatonal SP-46" "UN" 1.0)
     ("SV-SP46B" "Senal cruce peatonal SP-46B" "SENAL"
-      "SeÃ±al vertical ubicaciÃ³n de cruce peatonal SP-46B" "UN" 1.0)
+      "Señal vertical ubicación de cruce peatonal SP-46B" "UN" 1.0)
     ("TACHA-C" "Tacha reflectiva (linea central)" "SENAL"
-      "Tacha reflectiva bidireccional (LÃ­nea central)" "UN" 1.0)
+      "Tacha reflectiva bidireccional (Línea central)" "UN" 1.0)
     ("TACHA-B" "Tacha reflectiva (linea de borde)" "SENAL"
-      "Tacha reflectiva bidireccional (LÃ­nea de borde)" "UN" 1.0)))
+      "Tacha reflectiva bidireccional (Línea de borde)" "UN" 1.0)))
 
 (defun urb:senal-ensure-layer (entry / capa)
   (setq capa (strcat "URB-SENAL-" (nth 0 entry)))
@@ -33519,7 +33527,7 @@
   (vl-load-com)
   (initget "Linea Simbolo Vertical")
   (setq clase
-    (getkword "\nClase de seÃ±alizacion [Linea/Simbolo/Vertical] <Linea>: "))
+    (getkword "\nClase de señalizacion [Linea/Simbolo/Vertical] <Linea>: "))
   (if (null clase) (setq clase "Linea"))
   (setq clase
     (cond ((= clase "Linea") "LINEA")
@@ -33626,7 +33634,7 @@
   (if (not (vl-file-directory-p folder)) (vl-mkdir folder))
   (strcat folder "\\ppto_libro.txt"))
 
-;; 2026-09-03 MULTI-PC (pregunta del usuario: "Â¿si actualizo el ppto en
+;; 2026-09-03 MULTI-PC (pregunta del usuario: "¿si actualizo el ppto en
 ;; varios computadores me reconoce bien la ruta?"): la ruta guardada es
 ;; absoluta y LOCAL por maquina, y SharePoint monta en bases distintas
 ;; (C:\Users\<usuario>\colsubsidio.com en un PC, D:\colsubsidio.com en
@@ -35739,15 +35747,15 @@
           ;; en SUMINISTRO (UN = tubos de 6 m) + INSTALACION (ML) por
           ;; material y diametro, y la zanja sale por su capitulo de
           ;; MOVIMIENTO DE TIERRAS propio. Nomenclatura por capitulo:
-          ;; * ACUEDUCTO: "PVC presion Ã˜N" / "y piezas especiales HD Ã˜N".
+          ;; * ACUEDUCTO: "PVC presion ØN" / "y piezas especiales HD ØN".
           ;; * SANITARIO/PLUVIAL: NOVAFORT/NOVALOC/PVC -> "PVC flexible"
           ;;   (texto del libro; ademas asi el pluvial hereda el precio
           ;;   del sanitario por SUMIF); CSR/CCR/CER -> "en concreto MAT".
           (setq rows
             (cond
               ((= red "ACUEDUCTO")
-                ;; PVC va como "PVC presion Ã˜N" en el libro; HD va como
-                ;; "tuberia y piezas especiales HD Ã˜N".
+                ;; PVC va como "PVC presion ØN" en el libro; HD va como
+                ;; "tuberia y piezas especiales HD ØN".
                 ;; 2026-09-06 (regla del usuario: SUMINISTRO siempre en
                 ;; UNIDAD, mano de obra en ML): el suministro se emite en
                 ;; UN = tubos de 6 m (ML/6), igual que el sanitario; la
@@ -35807,10 +35815,13 @@
                 id pini pfin etapa sub "M3" trit handle)
               (urb:ppto-row red "Suministro y colocacion de recebo B-200"
                 id pini pfin etapa sub "M3" rec handle)
+              ;; 5.7.14 (revision de redes humedas): el relleno se cobra
+              ;; COMPLETO en recebo B-200 importado (fila de arriba), asi
+              ;; que TODO lo excavado sale de la obra. El SOBRANTE_M3 del
+              ;; tramo era excavacion - relleno (suponia reusar el material)
+              ;; y dejaba sin presupuestar ~20.000 m3 en el maestro.
               (urb:ppto-row red "Cargue transporte y disposicion de sobrantes"
-                id pini pfin etapa sub "M3"
-                (atof (urb:safe-string
-                  (cdr (assoc "SOBRANTE_M3" atts)) "0")) handle)
+                id pini pfin etapa sub "M3" exc handle)
               (urb:ppto-row red "Entibado E-1A"
                 id pini pfin etapa sub "M2" (nth 0 ent) handle)
               (urb:ppto-row red "Entibado E-1B"
@@ -35877,7 +35888,7 @@
             ;; del modelo).
             (progn
               (if (= (vl-string-trim " " ctok) "")
-                (setq ctok "3x185 mmÂ² Al XLPE 15 kV"))
+                (setq ctok "3x185 mm² Al XLPE 15 kV"))
               ;; circuitos de cable en el mismo banco: multiplica el ML
               ;; de suministro y tendido (2026-08-26, 46 tramos del plano
               ;; llevan doble/triple circuito)
@@ -35887,29 +35898,29 @@
               (setq rows
                 (list
                   (urb:ppto-row red
-                    (strcat "Suministro e instalaciÃ³n de banco de ductos "
+                    (strcat "Suministro e instalación de banco de ductos "
                       mat-d "-TDP " ductos-n (chr 216) diam-d "\"")
                     id "" "" etapa sub "ML" lng handle)
                   (urb:ppto-row red (strcat "Suministro cable " ctok)
                     id "" "" etapa sub "ML" (* lng circ) handle)
                   (urb:ppto-row red
                     (strcat
-                      "Tendido, conexionado e identificaciÃ³n cable " ctok)
+                      "Tendido, conexionado e identificación cable " ctok)
                     id "" "" etapa sub "ML" (* lng circ) handle)
                   (urb:ppto-row red
-                    "ExcavaciÃ³n para canalizaciÃ³n MT, incluye cargue"
+                    "Excavación para canalización MT, incluye cargue"
                     id "" "" etapa sub "M3" exc handle)
                   (urb:ppto-row red
-                    "Relleno en arena limpia para protecciÃ³n de ductos"
+                    "Relleno en arena limpia para protección de ductos"
                     id "" "" etapa sub "M3" arena handle)
                   (urb:ppto-row red
-                    "Relleno y compactaciÃ³n con base granular clase B"
+                    "Relleno y compactación con base granular clase B"
                     id "" "" etapa sub "M3" base-gran handle)
                   (urb:ppto-row red
-                    "Cinta de seÃ±alizaciÃ³n para red de media tensiÃ³n"
+                    "Cinta de señalización para red de media tensión"
                     id "" "" etapa sub "ML" lng handle)
                   (urb:ppto-row red
-                    "Limpieza, mandrilado y verificaciÃ³n de ductos MT"
+                    "Limpieza, mandrilado y verificación de ductos MT"
                     id "" "" etapa sub "ML"
                     (* lng (atof ductos-n)) handle))))
             ;; BT / alumbrado: la canalizacion del ppto es todo incluido
@@ -35917,11 +35928,11 @@
             (setq rows
               (list
                 (urb:ppto-row red
-                  (strcat "Suministro e instalaciÃ³n de tuberia "
+                  (strcat "Suministro e instalación de tuberia "
                     ductos-n " " diam-d " TDP")
                   id "" "" etapa sub "ML" lng handle)
                 (urb:ppto-row red
-                  (strcat "Suministro e instalaciÃ³n de cable " ctok)
+                  (strcat "Suministro e instalación de cable " ctok)
                   id "" "" etapa sub "ML" lng handle))))
           (foreach r rows (if r (setq out (cons r out))))))
       (setq i (1+ i))))
@@ -36167,24 +36178,26 @@
                 "ELECTRICA-MT" "ELECTRICA-BT-AP")
               (cond
                 ((= base "CAMARA_CS274")
-                  "Suministro e instalaciÃ³n Caja de paso en mamposteria segÃºn norma CS-274")
+                  "Suministro e instalación Caja de paso en mamposteria según norma CS-274")
                 ((= base "CAMARA_CS275")
-                  "Suministro e instalaciÃ³n Caja de paso en mamposteria segÃºn norma CS-275")
+                  "Suministro e instalación Caja de paso en mamposteria según norma CS-275")
                 ;; 2026-08-26: redaccion del libro correcto (fila 1037)
                 ((= base "CAMARA_CS276")
-                  "ConstrucciÃ³n de caja de inspecciÃ³n doble norma CS276")
+                  "Construcción de caja de inspección doble norma CS276")
                 ;; CS280 NO existe en el libro correcto -- queda pendiente
                 ;; a proposito (afectacion reportada al usuario)
                 ((= base "CAMARA_CS280")
-                  "ConstrucciÃ³n de cÃ¡mara de paso MT norma CS280")
+                  "Construcción de cámara de paso MT norma CS280")
                 (T "Caja para barraje norma CS281"))
               id "" "" etapa sub "UN" 1.0 handle))))
         ((= base "LUMINARIA_AP")
           (setq r (urb:safe-string (cdr (assoc "TIPO_LUMINARIA" atts)) ""))
           (setq rows
             (list (urb:ppto-row "ELECTRICA-BT-AP"
-              (strcat "Suministro e instalaciÃ³n de luminaria LED"
-                (if (or (= r "") (= (strcase r) "LED")) "" (strcat " " r)))
+              (if (wcmatch (strcase r) "CAMBIO*")
+                "Retiro y reinstalación de luminarias nuevas"
+                (strcat "Suministro e instalación de luminaria LED"
+                  (if (or (= r "") (= (strcase r) "LED")) "" (strcat " " r))))
               (urb:safe-string (cdr (assoc "CODIGO" atts)) id)
               "" "" etapa sub "UN" 1.0 handle))))
         ((= base "POSTE_ELEC")
@@ -36199,7 +36212,7 @@
             (max 0 (atoi (urb:safe-string (cdr (assoc "LUMINARIAS" atts)) "0"))))
           (setq rows
             (list (urb:ppto-row "ELECTRICA-BT-AP"
-              (strcat "Suministro e instalaciÃ³n poste de concreto " r
+              (strcat "Suministro e instalación poste de concreto " r
                 " m. Tipo recto AP (Incluye ahoyada, hincada y plomada)")
               id "" "" etapa sub "UN" 1.0 handle)))
           (if (> prof 0)
@@ -36207,10 +36220,10 @@
               (append rows
                 (list
                   (urb:ppto-row "ELECTRICA-BT-AP"
-                    "Suministro e instalaciÃ³n de luminaria LED"
+                    "Suministro e instalación de luminaria LED"
                     id "" "" etapa sub "UN" (float prof) handle)
                   (urb:ppto-row "ELECTRICA-BT-AP"
-                    "Suministro e instalaciÃ³n de alambre 2x12 AWG-THW (Acometida para luminarias)"
+                    "Suministro e instalación de alambre 2x12 AWG-THW (Acometida para luminarias)"
                     id "" "" etapa sub "ML"
                     (* prof (+ (atof r) 3.0)) handle))))))
         ((= base "TRANSFORMADOR_AP")
