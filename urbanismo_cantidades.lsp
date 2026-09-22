@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.17")
+(setq *urb-version* "5.7.18")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -4327,6 +4327,14 @@
            ;; patron recto; no merece una modulacion propia.
            (> longitud-girada (max 0.50 (* 0.01 largo)))))))
 
+(defun urb:anden-use-segmented-p (chain forced-angle)
+  (and (null forced-angle) (urb:anden-needs-segmented-p chain)))
+
+(defun urb:anden-axis-from-user-points (p1 p2 auto-angle)
+  (if (and p1 p2 (> (distance p1 p2) 1e-6))
+    (angle p1 p2)
+    (if auto-angle (+ auto-angle (* 0.5 pi)) nil)))
+
 (defun urb:create-composite-loseta
   (ename format / obj copy base-region points fine-points parent-handle clusters
    split-data zones zone success angle-value pattern-mode reverse-pattern
@@ -4345,9 +4353,9 @@
   (vla-put-Closed copy :vlax-true)
   (setq
          base-region (urb:anden-region-from-object copy))
-  ;; 2026-08-12: eje FORZADO de modulacion (URB_ANDEN_AXIS) -- lo marca
-  ;; el usuario al crear un anden con curva (2 puntos paralelos a las
-  ;; bandas del vecino). Si no hay eje guardado pero el contorno tiene
+  ;; Eje FORZADO de modulacion (URB_ANDEN_AXIS). Desde 5.7.18 los dos
+  ;; puntos siguen el eje LONGITUDINAL y las bandas quedan perpendiculares.
+  ;; Si no hay eje guardado pero el contorno tiene
   ;; arcos, se asume bandas paralelas al lado recto mas largo (la tapa
   ;; compartida con el modulo vecino): eje = ese lado + 90.
   (setq forced-angle
@@ -4394,7 +4402,11 @@
       (setq driving-chain
         (vl-catch-all-apply 'urb:anden-tactile-chain (list fine-points)))
       (if (vl-catch-all-error-p driving-chain) (setq driving-chain nil))
-      (if (urb:anden-needs-segmented-p driving-chain)
+      (urb:bb-log (strcat "  material: eje longitudinal marcado="
+        (if forced-angle (rtos forced-angle 2 8) "NO")))
+      ;; El eje indicado por el usuario manda. Antes el modo segmentado se
+      ;; evaluaba primero e ignoraba URB_ANDEN_AXIS, formando un abanico.
+      (if (urb:anden-use-segmented-p driving-chain forced-angle)
         (progn
           (setq deriva (urb:chain-direction-drift driving-chain))
           (setq tramos
@@ -5855,6 +5867,24 @@
   (setvar "PLINEWID" old-plinewid)
   (if abort-it (exit))
 )
+
+;; Recorrido abierto de una sola pieza. En canuelas Esc debe CANCELAR de
+;; inmediato: no se usa la recuperacion especial de contornos, que reabre
+;; PLINE y hacia parecer que el comando nunca terminaba.
+(defun urb:draw-polyline-once (before / r after)
+  (vl-cmdf "_.PLINE")
+  (setq r
+    (vl-catch-all-apply
+      '(lambda ()
+        (while (> (getvar "CMDACTIVE") 0) (command pause)))))
+  (if (vl-catch-all-error-p r)
+    (progn
+      (if (> (getvar "CMDACTIVE") 0)
+        (vl-catch-all-apply 'command nil))
+      (setq after (entlast))
+      (if (and after (not (eq after before)) (entget after)) (entdel after))
+      nil)
+    T))
 
 ;; reabre PLINE con los vertices (y arcos) de una polilinea a medio dibujar
 (defun urb:pline-restart (ename data / pts bulges elev i p q b len mid arc)
@@ -8521,30 +8551,23 @@
       (setq *urb-current-tactile-side-point* nil
             *urb-current-tactile-side-anchor* nil
             *urb-current-tactile-side-choice* nil)
-      ;; 2026-08-12 curva v2 (pantallazo del usuario: seguia diagonal):
-      ;; si el contorno tiene ARCOS, la orientacion de la modulacion se
-      ;; marca con 2 puntos PARALELOS a las bandas del anden/rampa vecino
-      ;; -- osnap sobre una junta del modulo adyacente da el paralelismo
-      ;; exacto que pidio. Enter = automatica (paralela al lado RECTO mas
-      ;; largo del contorno, tipicamente la tapa compartida con el
-      ;; vecino). El eje interno es perpendicular a las bandas y queda
-      ;; guardado en el contorno (URB_ANDEN_AXIS): sobrevive a EDITAR.
+      ;; 5.7.18: los dos puntos marcan el EJE LONGITUDINAL (direccion del
+      ;; recorrido); las bandas quedan perpendiculares. Antes se pedia la
+      ;; direccion de las bandas y se sumaban 90 grados: si el usuario
+      ;; marcaba el eje visual, el patron quedaba girado. Enter conserva
+      ;; la deteccion automatica historica.
       (if (urb:lwpoly-has-arcs-p ename)
         (progn
           (setq mod-p1
             (getpoint
-              (strcat "\nContorno con curva -- marque 2 puntos PARALELOS a"
-                      " las bandas del anden/rampa vecino (Enter = automatico): ")))
+              (strcat "\nContorno con curva -- marque 2 puntos sobre el EJE"
+                      " LONGITUDINAL del anden (Enter = automatico): ")))
           (if mod-p1
             (setq mod-p2
-              (getpoint mod-p1 "\nSegundo punto de la direccion de las bandas: ")))
+              (getpoint mod-p1 "\nSegundo punto sobre el eje longitudinal: ")))
           (setq mod-angle
-            (cond
-              ((and mod-p1 mod-p2 (> (distance mod-p1 mod-p2) 1e-6))
-                (+ (angle mod-p1 mod-p2) (* 0.5 pi)))
-              (T
-                (setq mod-angle (urb:anden-straight-edges-angle ename))
-                (if mod-angle (+ mod-angle (* 0.5 pi)) nil))))
+            (urb:anden-axis-from-user-points mod-p1 mod-p2
+              (urb:anden-straight-edges-angle ename)))
           (if mod-angle
             (urb:set-xdata-strings ename "URB_ANDEN_AXIS"
               (list (rtos mod-angle 2 8))))))
@@ -10706,7 +10729,7 @@
     (strcat
       "\nDibuje el recorrido de " label
       ". Enter termina el trazado."))
-  (urb:draw-polyline-interactive old-plinewid)
+  (urb:draw-polyline-once before)
   (setq after (entlast))
   (if (and after (/= after before)
            (= (cdr (assoc 0 (entget after))) "LWPOLYLINE"))
@@ -15646,7 +15669,7 @@
       (setq i (1+ i))))
   (if (and diam (/= diam "")) diam nil))
 
-(defun urb:create-storm-manhole (/ data base vals p dir diam ename n total ancho)
+(defun urb:create-storm-manhole (/ data base vals p dir diam ancho)
   (mp:ensure-layers)
   (if (setq data (mp:dialog-punto-pluvial))
     (progn
@@ -15654,20 +15677,11 @@
       (if (= base "CANUELA_PLU")
         ;; canuela: recorrido dibujado, por ML (ancho de Ajustes)
         (progn
-          (setq ancho (urb:canuela-plu-ancho-default) n 0 total 0.0)
-          (while (setq ename (urb:draw-open-polyline "la canuela"))
-            (setq total (+ total
-                          (urb:canuela-plu-register ename
-                            (mp:getval "ETAPA" vals "1")
-                            (mp:getval "SUBETAPA" vals "1")
-                            ancho (mp:getval "ID" vals "")))
-                  n (1+ n))
-            (prompt (strcat "\nCanuela " (itoa n) ": "
-              (rtos (vla-get-Length (vlax-ename->vla-object ename)) 2 2)
-              " ML. Dibuje otra o Enter para terminar.")))
-          (if (> n 0)
-            (prompt (strcat "\nCanuelas creadas: " (itoa n)
-              " | total " (rtos total 2 2) " ML | ancho " (rtos ancho 2 2) " m."))))
+          (setq ancho (urb:canuela-plu-ancho-default))
+          (urb:canuela-plu-draw-one
+            (mp:getval "ETAPA" vals "1")
+            (mp:getval "SUBETAPA" vals "1")
+            ancho (mp:getval "ID" vals "")))
         (if (setq p (mp:getpoint-wcs nil
                       (cond
                         ((= base "SUMIDERO") "\nPunto de sumidero: ")
@@ -32976,7 +32990,7 @@
       ": popup_list { label = \"Subetapa\"; key = \"subetapa\"; }"
       ": edit_box { label = \"Ancho de la canuela (m)\"; key = \"ancho\"; edit_width = 10; } }"
       ": text { label = \"Se cuantifica por metro lineal (ML) sobre el recorrido.\"; }"
-      ": text { label = \"Aceptar y dibujar el recorrido; Enter sin dibujar termina.\"; }"
+      ": text { label = \"Se crea una canuela por vez. Enter termina; Esc cancela.\"; }"
       "ok_cancel; }")))
 
 ;; xdata URB_CANUELA_PLU = (codigo etapa subetapa ancho id) -- 5.6.1 agrega el ID
@@ -32991,8 +33005,19 @@
     (list "CANUELA_PLU" etapa sub (rtos ancho 2 3) (urb:safe-string id "")))
   (vla-get-Length obj))
 
-(defun urb:canuela-plu-command (/ dclfile dcl done etapa sub subs ancho
-                                 ename n total)
+(defun urb:canuela-plu-draw-one (etapa sub ancho id / ename len)
+  (setq ename (urb:draw-open-polyline "la canuela"))
+  (if ename
+    (progn
+      (setq len (urb:canuela-plu-register ename etapa sub ancho id))
+      (prompt (strcat "\nCanuela creada: " (rtos len 2 2)
+        " ML | ancho " (rtos ancho 2 2) " m."))
+      len)
+    (progn
+      (prompt "\nCreacion de canuela cancelada.")
+      nil)))
+
+(defun urb:canuela-plu-command (/ dclfile dcl done etapa sub subs ancho)
   (vl-load-com)
   (setq dclfile (urb:canuela-plu-write-dcl))
   (if (null dclfile)
@@ -33032,16 +33057,7 @@
             (urb:safe-string
               (nth (atoi (urb:safe-string *urb-send-sub* "0")) subs)
               etapa))
-          (setq n 0 total 0.0)
-          (while (setq ename (urb:draw-open-polyline "la canuela"))
-            (setq total (+ total (urb:canuela-plu-register ename etapa sub ancho ""))
-                  n (1+ n))
-            (prompt (strcat "\nCanuela " (itoa n) ": "
-              (rtos (vla-get-Length (vlax-ename->vla-object ename)) 2 2)
-              " ML. Dibuje otra o Enter para terminar.")))
-          (if (> n 0)
-            (prompt (strcat "\nCanuelas creadas: " (itoa n)
-              " | total " (rtos total 2 2) " ML.")))))))
+          (urb:canuela-plu-draw-one etapa sub ancho "")))))
   (princ))
 
 ;; filas de presupuesto: concepto "Canuela" a secas A PROPOSITO. Con el

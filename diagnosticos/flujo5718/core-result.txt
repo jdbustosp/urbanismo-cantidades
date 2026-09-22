@@ -1,0 +1,10 @@
+PASS version
+PASS curved chain would use automatic segmented mode
+PASS marked axis overrides segmented fan
+PASS without marked axis automatic segmentation remains
+PASS two points store longitudinal angle directly
+PASS automatic curved fallback keeps historical perpendicular
+PASS one canuela returns its length
+PASS one command draws/registers one canuela only
+SUMMARY pass=8 fail=0
+FINISHED

@@ -1,0 +1,8 @@
+STARTED
+PASS version
+PASS curved finish generated
+MATERIAL_HATCHES 215 MAX_OFF_MARKED_OR_ORTHOGONAL 0
+PASS material hatches inspected
+PASS all curved material obeys marked axis or its orthogonal; no fan
+SUMMARY pass=4 fail=0
+FINISHED

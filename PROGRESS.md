@@ -1,5 +1,20 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-22 09:48 America/Bogota — v5.7.18 cañuela única y eje curvo explícito
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base 84281dc; commit de esta entrega.
+La cañuela ya no repite PLINE: una aceptación crea exactamente un recorrido;
+Enter lo termina y Esc cancela/retira el parcial sin abrir el siguiente.
+Andenes curvos: URB_ANDEN_AXIS prevalece sobre segmentación; los 2 puntos se
+leen como eje longitudinal directo y las bandas quedan perpendiculares. Core
+8PASS/0FAIL (10.095s). Civil3D2023 real 4PASS/0FAIL (40.258s): contorno con
+arcos, 215 hatches, desviación 0 respecto al eje marcado o su ortogonal, sin
+abanico. Esc físico y apariencia en Civil2026 requieren confirmación manual.
+Los andenes viejos en abanico deben recrearse. Maestro/Excel intactos.
+Instalado 5.7.18; fuente e instalación SHA256
+DFEA1F12975DF2ED74E3218AA9422BACB91C281C5C960736852AFF7E1CA34A9A.
+Evidencia: diagnosticos/flujo5718/RESULTADO.md.
+
 ## 2026-09-22 08:36 America/Bogota — v5.7.17 malla de tierras con aristas activas
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base 5812e57; commit de esta entrega.
