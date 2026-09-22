@@ -1,0 +1,11 @@
+(setq *urb-suppress-auto-migration* T)
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/urbanismo_cantidades.lsp")
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/diagnosticos/tierras5715/core.lsp")
+(setq t15:core-picks (urb:area-earthwork-picks nil nil))
+Sin
+(t15:core-check (null t15:core-picks) "Sin returns without requesting elevations")
+(setq t15:core-picks (urb:area-earthwork-picks nil T))
+Conservar
+(t15:core-finish)
+_.QUIT
+_Y

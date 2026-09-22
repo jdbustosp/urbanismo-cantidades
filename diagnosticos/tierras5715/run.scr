@@ -1,0 +1,26 @@
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/urbanismo_cantidades.lsp")
+_.NETLOAD
+"C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/TestSurface5715.dll"
+TESTSURFACE5715
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/diagnosticos/tierras5715/verify.lsp")
+(setq t15:picks (urb:area-earthwork-picks t15:near nil))
+Automatico
+(t15:after-auto)
+(setq t15:picks (urb:area-earthwork-picks t15:near nil))
+Sin
+(t15:after-sin)
+(urb:edit-green-zones (list (urb:as-ename t15:green)))
+Tierras
+Cotas
+Digitar
+2800
+
+
+(urb:sendero-earthworks (urb:as-ename t15:send))
+Cotas
+Digitar
+2800
+
+
+(t15:after-edit)
+(command "_.QUIT" "_Y")

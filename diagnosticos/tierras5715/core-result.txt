@@ -1,0 +1,12 @@
+PASS version
+PASS one manual elevation remains flat
+PASS intermediate collinear elevation retained
+PASS complete profile interpolation
+PASS weighted sample area exact
+PASS cut sign
+PASS fill sign
+PASS core functions execute without exception
+PASS Sin returns without requesting elevations
+PASS Conservar returns without requesting elevations
+SUMMARY pass=10 fail=0
+FINISHED

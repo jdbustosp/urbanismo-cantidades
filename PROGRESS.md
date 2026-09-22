@@ -1,5 +1,23 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-22 06:27 America/Bogota — v5.7.15 tierras de zonas verdes y senderos
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base 150ff33; commit de esta entrega.
+Crear/EDITAR comparten Automatico (via con rasante completa; respaldo anden),
+Referencia (un clic a elemento completo), Cotas manuales y Sin/Conservar.
+EDITAR zona verde ofrece Datos/Tierras/Ambos, sin obligar al dialogo de datos
+para cambiar solo tierras. Cambiar espesor invalida MT por cada zona; un
+recalculo fallido no conserva cifras viejas como si fueran nuevas.
+Senderos: contorno temporal en WCS despues de traslado/giro; crear y editar
+usan el mismo calculador y sobreancho lateral. La huella ampliada no cambia
+el borde que gobierna la cota terminada. Reset de mov2 por cada nuevo sendero.
+Core Console: 10 PASS/0 FAIL (carga, interpolacion, area ponderada, signos,
+Sin/Conservar). Sintaxis y manifiesto coherentes. Civil completo NO validado:
+la apertura no llego al harness antes de 90 s (fixture grande y ligero);
+solo se cerraron los PID propios. No hay mediciones aprobadas sobre SUP_TN.
+Instalado 5.7.15; maestro/Excel intactos; cambios de Claude preservados.
+Evidencia y pasos manuales: diagnosticos/tierras5715/RESULTADO.md.
+
 ## 2026-09-22 01:10 America/Bogota — 5.7.14 texto doble-codificado, senderos a andenes, sobrantes = excavación, luminaria "CAMBIO"
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base f3c3aa0.

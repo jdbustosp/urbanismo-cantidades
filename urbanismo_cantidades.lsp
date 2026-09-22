@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.14")
+(setq *urb-version* "5.7.15")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -9480,6 +9480,63 @@
 ;; 5.6.1: si alguna cota vino de una VIA creada, la cota de diseno sale de
 ;; la rasante de esa via en la estacion del punto (todo el alineamiento);
 ;; si no, el plano / rasante lineal de siempre.
+;; 5.7.15: un flujo comun para CREAR y EDITAR zonas/senderos. Las referencias
+;; contienen el perfil completo, no una cota plana en el sitio del clic.
+(defun urb:area-grade-auto (pts / road ref anden)
+  (if (and pts (> (length pts) 2))
+    (progn
+      (setq road (urb:anden-road-autodetect pts))
+      (if road (setq ref (urb:anden-road-grade-for road)))
+      (if ref
+        (prompt (strcat "\nTierras: VIA " (urb:safe-string (nth 8 ref) "")
+          " [" (cdr (assoc 5 (entget road))) "] detectada; rasante completa por estaciones."))
+        (progn
+          (setq anden (urb:anden-near-points pts))
+          (if anden (setq ref (urb:anden-design-reference anden)))
+          (if ref (prompt (strcat "\nTierras: ANDEN ["
+            (cdr (assoc 5 (entget anden))) "] detectado; cotas de su borde, no una cota fija.")))))
+      (if ref (list (list 0.0 (car pts) ref))))))
+
+(defun urb:area-grade-from-pick (sel / ref)
+  (if (listp sel)
+    (progn
+      (setq ref (urb:anden-reference-from-pick sel))
+      (if (null ref) (setq ref (urb:road-reference-from-pick sel)))
+      (if ref (list (list 0.0 (cadr sel) ref))))))
+
+(defun urb:area-earthwork-picks (boundary editing / mode picks sel)
+  (setq *urb-anden-pts-cache* nil)
+  (urb:anden-ref-curves-clear)
+  (initget (if editing "Automatico Referencia Cotas Conservar" "Automatico Referencia Cotas Sin"))
+  (setq mode (getkword (strcat "\nTierras [Automatico/Referencia/Cotas/"
+    (if editing "Conservar" "Sin") "] <Automatico>: ")))
+  (if (null mode) (setq mode "Automatico"))
+  (if (= mode "Automatico")
+    (progn
+      (setq picks (urb:area-grade-auto (urb:anden-earthwork-raw-points boundary)))
+      (if (null picks)
+        (progn
+          (prompt "\nNo hay una via/anden cercano con rasante recuperable. Seleccione UNA referencia o Enter para dejar pendiente.")
+          (setq mode "Referencia")))))
+  (cond
+    ((= mode "Referencia")
+      (setq sel (nentsel "\nSeleccione UNA VIA o ANDEN completo (Enter cancela; cotas sueltas: opcion Cotas): "))
+      (setq picks (urb:area-grade-from-pick sel))
+      (if picks
+        (prompt "\nReferencia tomada: se usa todo su perfil, sin pedir puntos adicionales.")
+        (if sel (prompt "\nEl objeto no tiene una rasante recuperable. No se inventa una cota."))))
+    ((= mode "Cotas") (setq picks (urb:pick-design-cotas))))
+  (if (null picks) (urb:anden-ref-curves-clear))
+  picks)
+
+(defun urb:area-earthwork-clear (ename app / obj)
+  (setq obj (urb:as-vla-object ename))
+  (urb:set-xdata-strings ename app nil)
+  (if (= (cdr (assoc 0 (entget ename))) "INSERT")
+    (progn
+      (urb:set-block-attribute obj "CORTE_M3" "0")
+      (urb:set-block-attribute obj "RELLENO_M3" "0"))))
+
 (defun urb:design-z-from-picks (picks x y / ref arefs best bd d q)
   ;; 5.6.2: referencias de ANDEN (ANDEN ref-via borde contorno). Si hay
   ;; varias (sendero entre dos andenes) manda la del anden mas cercano.
@@ -9510,6 +9567,7 @@
     (T (urb:road-reference-design-z ref x y))))
 
 (setq *urb-picks-edge-offset* nil)
+(setq *urb-picks-base-points* nil)
 
 (defun urb:design-z-collinear-picks (picks x y / origin far span dx dy records p d)
   ;; El orden de clic no define los extremos. Ordenar por proyeccion y
@@ -9710,7 +9768,8 @@
         (vl-some '(lambda (pk)
                     (if (> (length pk) 2)
                       (vl-catch-all-apply 'urb:anden-axis-edge-offset
-                        (list poly (car (caddr pk))))))
+                        (list (if *urb-picks-base-points* *urb-picks-base-points* poly)
+                              (car (caddr pk))))))
                  picks))
       (if (vl-catch-all-error-p *urb-picks-edge-offset*)
         (setq *urb-picks-edge-offset* nil))
@@ -9940,11 +9999,9 @@
       ;; corte/relleno OPCIONAL contra SUP_TN: la rasante de diseno sale
       ;; de cotas clickeadas (via, POZO del modelo, etiqueta o digitada)
       (setq mov nil)
-      (initget "Si No")
-      (setq kw (getkword "\nCalcular CORTE/RELLENO de la zona? [Si/No] <No>: "))
-      (if (= kw "Si")
+      (setq picks (urb:area-earthwork-picks ename nil))
+      (if picks
         (progn
-          (setq picks (urb:pick-design-cotas))
           (if (and picks (>= (length picks) 1))
             (progn
               ;; zona verde: la subrasante queda un espesor de tierra negra
@@ -9999,6 +10056,11 @@
         area (atof (urb:safe-string (nth 3 data) "0"))
         perimeter (atof (urb:safe-string (nth 4 data) "0"))
         volume (* area thickness))
+  ;; Invalidar por CADA zona: las seleccionadas pueden tener espesores distintos.
+  (if (not (equal thickness (atof (urb:safe-string (nth 5 data) "0.20")) 1e-9))
+    (progn
+      (urb:area-earthwork-clear ename "URB_GREEN_MOV")
+      (prompt "\nEspesor modificado: tierras pendientes hasta recalcular.")))
   (urb:set-xdata-strings ename "URB_GREEN_BLOCK"
     (list "ZONA_VERDE" etapa subetapa
       (rtos area 2 8)
@@ -10024,13 +10086,15 @@
   (if (null boundary)
     (prompt "\nNo se pudo leer el contorno de la zona verde.")
     (progn
-      (prompt
-        "\nSeleccione la VIA, ANDEN, POZO o cotas que gobiernan esta zona verde.")
-      (setq picks (urb:pick-design-cotas))
+      (setq picks (vl-catch-all-apply 'urb:area-earthwork-picks (list boundary T)))
+      (if (vl-catch-all-error-p picks) (setq picks nil))
       (if picks
         (setq mov
-          (urb:earthworks-from-picks boundary picks thickness)))
+          (vl-catch-all-apply 'urb:earthworks-from-picks (list boundary picks thickness))))
+      (if (vl-catch-all-error-p mov) (setq mov nil))
       (if (entget boundary) (entdel boundary))
+      (urb:anden-ref-curves-clear)
+      (if (and picks (null mov)) (urb:area-earthwork-clear ename "URB_GREEN_MOV"))
       (if mov
         (progn
           (setq object (urb:as-vla-object ename))
@@ -10045,8 +10109,19 @@
         (prompt "\nMovimiento de la zona verde no actualizado."))))
   mov)
 
-(defun urb:edit-green-zones
-  (zones / first data etapa subetapa thickness old-thickness dialog-data
+(defun urb:edit-green-zones (zones / mode en data)
+  (initget "Datos Tierras Ambos")
+  (setq mode (getkword "\nZona verde: editar [Datos/Tierras/Ambos] <Ambos>: "))
+  (if (null mode) (setq mode "Ambos"))
+  (if (= mode "Tierras")
+    (foreach en zones
+      (setq data (urb:green-zone-data en))
+      (urb:green-earthworks-edit-one en (atof (urb:safe-string (nth 5 data) "0.20"))))
+    (urb:edit-green-zone-properties zones (= mode "Ambos")))
+  T)
+
+(defun urb:edit-green-zone-properties
+  (zones with-earthworks / first data etapa subetapa thickness old-thickness dialog-data
           ename updated edit-mov mov-updated)
   (setq first (car zones)
         data (urb:green-zone-data first)
@@ -10066,7 +10141,7 @@
         (if (urb:update-green-zone-data
               ename etapa subetapa thickness)
           (setq updated (1+ updated))))
-      (setq edit-mov (urb:ask-edit-movimiento "la zona verde"))
+      (setq edit-mov with-earthworks)
       (if edit-mov
         (progn
           (setq mov-updated 0)
@@ -32636,22 +32711,10 @@
 
 ;; copia temporal del contorno de un sendero en BLOQUE, con sus arcos, para
 ;; poder medir sobreancho y tierras con las mismas funciones de siempre
-(defun urb:send-temp-contour (ename / obj bdef item cands mejor ed)
-  (setq obj (urb:as-vla-object ename)
-        bdef (vl-catch-all-apply 'vla-Item
-               (list (vla-get-Blocks (urb:doc)) (vla-get-Name obj))))
-  (if (vl-catch-all-error-p bdef)
-    nil
-    (progn
-      (vlax-for item bdef
-        (if (= (vla-get-ObjectName item) "AcDbPolyline")
-          (setq cands (cons item cands))))
-      (setq mejor (urb:largest-closed-polyline (reverse cands)))
-      (if mejor
-        (progn
-          (setq ed (entget (vlax-vla-object->ename mejor)))
-          (entmake (vl-remove-if '(lambda (p) (member (car p) '(-1 5 330 360 102 -3))) ed))
-          (entlast))))))
+(defun urb:send-temp-contour (ename)
+  ;; Explode NO borra el INSERT original; devuelve copias en WCS con su
+  ;; traslado/rotacion/escala. Copiar la definicion media en la posicion vieja.
+  (urb:explode-green-block-boundary ename))
 
 ;; contorno de un sendero: la polilinea suelta o la que vive en el bloque
 (defun urb:send-contour-points (ename / obj bdef item capa mejor cands)
@@ -32682,7 +32745,7 @@
   (while (setq ename (urb:draw-closed-polyline))
     (setq obj (vlax-ename->vla-object ename))
     (vla-put-Layer obj capa)
-    (setq descuento 0.0 finish-region nil con-cost nil)
+    (setq descuento 0.0 finish-region nil con-cost nil mov2 nil picks2 nil)
     ;; 5.6.2 (pedido del usuario): fuera el prefabricado automatico de la
     ;; ventana; como en las vias, se resalta cada costado y se pregunta si
     ;; lleva prefabricado, cual, en que sentido y donde se corta. Solo
@@ -32757,32 +32820,10 @@
     ;; pregunta previa) para todo elemento de area; Enter = sin MT
     (if (= appid "URB_SENDERO")
       (progn
-        (prompt (strcat "\nCotas de IMPLANTACION"
-          " (via/pozo/etiqueta o Digitar; Enter = sin corte/relleno):"))
-        (setq picks2 (urb:pick-design-cotas))
-        (if (and picks2 (>= (length picks2) 1))
-          (progn
-            ;; sendero: la subrasante queda el espesor de su tipo por debajo
-            ;; 5.6.1 (pedido del usuario: "para vias, andenes, senderos solo
-            ;; va sobreancho a los costados"): el corte/relleno del sendero
-            ;; se mide sobre su contorno + 1 m SOLO en los dos costados
-            ;; largos -- la misma huella del anden, sin prolongar las
-            ;; puntas. Antes se media sobre el contorno exacto, sin
-            ;; sobreancho. Una forma sin dos costados claros (plazoleta)
-            ;; cae al contorno exacto y lo avisa.
-            (setq over2 (vl-catch-all-apply 'urb:anden-overwidth-contour (list ename 1.0)))
-            (if (vl-catch-all-error-p over2) (setq over2 nil))
-            (if (null over2)
-              (prompt "\nSendero sin dos costados largos claros: corte/relleno sobre el contorno exacto, sin sobreancho."))
-            (setq mov2 (urb:earthworks-from-picks (if over2 over2 ename) picks2
-                         (vl-catch-all-apply 'urb:send-espesor-de (list entry))))
-            (if over2 (urb:safe-delete (vlax-ename->vla-object over2)))
-            (if mov2
-              (progn
-                (urb:set-xdata-strings ename "URB_SEND_MOV"
-                  (list (rtos (car mov2) 2 2) (rtos (cadr mov2) 2 2)))
-                (prompt (strcat "\nCorte: " (rtos (car mov2) 2 2)
-                  " m3 | Relleno: " (rtos (cadr mov2) 2 2) " m3"))))))))
+        (setq picks2 (urb:area-earthwork-picks ename nil))
+        (if picks2
+          (setq mov2 (urb:sendero-mt-calcular ename ename picks2
+            (urb:send-espesor-de entry) entry nil)))))
     ;; 5.6.6: contorno + relleno quedan en un BLOQUE con sus medidas y su
     ;; movimiento de tierras visibles en Propiedades (como zona verde)
     (if (= appid "URB_SENDERO")
@@ -33068,11 +33109,20 @@
 )
 
 ;; corte/relleno de un sendero ya con sus cotas resueltas
-(defun urb:sendero-mt-calcular (ename contorno picks espesor entry bloque / over mov)
+(defun urb:sendero-mt-calcular
+  (ename contorno picks espesor entry bloque / over mov *urb-picks-base-points*)
+  ;; El sobreancho amplia la huella de excavacion, NO mueve el borde que
+  ;; gobierna la cota terminada ni su pendiente transversal.
+  (setq *urb-picks-base-points* (urb:anden-earthwork-raw-points contorno))
   (setq over (vl-catch-all-apply 'urb:anden-overwidth-contour (list contorno 1.0)))
   (if (vl-catch-all-error-p over) (setq over nil))
-  (setq mov (urb:earthworks-from-picks (if over over contorno) picks espesor))
+  (if (null over)
+    (prompt "\nSin dos costados largos claros: tierras sobre contorno exacto, sin sobreancho."))
+  (setq mov (vl-catch-all-apply 'urb:earthworks-from-picks
+    (list (if over over contorno) picks espesor)))
   (if over (urb:safe-delete (vlax-ename->vla-object over)))
+  (urb:anden-ref-curves-clear)
+  (if (vl-catch-all-error-p mov) (setq mov nil))
   (if (null mov)
     (prompt "\nNo se pudo calcular: revise que el sendero este dentro de la superficie SUP_TN.")
     (progn
@@ -33116,36 +33166,19 @@
       (setq contorno (if bloque (urb:send-temp-contour ename) ename))
       (setq espesor (urb:send-espesor-de entry))
       (setq pts (if contorno (urb:lwpoly-points contorno)))
-      ;; EDITAR debe permitir corregir la referencia, no imponer la entidad
-      ;; mas cercana. Seleccionar es el valor por defecto; Automatico
-      ;; conserva el flujo rapido anterior cuando la vecindad es inequivoca.
-      (initget "Seleccionar Automatico")
-      (setq modo
-        (getkword
-          "\nReferencia de tierras [Seleccionar/Automatico] <Seleccionar>: "))
-      (if (null modo) (setq modo "Seleccionar"))
-      (if (= modo "Automatico")
-        (progn
-          (setq road (if pts (urb:anden-road-autodetect pts)))
-          (if road
-            (progn
-              (setq ref (urb:anden-road-grade-for road))
-              (if ref
-                (progn
-                  (prompt "\nVia creada junto al sendero: se usa su rasante en todo el alineamiento.")
-                  (setq picks (list (list 0.0 (list (car (car pts)) (cadr (car pts))) ref))))
-                (prompt "\nLa via cercana no tiene rasante calculada."))))
-          (if (and (null picks) pts)
-            (setq picks (urb:sendero-picks-por-anden pts))))
-        (progn
-          (prompt
-            "\nSeleccione la VIA, ANDEN, POZO o cotas que gobiernan este sendero.")
-          (setq picks (urb:pick-design-cotas))))
+      (if contorno
+        (setq picks (vl-catch-all-apply 'urb:area-earthwork-picks (list contorno T))))
+      (if (vl-catch-all-error-p picks) (setq picks nil))
       (if (and picks contorno)
-        (setq mov (urb:sendero-mt-calcular ename contorno picks espesor entry bloque))
+        (progn
+          (setq mov (vl-catch-all-apply 'urb:sendero-mt-calcular
+            (list ename contorno picks espesor entry bloque)))
+          (if (vl-catch-all-error-p mov) (setq mov nil))
+          (if (null mov) (urb:area-earthwork-clear ename "URB_SEND_MOV")))
         (prompt "\nMovimiento de tierras cancelado.")
       )
       (if (and bloque contorno (entget contorno)) (entdel contorno))
+      (urb:anden-ref-curves-clear)
     )
   )
   mov
