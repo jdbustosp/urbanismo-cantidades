@@ -1,5 +1,26 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-21 20:07 America/Bogota — v5.7.9 cierre de andenes y control de tierras absurdas
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit: este commit de versión.
+
+Se cerró el caso real que terminaba con `TOPEROL: 0 domos`: el contorno con
+XDATA producía en Civil una REGION temporal internamente no coplanar aunque se
+viera en Z=0. La franja táctil ahora reconstruye su región temporal en WCS/Z=0,
+limpia entrantes sin torcer el eje, conserva el costado elegido en
+`URB_ANDEN_SIDE`, recorta contenedores localmente y empaqueta todo en una sola
+referencia. Civil 3D 2023 real: 63/63; caso 74,20 m en 18,172 s de construcción
++ 5,343 s de empaque = 23,515 s, un hatch de toperol y cero piezas sueltas.
+
+La vía de 571,651 m que arrojaba ~95.000 m³ tenía rasante guardada
+2538,65→2569,81 contra SUP_TN, 25,5915 m de discrepancia máxima y 21,8621 m
+promedio. El motor ya no fuerza exactamente dos cotas seleccionadas a los
+extremos: conserva su estación proyectada (prueba en 100/300 m). Una diferencia
+mayor a 10 m contra TN bloquea la integración, elimina cualquier volumen
+parcial y deja `PENDIENTE: RASANTE INCONSISTENTE CON SUP_TN`. No se inventó ni
+modificó la rasante del maestro: hay que editar la vía y seleccionar de nuevo
+los pozos/cotas correctos. Evidencia: `diagnosticos/anden579/RESULTADO.md`.
+
 ## 2026-09-21 16:05 America/Bogota — v5.7.8 continuidad en andenes de curva suave
 
 Agente: Codex. Equipo: BOG085CD119BDQN.

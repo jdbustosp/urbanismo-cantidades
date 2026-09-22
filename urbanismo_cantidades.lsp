@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.8")
+(setq *urb-version* "5.7.9")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -308,6 +308,27 @@
       best)
     nil)
 )
+
+;; El costado tactil es una decision de diseno, no una propiedad que se
+;; pueda volver a inferir con seguridad despues de recortar el contorno.
+;; Se guarda como un ancla WCS independiente para que EDITAR, una rampa o
+;; un contenedor no puedan mandar la guia/toperol al costado contrario.
+(defun urb:set-tactile-side-data (ename anchor)
+  (if (and (urb:valid-ename-p ename) anchor
+           (numberp (car anchor)) (numberp (cadr anchor)))
+    (urb:set-xdata-strings ename "URB_ANDEN_SIDE"
+      (list (rtos (car anchor) 2 10) (rtos (cadr anchor) 2 10)))
+    (if (urb:valid-ename-p ename)
+      (urb:set-xdata-strings ename "URB_ANDEN_SIDE" nil))))
+
+(defun urb:tactile-side-data (ename / data)
+  (setq data
+    (if (urb:valid-ename-p ename)
+      (urb:get-xdata-strings ename "URB_ANDEN_SIDE") nil))
+  (if (and data (> (length data) 1)
+           (/= (car data) "") (/= (cadr data) ""))
+    (list (atof (car data)) (atof (cadr data)))
+    nil))
 
 (defun urb:tactile-side-point-from-choice
   (choice points / minx miny maxx maxy pt cx cy diag)
@@ -3901,43 +3922,78 @@
 ;; quiebres reales del anden (lados largos) se conservan. Solo se usa para
 ;; hallar la cadena guia: el recorte contra el contenedor lo sigue haciendo
 ;; la region base.
-(defun urb:ring-remove-notches (pts / ring n i j k a b ok out changed guard dirprev dirnext chord)
-  (setq ring (urb:dedupe-ring-points pts) changed T guard 0)
+(defun urb:ring-remove-notches
+  (pts / ring p n i j k a b ok out changed guard dirprev dirnext chord
+          path-length first-angle last-angle chord-angle angle-error
+          best-j best-error)
+  ;; Dedupe local a 1 mm: OFFSET/REGION deja a veces dos vertices separados
+  ;; por decimas de milimetro y parte artificialmente la entrada rectangular.
+  (setq ring nil)
+  (foreach p pts
+    (if (and p (numberp (car p)) (numberp (cadr p))
+             (or (null ring) (> (distance p (car ring)) 0.001)))
+      (setq ring (cons p ring))))
+  (setq ring (reverse ring))
+  (if (and (> (length ring) 1)
+           (<= (distance (car ring) (last ring)) 0.001))
+    (setq ring (reverse (cdr (reverse ring)))))
+  (setq changed T guard 0)
   (defun urb:rn-ang (p q) (angle (list (car p) (cadr p)) (list (car q) (cadr q))))
   (defun urb:rn-dang (a1 a2 / d)
     (setq d (abs (- a1 a2)))
     (while (> d pi) (setq d (abs (- d (* 2.0 pi)))))
     d)
-  (while (and changed (< guard 50) (> (length ring) 5))
-    (setq changed nil guard (1+ guard) n (length ring) i 0)
-    (while (and (not changed) (< i n))
-      (setq j (+ i 2))
-      (while (and (not changed) (<= j (+ i 5)) (< (- j i) (- n 2)))
-        (setq a (nth i ring) b (nth (rem j n) ring)
-              chord (distance (list (car a) (cadr a)) (list (car b) (cadr b))))
-        (if (and (<= chord 6.0) (> chord 0.3))
-          (progn
-            (setq ok T k (1+ i))
-            (while (and ok (< k j))
-              (if (> (urb:dist-point-seg (nth (rem k n) ring) a b) 1.6) (setq ok nil))
-              (setq k (1+ k)))
-            (if ok
-              (progn
-                (setq dirprev (urb:rn-ang (nth (rem (+ i n -1) n) ring) a)
-                      dirnext (urb:rn-ang b (nth (rem (1+ j) n) ring)))
-                (if (and (< (urb:rn-dang dirprev (urb:rn-ang a b)) (* pi (/ 30.0 180.0)))
-                         (< (urb:rn-dang dirnext (urb:rn-ang a b)) (* pi (/ 30.0 180.0))))
-                  (progn
-                    ;; quitar los vertices intermedios i+1..j-1 (modulo n)
-                    (setq out nil k 0)
-                    (foreach p ring
-                      (if (not (and (> (if (< k i) (+ k n) k) i)
-                                    (< (if (< k i) (+ k n) k) j)))
-                        (setq out (cons p out)))
-                      (setq k (1+ k)))
-                    (setq ring (reverse out) changed T)))))))
+  (while (and changed (< guard 100) (> (length ring) 6))
+    (setq changed nil guard (1+ guard) n (length ring) i 1)
+    ;; No cruzar el inicio arbitrario del anillo: como maximo queda un solo
+    ;; entrante partido en el cierre, en vez de confundir ambos costados.
+    (while (and (not changed) (< i (- n 4)))
+      (setq j (+ i 3) best-j nil best-error nil)
+      (while (<= j (min (+ i 10) (- n 2)))
+        (setq a (nth i ring) b (nth j ring)
+              chord (distance a b)
+              chord-angle (urb:rn-ang a b)
+              first-angle (urb:rn-ang a (nth (1+ i) ring))
+              last-angle (urb:rn-ang (nth (1- j) ring) b)
+              ok (and (> chord 0.3) (<= chord 20.0)
+                      (> (urb:rn-dang first-angle chord-angle) (* pi (/ 60.0 180.0)))
+                      (< (urb:rn-dang first-angle chord-angle) (* pi (/ 120.0 180.0)))
+                      (> (urb:rn-dang last-angle chord-angle) (* pi (/ 60.0 180.0)))
+                      (< (urb:rn-dang last-angle chord-angle) (* pi (/ 120.0 180.0)))
+                      (> (urb:rn-dang first-angle last-angle) (* pi (/ 165.0 180.0))))
+              path-length 0.0 k i)
+        (while (< k j)
+          (setq path-length (+ path-length (distance (nth k ring) (nth (1+ k) ring)))
+                k (1+ k)))
+        (setq k (1+ i))
+        (while (and ok (< k j))
+          (if (> (urb:dist-point-seg (nth k ring) a b) 1.6)
+            (setq ok nil))
+          (setq k (1+ k)))
+        (setq dirprev (urb:rn-ang (nth (1- i) ring) a)
+              dirnext (urb:rn-ang b (nth (1+ j) ring))
+              angle-error (+ (urb:rn-dang dirprev chord-angle)
+                             (urb:rn-dang dirnext chord-angle)))
+        ;; La propia forma U es prueba suficiente: entrada/salida casi
+        ;; perpendiculares al cordon y opuestas entre si, poca profundidad y
+        ;; recorrido mayor que su cuerda. No exigir que los vecinos ya esten
+        ;; alineados: cuando hay contenedores consecutivos, el vecino puede
+        ;; pertenecer al siguiente entrante y esa condicion dejaba zigzags.
+        (if (and ok (> (- path-length chord) 0.5)
+                 (or (null best-j) (> j best-j)))
+          (setq best-j j best-error angle-error))
         (setq j (1+ j)))
-      (setq i (1+ i))))
+      (if best-j
+        (progn
+          ;; Conservar los extremos sobre el costado y quitar solamente la
+          ;; entrada, recorrido interior y salida del desvio ortogonal.
+          (setq out nil k 0)
+          (foreach p ring
+            (if (not (and (> k i) (< k best-j)))
+              (setq out (cons p out)))
+            (setq k (1+ k)))
+          (setq ring (reverse out) changed T))
+        (setq i (1+ i)))))
   ring)
 
 ;; distancia minima (en planta) de los puntos de una cadena a un punto
@@ -5035,19 +5091,31 @@
         (if (equal c c1) (setq c1 nil) (setq c2 nil)))))
   (if (or (null c1) (null c2))
     (progn
+      (urb:bb-log (strcat "  tactil " feature ": offset invalido c1="
+        (vl-princ-to-string c1) " c2=" (vl-princ-to-string c2)))
       (if c1 (entdel c1))
       (if c2 (entdel c2))
       nil)
     (progn
       (setq band (urb:strip-band-region c1 c2 elevation))
       (if (null band)
-        (progn (entdel c1) (entdel c2) nil)
+        (progn
+          (urb:bb-log (strcat "  tactil " feature ": no se pudo cerrar la banda"))
+          (entdel c1) (entdel c2) nil)
         (progn
           (setq strip (vla-Copy base-region))
+          ;; REGION exige coplanaridad exacta. Tras restar contenedores,
+          ;; Civil puede conservar en base-region la elevacion original
+          ;; aunque la polilinea tactil ya se haya aplanado a Z=0. Alinear
+          ;; explicitamente evita "Automation Error. Non coplanar geometry"
+          ;; y el falso TOPEROL=0 del caso real.
+          (urb:region-align-elevation band strip)
           (setq booleaned
             (vl-catch-all-apply 'vla-Boolean (list strip 1 band)))
           (if (vl-catch-all-error-p booleaned)
             (progn
+              (urb:bb-log (strcat "  tactil " feature ": booleano fallo: "
+                (urb:safe-string (vl-catch-all-error-message booleaned) "?")))
               (urb:safe-delete strip)
               (urb:safe-delete band)
               (entdel c1) (entdel c2)
@@ -5070,7 +5138,10 @@
               ;; borrarlos aqui tambien -- entdel es un interruptor y una
               ;; segunda llamada los REVIVE.
               (if (and (> area-esp 1e-6) (< area-real (* 0.5 area-esp)))
-                (setq tone-count 0)
+                (progn
+                  (urb:bb-log (strcat "  tactil " feature ": area insuficiente real="
+                    (rtos area-real 2 3) " esperada=" (rtos area-esp 2 3)))
+                  (setq tone-count 0))
                 (setq tone-count
                   (urb:offset-strip-tones
                     strip chain-poly len layer parent-handle elevation span feature)))
@@ -5079,6 +5150,7 @@
               (if (<= tone-count 0) (urb:safe-delete strip))
               (if (<= tone-count 0)
                 (progn
+                  (urb:bb-log (strcat "  tactil " feature ": sin relleno/tono"))
                   (entdel c1) (entdel c2)
                   nil)
                 (progn
@@ -5098,6 +5170,8 @@
                     (urb:offset-strip-symbols
                       chain-poly len d1 d2 perp-sign feature module
                       layer parent-handle loops))
+                  (if (not symbols-ok)
+                    (urb:bb-log (strcat "  tactil " feature ": sin simbolos dentro del contorno")))
                   ;; Un strip sin domos/capsulas no cuenta como terminado;
                   ;; el caller puede activar su metodo segmentado de respaldo.
                   symbols-ok))))))))
@@ -5120,33 +5194,69 @@
       (setq a b)))
   (vl-sort hits '<))
 
-(defun urb:guide-uniform-offset (chain rings goff module inward / len n step i d p ang hits cap best valid)
+(defun urb:guide-uniform-offset (chain rings goff module inward / len n step i d p ang hits cap best valid total)
   ;; Una UNICA distancia para todo el tramo. La 5.7.5 variaba el offset
   ;; cada 25 cm y produjo una guia serpenteante aunque el toperol fuera
   ;; recto. Se toma el menor espacio disponible del corredor completo;
   ;; asi la guia puede acercarse uniformemente al toperol en un anden
   ;; estrecho, pero nunca se tuerce de una estacion a la siguiente.
   (setq len (urb:curve-length chain) n (max 1 (fix (+ 1.0 (/ len 0.25))))
-        step (/ len n) i 0 valid T)
-  (while (and valid (<= i n))
-    (setq d (* i step) p (urb:curve-pt chain (min (- len 0.001) (max 0.001 d)))
+        step (/ len n) i 1 valid 0 total 0)
+  ;; Los entrantes de contenedores no deben torcer la guia ni anularla.
+  ;; Se calcula UNA distancia con las secciones utiles y luego la region
+  ;; recorta los trozos ocupados. Se omiten los remates porque la normal en
+  ;; una esquina no representa el ancho longitudinal del anden.
+  (while (< i n)
+    (setq d (* i step) p (urb:curve-pt chain d)
           ang (+ (urb:curve-tangent chain (min (- len 0.001) (max 0.001 d))) (* inward 0.5 pi))
           hits (vl-remove-if-not '(lambda (v)
             (and (urb:point-in-region-polygons-p (polar p ang (- v 0.0001)) rings)
                  (not (urb:point-in-region-polygons-p (polar p ang (+ v 0.0001)) rings))))
             (urb:ray-ring-distances p ang rings))
           cap (if hits (min (+ goff (* 0.5 module)) (- (car hits) (* 0.5 module) 0.06)) nil))
-    (if (and cap (or (null best) (< cap best))) (setq best cap))
-    (if (or (null cap) (< cap (+ (* 1.5 module) 0.04)))
-      (setq best nil valid nil))
+    (setq total (1+ total))
+    (if (and cap (>= cap (+ (* 1.5 module) 0.04)))
+      (progn
+        (setq valid (1+ valid))
+        (if (or (null best) (< cap best)) (setq best cap))))
     (setq i (1+ i)))
-  (if best (- best (* 0.5 module)) nil))
+  (if (and best (> total 0) (>= (/ (float valid) total) 0.50))
+    (- best (* 0.5 module))
+    nil))
+
+(defun urb:toperol-uniform-offset
+  (chain rings module inward / len n step candidate limit found valid total i d p ang p1 p2)
+  ;; Busca la primera fila recta con al menos 50 % de recorrido util. Los
+  ;; contenedores recortan localmente el acabado, pero no deben exigir que
+  ;; toda la fila este libre: esa condicion anulaba un anden real aunque
+  ;; habia mas de 50 m disponibles. La distancia permanece uniforme.
+  (setq len (urb:curve-length chain)
+        n (max 1 (fix (+ 1.0 (/ len 0.50))))
+        step (/ len n)
+        candidate 0.0 limit 5.0)
+  (while (and (null found) (<= candidate limit))
+    (setq valid 0 total 0 i 1)
+    (while (< i n)
+      (setq d (* i step)
+            p (urb:curve-pt chain d)
+            ang (+ (urb:curve-tangent chain d) (* inward 0.5 pi))
+            p1 (polar p ang (+ candidate 0.01))
+            p2 (polar p ang (+ candidate module -0.01)))
+      (setq total (1+ total))
+      (if (and (urb:point-in-region-polygons-p p1 rings)
+               (urb:point-in-region-polygons-p p2 rings))
+        (setq valid (1+ valid)))
+      (setq i (1+ i)))
+    (if (and (> total 0) (>= (/ (float valid) total) 0.50))
+      (setq found candidate)
+      (setq candidate (+ candidate (* 0.5 module)))))
+  found)
 
 (defun urb:create-accessibility-features-offset
   (base-region points driving-chain guia toperol format parent-handle
    / module goff chain-poly len box elevation off-sign perp-sign
      mid-d mid-pt mid-ang cand test-off count layer span
-     ok-top ok-gui rescate guide-offset guide-rings)
+     ok-top ok-gui rescate guide-offset guide-rings top-offset top-built guide-built)
   (setq module (urb:loseta-module format))
   (setq goff *urb-guide-offset*)
   (setq box (urb:object-box-points base-region)
@@ -5187,28 +5297,42 @@
       ;; Ahora se lleva cuenta POR FRANJA y la que falle se completa aqui
       ;; mismo con el metodo segmentado, sin repetir la que si salio.
       (setq count 0 ok-top (not (urb:yes-p toperol)) ok-gui (not (urb:yes-p guia)))
+      (setq guide-rings (urb:region-polygons base-region))
       (if (urb:yes-p toperol)
         (progn
           (setq layer
             (if (> module 0.30)
               "URB-ANDEN-LOSETA-TOPEROL-40X40" "URB-ANDEN-LOSETA-TOPEROL-20X20"))
-          (if (urb:build-offset-strip
-                base-region chain-poly 0.0 module off-sign perp-sign
-                layer "TOPEROL" module parent-handle elevation span)
-            (setq count (1+ count) ok-top T))))
+          (setq top-offset
+            (urb:toperol-uniform-offset
+              chain-poly guide-rings module perp-sign))
+          (urb:bb-log (strcat "  tactil: toperol offset="
+            (vl-princ-to-string top-offset) " off-sign="
+            (rtos off-sign 2 0) " perp-sign=" (rtos perp-sign 2 0)
+            " loops=" (itoa (length guide-rings))))
+          (if top-offset
+            (progn
+              (setq top-built (urb:build-offset-strip
+                base-region chain-poly top-offset (+ top-offset module)
+                off-sign perp-sign layer "TOPEROL" module parent-handle elevation span))
+              (urb:bb-log (strcat "  tactil: toperol build=" (vl-princ-to-string top-built)))
+              (if top-built (setq count (1+ count) ok-top T)))
+            (prompt "\nTOPEROL: no hay una fila continua libre en los primeros 5 m."))))
       (if (urb:yes-p guia)
         (progn
           (setq layer
             (if (> module 0.30)
               "URB-ANDEN-LOSETA-GUIA-40X40" "URB-ANDEN-LOSETA-GUIA-20X20"))
-          (setq guide-rings (urb:region-polygons base-region)
-                guide-offset (urb:guide-uniform-offset chain-poly guide-rings goff module perp-sign))
+          (setq guide-offset (urb:guide-uniform-offset chain-poly guide-rings goff module perp-sign))
+          (urb:bb-log (strcat "  tactil: guia offset="
+            (vl-princ-to-string guide-offset)))
           (if guide-offset
             (progn
-              (if (urb:build-offset-strip
-                    base-region chain-poly guide-offset (+ guide-offset module) off-sign perp-sign
-                    layer "GUIA" module parent-handle elevation span)
-                (setq count (1+ count) ok-gui T)))
+              (setq guide-built (urb:build-offset-strip
+                base-region chain-poly guide-offset (+ guide-offset module) off-sign perp-sign
+                layer "GUIA" module parent-handle elevation span))
+              (urb:bb-log (strcat "  tactil: guia build=" (vl-princ-to-string guide-built)))
+              (if guide-built (setq count (1+ count) ok-gui T)))
             (prompt "\nGUIA: no hay paso continuo suficiente; se verifica el respaldo segmentado."))))
       (entdel chain-poly)
       (if (or (not ok-top) (not ok-gui))
@@ -5445,7 +5569,8 @@
   (ename guia toperol format / obj copy base-region points angle-value bounds
    umin umax vmin vmax center region parent-handle origin count limits
    reference-edge width guide-min guide-max pattern-v-origin module layer
-   top-min top-max driving-chain offset-result)
+   top-min top-max driving-chain offset-result cleaned-points
+   region-loops normalized-region)
   (if (and (not (urb:yes-p guia))
            (not (urb:yes-p toperol)))
     T
@@ -5455,11 +5580,36 @@
       ;; muestreo FINO solo aqui: la franja tactil sigue el arco real
       (setq points (urb:lwpoly-points-with-arcs-fine ename))
       (setq module (urb:loseta-module format))
-      (setq copy (vla-Copy obj))
+      ;; No convertir una vla-Copy del contorno con XDATA: Civil 3D 2023
+      ;; puede conservar en esa copia un plano interno incoherente y el
+      ;; booleano tactil falla luego con "Non coplanar geometry". Se arma
+      ;; una polilinea limpia Z=0 con el muestreo fino de los arcos; es una
+      ;; copia desechable y mantiene la precision grafica del contorno.
+      (setq copy (urb:open-poly-from-points points 0.0))
+      (if copy
+        (progn
+          (setq copy (vlax-ename->vla-object copy))
+          (vla-put-Closed copy :vlax-true)))
       (setq base-region (urb:anden-region-from-object copy))
       (urb:safe-delete copy)
       (if (not (vl-catch-all-error-p base-region))
         (setq base-region (urb:apply-anden-cutouts base-region)))
+      ;; Normalizar el caso comun de un solo bucle a una REGION WCS Z=0.
+      ;; Los booleanos de losetas toleran el plano interno que algunas
+      ;; copias con XDATA heredan; ACIS lo rechaza al intersectar luego una
+      ;; banda angosta. Reconstruir desde el bucle 2D elimina ese estado
+      ;; oculto sin alterar el contorno neto ni sus recortes.
+      (if (and base-region (not (vl-catch-all-error-p base-region)))
+        (progn
+          (setq region-loops (urb:region-polygons base-region))
+          (if (= (length region-loops) 1)
+            (progn
+              (setq normalized-region
+                (urb:polygon-region (car region-loops) 0.0))
+              (if normalized-region
+                (progn
+                  (urb:safe-delete base-region)
+                  (setq base-region normalized-region)))))))
       (if (vl-catch-all-error-p base-region)
         nil
         (progn
@@ -5478,12 +5628,20 @@
           ;; vuelve a buscar la cadena: sigue los quiebres reales del anden.
           ;; Si el anden es recto la cadena sale de 1 arista y se usa el
           ;; metodo de eje unico de siempre.
-          (if (and (urb:anden-near-root-container-p ename)
-                   (not (vl-some '(lambda (p)
-                     (and (= (car p) 42) (not (equal (cdr p) 0.0 1e-12))))
-                     (entget ename))))
-            (setq driving-chain
-              (urb:anden-tactile-chain (urb:ring-remove-notches points))))
+          ;; Los entrantes no solo vienen de contenedores: los costados
+          ;; prefabricados y otros recortes producen el mismo zigzag. En un
+          ;; contorno rectilineo se limpian siempre para escoger el costado
+          ;; semantico completo; base-region sigue haciendo el recorte fisico,
+          ;; asi que no se pinta encima del obstaculo. Los arcos conservan su
+          ;; geometria exacta y no pasan por este simplificador.
+          (if (not (vl-some '(lambda (p)
+                    (and (= (car p) 42) (not (equal (cdr p) 0.0 1e-12))))
+                    (entget ename)))
+            (progn
+              (setq cleaned-points (urb:ring-remove-notches points))
+              (if (< (length cleaned-points) (length points))
+                (setq driving-chain
+                  (urb:anden-tactile-chain cleaned-points)))))
           ;; 5.6.8 caja negra: que ruta toma la franja tactil y como termina
           (urb:bb-log (strcat "  tactil: cadena guia "
             (if driving-chain (itoa (length driving-chain)) "NINGUNA") " pts"
@@ -5491,7 +5649,11 @@
             " | lado via " (vl-princ-to-string *urb-current-tactile-side-point*)
             " | ancla " (vl-princ-to-string *urb-current-tactile-side-anchor*)
             " | eleccion " (vl-princ-to-string *urb-current-tactile-side-choice*)))
-          (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 2))
+          ;; Tambien una cadena perfectamente recta (una sola arista) debe
+          ;; usar la franja por offset. Mandarla al metodo global hace que los
+          ;; entrantes del costado opuesto inflen el ancho proyectado y puede
+          ;; dejar TOPEROL=0 aun cuando junto al borde haya espacio continuo.
+          (if (and driving-chain (>= (length (urb:open-chain-edges driving-chain)) 1))
             (progn
               ;; metodo principal: franja como OFFSET de la curva real
               ;; (continua a cualquier radio); si el offset falla
@@ -6817,10 +6979,13 @@
    handle objects filtered obj block-name blocks block-definition
    copy-result point block-ref insert-result block-ename xdata-result
    fast-ok ss en cmd-result old-attreq over-poly over-area measured-qty
-   capas-estado trabadas razon t-pack)
+   capas-estado trabadas razon t-pack side-data flat-result)
   ;; Verificar antes de que -BLOCK retire las entidades originales.
   (urb:ensure-anden-fast)
   (setq boundary (vlax-ename->vla-object ename))
+  (setq side-data (urb:tactile-side-data ename))
+  (if (and (null side-data) *urb-current-tactile-side-anchor*)
+    (setq side-data *urb-current-tactile-side-anchor*))
   (urb:ensure-layer "URB-ANDEN" 7 T)
   (setq metadata (urb:get-xdata-strings ename "URB_ANDEN"))
   (setq material
@@ -7013,8 +7178,19 @@
       ;; elimina sus INSERT internos y ordena todos los roles en una pasada.
       ;; No se simplifican curvas, simbolos, capas ni cantidades.
       (urb:bb-log "  INICIA orden de dibujo (URBANDENFLAT553)")
-      (URBANDENFLAT553 block-name)
-      (urb:bb-log "  TERMINA orden de dibujo")
+      (setq flat-result
+        (vl-catch-all-apply 'URBANDENFLAT553 (list block-name)))
+      (if (vl-catch-all-error-p flat-result)
+        (progn
+          ;; El bloque nativo ya existe y contiene el acabado. Un fallo al
+          ;; aplanar/ordenar una franja vacia no debe borrar todo el anden;
+          ;; se conserva el bloque y se deja el diagnostico explicito.
+          (urb:bb-log (strcat "  URBANDENFLAT553 ERROR: "
+            (vl-catch-all-error-message flat-result)))
+          (prompt (strcat "\nAVISO: no se pudo aplanar el orden interno del anden: "
+            (vl-catch-all-error-message flat-result)
+            ". El bloque principal se conserva.")))
+        (urb:bb-log "  TERMINA orden de dibujo"))
       (prompt
         (strcat "\n  orden de dibujo: "
           (rtos (/ (- (getvar "MILLISECS") t-pack) 1000.0) 2 1) " s"))
@@ -7123,6 +7299,8 @@
               (if xdata-result
                 (progn
                   (urb:set-anden-pattern-mode block-ename pattern-mode)
+                  (if side-data
+                    (urb:set-tactile-side-data block-ename side-data))
                   ;; con -BLOCK los originales ya fueron MOVIDOS al bloque:
                   ;; no hay nada que borrar (y recorrer decenas de miles de
                   ;; objetos muertos costaba minutos extra)
@@ -8296,6 +8474,9 @@
               (list (rtos mod-angle 2 8))))))
       (urb:set-anden-data
         ename material etapa subetapa guia toperol format calculate surface grade-source)
+      (if *urb-current-tactile-side-anchor*
+        (urb:set-tactile-side-data ename
+          *urb-current-tactile-side-anchor*))
       (urb:set-anden-pattern-mode ename pattern-mode)
       ;; 2026-08-24 (pedido del usuario): prefabricado por COSTADOS igual
       ;; que el sendero -- se construyen solos sobre los dos lados largos
@@ -8957,7 +9138,8 @@
               (reverse pts))))))))
 
 (defun urb:explode-anden-block-boundary
-  (ename / obj exploded objects item boundary layer candidatos)
+  (ename / obj exploded objects item boundary layer candidatos side-data)
+  (setq side-data (urb:tactile-side-data ename))
   (setq obj (vlax-ename->vla-object ename))
   (setq exploded
     (vl-catch-all-apply 'vla-Explode (list obj)))
@@ -8984,7 +9166,11 @@
         (if (not (eq item boundary))
           (urb:safe-delete item)))
       (if boundary
-        (vlax-vla-object->ename boundary)
+        (progn
+          (if side-data
+            (urb:set-tactile-side-data
+              (vlax-vla-object->ename boundary) side-data))
+          (vlax-vla-object->ename boundary))
         nil)))
 )
 
@@ -9128,11 +9314,20 @@
   ;; En EDITAR el clic se pide antes de extraer cada contorno. Resolver aqui
   ;; su ancla sobre la geometria final hace que una seleccion multiple y los
   ;; recortes posteriores no puedan reutilizar el costado equivocado.
-  (if (and saved *urb-current-tactile-side-point*)
-    (setq *urb-current-tactile-side-anchor*
-      (urb:tactile-side-anchor
-        (urb:lwpoly-points-with-arcs-fine boundary)
-        *urb-current-tactile-side-point*)))
+  (if saved
+    (progn
+      ;; Un clic nuevo manda. En regeneraciones silenciosas se recupera
+      ;; SIEMPRE el ancla de este bloque (sobrescribe la del anterior en
+      ;; una seleccion multiple) para no invertir el lado por estado global.
+      (setq *urb-current-tactile-side-anchor*
+        (if *urb-current-tactile-side-point*
+          (urb:tactile-side-anchor
+            (urb:lwpoly-points-with-arcs-fine boundary)
+            *urb-current-tactile-side-point*)
+          (urb:tactile-side-data boundary)))
+      (if *urb-current-tactile-side-anchor*
+        (urb:set-tactile-side-data boundary
+          *urb-current-tactile-side-anchor*))))
   (if saved
     (setq result
       (urb:call-edit-stage
@@ -9342,7 +9537,7 @@
     (/ (- (car b) (car a)) (- (cadr b) (cadr a))))))
 
 (defun urb:earthwork-scanline-samples (points step / pts rest a b edges levels y0 y1 ym
-   hits edge pair l0 l1 r0 r1 n k f0 f1 p0 p1 p2 p3 tri weight ox oy z out height)
+   hits edge pair l0 l1 r0 r1 n k f0 f1 p0 p1 p2 p3 quad centroid weight ox oy z out height)
   ;; 5.7.4: trapecios recortados entre TODOS los niveles de vertices.
   ;; Cada celda aporta area y centroide reales, sin normalizacion global.
   ;; Evita perder remates <0.25m y conserva integrales de planos lineales.
@@ -9382,14 +9577,17 @@
                     p1 (list (+ l0 (* f1 (- r0 l0))) y0)
                     p2 (list (+ l1 (* f1 (- r1 l1))) (+ y0 height))
                     p3 (list (+ l1 (* f0 (- r1 l1))) (+ y0 height)))
-              (foreach tri (list (list p0 p1 p2) (list p0 p2 p3))
-                (setq a (mapcar '- (cadr tri) (car tri))
-                      b (mapcar '- (caddr tri) (car tri))
-                      weight (* 0.5 (abs (- (* (car a) (cadr b)) (* (cadr a) (car b))))))
-                (if (> weight 1e-14)
-                  (setq out (cons (list
-                    (list (+ ox (/ (apply '+ (mapcar 'car tri)) 3.0))
-                          (+ oy (/ (apply '+ (mapcar 'cadr tri)) 3.0)) z) weight) out))))
+              ;; Un trapecio convexo necesita una sola consulta a la superficie:
+              ;; su centroide y area integran exactamente cualquier plano lineal.
+              ;; Antes se dividia siempre en dos triangulos, duplicando las
+              ;; llamadas COM sin ganar precision sobre una superficie TIN.
+              (setq quad (list p0 p1 p2 p3)
+                    weight (abs (urb:polygon-signed-area quad))
+                    centroid (urb:polygon-centroid quad))
+              (if (and centroid (> weight 1e-14))
+                (setq out (cons (list
+                  (list (+ ox (car centroid)) (+ oy (cadr centroid)) z)
+                  weight) out)))
               (setq k (1+ k))))
           (setq y0 (+ y0 height)))
         (setq levels (cdr levels)))
@@ -9685,7 +9883,10 @@
       (if (and block-ref mov)
         (progn
           (urb:set-block-attribute block-ref "CORTE_M3" (rtos (car mov) 2 2))
-          (urb:set-block-attribute block-ref "RELLENO_M3" (rtos (cadr mov) 2 2))))
+          (urb:set-block-attribute block-ref "RELLENO_M3" (rtos (cadr mov) 2 2))
+          (urb:set-xdata-strings (urb:as-ename block-ref) "URB_GREEN_MOV"
+            (list (rtos (car mov) 2 8) (rtos (cadr mov) 2 8)
+                  (rtos thickness 2 8)))))
       (setvar "FILLMODE" 1)
       (vla-Regen doc 1)
       (if block-ref
@@ -9737,13 +9938,45 @@
   T
 )
 
+;; Recalculo interactivo del movimiento de una zona verde YA empacada.
+;; El contorno se extrae en una copia temporal y se elimina siempre; el
+;; bloque solo recibe atributos/XDATA despues de un calculo completo.
+(defun urb:green-earthworks-edit-one
+  (ename thickness / boundary picks mov object)
+  (setq boundary (urb:explode-green-block-boundary ename))
+  (if (null boundary)
+    (prompt "\nNo se pudo leer el contorno de la zona verde.")
+    (progn
+      (prompt
+        "\nSeleccione la VIA, ANDEN, POZO o cotas que gobiernan esta zona verde.")
+      (setq picks (urb:pick-design-cotas))
+      (if picks
+        (setq mov
+          (urb:earthworks-from-picks boundary picks thickness)))
+      (if (entget boundary) (entdel boundary))
+      (if mov
+        (progn
+          (setq object (urb:as-vla-object ename))
+          (urb:set-block-attribute object "CORTE_M3" (rtos (car mov) 2 2))
+          (urb:set-block-attribute object "RELLENO_M3" (rtos (cadr mov) 2 2))
+          (urb:set-xdata-strings ename "URB_GREEN_MOV"
+            (list (rtos (car mov) 2 8) (rtos (cadr mov) 2 8)
+                  (rtos thickness 2 8)))
+          (prompt
+            (strcat "\nZona verde: corte " (rtos (car mov) 2 2)
+              " m3 | relleno " (rtos (cadr mov) 2 2) " m3.")))
+        (prompt "\nMovimiento de la zona verde no actualizado."))))
+  mov)
+
 (defun urb:edit-green-zones
-  (zones / first data etapa subetapa thickness dialog-data ename updated)
+  (zones / first data etapa subetapa thickness old-thickness dialog-data
+          ename updated edit-mov mov-updated)
   (setq first (car zones)
         data (urb:green-zone-data first)
         etapa (urb:safe-string (nth 1 data) "1")
         subetapa (urb:safe-string (nth 2 data) etapa)
         thickness (atof (urb:safe-string (nth 5 data) "0.20"))
+        old-thickness thickness
         dialog-data
           (urb:dialog-green etapa subetapa thickness))
   (if dialog-data
@@ -9756,6 +9989,26 @@
         (if (urb:update-green-zone-data
               ename etapa subetapa thickness)
           (setq updated (1+ updated))))
+      (setq edit-mov (urb:ask-edit-movimiento "la zona verde"))
+      (if edit-mov
+        (progn
+          (setq mov-updated 0)
+          (foreach ename zones
+            (if (urb:green-earthworks-edit-one ename thickness)
+              (setq mov-updated (1+ mov-updated))))
+          (prompt (strcat "\nMovimiento actualizado en "
+            (itoa mov-updated) " de " (itoa (length zones))
+            " zona(s) verde(s).")))
+        ;; Cambiar el espesor cambia la subrasante: no conservar como
+        ;; validos volumenes calculados con el valor anterior.
+        (if (not (equal thickness old-thickness 1e-9))
+          (progn
+            (foreach ename zones
+              (urb:set-block-attribute (urb:as-vla-object ename) "CORTE_M3" "0")
+              (urb:set-block-attribute (urb:as-vla-object ename) "RELLENO_M3" "0")
+              (urb:set-xdata-strings ename "URB_GREEN_MOV" nil))
+            (prompt
+              "\nEl espesor cambio: corte/relleno queda PENDIENTE hasta recalcularlo."))))
       (vla-Regen (urb:doc) 1)
       (prompt
         (strcat "\nZonas verdes actualizadas: "
@@ -19586,6 +19839,18 @@
               (setq result (cons (list d (car item)) result))))))))
   (vl-sort result '(lambda (a b) (< (car a) (car b)))))
 
+(defun urb:picks-have-locations-p (picks / ok item)
+  ;; Dos cotas seleccionadas no significan necesariamente inicio/final: pueden
+  ;; ser dos pozos intermedios. Solo el ingreso digitado sin punto carece de
+  ;; estacion y debe conservar el comportamiento lineal de extremo a extremo.
+  (setq ok (and picks (> (length picks) 1)))
+  (foreach item picks
+    (if (or (null (cadr item))
+            (not (numberp (car (cadr item))))
+            (not (numberp (cadr (cadr item)))))
+      (setq ok nil)))
+  ok)
+
 ;; 2026-09-12: al EDITAR una via, decide si la capa de cotas ya guardada
 ;; se puede reusar (T) o si hay que volver a pedirla (nil). Se reusa solo
 ;; si el metodo sigue siendo "Textos por capa", ya lo era antes y hay una
@@ -20806,15 +21071,15 @@
                 ;; una sola cota: se completa con la pendiente (v4.87)
                 ((= (length picks) 1)
                   (setq *urb-road-picked-cotas* (mapcar 'car picks)))
-                ((= (length picks) 2)
-                  (setq *urb-road-picked-cotas* (mapcar 'car picks)))
-                (T
+                ((urb:picks-have-locations-p picks)
                   (setq *urb-road-picked-stations*
                     (urb:picked-cotas-to-stations picks axis))
                   (prompt
                     (strcat "\nRasante por tramos con "
                       (itoa (length *urb-road-picked-stations*))
-                      " cotas proyectadas sobre el eje."))))
+                      " cotas proyectadas sobre el eje.")))
+                (T
+                  (setq *urb-road-picked-cotas* (mapcar 'car picks))))
               (setq obj (vlax-ename->vla-object boundary))
               (setq area (vla-get-Area obj))
               ;; El eje puede ser mas largo que esta via (compartido entre
@@ -21056,7 +21321,7 @@
                       (cond
                         ((or (>= (length picks) 2)
                              (and (= (length picks) 1) (numberp *urb-road-picked-slope*)))
-                          (if (> (length picks) 2)
+                          (if (urb:picks-have-locations-p picks)
                             (setq *urb-road-picked-stations* (urb:picked-cotas-to-stations picks axis))
                             (setq *urb-road-picked-cotas* (mapcar 'car picks))))
                         (T (setq axis nil)
@@ -21116,12 +21381,12 @@
                       (setq *urb-road-picked-cotas* nil
                             *urb-road-picked-stations* nil
                             *urb-road-picked-slope* nil)
-                      (if (<= (length (cadr cota-info)) 2)
-                        (setq *urb-road-picked-cotas*
-                          (mapcar 'car (cadr cota-info)))
+                      (if (urb:picks-have-locations-p (cadr cota-info))
                         (setq *urb-road-picked-stations*
                           (urb:picked-cotas-to-stations
-                            (cadr cota-info) axis)))
+                            (cadr cota-info) axis))
+                        (setq *urb-road-picked-cotas*
+                          (mapcar 'car (cadr cota-info))))
                       (setq cota-info (list "" "0" "PENDIENTE"))))
                   (setq obj (vlax-ename->vla-object boundary))
                   (setq area (vla-get-Area obj))
@@ -21184,12 +21449,12 @@
                                 (setq *urb-road-picked-cotas* nil
                                       *urb-road-picked-stations* nil
                                       *urb-road-picked-slope* nil)
-                                (if (<= (length (cadr cota-info)) 2)
-                                  (setq *urb-road-picked-cotas*
-                                    (mapcar 'car (cadr cota-info)))
+                                (if (urb:picks-have-locations-p (cadr cota-info))
                                   (setq *urb-road-picked-stations*
                                     (urb:picked-cotas-to-stations
-                                      (cadr cota-info) axis)))
+                                      (cadr cota-info) axis))
+                                  (setq *urb-road-picked-cotas*
+                                    (mapcar 'car (cadr cota-info))))
                                 (setq cota-info (list "" "0" "PENDIENTE"))))
                             ;; la capa nueva (o la rasante marcada) tiene que
                             ;; quedar guardada: se reescribe la xdata
@@ -21205,13 +21470,13 @@
                             (setq picks (urb:pick-road-cotas))
                             (cond
                               ((null picks) nil)
-                              ((<= (length picks) 2)
-                                (setq *urb-road-picked-stations* nil)
-                                (setq *urb-road-picked-cotas* (mapcar 'car picks)))
-                              (T
+                              ((urb:picks-have-locations-p picks)
                                 (setq *urb-road-picked-cotas* nil)
                                 (setq *urb-road-picked-stations*
-                                  (urb:picked-cotas-to-stations picks axis)))))))
+                                  (urb:picked-cotas-to-stations picks axis)))
+                              (T
+                                (setq *urb-road-picked-stations* nil)
+                                (setq *urb-road-picked-cotas* (mapcar 'car picks)))))))
                       (urb:store-selected-road-grade
                         boundary axis-start axis-length (nth 12 old))
                       (setq interval (atof (nth 8 dialog)))
@@ -24086,6 +24351,19 @@
       (if (null *urb-last-road-footprint-diagnostic*)
         (setq *urb-last-road-footprint-diagnostic*
           (list "NO_RESULT" (if chains (length chains) 0) failed (length all))))
+      ;; En sobreanchos simetricos, reutilizar el constructor exhaustivo de
+      ;; andenes cuando el offset dirigido arma un lazo o un pico. Prueba
+      ;; las cuatro combinaciones de signo y conserva solo una huella mayor,
+      ;; no autointersectada y acotada al ancho real. Las tapas no se
+      ;; prolongan, por lo que sigue siendo una huella vial exacta.
+      (if (and (null result) (> left 1e-9) (equal left right 1e-9))
+        (progn
+          (setq result (urb:anden-overwidth-contour boundary left))
+          (if result
+            (setq *urb-last-road-footprint-diagnostic*
+              (list "FALLBACK_SIMETRICO_OK"
+                (vla-get-Area (vlax-ename->vla-object result))
+                (vla-get-Area (vlax-ename->vla-object boundary)))))))
       result)))
 
 (defun urb:road-plan-integral (points surface axis raw-grade axis-start span direction depth step bin-size / cells sample p w near raw st tn finish cf cut fill covered total missing bins key old row rows ds)
@@ -24117,19 +24395,58 @@
       (- tn (- finish depth)) (/ (nth 4 row) ds) (/ (nth 5 row) ds) (nth 4 row) (nth 5 row)) rows)))
   (list cut fill missing total (length cells) (reverse rows)))
 
-(defun urb:road-plan-converged (footprint surface axis raw-grade axis-start span direction depth bin-size / points area step prev current delta ok)
+(if (not (numberp *urb-road-max-earthwork-depth*))
+  (setq *urb-road-max-earthwork-depth* 10.0))
+
+(defun urb:road-grade-sanity (samples depth / item station tn grade delta maximum worst total count)
+  ;; Guardarrail previo a la integracion pesada. Una cota tomada de otra via
+  ;; o un pozo intermedio tratado por error como extremo puede poner la rasante
+  ;; decenas de metros bajo SUP_TN y fabricar miles de m3 plausibles en forma,
+  ;; pero imposibles en proyecto. No se guarda ni se integra esa rasante.
+  (setq maximum 0.0 total 0.0 count 0)
+  (foreach item samples
+    (setq station (nth 0 item) tn (nth 1 item) grade (nth 2 item))
+    (if (and (numberp tn) (numberp grade))
+      (progn
+        (setq delta (- tn (- grade depth))
+              total (+ total (abs delta))
+              count (1+ count))
+        (if (> (abs delta) maximum)
+          (setq maximum (abs delta)
+                worst (list station tn grade delta))))))
+  (setq *urb-last-road-grade-diagnostic*
+    (list (<= maximum *urb-road-max-earthwork-depth*) maximum
+      (if (> count 0) (/ total count) 0.0) worst count
+      *urb-road-max-earthwork-depth*))
+  *urb-last-road-grade-diagnostic*)
+
+(defun urb:road-plan-converged (footprint surface axis raw-grade axis-start span direction depth bin-size / points area steps step prev current delta ok history reason)
+  (setq *urb-last-road-plan-diagnostic* nil)
+  ;; 2.0/1.0 m suele converger en vias largas y evita arrancar con cientos
+  ;; de miles de llamadas COM. Solo baja a 0.5 m si la diferencia supera 0.5%.
   (setq points (urb:anden-earthwork-raw-points footprint)
-        area (vla-get-Area (vlax-ename->vla-object footprint)) step 0.5)
-  (while (and (not ok) (>= step 0.1249))
+        area (vla-get-Area (vlax-ename->vla-object footprint))
+        steps '(2.0 1.0 0.5))
+  (while (and (not ok) steps)
+    (setq step (car steps) steps (cdr steps))
     (setq current (urb:road-plan-integral points surface axis raw-grade axis-start span direction depth step bin-size))
+    (setq history (cons (list step (nth 0 current) (nth 1 current)
+      (nth 2 current) (nth 3 current) area (nth 4 current)) history))
     (if (or (> (nth 2 current) 0) (<= (nth 3 current) 1e-9)
             (> (abs (- area (nth 3 current))) (max 0.001 (* area 0.0001))))
-      (setq step 0.0)
+      (setq reason
+        (cond ((> (nth 2 current) 0) "MUESTRAS_FUERA_DE_TN_O_RASANTE")
+              ((<= (nth 3 current) 1e-9) "AREA_MUESTREADA_CERO")
+              (T "AREA_MUESTREADA_NO_COINCIDE"))
+            steps nil)
       (progn
         (if prev
           (setq ok (and (<= (abs (- (car current) (car prev))) (max 0.02 (* 0.005 (abs (car current)))))
                         (<= (abs (- (cadr current) (cadr prev))) (max 0.02 (* 0.005 (abs (cadr current))))))))
-        (if (not ok) (setq prev current step (* 0.5 step))))))
+        (if (not ok) (setq prev current)))))
+  (if (and (not ok) (null reason)) (setq reason "SIN_CONVERGENCIA_0.5%"))
+  (setq *urb-last-road-plan-diagnostic*
+    (list (if ok "OK" reason) (reverse history)))
   (if ok (append current (list step area)) nil))
 
 (defun urb:compute-road-earthworks
@@ -24138,7 +24455,8 @@
    station-start-number coverage
    samples old-mov old-cota0 old-cota-final grade-result totals metodo
    cota0 cota-final cut fill skipped audit-result
-   cov-min cov-max cov-it guard-records footprint plan-result raw-grade audit-rows)
+   cov-min cov-max cov-it guard-records footprint plan-result raw-grade audit-rows
+   grade-sanity)
   (setq *urb-earthwork-stage* "inicio del calculo")
   (setq old-mov (urb:road-movement-data boundary))
   (setq old-cota0
@@ -24410,6 +24728,21 @@
                   (urb:safe-string (nth 1 grade-result) "rasante")))
               (setq cota0 (nth 2 grade-result))
               (setq cota-final (nth 3 grade-result))
+              (setq grade-sanity (urb:road-grade-sanity samples depth))
+              (if (not (car grade-sanity))
+                (progn
+                  (urb:invalidate-road-movement boundary nil
+                    "PENDIENTE: RASANTE INCONSISTENTE CON SUP_TN")
+                  (prompt
+                    (strcat
+                      "\nTierras PENDIENTES: la rasante difiere hasta "
+                      (rtos (nth 1 grade-sanity) 2 2)
+                      " m del terreno natural (limite de seguridad "
+                      (rtos *urb-road-max-earthwork-depth* 2 1)
+                      " m). Revise las cotas y los pozos; no se calcula ni"
+                      " se guarda un volumen absurdo."))
+                  nil)
+                (progn
               (setq *urb-earthwork-stage* "integracion de corte y relleno")
               (setq raw-grade (mapcar '(lambda (s)
                 (list (if (urb:string-equal-p direction "Final") (- (+ axis-start span) (car s)) (+ axis-start (car s))) (nth 2 s))) samples))
@@ -24426,7 +24759,14 @@
               (if (> skipped 0)
                 (progn
                   (urb:invalidate-road-movement boundary nil "PENDIENTE: REVISAR HUELLA/TN/CONVERGENCIA")
-                  (prompt "\nTierras PENDIENTES: revisar huella, cobertura TN/rasante o convergencia. No se conserva un volumen parcial ni por ancho promedio.")
+                  (prompt
+                    (strcat
+                      "\nTierras PENDIENTES: "
+                      (if footprint
+                        (vl-princ-to-string *urb-last-road-plan-diagnostic*)
+                        (strcat "huella invalida "
+                          (vl-princ-to-string *urb-last-road-footprint-diagnostic*)))
+                      ". No se conserva un volumen parcial ni por ancho promedio."))
                   nil)
                 (progn
               ;; Estado y movimiento se escriben juntos dentro de URB_VIA;
@@ -24483,7 +24823,7 @@
                   (rtos cut 2 2) " m3 | relleno "
                   (rtos fill 2 2) " m3."))
               (setq *urb-earthwork-stage* "calculo finalizado")
-              (list cut fill))))))))))
+              (list cut fill))))))))))))
 
 ;; Se llama solo desde crear/editar via; nunca interrumpe el flujo.
 ;; Recibe el eje ya resuelto (no lo vuelve a buscar con handent, que no
@@ -32606,7 +32946,7 @@
 ;; puede ser un BLOQUE -- su contorno vive dentro y se mide con una copia
 ;; temporal que se borra al terminar.
 (defun urb:sendero-earthworks
-  (ename / datos entry pts road ref picks mov espesor bloque contorno)
+  (ename / datos entry pts road ref picks mov espesor bloque contorno modo)
   (setq datos (urb:get-xdata-strings ename "URB_SENDERO"))
   (setq entry (assoc (urb:safe-string (car datos) "") *urb-send-tipos*))
   (setq *urb-anden-pts-cache* nil)
@@ -32618,29 +32958,31 @@
       (setq contorno (if bloque (urb:send-temp-contour ename) ename))
       (setq espesor (urb:send-espesor-de entry))
       (setq pts (if contorno (urb:lwpoly-points contorno)))
-      (setq road (if pts (urb:anden-road-autodetect pts)))
-      (if road
+      ;; EDITAR debe permitir corregir la referencia, no imponer la entidad
+      ;; mas cercana. Seleccionar es el valor por defecto; Automatico
+      ;; conserva el flujo rapido anterior cuando la vecindad es inequivoca.
+      (initget "Seleccionar Automatico")
+      (setq modo
+        (getkword
+          "\nReferencia de tierras [Seleccionar/Automatico] <Seleccionar>: "))
+      (if (null modo) (setq modo "Seleccionar"))
+      (if (= modo "Automatico")
         (progn
-          (setq ref (urb:anden-road-grade-for road))
-          (if ref
+          (setq road (if pts (urb:anden-road-autodetect pts)))
+          (if road
             (progn
-              (prompt "\nVia creada junto al sendero: se usa su rasante en todo el alineamiento.")
-              (setq picks (list (list 0.0 (list (car (car pts)) (cadr (car pts))) ref)))
-            )
-            (prompt "\nLa via cercana no tiene rasante calculada.")
-          )
-        )
-      )
-      (if (and (null picks) pts)
-        (setq picks (urb:sendero-picks-por-anden pts)))
-      (if (null picks)
+              (setq ref (urb:anden-road-grade-for road))
+              (if ref
+                (progn
+                  (prompt "\nVia creada junto al sendero: se usa su rasante en todo el alineamiento.")
+                  (setq picks (list (list 0.0 (list (car (car pts)) (cadr (car pts))) ref))))
+                (prompt "\nLa via cercana no tiene rasante calculada."))))
+          (if (and (null picks) pts)
+            (setq picks (urb:sendero-picks-por-anden pts))))
         (progn
           (prompt
-            (strcat "\nSin via ni anden creado al lado: cotas de implantacion del sendero"
-                    " (clic en anden/pozo/etiqueta o Digitar; Enter = cancelar)."))
-          (setq picks (urb:pick-design-cotas))
-        )
-      )
+            "\nSeleccione la VIA, ANDEN, POZO o cotas que gobiernan este sendero.")
+          (setq picks (urb:pick-design-cotas))))
       (if (and picks contorno)
         (setq mov (urb:sendero-mt-calcular ename contorno picks espesor entry bloque))
         (prompt "\nMovimiento de tierras cancelado.")

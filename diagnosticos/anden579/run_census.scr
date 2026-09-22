@@ -1,0 +1,3 @@
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/urbanismo_cantidades.lsp")
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/diagnosticos/anden579/census.lsp")
+(command "_.QUIT" "_Y")
