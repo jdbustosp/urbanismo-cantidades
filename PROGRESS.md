@@ -1,5 +1,17 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-22 01:40 America/Bogota — 5.7.13 las excavaciones de andenes vuelven a exportarse al Excel
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 7415cdf (5.7.12 de Codex).
+
+Reporte: "no me esta conectando las excavaciones de andenes... con el excel".
+- En URB_AGG (último export) no había ni una clave ANDEN de excavación ni de relleno.
+- Auditoría de los 28 andenes del maestro: todos tienen el MT calculado (XDATA URB_ANDEN_MOV = "OK ...", atributos ANDEN_CORTE_M3 y ANDEN_RELLENO_M3 con valor), pero NINGUNO tiene el atributo ANDEN_METODO.
+- Causa: la migración que depuró la paleta (retira ANDEN_METODO, ~l.39781) le quitó el atributo, y `urb:ppto-rows-andenes` usaba "PENDIENTE" como valor por defecto. Así, todo andén se trataba como MT pendiente y corte y relleno salían en 0.
+- Arreglo: el estado se toma del atributo si existe y, si no, de la XDATA URB_ANDEN_MOV (nth 1).
+- Verificado en una copia del maestro: 26 filas de excavación de andén (antes 0).
+- Anomalía para revisar antes de exportar: el andén 1AC6AF (VIA-19, 2.559 m²) da 15.376 m³ de corte, unos 6 m de profundidad frente a ~1 m del resto.
+
 ## 2026-09-21 23:33 America/Bogota — v5.7.12 costado unico y franjas continuas
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Commit: este commit de version.

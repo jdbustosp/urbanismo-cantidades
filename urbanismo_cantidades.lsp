@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.12")
+(setq *urb-version* "5.7.13")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -35176,7 +35176,7 @@
 
 (defun urb:ppto-rows-andenes (/ ss i be d atts area material etapa sub handle
                               corte relleno loseta-und adoq-und rows out r
-                              cont-usados area-cont poly area-neta-p over-area)
+                              cont-usados area-cont poly area-neta-p over-area mt-estado)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) out nil i 0)
   (setq cont-usados nil)
   (if ss
@@ -35230,8 +35230,19 @@
       (if (not over-area) (setq over-area area))
       ;; No sustituir un MT pendiente por area x espesor: no es un corte
       ;; contra SUP_TN. Se conserva como pendiente, nunca como volumen medido.
-      (if (wcmatch (strcase (urb:safe-string
-            (cdr (assoc "ANDEN_METODO" atts)) "PENDIENTE")) "PENDIENTE*")
+      ;; 5.7.13 (reporte del usuario: "no me esta conectando las
+      ;; excavaciones de andenes"). La migracion de v4.23 que depuro la
+      ;; paleta Properties RETIRO el atributo ANDEN_METODO de los andenes;
+      ;; sin atributo este chequeo caia al valor por defecto "PENDIENTE" y
+      ;; TODOS los andenes exportaban corte/relleno en 0 aunque tuvieran su
+      ;; MT calculado (medido en el maestro: 28 andenes, todos con
+      ;; URB_ANDEN_MOV = "OK ..."). El estado se toma ahora del atributo si
+      ;; existe y, si no, de la XDATA URB_ANDEN_MOV (nth 1 = estado).
+      (setq mt-estado (urb:safe-string (cdr (assoc "ANDEN_METODO" atts)) ""))
+      (if (= mt-estado "")
+        (setq mt-estado
+          (urb:safe-string (nth 1 (urb:get-xdata-strings be "URB_ANDEN_MOV")) "PENDIENTE")))
+      (if (wcmatch (strcase mt-estado) "PENDIENTE*")
         (progn
           (setq corte 0.0 relleno 0.0)
           (prompt (strcat "\nMT pendiente en anden " handle ": corte/relleno no exportados."))))
