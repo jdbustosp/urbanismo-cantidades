@@ -1,0 +1,10 @@
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/urbanismo_cantidades.lsp")
+(setq *v12-saved-only* T)
+(load "C:/Users/juanbusper/Streaming de Google Drive/Mi unidad/VARIOS/CLAUDE/proyectos/URBANISMO EXTERNO/diagnosticos/anden5712/verify.lsp")
+(urb:confirm-tactile-side v12:prompt-en)
+2
+(v12:after2)
+(urb:confirm-tactile-side v12:prompt-en)
+1
+(v12:finish)
+(command "_.QUIT" "_Y")

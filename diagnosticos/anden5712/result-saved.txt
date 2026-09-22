@@ -1,0 +1,10 @@
+PASS version
+PASS saved four-vertex case builds finish
+PASS saved case has tactile texture
+PASS saved case one block
+PASS saved case zero loose pieces
+SAVED_BUILD_AND_PACKAGE_MS=16156
+PASS one input 2 selects opposite and returns without reprompt
+PASS one input 1 keeps highlighted side
+SUMMARY pass=7 fail=0
+FINISHED

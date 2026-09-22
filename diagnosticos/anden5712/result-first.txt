@@ -1,0 +1,30 @@
+PASS version
+PASS baseline midpoint test would reverse the entire tactile stripe at notch
+notch CCW stations=52 top=52 guide=52 ms=3000
+PASS notch CCW builds
+PASS notch CCW toperol continuity every 0.5m
+PASS notch CCW guide continuity every 0.5m
+notch CW stations=52 top=52 guide=52 ms=3406
+PASS notch CW builds
+PASS notch CW toperol continuity every 0.5m
+PASS notch CW guide continuity every 0.5m
+curve inner stations=5 top=5 guide=0 ms=1703
+PASS curve inner builds
+FAIL curve inner toperol continuity every 0.5m
+FAIL curve inner guide continuity every 0.5m
+curve outer stations=1 top=1 guide=1 ms=1016
+PASS curve outer builds
+FAIL curve outer toperol continuity every 0.5m
+PASS curve outer guide continuity every 0.5m
+curve reversed stations=5 top=5 guide=0 ms=922
+PASS curve reversed builds
+FAIL curve reversed toperol continuity every 0.5m
+FAIL curve reversed guide continuity every 0.5m
+FAIL saved four-vertex case builds finish
+FAIL saved case has tactile texture
+FAIL saved case one block
+FAIL saved case zero loose pieces
+SAVED_BUILD_AND_PACKAGE_MS=7109
+PASS one input 2 selects opposite and returns without reprompt
+PASS one input 1 keeps highlighted side
+SUMMARY pass=14 fail=9

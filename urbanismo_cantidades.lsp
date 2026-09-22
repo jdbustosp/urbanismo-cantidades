@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.11")
+(setq *urb-version* "5.7.12")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -333,8 +333,11 @@
 (defun urb:confirm-tactile-side (ename / points corners chains chain chosen other temp answer result)
   ;; Resaltar la MISMA cadena que consume el constructor tactil. Un punto
   ;; en su mitad, en vez del clic junto a un remate, fija el costado sin empate.
-  (setq points (urb:ring-remove-notches (urb:lwpoly-points-with-arcs-fine ename))
-        chosen (urb:anden-tactile-chain points)
+  (setq points (urb:lwpoly-points-with-arcs-fine ename))
+  (if (not (vl-some '(lambda (p)
+            (and (= (car p) 42) (not (equal (cdr p) 0.0 1e-12)))) (entget ename)))
+    (setq points (urb:ring-remove-notches points)))
+  (setq chosen (urb:anden-tactile-chain points)
         corners (urb:polygon-corner-indices points (* pi 0.25))
         chains (urb:polygon-chains-at-corners points corners))
   (foreach chain chains
@@ -344,21 +347,24 @@
       (setq other chain)))
   (if (and chosen other)
     (progn
-      (setq answer "2")
-      (while (= answer "2")
+      (progn
         (setq temp (urb:poly-chain-polyline
           (mapcar '(lambda (p) (list (car p) (cadr p) 0.0)) chosen)))
         (urb:highlight-chain temp)
         (initget "1 2")
         (setq answer (vl-catch-all-apply 'getkword
-          (list "\nCostado del TOPEROL [1=Lado resaltado/2=Otro costado] <1>: ")))
+          (list "\nTOPEROL: 1 = costado resaltado, 2 = costado opuesto [1/2] <1>: ")))
         (setq result (urb:curve-pt temp (* 0.5 (urb:curve-length temp))))
         (urb:set-chain-highlight temp nil)
         (entdel temp)
         (redraw)
         (if (vl-catch-all-error-p answer) (quit))
         (if (= answer "2")
-          (setq temp chosen chosen other other temp)))
+          (progn
+            (setq temp (urb:poly-chain-polyline
+              (mapcar '(lambda (p) (list (car p) (cadr p) 0.0)) other)))
+            (setq result (urb:curve-pt temp (* 0.5 (urb:curve-length temp))))
+            (entdel temp))))
       (setq *urb-current-tactile-side-choice* nil
             *urb-current-tactile-side-point* result
             *urb-current-tactile-side-anchor* result)
@@ -3669,7 +3675,8 @@
    / points bounds umin umax actual-vmin actual-vmax vmin vmax
    cursor next gray count origin pattern-v-origin module layer grid
    phase-state first-band band-width iter-guard band-ok fallback-triangles
-   elevation box all-bands-ok band-umin band-umax)
+   elevation box all-bands-ok band-umin band-umax net-loops
+   coverage-triangles coverage-ok ring ring-triangles)
   (setq points (urb:region-outline-points base-region))
   (if (null points)
     (setq points (urb:object-box-points base-region)))
@@ -3723,10 +3730,21 @@
         (progn
           ;; Detalle 20x20: 0.80 m de loseta gris y 1.00 m de adoquin
           ;; blanco, repetidos sobre el eje local de esta zona.
-          (setq fallback-triangles
-            (if fallback-points
-              (urb:triangulate-polygon fallback-points)
-              nil))
+          ;; El respaldo debe recortar el contorno NETO; usar el original
+          ;; rellena prefabricados/obstaculos y da falsos fallos en bandas vacias.
+          (setq net-loops (urb:region-polygons base-region)
+                fallback-triangles
+                  (if (= (length net-loops) 1)
+                    (urb:triangulate-polygon (car net-loops)) nil))
+          ;; Para detectar bandas VACIAS basta una cobertura de todos los
+          ;; anillos, incluidos huecos. Nunca se usa esta cobertura para
+          ;; dibujar: rellenaria los huecos de los contenedores.
+          (setq coverage-ok (not (null net-loops)))
+          (foreach ring net-loops
+            (setq ring-triangles (urb:triangulate-polygon ring))
+            (if ring-triangles
+              (setq coverage-triangles (append coverage-triangles ring-triangles))
+              (setq coverage-ok nil)))
           (setq box (urb:object-box-points base-region)
                 elevation
                   (if (and box (caddr (car box)))
@@ -3773,13 +3791,25 @@
             ;; o mas islas. Si ACIS no devuelve una region util, se recorta
             ;; geometricamente contra triangulos internos; el tono y el
             ;; origen de reticula siguen siendo los de la banda original.
+            (if (and (not band-ok) coverage-ok
+                     (< (urb:polygon-band-area coverage-triangles
+                          band-umin band-umax angle-value) 1e-8))
+              (setq band-ok T))
             (if (and (not band-ok) fallback-triangles)
               (setq band-ok
-                (urb:decorate-composite-band-fallback
-                  fallback-triangles band-umin band-umax angle-value
-                  origin parent-handle gray elevation)))
+                (if (< (urb:polygon-band-area fallback-triangles
+                         band-umin band-umax angle-value) 1e-8)
+                  T
+                  (urb:decorate-composite-band-fallback
+                    fallback-triangles band-umin band-umax angle-value
+                    origin parent-handle gray elevation))))
             (if band-ok (setq count (1+ count)))
-            (if (not band-ok) (setq all-bands-ok nil))
+            (if (not band-ok)
+              (progn (setq all-bands-ok nil)
+                (urb:bb-log (strcat "  losetas: fallo banda u="
+                  (rtos band-umin 2 4) ".." (rtos band-umax 2 4)
+                  " anillos=" (itoa (length net-loops))
+                  " cobertura=" (vl-princ-to-string coverage-ok)))))
             (setq cursor next
                   gray (not gray)
                   first-band nil))
@@ -4300,7 +4330,7 @@
 (defun urb:create-composite-loseta
   (ename format / obj copy base-region points fine-points parent-handle clusters
    split-data zones zone success angle-value pattern-mode reverse-pattern
-   driving-chain forced-angle deriva tramos)
+    driving-chain forced-angle deriva tramos vb)
   (setq obj (vlax-ename->vla-object ename)
         parent-handle (vla-get-Handle obj)
         points (urb:lwpoly-points-with-arcs ename)
@@ -4308,8 +4338,13 @@
         pattern-mode (urb:anden-pattern-mode ename)
         reverse-pattern (urb:anden-pattern-reversed-p pattern-mode)
         clusters (urb:dominant-anden-axis-clusters points)
-        copy (vla-Copy obj)
-        base-region (urb:anden-region-from-object copy))
+         vb (urb:lwpoly-vertex-bulges ename)
+         copy (urb:as-vla-object (urb:poly-chain-polyline
+           (mapcar '(lambda (p b) (list (car p) (cadr p) b)) (car vb) (cadr vb)))))
+  ;; REGION limpia sin XDATA ni plano interno heredado; conserva los arcos.
+  (vla-put-Closed copy :vlax-true)
+  (setq
+         base-region (urb:anden-region-from-object copy))
   ;; 2026-08-12: eje FORZADO de modulacion (URB_ANDEN_AXIS) -- lo marca
   ;; el usuario al crear un anden con curva (2 puntos paralelos a las
   ;; bandas del vecino). Si no hay eje guardado pero el contorno tiene
@@ -5308,20 +5343,19 @@
       (setq mid-d (* 0.5 len))
       (setq mid-pt (urb:curve-pt chain-poly mid-d))
       (setq mid-ang (urb:curve-tangent chain-poly mid-d))
-      (setq perp-sign 1.0)
-      (if mid-pt
-        (progn
-          (setq cand
-            (list (+ (car mid-pt) (* 0.3 (cos (+ mid-ang (* 0.5 pi)))))
-                  (+ (cadr mid-pt) (* 0.3 (sin (+ mid-ang (* 0.5 pi)))))))
-          (if (not (urb:point-in-poly-p cand points))
-            (setq perp-sign -1.0))))
+      ;; La cadena conserva el recorrido del anillo: CCW = interior izquierdo.
+      ;; Probar UN punto a 30 cm falla si coincide con un contenedor/entrante
+      ;; y voltea TODA la franja. El sentido geometrico no depende de huecos.
+      (setq perp-sign (if (< (urb:polygon-signed-area points) 0.0) -1.0 1.0))
       (setq off-sign 1.0)
       (setq test-off (urb:offset-poly chain-poly 0.3))
       (if test-off
         (progn
-          (setq cand (urb:curve-pt test-off (* 0.5 (urb:curve-length test-off))))
-          (if (or (null cand) (not (urb:point-in-poly-p cand points)))
+          (setq cand (vlax-curve-getClosestPointTo test-off mid-pt))
+          (if (or (null cand)
+                  (< (* perp-sign
+                       (- (* (cos mid-ang) (- (cadr cand) (cadr mid-pt)))
+                          (* (sin mid-ang) (- (car cand) (car mid-pt))))) 0.0))
             (setq off-sign -1.0))
           (entdel test-off))
         (setq off-sign -1.0))
@@ -6023,6 +6057,10 @@
   (urb:bb-log "  INICIA losetas (bandas y regiones)")
   (setq result (urb:create-composite-loseta ename format))
   (urb:bb-log (strcat "  TERMINA losetas " (if result "OK" "SIN RESULTADO")))
+  (if (not result)
+    (progn
+      (vl-catch-all-apply 'urb:toperol-fallo-registrar (list ename))
+      (prompt "\nANDEN: fallo el acabado de losetas antes de generar guia/toperol. Se conserva el contorno; caso guardado para diagnostico.")))
   (if result
     (progn
       (urb:bb-log "  INICIA guia y toperol")
@@ -6047,7 +6085,7 @@
                   " este anden; se crea con sus losetas. Revise la guia y el toperol de este tramo.")))))
   ;; La guia no puede ocultar el fallo del toperol con un count > 0.
   ;; Verificar entidades reales antes del empaquetado, no solo un T del generador.
-  (if (urb:yes-p toperol)
+  (if (and result (urb:yes-p toperol))
     (progn
       (setq top-count (urb:count-toperol-symbols
         (urb:generated-objects (vla-get-Handle obj))))
@@ -6060,13 +6098,12 @@
       ;; reproducirlo exacto. No se reprodujo con geometrias de prueba.
       (if (= top-count 0)
         (progn
-          (urb:bb-log "  TOPEROL 0 domos: el anden se crea SIN toperol")
+          (urb:bb-log "  TOPEROL: fallo de construccion tactil; espacio no diagnosticado")
           (vl-catch-all-apply 'urb:toperol-fallo-registrar (list ename))
           (prompt
             (strcat
-              "\nATENCION: el toperol no cupo en este anden (la franja tactil"
-              " queda ocupada por contenedores/prefabricados o por la forma del"
-              " contorno). El anden se crea SIN toperol: revise ese tramo."
+              "\nATENCION: fallo la generacion del toperol. Esto no demuestra falta"
+              " de espacio; revise el diagnostico geometrico. El anden queda SIN toperol."
               "\nSe guardo el caso en " (getenv "TEMP")
               "\\urbcant_toperol_fallo.txt -- envielo para corregirlo."))))))
   ;; Si el acabado no pudo construirse, el contorno de trabajo se devuelve
@@ -8477,14 +8514,9 @@
           (= start-choice "Opuesto")))
       (setq anden-points (urb:lwpoly-points ename))
       (setq anden-area (vla-get-Area (vlax-ename->vla-object ename)))
-      (if (or (urb:yes-p guia) (urb:yes-p toperol))
-        (progn
-          (setq *urb-current-tactile-side-point*
-            (urb:prompt-tactile-side-point))
-          (setq *urb-current-tactile-side-anchor*
-            (urb:tactile-side-anchor
-              (urb:lwpoly-points-with-arcs-fine ename)
-              *urb-current-tactile-side-point*))))
+      (setq *urb-current-tactile-side-point* nil
+            *urb-current-tactile-side-anchor* nil
+            *urb-current-tactile-side-choice* nil)
       ;; 2026-08-12 curva v2 (pantallazo del usuario: seguia diagonal):
       ;; si el contorno tiene ARCOS, la orientacion de la modulacion se
       ;; marca con 2 puntos PARALELOS a las bandas del anden/rampa vecino
@@ -10220,8 +10252,8 @@
               (if (or (urb:yes-p guia) (urb:yes-p toperol))
                 (progn
                   (setq *urb-confirm-tactile-side* T)
-                  (setq *urb-current-tactile-side-point*
-                    (urb:prompt-tactile-side-point))
+                  (setq *urb-current-tactile-side-point* nil
+                        *urb-current-tactile-side-choice* nil)
                   ;; El ancla se calcula por cada contorno dentro de
                   ;; urb:rebuild-working-boundary.
                   (setq *urb-current-tactile-side-anchor* nil)))

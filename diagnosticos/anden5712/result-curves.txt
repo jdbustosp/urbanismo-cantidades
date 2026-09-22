@@ -1,0 +1,22 @@
+PASS version
+PASS baseline midpoint test would reverse the entire tactile stripe at notch
+notch CCW stations=52 top=52 guide=52 ms=2906
+PASS notch CCW builds
+PASS notch CCW toperol continuity every 0.5m
+PASS notch CCW guide continuity every 0.5m
+notch CW stations=52 top=52 guide=52 ms=2781
+PASS notch CW builds
+PASS notch CW toperol continuity every 0.5m
+PASS notch CW guide continuity every 0.5m
+curve inner stations=91 top=91 guide=91 ms=6657
+PASS curve inner builds
+PASS curve inner toperol continuity every 0.5m
+PASS curve inner guide continuity every 0.5m
+curve outer stations=103 top=103 guide=103 ms=7234
+PASS curve outer builds
+PASS curve outer toperol continuity every 0.5m
+PASS curve outer guide continuity every 0.5m
+curve reversed stations=91 top=91 guide=91 ms=5875
+PASS curve reversed builds
+PASS curve reversed toperol continuity every 0.5m
+PASS curve reversed guide continuity every 0.5m

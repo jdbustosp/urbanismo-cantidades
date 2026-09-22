@@ -1,5 +1,24 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-21 23:33 America/Bogota — v5.7.12 costado unico y franjas continuas
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit: este commit de version.
+CREAR/EDITAR ya no piden marcar la via: 1 conserva el costado resaltado,
+2 elige el opuesto y termina, sin segunda confirmacion. El signo interior
+usa el sentido del contorno; un entrante en la mitad no invierte toda la
+franja. El resaltado de arcos emplea la misma cadena que el generador.
+La region temporal de losetas se reconstruye limpia conservando bulges.
+Las bandas totalmente vacias se reconocen contra los anillos netos; no se
+rellenan huecos de contenedores como respaldo. Un fallo de losetas ya no se
+reporta erroneamente como falta de espacio para toperol.
+Civil 2023 real: lote geometrico 17 PASS; caso guardado/teclado 7 PASS, 0 FAIL.
+Continuidad cada 0,5 m en entrante CW/CCW y curva interior/exterior/invertida.
+Contorno guardado de 64 m: acabado+empaque 16,156 s, bloque unico y cero sueltas.
+Un lote alcanzo el limite 90 s; solo se cerro su PID y se termino con un lote
+reducido. Primera tentativa fallida conservada y explicada en RESULTADO.md.
+No incluye tierras, guardado, revision visual completa ni Civil 2026.
+Instalado localmente; maestro intacto. Evidencia: diagnosticos/anden5712/.
+
 ## 2026-09-21 22:26 America/Bogota — v5.7.11 bordillo curvo y costado tactil
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Commit: este commit de version.
