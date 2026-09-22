@@ -1,5 +1,26 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-22 08:36 America/Bogota — v5.7.17 malla de tierras con aristas activas
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base 5812e57; commit de esta entrega.
+Caso real 1B3D3F: bloque del anden ya creado; rasante VIA-17 recuperable.
+Huella de tierras4392vertices. Probe anterior no termina malla dentro del
+limite90s del proceso (incluye apertura). No se reprodujo literalmente la
+excepcion nativa del usuario; no atribuir causalidad exclusiva demostrada.
+Barrido por eventos de aristas activas reemplaza N aristas por fila, sin
+simplificar geometria ni cambiar niveles/centroides. Limite250000 muestras
+retorna nil en vez de volumen parcial. Log de fases malla/TN y suma iterativa.
+Core29PASS/0FAIL:8casos CW/CCW mismos conteos/areas/momentos que baseline;
+copia exacta:51224muestras en2000ms, area741.34583816 vs741.34582853m2.
+Civil2023 FINAL: calculo real completo30.766s, proceso76.56s; cobertura100%,
+corte476.073314m3/relleno440.494217m3, estructura0.60m/sobreexcavacion0.50m.
+No se guardo fixture ni maestro. Topeorl:2hatches en bloque guardado, aviso
+del primer metodo NO prueba ausencia final; continuidad visual pendiente.
+Instalado5.7.17, fuente SHA256571A13213A63622F37A33E15573385DBB6825C7736F3FF8D19AD37615D9D5E9A
+coincide con bundle. DLL2025 sin cambios, hashes iguales pese a aviso de
+archivo en uso durante instalacion. Reiniciar Civil. No probado2026.
+Evidencia: diagnosticos/anden5717/RESULTADO.md.
+
 ## 2026-09-22 06:54 America/Bogota — v5.7.16 bloques antes de tierras
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base e8012e5; commit de esta entrega.

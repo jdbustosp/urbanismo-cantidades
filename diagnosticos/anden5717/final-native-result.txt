@@ -1,0 +1,5 @@
+LOADED
+START TARGET 1B3D3F VERSION 5.7.17
+RESULT T STAGE guardado de resultados MS 30766
+MOV (ANDEN_MOV OK - Via creada - rasante guardada - triangulos ponderados con sobreancho | pendientes automaticas | estructura 0.60 m | sobreexcavacion 0.50 m | expansion 25% | relleno +20% 476.073314 440.494217 51224 SUP_TN 51224 1.000000 13BAC9-63095343 VIA-17 -3.90% a 4.05% 2.00% 3.68% a 4.52%)
+FINISHED

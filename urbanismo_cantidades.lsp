@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.16")
+(setq *urb-version* "5.7.17")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -8117,8 +8117,11 @@
               nil)
             (progn
               (setq *urb-anden-earthwork-stage* "generacion de malla interior")
+              (urb:bb-log (strcat "TIERRAS: malla interior, vertices=" (itoa (length points))))
               (setq samples (urb:earthwork-area-samples points)
-                    total-weight (apply '+ (mapcar 'cadr samples)))
+                    total-weight 0.0)
+              (foreach sample samples (setq total-weight (+ total-weight (cadr sample))))
+              (urb:bb-log (strcat "TIERRAS: malla lista, muestras=" (itoa (length samples))))
               (setq total (length samples))
               (setq edge-result
                 (vl-catch-all-apply
@@ -8134,6 +8137,7 @@
                   nil)
                 (progn
                   (setq *urb-anden-earthwork-stage* "muestreo de superficie y rasante")
+                  (urb:bb-log "TIERRAS: inicia consulta TN/rasante")
                   (setq cut-depth 0.0 fill-depth 0.0 count 0 slope-count 0
                         transverse-percent (* 100.0 *urb-anden-crossfall*))
                   (foreach sample samples
@@ -9691,7 +9695,8 @@
     (/ (- (car b) (car a)) (- (cadr b) (cadr a))))))
 
 (defun urb:earthwork-scanline-samples (points step / pts rest a b edges levels y0 y1 ym
-   hits edge pair l0 l1 r0 r1 n k f0 f1 p0 p1 p2 p3 quad centroid weight ox oy z out height)
+   hits edge pair l0 l1 r0 r1 n k f0 f1 p0 p1 p2 p3 quad centroid weight ox oy z out height
+   active waiting event sample-count failed)
   ;; 5.7.4: trapecios recortados entre TODOS los niveles de vertices.
   ;; Cada celda aporta area y centroide reales, sin normalizacion global.
   ;; Evita perder remates <0.25m y conserva integrales de planos lineales.
@@ -9707,24 +9712,39 @@
         (setq a (car rest) b (cadr rest))
         (if (/= (cadr a) (cadr b)) (setq edges (cons (list a b) edges)))
         (setq rest (cdr rest)))
-      (while (cdr levels)
+      ;; 5.7.17: barrido por eventos. Antes CADA nivel recorria TODAS las
+      ;; aristas (4392 x 4392 en el caso 1B3D3F), aunque solo dos cruzaban
+      ;; esa fila. Conserva los mismos niveles, trapecios y centros de masa.
+      (setq waiting
+        (mapcar '(lambda (edge)
+          (list (min (cadar edge) (cadadr edge))
+                (max (cadar edge) (cadadr edge)) edge)) edges))
+      (setq waiting (mapcar '(lambda (i) (nth i waiting))
+        (vl-sort-i waiting '(lambda (a b) (< (car a) (car b))))))
+      (setq sample-count 0)
+      (while (and (cdr levels) (not failed))
         (setq y0 (car levels) y1 (cadr levels))
-        (while (< y0 (- y1 1e-10))
+        (while (and (< y0 (- y1 1e-10)) (not failed))
           (setq height (min step (- y1 y0)) ym (+ y0 (* 0.5 height)) hits nil)
-          (foreach edge edges
-            (setq a (car edge) b (cadr edge))
-            (if (or (and (<= (cadr a) ym) (< ym (cadr b)))
-                    (and (<= (cadr b) ym) (< ym (cadr a))))
-              (setq hits (cons (list (urb:earthwork-strip-x edge ym) edge) hits))))
+          (while (and waiting (<= (caar waiting) ym))
+            (setq active (cons (car waiting) active) waiting (cdr waiting)))
+          (setq active (vl-remove-if '(lambda (event) (<= (cadr event) ym)) active))
+          (foreach event active
+            (setq edge (caddr event))
+            (setq hits (cons (list (urb:earthwork-strip-x edge ym) edge) hits)))
           (setq hits (mapcar '(lambda (i) (nth i hits))
             (vl-sort-i hits '(lambda (a b) (< (car a) (car b))))))
-          (while (cdr hits)
+          (while (and (cdr hits) (not failed))
             (setq pair (list (cadar hits) (cadadr hits)) hits (cddr hits)
                   l0 (urb:earthwork-strip-x (car pair) y0)
                   l1 (urb:earthwork-strip-x (car pair) (+ y0 height))
                   r0 (urb:earthwork-strip-x (cadr pair) y0)
                   r1 (urb:earthwork-strip-x (cadr pair) (+ y0 height))
                   n (max 1 (fix (+ 0.999999999 (/ (max (- r0 l0) (- r1 l1)) step)))) k 0)
+            ;; No conservar una malla parcial ni seguir hasta agotar memoria.
+            (if (> (+ sample-count n) 250000)
+              (setq failed T n 0))
+            (setq sample-count (+ sample-count n))
             (repeat n
               (setq f0 (/ (float k) n) f1 (/ (float (1+ k)) n)
                     p0 (list (+ l0 (* f0 (- r0 l0))) y0)
@@ -9745,7 +9765,11 @@
               (setq k (1+ k))))
           (setq y0 (+ y0 height)))
         (setq levels (cdr levels)))
-      out)))
+      (if failed
+        (progn
+          (prompt "\nTierras PENDIENTES: la huella exige mas de 250000 muestras; revise su contorno. No se usa un volumen parcial.")
+          nil)
+        out))))
 
 (defun urb:earthwork-triangle-samples (points / pending tri a b c ab bc ca mid w out)
   (setq pending (urb:triangulate-polygon points))

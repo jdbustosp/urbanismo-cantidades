@@ -1,0 +1,36 @@
+STARTED
+PASS version
+PASS same sample count
+PASS same area and first moments
+PASS independent polygon area
+PASS same sample count
+PASS same area and first moments
+PASS independent polygon area
+PASS same sample count
+PASS same area and first moments
+PASS independent polygon area
+PASS same sample count
+PASS same area and first moments
+PASS independent polygon area
+PASS same sample count
+PASS same area and first moments
+PASS independent polygon area
+PASS same sample count
+PASS same area and first moments
+PASS independent polygon area
+PASS same sample count
+PASS same area and first moments
+PASS independent polygon area
+PASS same sample count
+PASS same area and first moments
+PASS independent polygon area
+PASS actual sidewalk found in copy
+TOPEROL HATCHES IN SAVED BLOCK 2
+PASS earthwork boundary preserved
+EXACT VERTICES 4392
+MESH MS 2000 SAMPLES 51224
+AREA 741.34583816 POLYGON 741.34582853
+PASS actual footprint area
+PASS grade interpolation unchanged
+SUMMARY pass=29 fail=0
+FINISHED
