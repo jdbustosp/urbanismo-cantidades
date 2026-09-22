@@ -1,0 +1,28 @@
+PASS version
+PASS green creation uses Sin, not Conservar
+PASS ZONA_VERDE survives nil
+PASS ZONA_VERDE pending/success state nil
+PASS green creation uses Sin, not Conservar
+PASS ZONA_VERDE survives error
+PASS ZONA_VERDE pending/success state error
+PASS green creation uses Sin, not Conservar
+PASS ZONA_VERDE survives cancel
+PASS ZONA_VERDE pending/success state cancel
+PASS green creation uses Sin, not Conservar
+PASS ZONA_VERDE survives ok
+PASS ZONA_VERDE pending/success state ok
+PASS sendero creation uses Sin, not Conservar
+PASS SENDERO survives nil
+PASS SENDERO pending/success state nil
+PASS sendero creation uses Sin, not Conservar
+PASS SENDERO survives error
+PASS SENDERO pending/success state error
+PASS sendero creation uses Sin, not Conservar
+PASS SENDERO survives cancel
+PASS SENDERO pending/success state cancel
+PASS sendero creation uses Sin, not Conservar
+PASS SENDERO survives ok
+PASS SENDERO pending/success state ok
+PASS profile regression
+SUMMARY pass=26 fail=0
+FINISHED

@@ -1,5 +1,23 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-22 06:54 America/Bogota — v5.7.16 bloques antes de tierras
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base e8012e5; commit de esta entrega.
+Zona verde y sendero empaquetan ANTES del selector/calculo de tierras. Usan
+el mismo calculador de EDITAR, sobre contorno temporal del bloque; crear
+ofrece Sin y editar Conservar. Cancelacion/error/sin MT conservan atributos
+y bloque, sin XDATA de volumen calculado; mensaje explicito de pendientes.
+Empaquetado fallido no cuenta como sendero creado ni deja su hatch suelto;
+se conserva el contorno para reintentar. No migra hatches antiguos sin datos.
+Core: 26 PASS/0 FAIL, 8.15 s, adaptadores para error/cancelacion/resultado.
+Civil 2023 nativo: 25 PASS/0 FAIL, 28.28 s, fixture local 10x4 m: creacion
+real de las dos familias, atributos 40 m2, XDATA, orden bloque antes del
+selector, sin entidades sueltas tras omitir MT/error. Entrada de usuario
+sustituida; no prueba clics/DCL, Civil 2026 ni precision de volumen TIN.
+Instalado 5.7.16; SHA256 repo=bundle:
+FF7BC3445B8C272D8E5043947B4A56676984EBD5D59ED125B436291A20124043.
+Maestro y Excel intactos. Evidencia: diagnosticos/bloques5716/RESULTADO.md.
+
 ## 2026-09-22 06:27 America/Bogota — v5.7.15 tierras de zonas verdes y senderos
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base 150ff33; commit de esta entrega.

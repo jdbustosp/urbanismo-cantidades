@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.15")
+(setq *urb-version* "5.7.16")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -9537,6 +9537,25 @@
       (urb:set-block-attribute obj "CORTE_M3" "0")
       (urb:set-block-attribute obj "RELLENO_M3" "0"))))
 
+;; Solo se llama DESPUES de empaquetar. El MT es opcional: un error o Esc
+;; nunca debe deshacer el bloque ni sus atributos geometricos.
+(defun urb:area-created-earthworks (ename kind thickness / result)
+  (prompt "\nBloque creado con propiedades. Ahora se configura el movimiento de tierras (opcional).")
+  (setq result
+    (if (= kind "ZONA_VERDE")
+      (vl-catch-all-apply 'urb:green-earthworks-run (list ename thickness nil))
+      (vl-catch-all-apply 'urb:sendero-earthworks-run (list ename nil))))
+  (if (vl-catch-all-error-p result)
+    (progn
+      (prompt (strcat "\nTierras interrumpidas: " (vl-catch-all-error-message result)))
+      (setq result nil)))
+  (if (null result)
+    (progn
+      (urb:area-earthwork-clear ename
+        (if (= kind "ZONA_VERDE") "URB_GREEN_MOV" "URB_SEND_MOV"))
+      (prompt "\nBloque conservado y editable. Tierras PENDIENTES; use EDITAR para calcularlas.")))
+  result)
+
 (defun urb:design-z-from-picks (picks x y / ref arefs best bd d q)
   ;; 5.6.2: referencias de ANDEN (ANDEN ref-via borde contorno). Si hay
   ;; varias (sendero entre dos andenes) manda la del anden mas cercano.
@@ -9996,31 +10015,20 @@
       (if (and hatch (vlax-property-available-p hatch 'EntityTransparency T))
         (vl-catch-all-apply 'vlax-put-property
           (list hatch 'EntityTransparency "70")))
-      ;; corte/relleno OPCIONAL contra SUP_TN: la rasante de diseno sale
-      ;; de cotas clickeadas (via, POZO del modelo, etiqueta o digitada)
-      (setq mov nil)
-      (setq picks (urb:area-earthwork-picks ename nil))
-      (if picks
-        (progn
-          (if (and picks (>= (length picks) 1))
-            (progn
-              ;; zona verde: la subrasante queda un espesor de tierra negra
-              ;; por debajo del terminado
-              (setq mov (urb:earthworks-from-picks ename picks thickness))
-              (if mov
-                (prompt (strcat "\nCorte: " (rtos (car mov) 2 2)
-                  " m3 | Relleno: " (rtos (cadr mov) 2 2) " m3"))))
-            (prompt "\nSin cotas: la zona queda sin corte/relleno."))))
+      ;; 5.7.16: confirmar el bloque ANTES de preguntar/calcular tierras.
+      ;; Cancelar el MT no debe dejar un hatch sin propiedades.
       (setq block-ref
-        (urb:package-green-zone
-          ename hatch etapa subetapa thickness))
-      (if (and block-ref mov)
+        (vl-catch-all-apply 'urb:package-green-zone
+          (list ename hatch etapa subetapa thickness)))
+      (if (vl-catch-all-error-p block-ref)
         (progn
-          (urb:set-block-attribute block-ref "CORTE_M3" (rtos (car mov) 2 2))
-          (urb:set-block-attribute block-ref "RELLENO_M3" (rtos (cadr mov) 2 2))
-          (urb:set-xdata-strings (urb:as-ename block-ref) "URB_GREEN_MOV"
-            (list (rtos (car mov) 2 8) (rtos (cadr mov) 2 8)
-                  (rtos thickness 2 8)))))
+          (prompt (strcat "\nError de empaquetado: " (vl-catch-all-error-message block-ref)))
+          (setq block-ref nil)))
+      (if block-ref
+        (urb:area-created-earthworks (urb:as-ename block-ref) "ZONA_VERDE" thickness)
+        (progn
+          (urb:safe-delete hatch)
+          (prompt "\nNo se creo el bloque. Se conserva el contorno para reintentar; se retira el hatch incompleto.")))
       (setvar "FILLMODE" 1)
       (vla-Regen doc 1)
       (if block-ref
@@ -10080,13 +10088,16 @@
 ;; Recalculo interactivo del movimiento de una zona verde YA empacada.
 ;; El contorno se extrae en una copia temporal y se elimina siempre; el
 ;; bloque solo recibe atributos/XDATA despues de un calculo completo.
-(defun urb:green-earthworks-edit-one
-  (ename thickness / boundary picks mov object)
+(defun urb:green-earthworks-edit-one (ename thickness)
+  (urb:green-earthworks-run ename thickness T))
+
+(defun urb:green-earthworks-run
+  (ename thickness editing / boundary picks mov object)
   (setq boundary (urb:explode-green-block-boundary ename))
   (if (null boundary)
     (prompt "\nNo se pudo leer el contorno de la zona verde.")
     (progn
-      (setq picks (vl-catch-all-apply 'urb:area-earthwork-picks (list boundary T)))
+      (setq picks (vl-catch-all-apply 'urb:area-earthwork-picks (list boundary editing)))
       (if (vl-catch-all-error-p picks) (setq picks nil))
       (if picks
         (setq mov
@@ -32813,31 +32824,29 @@
           (rtos descuento 2 6))
         (list (nth 0 entry) etapa sub)))
     (urb:set-xdata-strings ename appid datos)
-    ;; 2026-09-02 (pedido del usuario): corte/relleno OPCIONAL del sendero
-    ;; contra SUP_TN con rasante de cotas clickeadas (via/pozo/etiqueta) --
-    ;; mismo motor de la zona verde; queda en xdata URB_SEND_MOV.
-    ;; 2026-09-07 (MT implicito): cotas de implantacion DIRECTAS (sin
-    ;; pregunta previa) para todo elemento de area; Enter = sin MT
-    (if (= appid "URB_SENDERO")
-      (progn
-        (setq picks2 (urb:area-earthwork-picks ename nil))
-        (if picks2
-          (setq mov2 (urb:sendero-mt-calcular ename ename picks2
-            (urb:send-espesor-de entry) entry nil)))))
-    ;; 5.6.6: contorno + relleno quedan en un BLOQUE con sus medidas y su
-    ;; movimiento de tierras visibles en Propiedades (como zona verde)
+    ;; 5.7.16: empaquetar ANTES del MT, tambien al elegir Sin o cancelar.
+    (setq bloque nil)
     (if (= appid "URB_SENDERO")
       (progn
         (setq bloque
           (vl-catch-all-apply 'urb:package-sendero
             (list ename (if (vl-catch-all-error-p hatch) nil hatch)
-                  entry etapa sub datos mov2)))
+                  entry etapa sub datos nil)))
         (if (or (vl-catch-all-error-p bloque) (null bloque))
-          (prompt "\nEl sendero quedo como contorno + relleno sueltos (no se pudo empaquetar).")
-          (prompt "\nSendero empaquetado en bloque: sus medidas y su movimiento de tierras salen en Propiedades."))))
-    (setq n (1+ n))
-    (prompt (strcat "\n" (nth 1 entry) " " (itoa n)
-      " creado. Otro contorno (Enter termina): ")))
+          (progn
+            (if (vl-catch-all-error-p bloque)
+              (prompt (strcat "\nError de empaquetado: " (vl-catch-all-error-message bloque))))
+            (setq bloque nil)
+            (if (not (vl-catch-all-error-p hatch)) (urb:safe-delete hatch))
+            ;; Sin bloque no debe anunciarse/exportarse como sendero nuevo.
+            (urb:set-xdata-strings ename appid nil)
+            (prompt "\nNo se creo el bloque del sendero. Se conserva el contorno para reintentar; se retira el hatch incompleto."))
+          (urb:area-created-earthworks (urb:as-ename bloque) "SENDERO" (urb:send-espesor-de entry)))))
+    (if (or (/= appid "URB_SENDERO") bloque)
+      (progn
+        (setq n (1+ n))
+        (prompt (strcat "\n" (nth 1 entry) " " (itoa n) " creado."))))
+    (prompt "\nOtro contorno (Enter termina): "))
   (prompt (strcat "\n" (itoa n) " elemento(s) de " (nth 1 entry)
     " creados. Sus cantidades salen solas al exportar."))
   (princ))
@@ -33153,8 +33162,11 @@
 ;; (sus cotas de diseno) o de las cotas que se clickeen. 5.6.6: el sendero
 ;; puede ser un BLOQUE -- su contorno vive dentro y se mide con una copia
 ;; temporal que se borra al terminar.
-(defun urb:sendero-earthworks
-  (ename / datos entry pts road ref picks mov espesor bloque contorno modo)
+(defun urb:sendero-earthworks (ename)
+  (urb:sendero-earthworks-run ename T))
+
+(defun urb:sendero-earthworks-run
+  (ename editing / datos entry pts road ref picks mov espesor bloque contorno modo)
   (setq datos (urb:get-xdata-strings ename "URB_SENDERO"))
   (setq entry (assoc (urb:safe-string (car datos) "") *urb-send-tipos*))
   (setq *urb-anden-pts-cache* nil)
@@ -33167,7 +33179,7 @@
       (setq espesor (urb:send-espesor-de entry))
       (setq pts (if contorno (urb:lwpoly-points contorno)))
       (if contorno
-        (setq picks (vl-catch-all-apply 'urb:area-earthwork-picks (list contorno T))))
+        (setq picks (vl-catch-all-apply 'urb:area-earthwork-picks (list contorno editing))))
       (if (vl-catch-all-error-p picks) (setq picks nil))
       (if (and picks contorno)
         (progn

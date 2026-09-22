@@ -1,0 +1,28 @@
+STARTED
+PASS version
+PASS creation picker mode
+PASS original already packaged BEFORE picker
+PASS ZONA_VERDE INSERT with metadata survives nil
+PASS area attribute 40 m2
+PASS one new INSERT, no loose hatch or temporary boundary
+PASS MT remains pending
+PASS creation picker mode
+PASS original already packaged BEFORE picker
+PASS ZONA_VERDE INSERT with metadata survives error
+PASS area attribute 40 m2
+PASS one new INSERT, no loose hatch or temporary boundary
+PASS MT remains pending
+PASS creation picker mode
+PASS original already packaged BEFORE picker
+PASS SENDERO INSERT with metadata survives nil
+PASS area attribute 40 m2
+PASS one new INSERT, no loose hatch or temporary boundary
+PASS MT remains pending
+PASS creation picker mode
+PASS original already packaged BEFORE picker
+PASS SENDERO INSERT with metadata survives error
+PASS area attribute 40 m2
+PASS one new INSERT, no loose hatch or temporary boundary
+PASS MT remains pending
+SUMMARY pass=25 fail=0
+FINISHED
