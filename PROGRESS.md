@@ -1,5 +1,30 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-22 10:27 America/Bogota — v5.7.19 movimiento de tierras de alumbrado y zona verde de vía sin empradización
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base e0dfa37; commit de esta entrega.
+
+Pedido del usuario:
+- Faltaba el movimiento de tierras de alumbrado público, con la normativa aplicada a media tensión.
+- Se quita "Empradización y conformación" de la zona verde de vías (2.2.7).
+
+Cambios en el export de tramos ELECTRICA-BT-AP:
+- Salen aparte, con la misma zanja CODENSA CS203/CS207 ya calculada en los atributos del tramo (recubrimiento 0.60 m en andén/zona verde, 0.80 m en calzada; ductos embebidos en arena; base granular hasta la rasante):
+  - "Excavación para canalización AP, incluye cargue" (EXCAVACION_M3)
+  - arena = envolvente del banco menos ductos
+  - base granular clase B = el resto
+  - "Cinta de señalización para red de alumbrado público" (ML)
+- Los sobrantes van en el libro como fórmula = excavación.
+- La tubería queda solo como suministro e instalación. El libro renombró la actividad; ya no dice "incluye excavación, retiro de escombros y relleno".
+
+Cambio en urb:ppto-rows-zonasverdes:
+- La zona verde de vía exporta replanteo, tierra negra y coberturas, igual que la de parque, en lugar de "Empradizacion y conformacion".
+
+Verificación headless en una copia del maestro (Civil 3D 2023, carga 1):
+- Alumbrado: 21 subetapas; 591,03 m³ de excavación, 93,29 m³ de arena, 486,51 m³ de base y 1.350,97 ML de cinta. La cinta coincide con el ML de tubería del libro.
+- Zona verde: las 2 zonas (5A y 4B) dan 523,90 m² de replanteo y cobertura y 104,78 m³ de tierra negra. Es la misma área que tenía a mano la fila de empradización.
+- MT sin cambios.
+
 ## 2026-09-22 09:48 America/Bogota — v5.7.18 cañuela única y eje curvo explícito
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Base 84281dc; commit de esta entrega.

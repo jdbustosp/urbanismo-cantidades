@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.18")
+(setq *urb-version* "5.7.19")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -33426,11 +33426,12 @@
             handle (cdr (assoc 5 (entget be)))
             zona (urb:ppto-zona-de be))
       (if (<= vol 0.0) (setq vol (* area esp)))
+      ;; 5.7.19 (pedido del usuario 2026-09-22): "Empradizacion y
+      ;; conformacion" sale del libro en 2.2.7; la zona verde de via
+      ;; exporta las mismas tres actividades que la de parque
+      ;; (replanteo, tierra negra y cobertura), cada una en su capitulo.
       (setq rows
-        (if (= zona "")
-          (list
-            (urb:ppto-row "ZONA-VERDE" "Empradizacion y conformacion"
-              "" "" "" etapa sub "M2" area handle))
+        (progn
           (list
             (urb:ppto-row "ZONA-VERDE" "Localizacion y replanteo"
               "" "" "" etapa sub "M2" area handle)
@@ -36008,8 +36009,14 @@
                     "Limpieza, mandrilado y verificación de ductos MT"
                     id "" "" etapa sub "ML"
                     (* lng (atof ductos-n)) handle))))
-            ;; BT / alumbrado: la canalizacion del ppto es todo incluido
-            ;; (excavacion, retiro y relleno dentro del APU de tuberia)
+            ;; BT / alumbrado. 5.7.19 (pedido del usuario 2026-09-22): el
+            ;; movimiento de tierras sale APARTE con la misma zanja
+            ;; normativa de MT (CODENSA CS203/CS207: recubrimiento 0.60 m
+            ;; en anden/zona verde y 0.80 m en calzada, ductos embebidos
+            ;; en arena y base granular hasta la rasante). Antes el APU de
+            ;; la tuberia decia incluir excavacion y relleno; ahora la
+            ;; tuberia es solo suministro e instalacion. Los sobrantes van
+            ;; en el libro como formula = excavacion.
             (setq rows
               (list
                 (urb:ppto-row red
@@ -36018,6 +36025,18 @@
                   id "" "" etapa sub "ML" lng handle)
                 (urb:ppto-row red
                   (strcat "Suministro e instalación de cable " ctok)
+                  id "" "" etapa sub "ML" lng handle)
+                (urb:ppto-row red
+                  "Excavación para canalización AP, incluye cargue"
+                  id "" "" etapa sub "M3" exc handle)
+                (urb:ppto-row red
+                  "Relleno en arena limpia para protección de ductos"
+                  id "" "" etapa sub "M3" arena handle)
+                (urb:ppto-row red
+                  "Relleno y compactación con base granular clase B"
+                  id "" "" etapa sub "M3" base-gran handle)
+                (urb:ppto-row red
+                  "Cinta de señalización para red de alumbrado público"
                   id "" "" etapa sub "ML" lng handle))))
           (foreach r rows (if r (setq out (cons r out))))))
       (setq i (1+ i))))
