@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.19")
+(setq *urb-version* "5.7.20")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -11747,19 +11747,33 @@
 (setq *mp-led-list* '("32 LED" "48 LED" "64 LED" "160 LED" "OTRO"))
 
 (defun mp:layer (name color / doc layers lay)
-  ;; Crea la capa o reactiva una existente para evitar bloques invisibles.
+  ;; Crea la capa si falta. 5.7.20 (reporte del usuario 2026-09-22: "si
+  ;; apago el resto de redes humedas y secas y dibujo un tramo de pluvial
+  ;; se me prenden todas las capas"): mp:ensure-layers corre en CADA
+  ;; comando y esta funcion prendia, descongelaba y recoloreaba las seis
+  ;; capas PPTO de redes. Una capa EXISTENTE ya no se toca (solo se
+  ;; desbloquea para poder escribir); la visibilidad de la red que se
+  ;; dibuja la asegura mp:layer-show, solo para esa capa.
   (vl-load-com)
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
   (setq layers (vla-get-Layers doc))
-  (setq lay
-    (if (tblsearch "LAYER" name)
-      (vla-Item layers name)
-      (vla-Add layers name)))
-  (vla-put-LayerOn lay :vlax-true)
-  (vla-put-Lock lay :vlax-false)
-  (vl-catch-all-apply 'vla-put-Freeze (list lay :vlax-false))
-  (vla-put-Color lay color)
+  (if (tblsearch "LAYER" name)
+    (setq lay (vla-Item layers name))
+    (progn
+      (setq lay (vla-Add layers name))
+      (vla-put-Color lay color)))
+  (vl-catch-all-apply 'vla-put-Lock (list lay :vlax-false))
   lay)
+
+;; Prende y descongela UNA capa (la de la red que se esta dibujando), para
+;; que el elemento nuevo no quede invisible; las demas redes no se tocan.
+(defun mp:layer-show (name / lay)
+  (if (and name (tblsearch "LAYER" name))
+    (progn
+      (setq lay (vla-Item (vla-get-Layers (vla-get-ActiveDocument (vlax-get-acad-object))) name))
+      (vl-catch-all-apply 'vla-put-LayerOn (list lay :vlax-true))
+      (if (/= (strcase name) (strcase (getvar "CLAYER")))
+        (vl-catch-all-apply 'vla-put-Freeze (list lay :vlax-false))))))
 
 (defun mp:store-cant-data (ename alist / serialized)
   (if (and ename alist)
@@ -11972,6 +11986,7 @@
   (setq lay (mp:vis-layer baseb)
         col (mp:vis-color baseb)
         w   *mp-vis-width*
+        a   (mp:layer-show (mp:vis-layer baseb))
         r   *mp-vis-radius*
         th  *mp-vis-tramo-text-height*)
   (if (< w 0.01) (setq w 0.01))
@@ -12829,6 +12844,7 @@
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
   (setq blks (vla-get-Blocks doc))
   (setq lay (mp:point-layer base) col (mp:point-color base) th *mp-vis-text-height* r *mp-vis-radius*)
+  (mp:layer-show lay)
   (if (< r 2.00) (setq r 2.00))
   (if (< th 0.50) (setq th 0.50))
   ;; 2026-08-28 (pedido del usuario): postes de alumbrado mas pequenos
@@ -35270,7 +35286,7 @@
 
 (defun urb:ppto-rows-andenes (/ ss i be d atts area material etapa sub handle
                               corte relleno loseta-und adoq-und rows out r
-                              cont-usados area-cont poly area-neta-p over-area mt-estado)
+                              cont-usados area-cont poly area-neta-p over-area mt-estado mt-mov)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) out nil i 0)
   (setq cont-usados nil)
   (if ss
@@ -35332,10 +35348,18 @@
       ;; MT calculado (medido en el maestro: 28 andenes, todos con
       ;; URB_ANDEN_MOV = "OK ..."). El estado se toma ahora del atributo si
       ;; existe y, si no, de la XDATA URB_ANDEN_MOV (nth 1 = estado).
+      ;; 5.7.20 (reporte del usuario 2026-09-22: "Exportacion detenida en
+      ;; andenes: bad argument type: consp nil"): un anden recien dibujado
+      ;; no tiene XDATA URB_ANDEN_MOV y (nth 1 nil) abortaba TODA la
+      ;; exportacion (backtrace: NTH 1 nil en esta funcion). Sin XDATA el
+      ;; anden queda PENDIENTE como cualquier MT sin calcular.
       (setq mt-estado (urb:safe-string (cdr (assoc "ANDEN_METODO" atts)) ""))
       (if (= mt-estado "")
         (setq mt-estado
-          (urb:safe-string (nth 1 (urb:get-xdata-strings be "URB_ANDEN_MOV")) "PENDIENTE")))
+          (urb:safe-string
+            (if (listp (setq mt-mov (urb:get-xdata-strings be "URB_ANDEN_MOV")))
+              (cadr mt-mov))
+            "PENDIENTE")))
       (if (wcmatch (strcase mt-estado) "PENDIENTE*")
         (progn
           (setq corte 0.0 relleno 0.0)

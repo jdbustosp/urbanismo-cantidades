@@ -1,5 +1,23 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-22 12:20 America/Bogota — v5.7.20 export de andenes sin XDATA de MT y capas de redes que se prendían solas
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 1f85f3f; commit de esta entrega.
+
+Reportes del usuario:
+- **"Exportacion detenida en andenes: bad argument type: consp nil"**
+  - Causa: backtrace con vl-bt sobre la copia del maestro de las 12:03: `(NTH 1 nil)` en `urb:ppto-rows-andenes`. Lo introdujo la 5.7.13 al leer la XDATA URB_ANDEN_MOV, que un andén recién dibujado no tiene.
+  - Corrección: se usa cadr sobre una lista validada; sin XDATA el andén queda PENDIENTE.
+  - Verificado: las 12 fuentes del export corren sin fallas y andenes da 335 filas.
+- **Al dibujar un tramo de pluvial se prendían todas las capas de redes**
+  - Causa: `mp:ensure-layers` corre en cada comando, y `mp:layer` prendía, descongelaba y recoloreaba las 6 capas PPTO.
+  - Corrección: una capa existente ya no se toca, solo se desbloquea. La nueva `mp:layer-show` prende y descongela SOLO la capa de la red o el punto que se crea (en `mp:make-cant-tramo-block` y `mp:make-cant-punto-block`).
+  - Verificado: con acueducto, sanitario, MT y BT apagadas, tras ensure-layers + show(pluvial) solo pluvial queda prendida.
+
+Libro (no git):
+- La pluvial dibujada trae diámetros que no estaban: PVC 15", 16", 18", 27", 39" y GRP 51". Se agregaron en suministro (UN) e instalación (ML) con las cantidades del plano.
+- La fila de 24", que estaba en 0, recibe las cantidades del plano (ET1).
+
 ## 2026-09-22 10:27 America/Bogota — v5.7.19 movimiento de tierras de alumbrado y zona verde de vía sin empradización
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base e0dfa37; commit de esta entrega.
