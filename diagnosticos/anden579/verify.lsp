@@ -91,11 +91,15 @@
 (defun v579:run (/ tests item block side boundary notch pts cleaned chain data
                    parent finish packed green gdata gb send sb real-case real-points
                    real-boundary real-parent real-finish real-packed real-top
-                   build-start build-end pack-end)
+                   build-start build-end pack-end filename dcl)
   (v579:log (strcat "VERSION " *urb-version*))
-  (v579:check (= *urb-version* "5.7.9") "engine version")
+  (v579:check (= *urb-version* "5.7.10") "engine version")
   (setq tests (urb:quality-selftests))
   (foreach item tests (v579:check (cadr item) (strcat "selftest " (car item))))
+  (setq filename (urb:write-main-menu-dcl)
+        dcl (if filename (load_dialog filename) -1))
+  (v579:check (> dcl 0) "earthworks DCL with depth control loads")
+  (if (> dcl 0) (unload_dialog dcl))
 
   ;; El ancla debe sobrevivir al bloque y al contorno extraido.
   (setq block (handent "104A88") side '(82899.30 95464.10))
@@ -194,6 +198,30 @@
   (setq send (handent "10504B") sb (urb:send-temp-contour send))
   (v579:check sb "sender path editable boundary")
   (if sb (entdel sb))
+
+  ;; v5.7.10: un corte local real de 15 m no puede confundirse con la
+  ;; rasante equivocada de 25,59 m. El usuario tambien puede desactivar
+  ;; conscientemente el guardarrail con 0 desde Configuracion > Tierras.
+  (setq *urb-road-max-earthwork-depth* 20.0)
+  (v579:check
+    (car (urb:road-grade-sanity
+      '((0.0 100.0 99.0) (50.0 100.0 86.0) (100.0 100.0 98.0)) 1.0))
+    "localized 15m excavation passes 20m control")
+  (v579:check
+    (not (car (urb:road-grade-sanity
+      '((0.0 100.0 99.0) (50.0 100.0 75.0) (100.0 100.0 98.0)) 1.0)))
+    "25m inconsistent grade remains rejected")
+  (setq *urb-road-max-earthwork-depth* 0.0)
+  (v579:check
+    (car (urb:road-grade-sanity
+      '((0.0 100.0 99.0) (50.0 100.0 60.0) (100.0 100.0 98.0)) 1.0))
+    "zero explicitly disables depth control")
+  (urb:config-write "URB_ROAD_MAX_EARTHWORK_DEPTH" "17.5000")
+  (setq *urb-road-max-earthwork-depth* 20.0)
+  (urb:load-geometric-settings)
+  (v579:check (equal *urb-road-max-earthwork-depth* 17.5 1e-9)
+    "depth control persists in drawing configuration")
+  (setq *urb-road-max-earthwork-depth* 20.0)
 
   (v579:road-check)
   (v579:log (strcat "SUMMARY ok=" (itoa v579:ok) " fail=" (itoa v579:fail)))

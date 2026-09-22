@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.9")
+(setq *urb-version* "5.7.10")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -6862,9 +6862,23 @@
     (setq pending (reverse next)))
   (car pending))
 
-(defun urb:anden-measured-finish (ename area format / objects obj layer gray white guia top g w u t0 remaining cut a b c d module err)
-  ;; Medir las regiones realmente modeladas, eliminando las superposiciones
-  ;; de sus bandas. Nunca sumar el padre tactil y sus piezas dos veces.
+(defun urb:region-list-area (items / total value)
+  ;; Sumar areas ya modeladas no invoca el kernel ACIS. Es deliberado:
+  ;; vla-Boolean muestra el error 18003 en la linea de comandos cuando dos
+  ;; regiones solo se tocan o son disjuntas, incluso si el error se captura.
+  (setq total 0.0)
+  (foreach item items
+    (setq value (vl-catch-all-apply 'vla-get-Area (list item)))
+    (if (numberp value) (setq total (+ total value))))
+  total)
+
+(defun urb:anden-measured-finish (ename area format / objects obj layer gray white guia top a b c d module total)
+  ;; Medir las regiones realmente modeladas sin volver a ejecutar booleanos
+  ;; auxiliares al final. Las franjas tactiles se superponen visualmente al
+  ;; acabado principal; en ese caso la suma no cierra y se usa el calculo
+  ;; contractual geometrico de urb:anden-finish-quantities. Asi se conserva
+  ;; precision y se evita que una edicion correcta termine mostrando el
+  ;; engañoso "Modeling Operation Error 18003" durante el empaquetado.
   (setq objects (urb:generated-objects (cdr (assoc 5 (entget ename)))))
   (foreach obj objects
     (if (and (= (vla-get-ObjectName obj) "AcDbRegion") (= (urb:generated-role obj) "FILL"))
@@ -6876,29 +6890,20 @@
               ((wcmatch layer "*BLANCO*") (setq white (cons obj white)))))))
   (if (or gray white)
     (progn
-      (setq g (urb:regions-union-copy gray) w (urb:regions-union-copy white)
-            u (urb:regions-union-copy guia) t0 (urb:regions-union-copy top))
-      ;; Prioridad tactil: toperol, guia; despues acabados principales.
-      (if (and u t0) (vla-Boolean u 2 (vla-Copy t0)))
-      (foreach cut (list u t0)
-        (if cut
-          (progn
-            (if g (vla-Boolean g 2 (vla-Copy cut)))
-            (if w (vla-Boolean w 2 (vla-Copy cut))))))
-      (if (and g w) (vla-Boolean g 2 (vla-Copy w)))
-      (setq a (if g (vla-get-Area g) 0.0) b (if w (vla-get-Area w) 0.0)
-            c (if u (vla-get-Area u) 0.0) d (if t0 (vla-get-Area t0) 0.0)
+      (setq a (urb:region-list-area gray)
+            b (urb:region-list-area white)
+            c (urb:region-list-area guia)
+            d (urb:region-list-area top)
+            total (+ a b c d)
             module (urb:loseta-module format))
-      (foreach obj (list g w u t0) (urb:safe-delete obj))
-      (if (> (abs (- area (+ a b c d))) (max 0.00001 (* area 0.000001)))
-        (progn
-          (prompt (strcat "\nANDEN: area neta=" (rtos area 2 6)
-            "; acabados=" (rtos (+ a b c d) 2 6)
-            " (lisa/adoquin/guia/toperol: " (rtos a 2 6) "/"
-            (rtos b 2 6) "/" (rtos c 2 6) "/" (rtos d 2 6) ")."))
-          (vl-exit-with-error "ANDEN: el area de acabados modelados no cierra con el contorno neto.")))
-      (list a (urb:unit-count-ceiling a (* module module)) (/ c module) (/ d module)
-        b (urb:unit-count-ceiling b 0.02)))))
+      ;; Solo aceptar la medicion directa si las caras forman una particion
+      ;; exacta del contorno. Con tactiles superpuestos o solapes numericos,
+      ;; devolver NIL activa el calculo geometrico existente y validado.
+      (if (<= (abs (- area total)) (max 0.00001 (* area 0.000001)))
+        (list a (urb:unit-count-ceiling a (* module module))
+          (/ c module) (/ d module)
+          b (urb:unit-count-ceiling b 0.02))
+        nil))))
 
 ;; 2026-09-14 (reporte del usuario: "no quedan en bloque" + "se esta
 ;; demorando muchisimo tiempo"). Los dos sintomas son EL MISMO problema:
@@ -16737,6 +16742,7 @@
 (setq *urb-road-overwidth-right* 1.00)
 (setq *urb-road-crossfall* 0.02)
 (setq *urb-road-earthwork-interval* 2.50)
+(setq *urb-road-max-earthwork-depth* 20.0)
 (setq *urb-anden-default-width* 3.50)
 ;; Perfiles de diseno segun Figura 4.1 (estructuras de pavimento) y
 ;; estudio de suelos AUS-10786-10 (Alfonso Uribe S.).
@@ -16871,6 +16877,7 @@
       ("URB_ROAD_OVERWIDTH_RIGHT" *urb-road-overwidth-right* 0.0 20.0)
       ("URB_ROAD_CROSSFALL" *urb-road-crossfall* 0.0 0.20)
       ("URB_ROAD_EARTHWORK_INTERVAL" *urb-road-earthwork-interval* 0.25 20.0)
+      ("URB_ROAD_MAX_EARTHWORK_DEPTH" *urb-road-max-earthwork-depth* 0.0 100.0)
       ("URB_ANDEN_DEFAULT_WIDTH" *urb-anden-default-width* 0.20 20.0)
       ;; 2026-08-24: editables desde la ventana Movimiento de tierras
       ("URB_ANDEN_DEPTH" *urb-anden-depth* 0.10 3.0)
@@ -17149,11 +17156,12 @@
       (urb:config-write "URB_FILL_SHRINKAGE" (rtos (/ s 100.0) 2 6))
       T)))
 
-(defun urb:earthworks-capture (/ left right cross adoquin arena sbg trit
+(defun urb:earthworks-capture (/ left right cross max-depth adoquin arena sbg trit
                                relleno)
   (setq left (urb:parse-real (get_tile "road_left"))
         right (urb:parse-real (get_tile "road_right"))
         cross (urb:parse-real (get_tile "road_cross"))
+        max-depth (urb:parse-real (get_tile "road_max_depth"))
         adoquin (urb:parse-real (get_tile "ad_adoquin"))
         arena (urb:parse-real (get_tile "ad_arena"))
         sbg (urb:parse-real (get_tile "ad_sbg"))
@@ -17166,6 +17174,8 @@
       (alert "El sobreancho derecho debe estar entre 0 y 20 m.") nil)
     ((or (null cross) (< cross 0.0) (> cross 20.0))
       (alert "El bombeo debe estar entre 0 y 20 %.") nil)
+    ((or (null max-depth) (< max-depth 0.0) (> max-depth 100.0))
+      (alert "La profundidad maxima de control debe estar entre 0 y 100 m; use 0 para desactivarla.") nil)
     ((or (null adoquin) (<= adoquin 0.0) (> adoquin 0.50))
       (alert "El adoquin/loseta debe estar entre 0.01 y 0.50 m.") nil)
     ((or (null arena) (<= arena 0.0) (> arena 0.50))
@@ -17179,12 +17189,14 @@
       (setq *urb-road-overwidth-left* left
             *urb-road-overwidth-right* right
             *urb-road-crossfall* (/ cross 100.0)
+            *urb-road-max-earthwork-depth* max-depth
             *urb-anden-road-crossfall* (/ cross 100.0)
             *mp-triturado-sobre-clave* trit)
       (urb:anden-structure-apply adoquin arena sbg)
       (urb:config-write "URB_ROAD_OVERWIDTH_LEFT" (rtos left 2 6))
       (urb:config-write "URB_ROAD_OVERWIDTH_RIGHT" (rtos right 2 6))
       (urb:config-write "URB_ROAD_CROSSFALL" (rtos (/ cross 100.0) 2 8))
+      (urb:config-write "URB_ROAD_MAX_EARTHWORK_DEPTH" (rtos max-depth 2 4))
       (urb:config-write "URB_AND_ADOQUIN" (rtos adoquin 2 4))
       (urb:config-write "URB_AND_ARENA" (rtos arena 2 4))
       (urb:config-write "URB_AND_SBG" (rtos sbg 2 4))
@@ -17257,6 +17269,7 @@
         (set_tile "road_left" (rtos *urb-road-overwidth-left* 2 3))
         (set_tile "road_right" (rtos *urb-road-overwidth-right* 2 3))
         (set_tile "road_cross" (rtos (* 100.0 *urb-road-crossfall*) 2 2))
+        (set_tile "road_max_depth" (rtos *urb-road-max-earthwork-depth* 2 2))
         ;; capas actuales del perfil del anden (posiciones fijas de
         ;; *urb-anden-structure*: 0 adoquin, 1 arena, 2 SBG-C)
         (set_tile "ad_adoquin"
@@ -24395,9 +24408,6 @@
       (- tn (- finish depth)) (/ (nth 4 row) ds) (/ (nth 5 row) ds) (nth 4 row) (nth 5 row)) rows)))
   (list cut fill missing total (length cells) (reverse rows)))
 
-(if (not (numberp *urb-road-max-earthwork-depth*))
-  (setq *urb-road-max-earthwork-depth* 10.0))
-
 (defun urb:road-grade-sanity (samples depth / item station tn grade delta maximum worst total count)
   ;; Guardarrail previo a la integracion pesada. Una cota tomada de otra via
   ;; o un pozo intermedio tratado por error como extremo puede poner la rasante
@@ -24415,7 +24425,8 @@
           (setq maximum (abs delta)
                 worst (list station tn grade delta))))))
   (setq *urb-last-road-grade-diagnostic*
-    (list (<= maximum *urb-road-max-earthwork-depth*) maximum
+    (list (or (<= *urb-road-max-earthwork-depth* 0.0)
+              (<= maximum *urb-road-max-earthwork-depth*)) maximum
       (if (> count 0) (/ total count) 0.0) worst count
       *urb-road-max-earthwork-depth*))
   *urb-last-road-grade-diagnostic*)
@@ -24737,9 +24748,9 @@
                     (strcat
                       "\nTierras PENDIENTES: la rasante difiere hasta "
                       (rtos (nth 1 grade-sanity) 2 2)
-                      " m del terreno natural (limite de seguridad "
+                      " m del terreno natural (limite de control "
                       (rtos *urb-road-max-earthwork-depth* 2 1)
-                      " m). Revise las cotas y los pozos; no se calcula ni"
+                      " m; 0 lo desactiva). Revise las cotas y los pozos; no se calcula ni"
                       " se guarda un volumen absurdo."))
                   nil)
                 (progn
@@ -27377,7 +27388,9 @@
         ": boxed_column { label = \"Vias\";"
         ": row { : text { label = \"Sobreancho izquierdo de via (m)\"; width = 38; } : edit_box { key = \"road_left\"; edit_width = 12; } }"
         ": row { : text { label = \"Sobreancho derecho de via (m)\"; width = 38; } : edit_box { key = \"road_right\"; edit_width = 12; } }"
-        ": row { : text { label = \"Bombeo de la calzada (%)\"; width = 38; } : edit_box { key = \"road_cross\"; edit_width = 12; } } }"
+        ": row { : text { label = \"Bombeo de la calzada (%)\"; width = 38; } : edit_box { key = \"road_cross\"; edit_width = 12; } }"
+        ": row { : text { label = \"Profundidad maxima de control (m; 0 desactiva)\"; width = 38; } : edit_box { key = \"road_max_depth\"; edit_width = 12; } }"
+        ": text { label = \"Predeterminado 20 m: admite cortes locales de 12-15 m y aun detecta rasantes equivocadas.\"; } }"
         ": boxed_column { label = \"Andenes -- perfil estratigrafico (editable)\";"
         ": row { : text { label = \"Adoquin / loseta (m)\"; width = 38; } : edit_box { key = \"ad_adoquin\"; edit_width = 12; } }"
         ": row { : text { label = \"Arena de nivelacion (m)\"; width = 38; } : edit_box { key = \"ad_arena\"; edit_width = 12; } }"

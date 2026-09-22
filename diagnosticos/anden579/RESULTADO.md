@@ -1,4 +1,4 @@
-# Verificación v5.7.9 — andenes táctiles y tierras de vía
+# Verificación v5.7.10 — andenes táctiles y tierras de vía
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Fecha: 2026-09-21.
 
@@ -6,7 +6,7 @@ Agente: Codex. Equipo: BOG085CD119BDQN. Fecha: 2026-09-21.
 
 Civil 3D 2023 real, instancia oculta y copia local de laboratorio
 `Documents/URBANISMO/work/anden579_20260921/fixture.dwg`. El DWG maestro no
-se abrió ni se modificó. Resultado final: **63 PASS, 0 FAIL**.
+se abrió ni se modificó. Resultado final: **68 PASS, 0 FAIL**.
 
 - El caso real que antes terminaba en `TOPEROL: 0 domos` ahora genera el
   toperol mediante un único hatch de patrón, conserva una guía recta
@@ -20,9 +20,13 @@ se abrió ni se modificó. Resultado final: **63 PASS, 0 FAIL**.
   en Z=0, pero el booleano devolvía `Automation Error. Non coplanar geometry`.
   La región temporal se reconstruye en WCS/Z=0 desde el contorno neto; el
   contorno fuente y sus cantidades no se alteran.
-- Tiempo medido del caso guardado de 74,20 m: construcción 18,172 s,
-  empaquetado 5,343 s, total 23,515 s. No incluye tierras ni guardado. Es una
+- Tiempo medido del caso guardado de 74,20 m en la corrida final: construcción
+  31,297 s, empaquetado 9,375 s, total 40,672 s. No incluye tierras ni
+  guardado y varía con la carga de Civil/Windows. Es una
   medición del fixture, no una promesa para cualquier andén de 180 m.
+- La medición final de cantidades ya no vuelve a ejecutar booleanos ACIS
+  sobre regiones que solo se tocan. El log completo del ensayo no contiene
+  `Error Code Number is 18003`, el bloque se crea y quedan cero piezas sueltas.
 
 ## Corte vial absurdo
 
@@ -32,13 +36,16 @@ La vía real de 571,651 m conserva una rasante guardada con solo dos registros:
 media 21,8621 m; eso explica el corte cercano a 95.000 m³ y confirma que no es
 un volumen aceptable.
 
-La v5.7.9 ahora:
+La v5.7.10 ahora:
 
 - proyecta dos o más selecciones con ubicación a sus estaciones reales; dos
   pozos intermedios de prueba permanecieron en 100 y 300 m, en vez de ser
   forzados a los extremos;
-- bloquea el cálculo antes de la integración si rasante y `SUP_TN` difieren
-  más de 10 m;
+- usa un límite de control configurable, **20 m por defecto**: la prueba de
+  un corte localizado de 15 m pasa y la rasante real equivocada de 25,5915 m
+  continúa bloqueada antes de la integración;
+- permite guardar `0` para desactivar conscientemente el límite en
+  `Configuración → Movimiento de tierras`, o cualquier valor entre 0 y 100 m;
 - marca el elemento `PENDIENTE: RASANTE INCONSISTENTE CON SUP_TN` y no guarda
   un volumen parcial ni el valor absurdo.
 
