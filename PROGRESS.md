@@ -1,5 +1,19 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-21 22:26 America/Bogota — v5.7.11 bordillo curvo y costado tactil
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Commit: este commit de version.
+Se elimina el remuestreo cada 25 cm en el prefabricado interactivo: conserva
+arcos/bulges y corta por estaciones e intersecciones con contenedores. En el
+baseline un arco de 565 m se convertia en mas de 2200 vertices; ahora conserva
+dos vertices y la longitud exacta. Crear/EDITAR resaltan la cadena tactil real:
+1 confirma, 2 intercambia costados y vuelve a mostrar para aceptar. Ancla
+persistida en mitad del costado para evitar empates cerca de remates.
+Civil 2023 real: 13/13 pruebas focales, bordillo 565 m en 1797 ms, bloque y
+longitud exacta, subarco y recorte por contenedor correctos. Una sola apertura.
+No reproducido el crash original; pendiente visual/teclado 1/2. No atribuir
+este tiempo al anden completo. Evidencia: `diagnosticos/anden5711/RESULTADO.md`.
+
 ## 2026-09-21 20:07 America/Bogota — v5.7.9 cierre de andenes y control de tierras absurdas
 
 Agente: Codex. Equipo: BOG085CD119BDQN. Commit: este commit de versión.

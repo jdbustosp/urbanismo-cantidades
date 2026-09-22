@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.10")
+(setq *urb-version* "5.7.11")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -329,6 +329,41 @@
            (/= (car data) "") (/= (cadr data) ""))
     (list (atof (car data)) (atof (cadr data)))
     nil))
+
+(defun urb:confirm-tactile-side (ename / points corners chains chain chosen other temp answer result)
+  ;; Resaltar la MISMA cadena que consume el constructor tactil. Un punto
+  ;; en su mitad, en vez del clic junto a un remate, fija el costado sin empate.
+  (setq points (urb:ring-remove-notches (urb:lwpoly-points-with-arcs-fine ename))
+        chosen (urb:anden-tactile-chain points)
+        corners (urb:polygon-corner-indices points (* pi 0.25))
+        chains (urb:polygon-chains-at-corners points corners))
+  (foreach chain chains
+    (if (and (not (equal chain chosen 1e-7))
+             (or (null other) (> (urb:chain-total-length chain)
+                                (urb:chain-total-length other))))
+      (setq other chain)))
+  (if (and chosen other)
+    (progn
+      (setq answer "2")
+      (while (= answer "2")
+        (setq temp (urb:poly-chain-polyline
+          (mapcar '(lambda (p) (list (car p) (cadr p) 0.0)) chosen)))
+        (urb:highlight-chain temp)
+        (initget "1 2")
+        (setq answer (vl-catch-all-apply 'getkword
+          (list "\nCostado del TOPEROL [1=Lado resaltado/2=Otro costado] <1>: ")))
+        (setq result (urb:curve-pt temp (* 0.5 (urb:curve-length temp))))
+        (urb:set-chain-highlight temp nil)
+        (entdel temp)
+        (redraw)
+        (if (vl-catch-all-error-p answer) (quit))
+        (if (= answer "2")
+          (setq temp chosen chosen other other temp)))
+      (setq *urb-current-tactile-side-choice* nil
+            *urb-current-tactile-side-point* result
+            *urb-current-tactile-side-anchor* result)
+      (urb:set-tactile-side-data ename result)))
+  result)
 
 (defun urb:tactile-side-point-from-choice
   (choice points / minx miny maxx maxy pt cx cy diag)
@@ -8482,6 +8517,8 @@
       (if *urb-current-tactile-side-anchor*
         (urb:set-tactile-side-data ename
           *urb-current-tactile-side-anchor*))
+      (if (or (urb:yes-p guia) (urb:yes-p toperol))
+        (urb:confirm-tactile-side ename))
       (urb:set-anden-pattern-mode ename pattern-mode)
       ;; 2026-08-24 (pedido del usuario): prefabricado por COSTADOS igual
       ;; que el sendero -- se construyen solos sobre los dos lados largos
@@ -9333,6 +9370,9 @@
       (if *urb-current-tactile-side-anchor*
         (urb:set-tactile-side-data boundary
           *urb-current-tactile-side-anchor*))))
+  (if (and saved *urb-confirm-tactile-side*
+           (or (urb:yes-p guia) (urb:yes-p toperol)))
+    (urb:confirm-tactile-side boundary))
   (if saved
     (setq result
       (urb:call-edit-stage
@@ -10030,7 +10070,7 @@
    mixed-count orientation-choice start-choice pattern-mode old-pattern-mode
    old-rotated old-reversed new-rotated new-reversed
    anden-points anden-area earthworks-ok new-ename old-handle
-   old-movement old-earthworks-p
+   old-movement old-earthworks-p *urb-confirm-tactile-side*
    doc undo-open undo-result *error*)
   (setq doc (urb:doc))
   (defun *error* (message)
@@ -10179,6 +10219,7 @@
               (setq grade-source (urb:safe-string grade-source "Via creada"))
               (if (or (urb:yes-p guia) (urb:yes-p toperol))
                 (progn
+                  (setq *urb-confirm-tactile-side* T)
                   (setq *urb-current-tactile-side-point*
                     (urb:prompt-tactile-side-point))
                   ;; El ancla se calcula por cada contorno dentro de
@@ -32150,13 +32191,77 @@
 ;; Devuelve (longitud-total lista-de-referencias) o nil
 ;; (2026-08-24 v2: la referencia la necesita el anden para el vinculo de
 ;; descuento URB_PREFAB_ANILLO).
+(defun urb:chain-slice-exact (en d1 d2 / vb start finish cursor next idx p b a out len)
+  ;; Cortar por estacion conservando vertices y bulges originales. Un arco
+  ;; de 565 m sigue siendo un arco; antes se convertia en 2260 segmentos.
+  (setq len (urb:curve-length en)
+        d1 (max 0.0 (min len d1)) d2 (max 0.0 (min len d2)))
+  (if (> (- d2 d1) 1e-7)
+    (progn
+      (setq vb (urb:lwpoly-vertex-bulges en)
+            start (vlax-curve-getParamAtDist en d1)
+            finish (vlax-curve-getParamAtDist en d2)
+            cursor start)
+      (while (< cursor (- finish 1e-10))
+        (setq idx (fix cursor) next (min finish (float (1+ idx)))
+              p (vlax-curve-getPointAtParam en cursor)
+              b (nth idx (cadr vb))
+              a (* (atan b) (- next cursor)))
+        (setq out (cons (list (car p) (cadr p) (/ (sin a) (cos a))) out)
+              cursor next))
+      (setq p (vlax-curve-getPointAtDist en d2))
+      (reverse (cons (list (car p) (cadr p) 0.0) out)))))
+
+(defun urb:prefab-split-exact (pts polys / en obj poly pe po hits cuts hit st len
+                                    prev cur mid out result)
+  ;; Intersecciones nativas con los contenedores: las partes utiles siguen
+  ;; siendo arcos exactos, incluso si un contenedor corta en mitad del arco.
+  (if (null polys) (list pts)
+    (progn
+      (setq en (urb:poly-chain-polyline pts) obj (urb:as-vla-object en)
+            len (urb:curve-length en) cuts (list 0.0 len))
+      (setq result (vl-catch-all-apply
+        '(lambda ()
+          (foreach poly polys
+            (setq pe (urb:poly-chain-polyline
+              (mapcar '(lambda (p) (list (car p) (cadr p) 0.0)) poly))
+                  po (urb:as-vla-object pe))
+            (vla-put-Closed po :vlax-true)
+            (if (urb:objects-bbox-overlap-p obj po 0.02)
+              (progn
+                (setq hits (vlax-invoke obj 'IntersectWith po 0))
+                (while hits
+                  (setq hit (list (car hits) (cadr hits) (caddr hits))
+                        st (vlax-curve-getDistAtPoint en
+                          (vlax-curve-getClosestPointTo en hit)))
+                  (if st (setq cuts (cons st cuts)))
+                  (setq hits (cdddr hits)))))
+            (urb:safe-delete po) (setq po nil))
+          (setq cuts (vl-sort cuts '<) prev (car cuts))
+          (foreach cur (cdr cuts)
+            (if (> (- cur prev) 1e-7)
+              (progn
+                (setq mid (urb:curve-pt en (* 0.5 (+ prev cur))))
+                (if (not (vl-some '(lambda (poly)
+                      (urb:point-near-poly-p mid poly 0.02)) polys))
+                  (setq out (cons (urb:chain-slice-exact en prev cur) out)))))
+            (setq prev cur))
+          (reverse out))))
+      (urb:safe-delete po)
+      (urb:safe-delete obj)
+      (if (vl-catch-all-error-p result)
+        (vl-exit-with-error (vl-catch-all-error-message result)) result))))
+
 (defun urb:poly-costado-build (pts tipo posicion etapa sub winding destino
                                / tramos en mid side ancho ref len total refs normal)
   (setq tramos
     (vl-catch-all-apply
-      '(lambda () (urb:chain-split-por-poligonos pts (urb:contenedor-polys)))))
+      '(lambda () (urb:prefab-split-exact pts (urb:contenedor-polys)))))
   (if (vl-catch-all-error-p tramos)
-    (setq tramos (list pts)))
+    (progn
+      (urb:bb-log (strcat "prefabricado: fallo al recortar contenedores: "
+        (vl-catch-all-error-message tramos)))
+      (setq tramos nil)))
   (setq total 0.0 refs nil ancho (urb:prefab-default-ancho tipo))
   (foreach pts tramos
     (setq en (urb:poly-chain-polyline pts))
@@ -32259,17 +32364,17 @@
                 (foreach seg (reverse kept)
                   ;; sub-cadena en el MISMO sentido del contorno (la regla del
                   ;; lado interior de urb:poly-costado-build depende de eso)
-                  (setq sub-en (urb:chain-subpoly en (car seg) (cadr seg)))
+                  (urb:bb-log (strcat "INICIA prefabricado exacto " tipo " "
+                    (rtos (- (cadr seg) (car seg)) 2 2) " m"))
+                  (setq sub-pts (urb:chain-slice-exact en (car seg) (cadr seg)))
+                  (setq sub-en (if sub-pts (urb:poly-chain-polyline sub-pts)))
                   (if sub-en
                     (progn
-                      (setq sub-pts nil ed (entget sub-en))
-                      (foreach itm ed
-                        (if (= (car itm) 10)
-                          (setq sub-pts (cons (list (cadr itm) (caddr itm) 0.0) sub-pts))))
-                      (setq sub-pts (reverse sub-pts))
                       (entdel sub-en)
                       (setq r (vl-catch-all-apply 'urb:poly-costado-build
                                 (list sub-pts tipo sentido etapa sub winding destino)))
+                      (urb:bb-log (strcat "TERMINA prefabricado exacto "
+                        (if (and r (not (vl-catch-all-error-p r))) "OK" "FALLO")))
                       (if (and r (not (vl-catch-all-error-p r)))
                         (progn
                           (setq refs (append refs (cadr r)))
