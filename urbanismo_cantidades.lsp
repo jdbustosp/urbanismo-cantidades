@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.23")
+(setq *urb-version* "5.7.24")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -111,6 +111,11 @@
 
 (defun urb:prefab-destino-red (destino prefab / value)
   (setq value (strcase (urb:safe-string destino "")))
+  ;; 5.7.24 (pedido del usuario 2026-09-23: "todos los sardineles van por
+  ;; vias"): el SARDINEL va SIEMPRE al capitulo de via, aunque el bloque
+  ;; traiga otro destino. Antes 229 sardineles A-10 caian en ANDENES.
+  (if (wcmatch (strcase (urb:safe-string prefab "")) "*SARDINEL*")
+    (setq value "VIA"))
   (cond
     ((member value '("VIA")) "VIA")
     ((member value '("ANDEN" "ANDENES")) "ANDEN")
@@ -11735,6 +11740,10 @@
     "3x185mm2 Al XLPE 15kV" "2(3x185mm2) Al XLPE 15kV" "3(3x185mm2) Al XLPE 15kV"
     "5(3x185mm2) Al XLPE 15kV" "3x240mm2 Al XLPE 15kV" "3x300mm2 Al XLPE 15kV"
     "2(3x300mm2) Al XLPE 15kV" "3x500mm2 Al XLPE 35kV" "3x2/0 ACSR" "3x4/0 ACSR" "OTRO"))
+;; 5.7.24: superficie que hay que reponer encima de la zanja del tramo.
+;; "ANDEN EN ADOQUIN" son los tramos que cruzan un anden YA construido:
+;; se levanta el adoquin, se excava, se rellena y se vuelve a instalar.
+(setq *mp-reposicion-list* '("NINGUNA" "ANDEN EN ADOQUIN" "PAVIMENTO"))
 (setq *mp-ductos-list* '("1" "2" "3" "4" "5" "6" "9" "12"))
 (setq *mp-diam-ducto-list* '("2\"" "3\"" "4\"" "6\""))
 (setq *mp-mat-ducto-list* '("PVC" "IMC" "RMC" "EMT" "OTRO"))
@@ -12186,6 +12195,9 @@
     ("ANCHO_ZANJA" "Ancho de zanja m" "")
     ("ESPESOR_CAMA" "Espesor de cama m" "0.10")
     ("ANCHO_REPOSICION" "Ancho de reposicion m" "")
+    ;; 5.7.24: que se repone encima de la zanja -- NINGUNA, el anden en
+    ;; adoquin que hay que levantar y volver a instalar, o el pavimento.
+    ("TIPO_REPOSICION" "Reposicion de superficie" "NINGUNA")
     ("PROFUNDIDAD_INI" "Profundidad inicial m" "")
     ("PROFUNDIDAD_FIN" "Profundidad final m" "")
     ("PROFUNDIDAD_MEDIA" "Profundidad media m" "")
@@ -12309,7 +12321,7 @@
 (defun mp:write-dcl (/ fn f)
   (mp:reset-dialog-capture)
   (setq *mp-dialog-edit-mode* nil)
-  (setq fn (urb:temp-file "maipore_listas_v12" ".dcl"))
+  (setq fn (urb:temp-file "maipore_listas_v13" ".dcl"))
   (if (and *mp-dcl-listas-ok* (findfile fn))
     fn
     (progn
@@ -12321,7 +12333,8 @@
   (write-line ": popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
   (write-line ": popup_list { label = \"Material\"; key = \"mat\"; }" f)
-  (write-line ": toggle { label = \"Carcamo de proteccion (cruce/recubrimiento bajo)\"; key = \"carcamo\"; } }" f)
+  (write-line ": toggle { label = \"Carcamo de proteccion (cruce/recubrimiento bajo)\"; key = \"carcamo\"; }" f)
+  (write-line ": popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; } }" f)
   (write-line ": boxed_column { label = \"Cotas de diseno\";" f)
   (write-line ": radio_row { label = \"Cota clave\";" f)
   (write-line ": radio_button { label = \"Digitar\"; key = \"cc_dig\"; value = \"1\"; }" f)
@@ -12339,7 +12352,10 @@
   (write-line (mp:dcl-etapa-str) f)
   (write-line ": popup_list { label = \"Diametro\"; key = \"diam\"; }" f)
   (write-line ": popup_list { label = \"Material\"; key = \"mat\"; }" f)
-  (write-line ": toggle { label = \"Carcamo de proteccion (cruce/recubrimiento bajo)\"; key = \"carcamo\"; } }" f)
+  (write-line ": toggle { label = \"Carcamo de proteccion (cruce/recubrimiento bajo)\"; key = \"carcamo\"; }" f)
+  ;; 5.7.24 (pedido del usuario): tramos que van bajo anden ya construido --
+  ;; hay que levantar el adoquin, excavar, rellenar y reinstalar.
+  (write-line ": popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; } }" f)
   (write-line ": text { label = \"Solo dibuje de donde va a donde va el tramo.\"; }" f)
   (write-line ": text { label = \"Zanja y excavacion automaticas (RAS 0330: recubrimiento 1.0 m).\"; } ok_cancel; }" f)
 
@@ -12376,6 +12392,7 @@
   (mp:update-subetapa)
   (urb:fill-diam-popup "diam" *mp-diam-acu-list* "4")
   (mp:fill-popup "mat" *mp-material-acu-list* 0)
+  (mp:fill-popup "repotipo" *mp-reposicion-list* 0)
   (action_tile "etapa" "(mp:update-subetapa)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
   (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
@@ -12394,6 +12411,7 @@
           (cons "DIAMETRO" (mp:item *mp-diam-acu-list* "diam"))
           (cons "MATERIAL" (mp:item *mp-material-acu-list* "mat"))
           (cons "CARCAMO" (if (= (mp:gettile "carcamo") "1") "SI" ""))
+          (cons "TIPO_REPOSICION" (mp:item *mp-reposicion-list* "repotipo"))
           (cons "PENDIENTE" "")
           (cons "COTA_TN_INI" "") (cons "COTA_TN_FIN" "")
           (cons "COTA_CLAVE_INI" "") (cons "COTA_CLAVE_FIN" "")
@@ -12456,6 +12474,7 @@
           (cons "COTA_CLAVE_INI" (mp:gettile "ccini"))
           (cons "COTA_CLAVE_FIN" (mp:gettile "ccfin"))
           (cons "CARCAMO" (if (= (mp:gettile "carcamo") "1") "SI" ""))
+          (cons "TIPO_REPOSICION" (mp:item *mp-reposicion-list* "repotipo"))
           (cons "MODO_CLAVE" modo-clave)))))
   (unload_dialog dcl)
   res)))
@@ -13163,7 +13182,7 @@
   ;; dialogos de EDICION: los tiles etapa/subetapa se conservan siempre
   ;; (grises si las etapas estan deshabilitadas)
   (setq *mp-dialog-edit-mode* T)
-  (setq fn (urb:temp-file "maipore_editar_v13" ".dcl"))
+  (setq fn (urb:temp-file "maipore_editar_v14" ".dcl"))
   (if (and *mp-dcl-editar-ok* (findfile fn))
     fn
     (progn
@@ -13173,7 +13192,7 @@
   (write-line ": boxed_column { label = \"Clasificacion\"; : text { key = \"redtxt\"; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } }" f)
   (write-line ": boxed_column { label = \"Datos\"; : edit_box { label = \"Nodo/pozo inicial\"; key = \"pini\"; edit_width = 22; } : edit_box { label = \"Nodo/pozo final\"; key = \"pfin\"; edit_width = 22; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Diametro\"; key = \"diam\"; } : popup_list { label = \"Material\"; key = \"mat\"; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : edit_box { label = \"Pendiente %\"; key = \"pend\"; edit_width = 12; } }" f)
   (write-line ": boxed_column { label = \"Cotas\"; : edit_box { label = \"Cota terreno inicial (automatica SUP_TN)\"; key = \"ctni\"; edit_width = 12; } : edit_box { label = \"Cota terreno final (automatica SUP_TN)\"; key = \"ctnf\"; edit_width = 12; } : edit_box { label = \"Cota clave inicial\"; key = \"ccini\"; edit_width = 12; } : edit_box { label = \"Cota clave final\"; key = \"ccfin\"; edit_width = 12; } }" f)
-  (write-line ": boxed_column { label = \"Cantidades de construccion\"; : edit_box { label = \"Ancho de zanja m\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama m\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion m\"; key = \"repos\"; edit_width = 12; } } ok_cancel; }" f)
+  (write-line ": boxed_column { label = \"Cantidades de construccion\"; : edit_box { label = \"Ancho de zanja m\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama m\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion m\"; key = \"repos\"; edit_width = 12; } : popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; } } ok_cancel; }" f)
 
   (write-line "edit_tramo_mt : dialog { label = \"Editar PPTO - Media tension\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : text { label = \"Profundidad y excavacion: automaticas por norma CODENSA.\"; } } ok_cancel; }" f)
 
@@ -13211,6 +13230,7 @@
   (set_tile "anchoz" (mp:attval atts "ANCHO_ZANJA" ""))
   (set_tile "cama" (mp:attval atts "ESPESOR_CAMA" "0.10"))
   (set_tile "repos" (mp:attval atts "ANCHO_REPOSICION" ""))
+  (mp:fill-popup-val "repotipo" *mp-reposicion-list* (mp:attval atts "TIPO_REPOSICION" "NINGUNA"))
   (action_tile "etapa" "(setq *mp-edit-subetapa-current* \"\")(mp:subetapa-fill-current)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
   (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
@@ -13219,6 +13239,7 @@
     (progn
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
       (setq res (list (cons "RED" red) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
+                      (cons "TIPO_REPOSICION" (mp:item *mp-reposicion-list* "repotipo"))
                       (cons "POZO_INI" (mp:gettile "pini")) (cons "POZO_FIN" (mp:gettile "pfin"))
                       (cons "TIPO_EXTREMO_INI" (mp:item *mp-extremo-hidro-list* "tipo_ini"))
                       (cons "TIPO_EXTREMO_FIN" (mp:item *mp-extremo-hidro-list* "tipo_fin"))
@@ -33102,7 +33123,10 @@
       (setq rows
         (cons
           ;; 3er campo = ID (5.6.1); sin ID queda la descripcion con el ancho
-          (urb:ppto-row "ALC-PLUVIAL" "Canuela"
+          ;; 5.7.24 (pedido del usuario): en el libro la actividad es la
+          ;; CUNETA PREFABRICADA (la cuneta fundida en sitio se retiro).
+          (urb:ppto-row "ALC-PLUVIAL"
+            "Cuneta prefabricada (suministro e instalación)"
             (if (/= (urb:safe-string (nth 4 datos) "") "")
               (nth 4 datos)
               (strcat "Canuela pluvial a=" (rtos ancho 2 2) " m"))
@@ -35802,7 +35826,7 @@
                              pini pfin id ent rows out r ductos-n diam-d
                              mat-d ctok exc prof anchoz vol-ductos recub
                              env-banco arena base-gran circ mat-libro
-                             trit rec profm dnum cama colchon envv)
+                             trit rec profm dnum cama colchon envv tiporep)
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "TRAMO_*,MP_TRAMO_*")))
         out nil i 0)
   (if ss
@@ -35945,6 +35969,23 @@
                 id pini pfin etapa sub "M2" (nth 1 ent) handle)
               (urb:ppto-row red "Entibado E-2"
                 id pini pfin etapa sub "M2" (nth 2 ent) handle))))
+          ;; 5.7.24 (pedido del usuario): tramos bajo superficie ya
+          ;; construida. REPOSICION_M2 = longitud x ancho de reposicion, que
+          ;; el motor ya calculaba y nadie exportaba.
+          (setq tiporep
+            (strcase (urb:safe-string (cdr (assoc "TIPO_REPOSICION" atts)) "")))
+          (if (or (wcmatch tiporep "*ADOQUIN*") (wcmatch tiporep "*PAVIMENTO*"))
+            (setq rows
+              (append rows
+                (list
+                  (urb:ppto-row red
+                    (if (wcmatch tiporep "*ADOQUIN*")
+                      "Reposición de andén en adoquín (levante y reinstalación)"
+                      "Reposición de pavimento flexible y estructura")
+                    id pini pfin etapa sub "M2"
+                    (atof (urb:safe-string
+                      (cdr (assoc "REPOSICION_M2" atts)) "0"))
+                    handle)))))
           ;; cinta de senalizacion sobre tuberia de presion (RAS 0330)
           (if (= red "ACUEDUCTO")
             (setq rows

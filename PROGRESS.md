@@ -1,5 +1,27 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-23 18:00 America/Bogota — v5.7.24 cuneta prefabricada, sardineles a vía y reposición de superficie en tramos
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 0f328d9; commit de esta entrega.
+
+Pedidos del usuario (lista de 15 puntos):
+- **Cuneta prefabricada**: el elemento URB_CANUELA_PLU ya no exporta "Canuela"
+  sino "Cuneta prefabricada (suministro e instalación)", que es la actividad
+  que queda en el libro (la cuneta fundida en sitio se retiró).
+- **Sardineles**: `urb:prefab-destino-red` manda SIEMPRE el sardinel al
+  capítulo de VÍA, aunque el bloque traiga otro destino. Antes 229 sardineles
+  A-10 caían en ANDENES (8,7 millones).
+- **Reposición de superficie en tramos de redes húmedas** (para los tramos
+  que van bajo andén ya construido): atributo nuevo TIPO_REPOSICION con
+  NINGUNA / ANDEN EN ADOQUIN / PAVIMENTO, con su lista en las ventanas de
+  crear tramo (acueducto y la general) y en la de EDITAR. El export emite
+  "Reposición de andén en adoquín (levante y reinstalación)" o "Reposición de
+  pavimento flexible y estructura" en M2, con el REPOSICION_M2 que el motor
+  ya calculaba (longitud x ancho de reposición) y que nadie exportaba.
+- Los DCL se renombraron a v13/v14 para que AutoCAD regenere las ventanas.
+
+Balance de paréntesis verificado (0). Archivo en UTF-8.
+
 ## 2026-09-23 17:40 America/Bogota — v5.7.23 un solo nombre de excavación en todo el export
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 84ac3b8; commit de esta entrega.
