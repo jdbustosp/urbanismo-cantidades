@@ -1,5 +1,26 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-23 17:40 America/Bogota — v5.7.23 un solo nombre de excavación en todo el export
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 84ac3b8; commit de esta entrega.
+
+Pedido del usuario: "hay excavacion mecanica, manual, excavacion de
+canalizacion, todas son la misma excavacion" y "deja precio IDU".
+
+- El export usa un único texto en las 18 emisiones que tenía (vías, andenes,
+  tramos de redes húmedas, canalización MT, canalización AP, y las recetas de
+  andén en concreto y senderos):
+  "Excavación en material común (incluye cargue, transporte y disposición final)".
+- En el libro esa actividad quedó al precio del IDU 2026-I
+  ("EXCAVACIÓN MANUAL EN MATERIAL COMÚN (INCL CARGUE, TRANSPORTE Y DISPOSICION
+  FINAL)"): 117.926 $/m3. Ese precio YA incluía el retiro, y por eso la suma
+  que se hizo en la 5.7.22 (excavación + sobrantes) dejaba la excavación al
+  doble.
+- 14 filas del libro unificadas (7 de perfiles viales, 3 de redes húmedas, MT,
+  AP, troncal y cabezal). POR EJECUTAR baja 4.825 millones.
+
+Balance de paréntesis verificado (0). Archivo sigue en UTF-8.
+
 ## 2026-09-23 17:00 America/Bogota — v5.7.22 el retiro de sobrantes queda dentro del unitario de excavación
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base f10cd16; commit de esta entrega.

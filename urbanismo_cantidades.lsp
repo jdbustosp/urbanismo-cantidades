@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.22")
+(setq *urb-version* "5.7.23")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -31271,7 +31271,7 @@
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.40))
       "URB-ANDEN-CONCRETO" 0.40)
     ("SEND-TROTE" "Sendero de trote" "SENDERO" 40 "TROTE"
@@ -31280,7 +31280,7 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.40))
       "URB-SENDERO-TROTE" 0.40)
     ("SEND-ECO" "Sendero ecologico" "SENDERO" 74 "SENDERO"
@@ -31289,7 +31289,7 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.40))
       "URB-SENDERO-ECOLOGICO" 0.40)
     ;; ---------- 5.6.2 MATERIALES DE SENDERO de la convencion del plano
@@ -31307,7 +31307,7 @@
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("Piso en mulch de madera inorganico" "M2" "AREA" 1.0)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.15))
       "URB-SENDERO-MULCH-ECOLOGICO" 0.15)
     ("SEND-MULCH-TROTE" "Sendero de trote en mulch (B2-B)" "SENDERO" 74 "TROTE"
@@ -31315,7 +31315,7 @@
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("Piso en mulch de madera inorganico" "M2" "AREA" 1.0)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.15))
       "URB-SENDERO-MULCH-TROTE" 0.15)
     ("SEND-CONC-OCRE" "Sendero en concreto ocre (B3)" "SENDERO" 40 "SENDERO"
@@ -31324,14 +31324,14 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.40))
       "URB-SENDERO-CONCRETO-OCRE" 0.40)
     ("SEND-ECOPAV" "Ecopavimento (B4)" "SENDERO" 9 "SENDERO"
       (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
        ("Subbase granular SBG" "M3" "AREA" 0.20)
        ("superficie en ecopavimento" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.30))
       "URB-SENDERO-ECOPAVIMENTO" 0.30)
     ("BICICARRIL" "Bicicarril propuesto (B5-B)" "CICLORRUTA" 170 "CICLOR"
@@ -31342,13 +31342,13 @@
        ("Subbase granular SBG" "M3" "AREA" 0.20)
        ("Concreto 3000 psi" "M3" "AREA" 0.08)
        ("superficie en caucho reciclado" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.35))
       "URB-SENDERO-CAUCHO" 0.35)
     ("SEND-DECK" "Superficie en deck de madera plastica (B7)" "SENDERO" 22 "SENDERO"
       (("Compactación de subrasante (Incluye nivelación)" "M2" "AREA" 1.0)
        ("Superficie en deck de madera plastica" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.20))
       "URB-SENDERO-DECK" 0.20)
     ("PLAZOLETA" "Plazoleta en concreto" "SENDERO" 253 "SENDERO"
@@ -31357,7 +31357,7 @@
        ("Subabase granular SBG-B" "M3" "AREA" 0.30)
        ("Bordillo de confinamiento" "ML" "PER" 1.0)
        ("MO Escobillado concreto" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.40))
       "URB-PLAZOLETA" 0.40)
     ("CICLORRUTA" "Ciclorruta" "CICLORRUTA" 150 "CICLOR"
@@ -31368,7 +31368,7 @@
          "M3" "AREA" 0.08)
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.38)
        ("Bordillo prefabricado A-80" "UN" "PER" 1.25)
        ("M.O. instalación de bordillo prefabricado" "ML" "PER" 1.0))
@@ -31379,7 +31379,7 @@
          "M2" "AREA" 1.0)
        ("Subbase granular SBG" "M3" "AREA" 0.30)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
-       ("Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)"
+       ("Excavación en material común (incluye cargue, transporte y disposición final)"
          "M3" "AREA" 0.40))
       "URB-RAMPA-CONCRETO" 0.40)
     ;; ---------- EQUIPAMIENTOS DE PARQUE (2026-09-06, pedido del
@@ -33349,7 +33349,7 @@
             (setq factor
               (cond
                 ((urb:string-equal-p (nth 0 receta)
-                   "Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)")
+                   "Excavación en material común (incluye cargue, transporte y disposición final)")
                   espesor)
                 ((urb:string-equal-p (nth 0 receta) "Concreto 3000 psi")
                   (urb:send-capa-cfg "URB_SEND_CONCRETO" (nth 3 receta)))
@@ -34993,7 +34993,7 @@
             nombre "" "" etapa sub "M2" area handle)
           (urb:ppto-row "VIA" "Compactacion de subrasante"
             nombre "" "" etapa sub "M2" area handle)
-          (urb:ppto-row "VIA" "Excavacion mecanica en material comun"
+          (urb:ppto-row "VIA" "Excavación en material común (incluye cargue, transporte y disposición final)"
             nombre "" "" etapa sub "M3" corte handle)
           (urb:ppto-row "VIA" "Suministro y colocacion de recebo B-200"
             nombre "" "" etapa sub "M3" relleno handle)
@@ -35378,7 +35378,7 @@
             "" "" "" etapa sub "M2" over-area handle)
           (urb:ppto-row "ANDEN" "Compactacion de subrasante"
             "" "" "" etapa sub "M2" over-area handle)
-          (urb:ppto-row "ANDEN" "Excavacion mecanica en material comun"
+          (urb:ppto-row "ANDEN" "Excavación en material común (incluye cargue, transporte y disposición final)"
             "" "" "" etapa sub "M3" corte handle)
           (urb:ppto-row "ANDEN" "Suministro y colocacion de recebo B-200"
             "" "" "" etapa sub "M3" relleno handle)
@@ -35924,7 +35924,7 @@
             (list
               (urb:ppto-row red "Localizacion y replanteo topografico"
                 id pini pfin etapa sub "ML" lng handle)
-              (urb:ppto-row red "Excavacion mecanica en material comun"
+              (urb:ppto-row red "Excavación en material común (incluye cargue, transporte y disposición final)"
                 id pini pfin etapa sub "M3" exc handle)
               (urb:ppto-row red
                 (if (= red "ACUEDUCTO")
@@ -36025,7 +36025,7 @@
                       "Tendido, conexionado e identificación cable " ctok)
                     id "" "" etapa sub "ML" (* lng circ) handle)
                   (urb:ppto-row red
-                    "Excavación para canalización MT, incluye cargue"
+                    "Excavación en material común (incluye cargue, transporte y disposición final)"
                     id "" "" etapa sub "M3" exc handle)
                   (urb:ppto-row red
                     "Relleno en arena limpia para protección de ductos"
@@ -36058,7 +36058,7 @@
                   (strcat "Suministro e instalación de cable " ctok)
                   id "" "" etapa sub "ML" lng handle)
                 (urb:ppto-row red
-                  "Excavación para canalización AP, incluye cargue"
+                  "Excavación en material común (incluye cargue, transporte y disposición final)"
                   id "" "" etapa sub "M3" exc handle)
                 (urb:ppto-row red
                   "Relleno en arena limpia para protección de ductos"
