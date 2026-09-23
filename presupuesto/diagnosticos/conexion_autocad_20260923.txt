@@ -1,0 +1,10 @@
+version 5.7.21
+vocabulario: 1613 actividades
+filas del plano: 9965
+huerfanas (filas): 52
+H	ALC-PLUVIAL	Canuela	ML	0	10
+H	ALC-PLUVIAL	Cabezal de descarga en concreto	UN	3	1
+H	RAMPA-PEATONAL	Suministro sardinel alto A-86 para rampas	UN	2	41
+conceptos distintos vinculados: 254
+FIN
+ERROR Function cancelled

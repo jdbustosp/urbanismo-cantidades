@@ -1,5 +1,31 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-23 15:10 America/Bogota — v5.7.21 las filas paramétricas ya no quedan huérfanas por la unidad
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base 9c33b9a; commit de esta entrega.
+
+Barrido de conexión AutoCAD-Excel sobre el maestro (9.965 filas del plano contra
+1.613 actividades del libro), corriendo el mismo emparejador del export sin
+escribir en el libro: `presupuesto/diagnosticos/conexion_autocad_20260923.txt`.
+
+- Antes: 220 filas huérfanas en 8 conceptos.
+- Causa principal: las filas PARAMÉTRICAS (URB_PARAMETRICAS) no llevan unidad;
+  `urb:ppto-param-um` la deduce del vocabulario y, cuando no la encuentra, emite
+  "?", con lo que la comparación de unidad las mandaba a huérfanas.
+- 5.7.21: si el concepto llega sin unidad, `urb:ppto-match` y
+  `urb:ppto-match-score` emparejan solo por capítulo y texto (para estas filas el
+  concepto ES el texto exacto del presupuesto).
+- Después: 52 filas en 3 conceptos, y los tres son datos, no código:
+  - "Canuela" (pluvial, 10 filas): faltaba la actividad en el libro (se agregó
+    "Cañuela prefabricada (suministro e instalación)" a 133.000/ML).
+  - "Suministro sardinel alto A-86 para rampas" (41 filas): la fila de rampa
+    peatonal estaba en ML y el plano cuenta unidades (se pasó a UN).
+  - "Cabezal de descarga en concreto" (1 fila): un cabezal del plano sin
+    diámetro; queda huérfano a propósito hasta que se digite.
+
+También se dejó `presupuesto/diagnosticos/barrido_unitarios_redes_20260923.tsv`:
+652 precios de redes húmedas y secas contra el IDU 2026-I.
+
 ## 2026-09-22 12:20 America/Bogota — v5.7.20 export de andenes sin XDATA de MT y capas de redes que se prendían solas
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 1f85f3f; commit de esta entrega.

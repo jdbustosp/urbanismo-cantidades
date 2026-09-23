@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.20")
+(setq *urb-version* "5.7.21")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -34195,14 +34195,21 @@
           (= item-cap capitulo)))))
 
 (defun urb:ppto-match (red um concepto vocab / capitulo words best best-n
-                       second item score exacto)
+                       second item score exacto sin-um)
   (setq capitulo (urb:ppto-caps-de red))
+  ;; 5.7.21 (barrido de conexion 2026-09-23): las filas PARAMETRICAS
+  ;; (URB_PARAMETRICAS) no traen unidad -- la tabla no tiene esa columna --
+  ;; y la comparacion de unidad las mandaba SIEMPRE a huerfanas (168 filas
+  ;; del maestro: loseta guia, toperol, M.O. de instalacion, corte y
+  ;; relleno de zona verde). Sin unidad se empareja solo por capitulo y
+  ;; texto, que para estas filas ES el texto exacto del presupuesto.
+  (setq sin-um (= (urb:safe-string um "") ""))
   ;; igualdad EXACTA de descripcion (caso de las actividades parametricas,
   ;; cuyo concepto ES el texto del ppto): gana directo, sin scoring
   (foreach item vocab
     (if (and (null exacto)
              (urb:ppto-cap-match-p (nth 0 item) capitulo)
-             (= (nth 1 item) (strcase um))
+             (or sin-um (= (nth 1 item) (strcase um)))
              (= (nth 2 item) concepto))
       (setq exacto item)))
   (if exacto
@@ -34210,12 +34217,13 @@
     (urb:ppto-match-score red um concepto vocab capitulo)))
 
 (defun urb:ppto-match-score (red um concepto vocab capitulo / words best
-                             best-n second item score)
+                             best-n second item score sin-um)
   (setq words (urb:ppto-words concepto))
+  (setq sin-um (= (urb:safe-string um "") ""))
   (setq best nil best-n 0 second 0.0)
   (foreach item vocab
     (if (and (urb:ppto-cap-match-p (nth 0 item) capitulo)
-             (= (nth 1 item) (strcase um)))
+             (or sin-um (= (nth 1 item) (strcase um))))
       (progn
         (setq score (urb:ppto-score words (nth 3 item)))
         (if (>= score 0.5)
