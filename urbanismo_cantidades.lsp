@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.21")
+(setq *urb-version* "5.7.22")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -35933,13 +35933,12 @@
                 id pini pfin etapa sub "M3" trit handle)
               (urb:ppto-row red "Suministro y colocacion de recebo B-200"
                 id pini pfin etapa sub "M3" rec handle)
-              ;; 5.7.14 (revision de redes humedas): el relleno se cobra
-              ;; COMPLETO en recebo B-200 importado (fila de arriba), asi
-              ;; que TODO lo excavado sale de la obra. El SOBRANTE_M3 del
-              ;; tramo era excavacion - relleno (suponia reusar el material)
-              ;; y dejaba sin presupuestar ~20.000 m3 en el maestro.
-              (urb:ppto-row red "Cargue transporte y disposicion de sobrantes"
-                id pini pfin etapa sub "M3" exc handle)
+              ;; 5.7.22 (pedido del usuario 2026-09-23): el retiro de
+              ;; sobrantes YA NO es una actividad aparte -- el cargue, el
+              ;; transporte y la disposicion final quedaron dentro del
+              ;; unitario de la excavacion mecanica. La fila de sobrantes
+              ;; (que desde 5.7.14 repetia el volumen de excavacion) se
+              ;; retira para no cobrar dos veces el mismo movimiento.
               (urb:ppto-row red "Entibado E-1A"
                 id pini pfin etapa sub "M2" (nth 0 ent) handle)
               (urb:ppto-row red "Entibado E-1B"

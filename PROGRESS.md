@@ -1,5 +1,27 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-23 17:00 America/Bogota — v5.7.22 el retiro de sobrantes queda dentro del unitario de excavación
+
+Agente: Claude. Equipo: BOG085CD119BDQN. Base f10cd16; commit de esta entrega.
+
+Pedido del usuario: quitar la actividad de retiro de sobrantes y dejar el
+cargue, el transporte y la disposición final dentro del valor unitario de la
+excavación mecánica.
+
+- El export de tramos de redes húmedas ya no emite
+  "Cargue transporte y disposicion de sobrantes" (desde 5.7.14 repetía el
+  volumen de la excavación).
+- En el libro, la actividad de sobrantes se borró en acueducto, sanitario,
+  pluvial, media tensión y alumbrado, y la excavación se renombró:
+  - redes húmedas: "Excavación mecánica en material común (incluye cargue,
+    transporte y disposición final)" 117.926 + 117.926 = 235.852 $/m3
+  - MT y AP: "... incluye cargue, transporte y disposición final"
+    118.952 + 106.000 = 224.952 $/m3
+- El concepto que emite el plano sigue siendo el mismo texto corto, que empareja
+  por puntaje con el nombre largo del libro (todas sus palabras están dentro).
+
+Balance de paréntesis del archivo verificado (0).
+
 ## 2026-09-23 15:10 America/Bogota — v5.7.21 las filas paramétricas ya no quedan huérfanas por la unidad
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 9c33b9a; commit de esta entrega.

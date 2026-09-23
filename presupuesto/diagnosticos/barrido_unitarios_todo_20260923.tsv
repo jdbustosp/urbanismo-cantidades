@@ -1,0 +1,1434 @@
+CATEGORIA	NOMBRE_LIBRO	UM	VU_LIBRO	MATCH_IDU	UM_IDU	VU_IDU	RATIO	PUNTAJE	BANDERA
+DEMOLICIONES	Demolición de pavimento asfáltico (Incluye cargue, transporte y disposición final)	M2	29181.9620105862	DEMOLICION PAVIMENTO ASFALTICO (ESPESOR VARIABLE. INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	M2	8838	3.3	0.82	caro frente a IDU
+DEMOLICIONES	Demolición de concreto hidráulico (Incluye cargue, transporte y disposición final)	M2	49442.6218483126	DEMOLICIÓN PISOS DE CONCRETO (ESPESOR VARIABLE HASTA 0.10 M. INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	M2	9583	5.16	0.63	caro frente a IDU
+DEMOLICIONES	Demolición de andenes (Incluye cargue, transporte y disposición final)	M2	15574.3834654349	DEMOLICION PAVIMENTO ASFALTICO (ESPESOR VARIABLE. INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	M2	8838	1.76	0.62	ok
+DEMOLICIONES	Demolición manual de sardinel existente (Incluye cargue, transporte y disposición final)	ML	8176	DEMOLICION MANUAL SARDINEL EXISTENTE (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	ML	8176	1	0.94	ok
+DEMOLICIONES	Demolición y reposición de calzada en pavimento flexible (Incluye estructura de pavimentos)	M2	494220.416756838					0.5	sin referencia
+DEMOLICIONES	Demolición y reposición de andenes (Incluye estructura de pavimentos)	M2	432761.412610333					0.22	sin referencia
+DEMOLICIONES	Implementación de Plan de manejo de tránsito (Incluye señalización)	ML	100612.152505191					0.18	sin referencia
+EXCAVACIONES Y RELLENOS	Descapote mecánico de material vegetal (Incluye cargue y retiro externo)	M2	7348.93268485577					0.46	sin referencia
+EXCAVACIONES Y RELLENOS	Compactación de subrasante (Incluye nivelación)	M2	1919	NIVELACION Y COMPACTACIÓN DE SUBRASANTE	M2	1919	1	1	ok
+EXCAVACIONES Y RELLENOS	Excavación mecánica en material común (Incluye cargue, transporte y disposición externa)	M3	117926	EXCAVACIÓN MECÁNICA EN MATERIAL COMÚN (INCLUYE CARGUE)	M3	5998	19.66	0.77	caro frente a IDU
+EXCAVACIONES Y RELLENOS	Excavación mecánica en material común (Incluye cargue, transporte y disposición interna)	M3	117926	EXCAVACIÓN MECÁNICA EN MATERIAL COMÚN (INCLUYE CARGUE)	M3	5998	19.66	0.77	caro frente a IDU
+EXCAVACIONES Y RELLENOS	Relleno con material seleccionado proveniente de la excavación	M3	48122	RELLENO EN MATERIAL SELECCIONADO PROVENIENTE DE LA EXCAVACIÓN (EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	M3	48122	1	0.71	ok
+EXCAVACIONES Y RELLENOS	Suministro e instalación de base granular BG-A	M3	255369	BASE GRANULAR CLASE A (BG_A) (SUMINISTRO, EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	M3	255369	1	0.57	ok
+EXCAVACIONES Y RELLENOS	Suministro e instalación de subbase granular SBG-A	M3	223251.402045504	SUBBASE GRANULAR SBG-A (SUMINISTRO, EXTENDIDO, NIVELACIÓN, HUMEDECIMIENTO Y COMPACTACIÓN CON VIBROCOMPACTADOR)	M3	221997	1.01	0.57	ok
+EXCAVACIONES Y RELLENOS	Suministro e instalación de sello en subbase granular SBG-A	M3	223251.402045504					0.53	sin referencia
+EXCAVACIONES Y RELLENOS	Suministro e instalación de base granular BG-B	M3	255369	BASE GRANULAR CLASE A (BG_A) (SUMINISTRO, EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	M3	255369	1	0.57	ok
+EXCAVACIONES Y RELLENOS	Suministro e instalación de subbase granular SBG-B	M3	217337.457620457	SUBBASE GRANULAR SBG-A (SUMINISTRO, EXTENDIDO, NIVELACIÓN, HUMEDECIMIENTO Y COMPACTACIÓN CON VIBROCOMPACTADOR)	M3	221997	0.98	0.57	ok
+EXCAVACIONES Y RELLENOS	Suministro e instalación de sello en subbase granular SBG-B	M3	217337.457620457					0.53	sin referencia
+EXCAVACIONES Y RELLENOS	Suministro e instalación de base granular BG-C	M3	255369	BASE GRANULAR CLASE A (BG_A) (SUMINISTRO, EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	M3	255369	1	0.57	ok
+EXCAVACIONES Y RELLENOS	Suministro e instalación de subbase granular SBG-C	M3	211423.513195411	SUBBASE GRANULAR SBG-A (SUMINISTRO, EXTENDIDO, NIVELACIÓN, HUMEDECIMIENTO Y COMPACTACIÓN CON VIBROCOMPACTADOR)	M3	221997	0.95	0.57	ok
+EXCAVACIONES Y RELLENOS	Suministro e instalación de sello en subbase granular SBG-C	M3	211423.513195411					0.53	sin referencia
+EXCAVACIONES Y RELLENOS	Relleno con material seleccionado B-200	M3	101915.14034583					0.46	sin referencia
+EXCAVACIONES Y RELLENOS	Suministro y colocación de piedra rajón y/o media zonga	M3	144708.17426594					0.4	sin referencia
+ASFALTOS	Suministro, extendida y compactación de Base Asfáltica MD-20	M3	1058203.95485693					0.42	sin referencia
+ASFALTOS	Suministro, extendida y compactación de Rodadura Asfáltica MD-12	M3	1112765.68478365					0.38	sin referencia
+ASFALTOS	Suministro, extendida y compactación de Rodadura Asfáltica MD-13	M3	1173933.33955304					0.38	sin referencia
+ASFALTOS	Grano de caucho reciclado	M3	296861.779806465					0.22	sin referencia
+ASFALTOS	Suministro y colocación de Emulsión Asfáltica de Rompimiento Lento CRL-1 (Imprimación)	M2	3721	IMPRIMACION CON EMULSION ASFALTICA CRL-0 (SUMINISTRO, BARRIDO SUPERFICIE Y RIEGO MECANICO)	M2	3384	1.1	0.59	ok
+ASFALTOS	Suministro y colocación de Emulsión Asfáltica de Rompimiento rápido CRR-2 (Riego de liga)	M2	4114	RIEGO DE LIGA CON EMULSION ASFALTICA CRR-1 (SUMINISTRO, BARRIDO SUPERFICIE Y RIEGO MECANICO)	M2	3820	1.08	0.63	ok
+ASFALTOS	Transporte de equipos para asfaltos	VJ	3534142.94493					0	sin referencia
+ACABADOS Y PREFABRICADOS	Suministro e instalación de sardinel A-10	ML	110328.419230028	TUBERÍA HDPE 10" (SUMINISTRO E INSTALACIÓN)	ML	280316	0.39	0.67	BARATO frente a IDU
+ACABADOS Y PREFABRICADOS	Suministro e instalación de bordillo A-80	ML	97654.3501538502					0.55	sin referencia
+ACABADOS Y PREFABRICADOS	Suministro e instalación de bordillo para contenedor	ML	70600.7016290592					0.55	sin referencia
+ACABADOS Y PREFABRICADOS	Suministro e instalación de adoquín de arcilla color natural 20x10x6cm (Incluye base de arena y sello)	M2	85309	PISO EN ADOQUIN DE ARCILLA 20X10X6CM (SUMINISTRO E INSTALACIÓN. INCLUYE BASE 3CM ARENA NIVELACION Y ARENA DE SELLO)	M2	85309	1	0.73	ok
+ACABADOS Y PREFABRICADOS	Cenefa lineal en loseta prefabricada guía color natural A-56 (0,40x0,40)m	ML	53978.3736626223					0.34	sin referencia
+ACABADOS Y PREFABRICADOS	Cenefa lineal en loseta prefabricada alerta color natural A-55 (0,40x0,40)m	ML	34645					0.4	sin referencia
+ACABADOS Y PREFABRICADOS	Suministro e instalación de sardinel especial A-100 para rampa	UN	68170	SARDINEL ESPECIAL A100 PARA RAMPA TIPO A (SUMINISTRO E INSTALACIÓN. INCLUYE 3CM MORTERO 1:5)	UN	69768	0.98	0.71	ok
+ACABADOS Y PREFABRICADOS	Suministro e instalación de sardinel bajo A-85 para rampa	ML	61413	SARDINEL BAJO A85 PARA RAMPAS (SUMINISTRO E INSTALACIÓN. INCLUYE 3CM MORTERO 1:5)	ML	72101	0.85	0.57	ok
+ACABADOS Y PREFABRICADOS	Suministro e instalación de sardinel alto A-86 para rampas	ML	65944	SARDINEL PREFABRICADO ALTO RAMPAS A86 (SUMINISTRO E INSTALACIÓN. INCLUYE 3CM MORTERO DE NIVELACIÓN 1:5)	ML	68580	0.96	0.62	ok
+ACABADOS Y PREFABRICADOS	Suministro e instalación de pieza remate A-105 para rampa	UN	102699	PIEZA REMATE A105 PARA RAMPA TIPO A (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	UN	102699	1	0.71	ok
+ACABADOS Y PREFABRICADOS	Suministro y construcción de remate de rampa en concreto fundido en sitio	M2	87656.4870352203					0.4	sin referencia
+ACABADOS Y PREFABRICADOS	Losa de concreto MR-40MPa para rampa vehicular reforzada e=0,17m	M2	311626.035436263					0.2	sin referencia
+ACABADOS Y PREFABRICADOS	Pompeyanos con piso en concreto MR-40MPa reforzado e=0,15m (Incluye estampado, suministro y colocación de concreto, moldes, desmoldante, curado, corte y sellado de juntas)	M2	201952	PISO EN CONCRETO MR 41 (280 Kg/Cm2) GRAVA 1" 28 DIAS, ESTAMPADO e=0.10m (INCLUYE SUMINISTRO Y COLOCACIÓN DE CONCRETO, JUEGO DE MOLDES,  DESMOLDANTE EN POLVO, CURADOR PARA CONCRETO, CORTE Y SELLADO DE JUNTAS.).	M2	201952	1	0.59	ok
+GEOTEXTILES	Suministro y colocación de geotextil Tejido 2100	M2	10971.9085275392					0.4	sin referencia
+GEOTEXTILES	Suministro y colocación de geotextil Tejido 2400	M2	11840.4921205432					0.4	sin referencia
+GEOTEXTILES	Suministro e instalación de geotextil NT 1600	M2	7973.6721444924					0.44	sin referencia
+GEOMEMBRANAS	Suministro e instalación de Geomembrana (Incluye excavación)	M2	44856.42968565					0.55	sin referencia
+GEOMEMBRANAS	Suministro e instalación de geomalla en fibra de vidrio	M2	10928.7933428968					0.44	sin referencia
+GEOMEMBRANAS	Suministro y colocación de geomalla biaxial	M2	16862.1843759949					0.32	sin referencia
+FILTRO	Suministro e instalación de filtro tipo francés	ML	108740.603429658	TUBERIA PVC PARA DRENAJE D=2 1/2" CON FILTRO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	30485	3.57	0.6	caro frente a IDU
+FILTRO	Suministro e instalación de filtro tipo francés (Ancho=0,30m. Incluye tubo PVC perforado Ø=4", geotextil, arena lavada + gravilla 1/2" 0,60:0,40)	ML	240149.216304976					0.38	sin referencia
+MOBILIARIO	Suministro e instalación de dos canecas M-121	UN	1658328.612621					0.46	sin referencia
+MOBILIARIO	Suministro e instalación de banca en concreto con espaldar M-30	UN	1148590.20982495	BANCA EN CONCRETO TIPO M40 (SUMINISTRO E INSTALACIÓN)	UN	276201	4.16	0.73	caro frente a IDU
+MOBILIARIO	Suministro e instalación de banca L=2,06m (CIO106682)	UN	2126100.67624826	BANCA EN CONCRETO TIPO M40 (SUMINISTRO E INSTALACIÓN)	UN	276201	7.7	0.6	caro frente a IDU
+MOBILIARIO	Suministro y construcción de contenedor de raíces (Dimensiones: 2,0x1,2m). Incluye tierra negra	UN	2059073	CONTENEDOR DE RAICES TIPO B23 (TIPO D) (2.00M X 2.00M X 1.40M). (INCLUYE FILTRO EN GRAVILLA, TIERRA NEGRA. SUMINISTRO Y CONSTRUCCIÓN).	UN	2059073	1	0.57	ok
+MOBILIARIO	Suministro e instalación de protector de árbol de dos tubos Tipo M-91	UN	286851	PROTECTOR DE ARBOL DE DOS TUBOS TIPO M91 (INCLUYE SUMINISTRO E INSTALACIÓN. NO INCLUYE BASES)	UN	286851	1	0.8	ok
+MOBILIARIO	Suministro e instalación de bolardo alto en hierro Tipo M-63	UN	243534.031910033					0.5	sin referencia
+PERFILES VIALES	Perfil 1 - Vía peatonal (ancho=15,00m)	M2	246800.864806011					0.19	sin referencia
+PERFILES VIALES	Área de calzada perfil 2 - Vía tipo V-7	M2	456616.99425814					0.29	sin referencia
+PERFILES VIALES	Área de andén perfil 2 (ancho=3,25m) - Vía tipo V-7	M2	412225.075704452					0.21	sin referencia
+PERFILES VIALES	Área de calzada perfil 3 - Vía tipo V-7	M2	446871.735266087					0.29	sin referencia
+PERFILES VIALES	Área de andén perfil 3 (ancho=3,00m) - Vía tipo V-7	M2	418707.955243222					0.2	sin referencia
+PERFILES VIALES	Área de andén perfil 3 (ancho=3,50m) - Vía tipo V-7	M2	373780.354614989					0.2	sin referencia
+PERFILES VIALES	Área de andén perfil 4 (ancho=2,80m) - Vía tipo V-4	M2	328113.023934078					0.13	sin referencia
+PERFILES VIALES	Área de ciclorruta perfil 4 - Vía tipo V-4	M2	252330.943586567					0.18	sin referencia
+PERFILES VIALES	Área de andén perfil 4 (ancho=1,20m) - Vía tipo V-4 PFP	M2	530629.773581377					0.19	sin referencia
+PERFILES VIALES	Área de ciclorruta perfil 4 - Vía tipo V-4 PFP	M2	252330.943586567					0.17	sin referencia
+PERFILES VIALES	Área de calzada perfil 5 - Vía tipo V-4E	M2	476086.536457312					0.25	sin referencia
+PERFILES VIALES	Área de andén perfil 5 contra calzada (ancho=2,80m) - Vía tipo V-4E	M2	464778.525088081					0.17	sin referencia
+PERFILES VIALES	Área de andén perfil 5 contra ciclorruta (ancho=2,80m) - Vía tipo V-4E	M2	372539.236142755					0.14	sin referencia
+PERFILES VIALES	Área de anden perfil 5 (ancho=1,20m) - Vía tipo V-4E	M2	515861.786533767					0.19	sin referencia
+PERFILES VIALES	Área de ciclorruta perfil 5 - Vía tipo V-4E	M2	220699.435157635					0.17	sin referencia
+PERFILES VIALES	Área de separador perfil 5 - Vía tipo V-4E	M2	34697.3687906929					0.13	sin referencia
+PERFILES VIALES	Área de calzada perfil 6 - Vía tipo V-4E	M2	471898.163562354					0.25	sin referencia
+PERFILES VIALES	Área de andén perfil 6 (ancho=2,80m) - Vía tipo V-4E	M2	452119.599943598					0.13	sin referencia
+PERFILES VIALES	Área de andén perfil 6 (ancho=4,00m) - Vía tipo V-4E	M2	302545.340478097					0.19	sin referencia
+PERFILES VIALES	Área de ciclorruta perfil 6 - Vía tipo V-4E	M2	349252.227872035					0.17	sin referencia
+PERFILES VIALES	Área de separador perfil 6 - Vía tipo V-4E	M2	34697.3687906929					0.13	sin referencia
+PERFILES VIALES	Área de calzada perfil 7 - Vía tipo V-4E	M2	473704.009626998					0.25	sin referencia
+PERFILES VIALES	Área de andén perfil 7 (ancho=2,80m) - Vía tipo V-4E	M2	455745.860606097					0.13	sin referencia
+PERFILES VIALES	Área de andén perfil 7 (ancho=4,00m) - Vía tipo V-4E	M2	302545.340478097					0.19	sin referencia
+PERFILES VIALES	Área de ciclorruta perfil 7 - Vía tipo V-4E	M2	349252.227872035					0.17	sin referencia
+PERFILES VIALES	Área de separador perfil 7 - Vía tipo V-4E	M2	34697.3687906929					0.13	sin referencia
+PERFILES VIALES	Área de calzada perfil 8 - Vía tipo V-4E	M2	438465.109338343					0.25	sin referencia
+PERFILES VIALES	Área de andén perfil 8 contra calzada (ancho=2,80m) - Vía tipo V-4E	M2	443020.754055132					0.17	sin referencia
+PERFILES VIALES	Área de andén perfil 8 contra ciclorruta (ancho=2,80m) - Vía tipo V-4E	M2	350398.827596513					0.14	sin referencia
+PERFILES VIALES	Área de anden perfil 8 (ancho=1,20m) - Vía tipo V-4E	M2	496467.74447813					0.19	sin referencia
+PERFILES VIALES	Área de ciclorruta perfil 8 - Vía tipo V-4E	M2	220699.435157635					0.17	sin referencia
+PERFILES VIALES	Área de separador perfil 8 - Vía tipo V-4E	M2	34697.3687906929					0.13	sin referencia
+PERFILES VIALES	Área de calzada perfil 8 - Vía tipo V-4E PFP	M2	462660.101263523					0.22	sin referencia
+PERFILES VIALES	Área de andén perfil 8 contra calzada (ancho=2,80m) - Vía tipo V-4E PFP	M2	443020.754055132					0.15	sin referencia
+PERFILES VIALES	Área de andén perfil 8 contra ciclorruta (ancho=2,80m) - Vía tipo V-4E PFP	M2	350398.827596513					0.13	sin referencia
+PERFILES VIALES	Área de anden perfil 8 (ancho=1,20m) - Vía tipo V-4E PFP	M2	496467.74447813					0.19	sin referencia
+PERFILES VIALES	Área de ciclorruta perfil 8 - Vía tipo V-4E PFP	M2	220699.435157635					0.15	sin referencia
+PERFILES VIALES	Área de separador perfil 8 - Vía tipo V-4E PFP	M2	34697.3687906929					0.12	sin referencia
+PERFILES VIALES	Área de bocacalle del perfil 3 con Carrera 123	M2	481742.654260303					0.13	sin referencia
+PERFILES VIALES	Área de bocacalle del perfil 5 con Carrera 123	M2	498049.371691575					0.13	sin referencia
+PERFILES VIALES	Área de pompeyano perfil 6 -Vía tipo V-4E	M2	667338.737137441					0.13	sin referencia
+PERFILES VIALES	Esquina con rampas peatonales (Incluye estructura de pavimentos)	M2	274444.097373617					0.17	sin referencia
+PERFILES VIALES	Rampa vehicular (Incluye estructura de pavimentos)	M2	533397.355234591					0.14	sin referencia
+PERFILES VIALES	Paso peatonal seguro	M2	324880.195778451					0.27	sin referencia
+SUMINISTRO Y APLICACIÓN DE IMPRIMANTE	Suministro y aplicación de pintura de tráfico y/o imprimante negro a=15cm	ML	2021.80162164957	PINTURA DE TRÁFICO - IMPRIMANTE NEGRO A=15CM. SUMINISTRO Y APLICACIÓN.	ML	4735	0.43	1	BARATO frente a IDU
+SUMINISTRO Y APLICACIÓN DE IMPRIMANTE	Suministro y aplicación de pintura de tráfico y/o imprimante negro	M2	29829	PINTURA DE TRÁFICO - IMPRIMANTE NEGRO. SUMINISTRO Y APLICACIÓN.	M2	29829	1	1	ok
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color blanco - Pintura acrílica (a=0,12m)	ML	2611.49376129736					0.36	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,12m)	ML	8845.38209471687					0.3	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color amarillo - Pintura acrílica (a=0,12m)	ML	2611.49376129736					0.36	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,12m)	ML	8845.38209471687					0.27	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color blanco - Pintura acrílica (a=0,15m)	ML	3264.3672016217					0.36	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,15m)	ML	10083.7355879772					0.32	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color amarillo - Pintura acrílica (a=0,15m)	ML	3264.3672016217					0.36	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,15m)	ML	10083.7355879772					0.32	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color blanco - Pintura acrílica (a=0,20m)	ML	4361.19458136659					0.3	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,20m)	ML	13444.9807839696					0.24	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color amarillo - Pintura acrílica (a=0,20m)	ML	4361.19458136659					0.3	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,20m)	ML	13444.9807839696					0.24	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea discontinua de color blanco 3m x 5m - Pintura acrílica (a=0,12m)	ML	979.310160486511					0.33	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea discontinua de color blanco 3m x 5m - Pintura de dos componentes metil metacrilato (a=0,12m)	ML	3317.01828551883					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea discontinua de color blanco 1m x 1m - Pintura acrílica (a=0,20m)	ML	2180.5972906833					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea discontinua de color blanco 1m x 1m - Pintura de dos componentes metil metacrilato (a=0,20m)	ML	6722.49039198482					0.23	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color blanco - Pintura de dos componentes metil metacrilato (a=0,25m)	M2	73290.3087847969					0.28	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color naranja - Pintura de dos componentes metil metacrilato (a=0,30m)	M2	82612.3995979074					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color amarillo - Pintura acrílica (a=0,30m)	M2	27799.7722976816					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea continua de color amarillo - Pintura de dos componentes metil metacrilato (a=0,30m)	M2	73290.3087847969					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de frente - Pintura acrílica	M2	27799.7722976816					0.31	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de frente - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.31	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha a la derecha - Pintura acrílica	M2	27799.7722976816					0.31	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha a la derecha - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.31	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha a la izquierda - Pintura acrílica	M2	27799.7722976816					0.31	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha a la izquierda - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.31	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de frente o a la derecha - Pintura acrílica	M2	27799.7722976816					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de frente o a la derecha - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de frente o a la izquierda - Pintura acrílica	M2	27799.7722976816					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de frente o a la izquierda - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de frente, a la derecha o a la izquierda - Pintura acrílica	M2	27799.7722976816					0.27	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de frente, a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.27	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha a la derecha o a la izquierda - Pintura acrílica	M2	27799.7722976816					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha a la derecha o a la izquierda - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de terminación de carril - Pintura acrílica	M2	27799.7722976816					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Flecha de terminación de carril - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Ceda el paso para vehiculos - Pintura acrílica	M2	27799.7722976816					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Ceda el paso para vehiculos - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea de ceda el paso (0,4m x 0,8m) - Pintura acrílica	M2	27799.7722976816					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea de ceda el paso (0,4m x 0,8m) - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea de Pare - Pintura acrílica (a=0,6m)	M2	27799.7722976816					0.3	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea de Pare - Pintura de dos componentes metil metacrilato (a=0,6m)	M2	73290.3087847969					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea cebreada para paso de peatones - Pintura acrílica (a=0,4m)	M2	27799.7722976816					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Línea cebreada para paso de peatones (a=0,4m) - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Pictograma de cruce peatonal - Pintura acrílica	M2	27799.7722976816					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Pictograma de cruce peatonal - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Demarcación máxima velocidad permitida (20 km/h) - Pintura acrílica	M2	27799.7722976816					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Demarcación máxima velocidad permitida (20 km/h) - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.24	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Cruce ciclorruta por calzada (0,4m x 0,4m) - Pintura acrílica	M2	27799.7722976816					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Cruce ciclorruta por calzada (0,4m x 0,4m) - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Cruce ciclorruta por calzada (Color azul) - Pintura acrílica	M2	27799.7722976816					0.26	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Cruce ciclorruta por calzada (Color azul) - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Demarcación de transición en el ancho de pavimento (a=1,00m) - Pintura acrílica	M2	27799.7722976816					0.26	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Demarcación de transición en el ancho de pavimento (a=1,00m) - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Sentido del tránsito en pompeyanos (Triángulos) - Pintura acrílica	M2	27799.7722976816					0.27	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Sentido del tránsito en pompeyanos (Triángulos) - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.27	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Demarcación de rampas de pompeyano (Color amarillo) - Pintura acrílica	M2	27799.7722976816					0.26	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Demarcación de rampas de pompeyano (Color amarillo) - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.25	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Demarcación de letras - Pintura acrílica	M2	27799.7722976816					0.31	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA VIAL	Demarcación de letras - Pintura de dos componentes metil metacrilato	M2	73290.3087847969					0.31	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL	Línea continua de color blanco para ciclorruta - Pintura acrílica (a=0,10m)	ML	2176.24480108113					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL	Línea continua de color amarillo para ciclorruta - Pintura acrílica (a=0,10m)	ML	2176.24480108113					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL	Línea discontinua de color blanco para ciclorruta 1m x 2m - Pintura acrílica (a=0,10m)	ML	725.414933693712					0.24	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL	Línea discontinua de color amarillo para ciclorruta 1m x 2m - Pintura acrílica (a=0,10m)	ML	725.414933693712					0.24	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL	Flecha de frente para ciclocarril - Pintura acrílica	M2	27799.7722976816					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL	Pictograma de bicicleta - Pintura acrílica	M2	27799.7722976816					0.31	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL	Ceda el paso para ciclorruta - Pintura acrílica	M2	27799.7722976816					0.29	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL	Línea de Pare - Pintura acrílica (a=0,2m)	M2	27799.7722976816					0.3	sin referencia
+SUMINISTRO Y APLICACIÓN DE PINTURA PARA CICLOCARRIL	Línea de ceda el paso (0,2m x 0,2m) - Pintura acrílica	M2	27799.7722976816					0.25	sin referencia
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Banda sonora en agregado pétreo y material epóxico (a=0,40m)	M2	539147.099106552					0.31	sin referencia
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Tacha reflectiva bidireccional (Línea de borde)	UN	21787	TACHA REFLECTIVA BIDIRECCIONAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	21787	1	0.6	ok
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Tacha reflectiva bidireccional (Línea central)	UN	21787	TACHA REFLECTIVA BIDIRECCIONAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	21787	1	0.6	ok
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Tacha reflectiva bidireccional	UN	21787	TACHA REFLECTIVA BIDIRECCIONAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	21787	1	0.75	ok
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Segregador de bicicleta e hito (3 y 1 respectivamente)	UN	101890.377557715					0.15	sin referencia
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Segregador de bicicleta (Tachón de polipropileno de alto impacto con estructura de refuerzo y elementos reflectivos. 40,5cm x 15,0cm x 8,5cm)	UN	98899.7959923581	SEGREGADOR BICICLETA (TACHON PLASTICO O CAUCHO ALTA RESISTENCIA COMO POLIPROPILENO DE ALTO IMPACTO, CON ESTRUCTURA DE REFUERZO, ELEMENTOS REFLECTIVOS DE ALTA EFICIENCIA. TIPO TRANSMILENIO 40.5CMX15CMX8.5CM). SUMIN. E INSTAL.	UN	76282	1.3	0.68	ok
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Suministro e instalación de hito	UN	94206	UNION GIBAULT D=3" (SUMINISTRO E INSTALACIÓN)	UN	204994	0.46	0.57	BARATO frente a IDU
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Suministro e instalación de estoperol plástico	UN	9856.28290554166					0.5	sin referencia
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Suministro e instalación de resalto en caucho	ML	453175.34752818					0.5	sin referencia
+SUMINISTRO E INSTALACIÓN DE DISPOSITIVOS	Suministro e instalación de resalto en concreto	ML	499385.000547444	TALÓN EN CONCRETO DE 3000 PSI (SUMINISTRO E INSTALACIÓN).	ML	107810	4.63	0.6	caro frente a IDU
+RETIRO DE SEÑALIZACIÓN HORIZONTAL	Borrado mecánico de demarcación existente obsoleta	M2	56914.7351137464					0.4	sin referencia
+RETIRO DE SEÑALIZACIÓN HORIZONTAL	Retiro de segregador de bicicleta	UN	25962.9015020542					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Señal vertical (0,60mx0,60m)	UN	514697	DESMONTE SEÑAL VERTICAL.	UN	6844	75.2	0.57	caro frente a IDU
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Señal vertical SR-28 / Plaqueta	UN	489804					0.5	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Señal vertical SP-46A / SR-30	UN	434882					0.53	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Señal vertical Paradero SITP SI-08 / Plaqueta	UN	1000270.31002073					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Señal vertical SI-07A	UN	673479	DESMONTE SEÑAL VERTICAL.	UN	6844	98.4	0.57	caro frente a IDU
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Señal vertical ubicación de cruce peatonal SP-46	UN	765134.422667676					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Señal vertical ubicación de cruce ciclistas SP-59A	UN	765134.422667676					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Señal vertical Chevrón	UN	479154	DESMONTE SEÑAL VERTICAL.	UN	6844	70.01	0.67	caro frente a IDU
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Suministro e instalación de paradero de buses Tipo M-10	UN	19799813.1082519	UNION GIBAULT D=10" (SUMINISTRO E INSTALACIÓN)	UN	694163	28.52	0.6	caro frente a IDU
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA	Señal vertical ciclorruta sencilla (0,45m x 0,45m)	UN	797760					0.47	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA	Señal vertical ciclorruta doble (0,45m x 0,45m)	UN	797760					0.47	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA	Señal vertical ciclorruta sencilla "Inicio ciclorruta"	UN	656243.109693756					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA	Señal vertical ciclorruta sencilla "Fin ciclorruta"	UN	656243.109693756					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA	Señal vertical SPC-01 / SPC-01	UN	599695					0.47	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA	Señal vertical SPC-01 / SRC-01	UN	800296.475236288					0.47	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA	Señal vertical SPB-03	UN	656243.109693756	DESMONTE SEÑAL VERTICAL.	UN	6844	95.89	0.57	caro frente a IDU
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN PARA CICLORRUTA	Señal vertical SPB-04	UN	656243.109693756	DESMONTE SEÑAL VERTICAL.	UN	6844	95.89	0.57	caro frente a IDU
+RETIRO DE SEÑALIZACIÓN	Retiro de señales verticales	UN	188821.101833122					0.33	sin referencia
+ACABADOS Y PREFABRICADOS	Suministro e instalación de adoquín ecológico en concreto de 40x40x8cm (Incluye 0,02m de tierra y grama)	M2	150053	ADOQUIN ECOLOGICO EN CONCRETO DE 40 X 40 X 8CM. SUMINISTRO E INSTALACION. (INCLUYE SUMINISTRO, EXTENDIDO, NIVELACIÓN Y COMPACTACIÓN DE RECEBO E=0,15M, 0,02M DE TIERRA, GRAMA Y MANO DE OBRA)	M2	150053	1	0.57	ok
+EMPRADIZACIÓN Y ARBORIZACIÓN	Empradización y conformación	M2	17483.1332914191					0.4	sin referencia
+EMPRADIZACIÓN Y ARBORIZACIÓN	Suministro e instalación de árbol	UN	172584.430346137	PROTECTOR DE ARBOL TIPO M90 (INCLUYE SUMINISTRO E INSTALACIÓN. NO INCLUYE BASES)	UN	1048451	0.16	0.67	BARATO frente a IDU
+DRENAJE	Drenaje	M2	8256.06001214466					0	sin referencia
+ZONAS VERDES Y PARQUES	Parque 1	M2	347210.914872589					0	sin referencia
+ZONAS VERDES Y PARQUES	Parque 2	M2	347210.914872589					0	sin referencia
+ZONAS VERDES Y PARQUES	Parque 3	M2	347210.914872589					0	sin referencia
+ZONAS VERDES Y PARQUES	Parque en vía 2 (V-7)	M2	347210.914872589					0	sin referencia
+ZONAS VERDES Y PARQUES	Área de ciclorruta - Parque 3	M2	486294.094946592					0.2	sin referencia
+CONTROLES AMBIENTALES	Área de ciclorruta - Control ambiental	M2	349252.227872035					0.25	sin referencia
+CONTROLES AMBIENTALES	Área de zona verde - Control ambiental	M2	38537.8870488968					0.22	sin referencia
+ZMPA	Área sendero peatonal - ZMPA	M2	603423.425899566					0.14	sin referencia
+ZMPA	Área sendero peatonal - Parque en ZMPA	M2	603423.425899566					0.13	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Excavación manual en material común (No incluye cargue, transporte ni disposición)	M3	52405.9326346062	EXCAVACIÓN MANUAL EN MATERIAL COMÚN (INCL CARGUE, TRANSPORTE Y DISPOSICION FINAL)	M3	117926	0.44	0.82	BARATO frente a IDU
+CIMENTACIÓN REDES HIDROSANITARIAS	Cargue y retiro externo de sobrantes de la excavación manual	M3	56603.2078892225					0.55	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Cargue y retiro interno de sobrantes de la excavación manual	M3	17231.1564401149					0.55	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Relleno con arena de peña	M3	182185					0.55	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Suministro y colocación de recebo	M3	101915.14034583					0.5	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Suministro y colocación de triturado 3/4	M3	178829	RELLENO EN TRITURADO DE 3/4`` (INCLUYE TRANSPORTE, SUMINISTRO, EXTENDIDO MANUAL Y COLOCACIÓN)	M3	178829	1	0.6	ok
+CIMENTACIÓN REDES HIDROSANITARIAS	Suministro e instalación de subbase granular tipo B-400	M3	134047	RELLENO PARA REDES EN SUBBASE GRANULAR B-400 (SUMINISTRO, EXTENDIDO, HUMEDECIMIENTO Y COMPACTACIÓN)	M3	134047	1	0.57	ok
+CIMENTACIÓN REDES HIDROSANITARIAS	Instalación de Tubería de acueducto PVC	PULG	2541.76357140814					0	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Instalación de tubería de alcantarillado	PULG	3558.4689999714					0	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Instalación de tubería de alcantarillado en concreto	PULG	4260.40765318736					0	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Entibado para excavaciones <=3m	M2	51958.7110402116					0.29	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Entibado para excavaciones >3m	M2	125356.271004673					0.29	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Cinta de señalización	ML	1094					0.5	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Prueba hidrostática para tubería (Incluye desinfección)	ML	19893.1469227118					0.29	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Prueba de hermeticidad	ML	15750.1036971938					0.08	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Inspección con cámara para tubería	ML	12681.4681444941					0.33	sin referencia
+CIMENTACIÓN REDES HIDROSANITARIAS	Transporte de tubería en concreto	KG	48.526501205385					0.12	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Suministro e instalación base, cono y tapa para pozo de inspección	UN	6292914.64494694	TAPA PARA POZO DE INSPECCIÓN, D=0.70 M. INCLUYE SUMINISTRO E INSTALACIÓN.	UN	284083	22.15	0.77	caro frente a IDU
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Suministro e instalación cono y tapa para pozo de inspección	UN	4383706.73966559	TAPA PARA POZO DE INSPECCIÓN, D=0.70 M. INCLUYE SUMINISTRO E INSTALACIÓN.	UN	284083	15.43	0.83	caro frente a IDU
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Anillo en concreto prefabricado	ML	1916374.23154609					0.25	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Cámara en concreto (Diám.>=36")	UN	62030724.8981993					0.22	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Cámara en concreto (Diám.<36"-Prof.>7m)	UN	22901780.4050841					0.18	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Cámara de caída	UN	3896089.76065249	CÁMARA DE CAIDA D=8" H=1.86M (INCLUYE SUMINISTRO E INSTALACIÓN)	UN	1260007	3.09	0.57	caro frente a IDU
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Suministro e instalación de sumidero	UN	6186409	UNION GIBAULT D=3" (SUMINISTRO E INSTALACIÓN)	UN	204994	30.18	0.57	caro frente a IDU
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Cabezal de entrega	UN	37186137.0100324					0.14	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Conexión de tramos nuevos a pozos existentes	UN	1220574.03567587					0.17	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Conexión de tramos existentes a pozos nuevos	UN	1220574.03567587					0.17	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Demolición de tubería en concreto (Incluye cargue, transporte y disposición final)	ML	26791.6986719806	DEMOLICION MANUAL SARDINEL EXISTENTE (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	ML	8176	3.28	0.62	caro frente a IDU
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Demolición de pozos de inspección (Incluye cargue, transporte y disposición final)	UN	848000.854594823	LIMPIEZA DE POZOS (INCLUYE CARGUE, RETIRO Y DISPOSICIÓN FINAL DE SOBRANTES)	UN	121246	6.99	0.57	caro frente a IDU
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Construcción de biofiltros	UN	28086737.5					0.25	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	M.O. Construcción de cañuela en concreto	ML	132627					0.31	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Concreto 3.000 psi	M3	503160					0.44	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Acero de refuerzo	KG	6043					0.44	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Alambre negro	KG	5347.71482					0.05	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Construcción de cañuela en concreto sección 0,60m x 0,40m	ML	554834.163443218					0.25	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Sistema Ramming 14" 	ML	2217728.793					0.25	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Sistema Ramming 16" 	ML	2534547.192					0.25	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Sistema Ramming 18" 	ML	2851365.591					0.2	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Sistema Ramming 20" 	ML	3168183.99					0.2	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Sistema Ramming 32" 	ML	5069094.384					0.22	sin referencia
+ESTRUCTURAS DE CONCRETO Y MAMPOSTERÍA	Caja de lanzamiento para red de Alcantarillado	UN	27269089.5822087					0.2	sin referencia
+RED DE ACUEDUCTO	Tapón 1,1/2"	UN	35024.7209400227					0.4	sin referencia
+RED DE ACUEDUCTO	Tapón 2"	UN	85211.5118993448					0.4	sin referencia
+RED DE ACUEDUCTO	Tapón 2,1/2"	UN	135510.113878592					0.4	sin referencia
+RED DE ACUEDUCTO	Tapón 4"	UN	293052.33051294					0.4	sin referencia
+RED DE ACUEDUCTO	Atraques	UN	285243.395656796					0	sin referencia
+RED DE ACUEDUCTO	Válvula 1,1/2"	UN	1358452.50588645					0.4	sin referencia
+RED DE ACUEDUCTO	Válvula 2"	UN	1501208.7730039					0.4	sin referencia
+RED DE ACUEDUCTO	Válvula 2,1/2"	UN	1972963.95020208					0.4	sin referencia
+RED DE ACUEDUCTO	Válvula 4"	UN	2729315					0.4	sin referencia
+RED DE ACUEDUCTO	Estación reguladora de presión 12"	UN	234756286.667175					0.24	sin referencia
+RED DE ACUEDUCTO	Hidrante 6"	UN	15270446.77672					0.25	sin referencia
+RED DE ACUEDUCTO	Conexión a red existente de acueducto Ø6"x12"	UN	9652085.9915016					0.22	sin referencia
+RED DE ACUEDUCTO	Conexión a red existente de acueducto Ø8"x12"	UN	9652085.9915016					0.22	sin referencia
+RED DE ACUEDUCTO	Retiro de red existente PVC Ø=6"	ML	4106.74837852167					0.4	sin referencia
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería tubería PVC 1/2" RDE 13.5	ML	4134.46761771406	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	0.16	0.83	BARATO frente a IDU
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería tubería PVC 3/4" RDE 21	ML	10115	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	0.38	1	BARATO frente a IDU
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería tubería PVC 1" RDE 21	ML	12748	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	0.48	1	BARATO frente a IDU
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 1,1/2" RDE 21	ML	20615	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	0.77	0.91	ok
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 2" RDE 21	ML	26617	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	1	0.91	ok
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 2,1/2" RDE 21	ML	36526	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	1.37	0.91	ok
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 3" RDE 21	ML	59868	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	2.25	0.91	caro frente a IDU
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 4" RDE 21	ML	76083	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	2.86	0.91	caro frente a IDU
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 6" RDE 21	ML	151759	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	5.7	0.91	caro frente a IDU
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 8" RDE 21	ML	250672	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	9.42	0.91	caro frente a IDU
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 10" RDE 21	ML	390190	TUBERIA PVC D=10" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	390190	1	0.92	ok
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 12" RDE 21	ML	533659	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	533659	1	0.92	ok
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 14" RDE 21	ML	641522	TUBERIA PVC D=14" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	641522	1	0.92	ok
+SUMINISTRO RED DE AGUA POTABLE PVC	Suministro de tubería PVC 16" RDE 21	ML	820509.544142494	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	30.83	0.83	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 1,1/2" RDE 21	ML	152574.13097355	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	5.73	0.8	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 2" RDE 21	ML	165432.679496161	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	6.22	0.8	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 2,1/2" RDE 21	ML	183626.516228879	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	6.9	0.8	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 3" RDE 21	ML	202256.203749483	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	7.6	0.8	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 4" RDE 21	ML	228892.70616258	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	8.6	0.8	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 6" RDE 21	ML	151759	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	5.7	0.8	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 8" RDE 21	ML	250672	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	9.42	0.8	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 10" RDE 21	ML	390190	TUBERIA PVC D=10" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	390190	1	0.83	ok
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 12" RDE 21	ML	533659	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	533659	1	0.83	ok
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 14" RDE 21	ML	641522	TUBERIA PVC D=14" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	641522	1	0.83	ok
+SUMINISTRO E INSTALACIÓN RED DE AGUA POTABLE PVC	Tubería PVC 16" RDE 21	ML	1162587.74316766	TUBERIA PVC D=2" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	26617	43.68	0.73	caro frente a IDU
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4"	ML	46152					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6"	ML	93174					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8"	ML	127982					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10"	ML	109091.120690274					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12"	ML	301911					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14"	ML	435500					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16"	ML	287734.464354453					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18"	ML	315153					0.36	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20"	ML	403869					0.36	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24"	ML	817846					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27"	ML	991864					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30"	ML	1478460					0.36	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33"	ML	1319889.89419942					0.33	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36"	ML	1512469					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39"	ML	2463439.93090011					0.33	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42"	ML	2892054.3723368					0.33	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45"	ML	3148427.08599886					0.33	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48"	ML	2515311					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51"	ML	4422808.78477127					0.33	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54"	ML	4656058.04331286					0.33	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57"	ML	4862069.79933104					0.33	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60"	ML	3580389					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (0-1,5)m	ML	283197.659320344					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (1,5-2,5)m	ML	539250.453178088					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (2,5-3,5)m	ML	832557.383336259					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (3,5-4,5)m	ML	1757702.48243337					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (4,5-5,5)m	ML	2188284.0878249					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (5,5-6,5)m	ML	2618865.69321643					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (6,5-7,5)m	ML	3049447.29860796					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (7,5-8,5)m	ML	3480028.90399949					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (8,5-9,5)m	ML	3910610.50939102					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 4" Hex (9,5-10,5)m	ML	4341192.11478255					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (0-1,5)m	ML	315199.052319491					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (1,5-2,5)m	ML	568216.494324524					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (2,5-3,5)m	ML	861669.599279279					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (3,5-4,5)m	ML	1786960.87317298					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (4,5-5,5)m	ML	2217542.47856451					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (5,5-6,5)m	ML	2648124.08395604					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (6,5-7,5)m	ML	3078705.68934757					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (7,5-8,5)m	ML	3509287.2947391					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (8,5-9,5)m	ML	3939868.90013063					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 6" Hex (9,5-10,5)m	ML	4370450.50552215					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (0-1,5)m	ML	344538.431876397					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (1,5-2,5)m	ML	594366.205820989					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (2,5-3,5)m	ML	887965.485572329					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (3,5-4,5)m	ML	1813402.93426261					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (4,5-5,5)m	ML	2243984.53965414					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (5,5-6,5)m	ML	2674566.14504567					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (6,5-7,5)m	ML	3105147.7504372					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (7,5-8,5)m	ML	3535729.35582873					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (8,5-9,5)m	ML	3966310.96122026					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 8" Hex (9,5-10,5)m	ML	4396892.56661179					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (0-1,5)m	ML	383216.061558182					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (1,5-2,5)m	ML	629699.851234602					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (2,5-3,5)m	ML	923445.305782525					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (3,5-4,5)m	ML	1849028.92926939					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (4,5-5,5)m	ML	2279610.53466092					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (5,5-6,5)m	ML	2710192.14005245					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (6,5-7,5)m	ML	3140773.74544398					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (7,5-8,5)m	ML	3571355.35083551					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (8,5-9,5)m	ML	4001936.95622704					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 10" Hex (9,5-10,5)m	ML	4432518.56161857	TUBERÍA HDPE 10" (SUMINISTRO E INSTALACIÓN)	ML	280316	15.81	0.6	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (0-1,5)m	ML	432473.62022382					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (1,5-2,5)m	ML	675459.109424337					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (2,5-3,5)m	ML	969350.738768845					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (3,5-4,5)m	ML	1895080.5370523					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (4,5-5,5)m	ML	2325662.14244383					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (5,5-6,5)m	ML	2756243.74783536					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (6,5-7,5)m	ML	3186825.35322688					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (7,5-8,5)m	ML	3617406.95861841					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (8,5-9,5)m	ML	4047988.56400994					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 12" Hex (9,5-10,5)m	ML	4478570.16940147					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (0-1,5)m	ML	512339.443065156					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (1,5-2,5)m	ML	745382.989170329					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (2,5-3,5)m	ML	1039420.79331142					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (3,5-4,5)m	ML	1965296.76639146					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (4,5-5,5)m	ML	2395878.37178299					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (5,5-6,5)m	ML	2826459.97717451					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (6,5-7,5)m	ML	3257041.58256604					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (7,5-8,5)m	ML	3687623.18795757					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (8,5-9,5)m	ML	4118204.7933491					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 14" Hex (9,5-10,5)m	ML	4548786.39874063					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (0-1,5)m	ML	591188.830011813					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (1,5-2,5)m	ML	832018.456495021					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (2,5-3,5)m	ML	1148693.74157314					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (3,5-4,5)m	ML	2041834.76305192					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (4,5-5,5)m	ML	2479910.91275104					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (5,5-6,5)m	ML	2917987.06245016					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (6,5-7,5)m	ML	3356063.21214928					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (7,5-8,5)m	ML	3794139.3618484					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (8,5-9,5)m	ML	4232215.51154752					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 16" Hex (9,5-10,5)m	ML	4670291.66124664					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (0-1,5)m	ML	679041.848544405					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (1,5-2,5)m	ML	919446.357699748					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (2,5-3,5)m	ML	1243823.26804728					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (3,5-4,5)m	ML	2144458.83383365					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (4,5-5,5)m	ML	2590029.52784036					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (5,5-6,5)m	ML	3035600.22184708					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (6,5-7,5)m	ML	3481170.91585379					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (7,5-8,5)m	ML	3926741.6098605					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (8,5-9,5)m	ML	4372312.30386721					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 18" Hex (9,5-10,5)m	ML	4817882.99787392					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (0-1,5)m	ML	790719.755778866					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (1,5-2,5)m	ML	1030104.7618226					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (2,5-3,5)m	ML	1362183.29743955					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (3,5-4,5)m	ML	2270313.40753351					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (4,5-5,5)m	ML	2723378.64584782					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (5,5-6,5)m	ML	3176443.88416212					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (6,5-7,5)m	ML	3629509.12247642					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (7,5-8,5)m	ML	4082574.36079072					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (8,5-9,5)m	ML	4535639.59910502					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 20" Hex (9,5-10,5)m	ML	4988704.83741933					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (0-1,5)m	ML	980242.400317368					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (1,5-2,5)m	ML	1221434.94385619					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (2,5-3,5)m	ML	1576399.76449307					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (3,5-4,5)m	ML	2507013.50750981					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (4,5-5,5)m	ML	2982562.37874688					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (5,5-6,5)m	ML	3458111.24998396					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (6,5-7,5)m	ML	3933660.12122103					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (7,5-8,5)m	ML	4409208.99245811					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (8,5-9,5)m	ML	4884757.86369518					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 24" Hex (9,5-10,5)m	ML	5360306.73493226					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (0-1,5)m	ML	1108846.49257531					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (1,5-2,5)m	ML	1345630.87234202					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (2,5-3,5)m	ML	1708309.49948137					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (3,5-4,5)m	ML	2646417.78680569					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (4,5-5,5)m	ML	3129461.20235036					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (5,5-6,5)m	ML	3612504.61789502					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (6,5-7,5)m	ML	4095548.03343969					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (7,5-8,5)m	ML	4578591.44898436					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (8,5-9,5)m	ML	5061634.86452902					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 27" Hex (9,5-10,5)m	ML	5544678.28007369					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (0-1,5)m	ML	1324487.41380429					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (1,5-2,5)m	ML	1575384.62228247					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (2,5-3,5)m	ML	1975755.23315465					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (3,5-4,5)m	ML	2951336.24201693					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (4,5-5,5)m	ML	3471852.37909955					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (5,5-6,5)m	ML	3992368.51618217					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (6,5-7,5)m	ML	4512884.65326479					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (7,5-8,5)m	ML	5033400.79034741					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (8,5-9,5)m	ML	5553916.92743003					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 30" Hex (9,5-10,5)m	ML	6074433.06451265					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (0-1,5)m	ML	1612898.45421934					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (1,5-2,5)m	ML	1856829.25190397					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (2,5-3,5)m	ML	2264913.66927861					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (3,5-4,5)m	ML	3247989.22244848					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (4,5-5,5)m	ML	3775999.9038387					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (5,5-6,5)m	ML	4304010.58522891					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (6,5-7,5)m	ML	4832021.26661912					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (7,5-8,5)m	ML	5360031.94800933					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (8,5-9,5)m	ML	5888042.62939955					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 33" Hex (9,5-10,5)m	ML	6416053.31078976					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (0-1,5)m	ML	2066246.42634462					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (1,5-2,5)m	ML	2306765.22971814					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (2,5-3,5)m	ML	2730057.99790284					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (3,5-4,5)m	ML	3728122.6396879					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (4,5-5,5)m	ML	4271122.40969329					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (5,5-6,5)m	ML	4814122.17969869					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (6,5-7,5)m	ML	5357121.94970408					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (7,5-8,5)m	ML	5900121.71970947					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (8,5-9,5)m	ML	6443121.48971487					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 36" Hex (9,5-10,5)m	ML	6986121.25972026					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (0-1,5)m	ML	2601505.49474635					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (1,5-2,5)m	ML	2837333.18029805					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (2,5-3,5)m	ML	3275834.29929281					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (3,5-4,5)m	ML	4288888.02969304					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (4,5-5,5)m	ML	4846876.88831362					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (5,5-6,5)m	ML	5404865.7469342					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (6,5-7,5)m	ML	5962854.60555477					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (7,5-8,5)m	ML	6520843.46417535					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (8,5-9,5)m	ML	7078832.32279592					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 39" Hex (9,5-10,5)m	ML	7636821.1814165					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (0-1,5)m	ML	2971276.01263524					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (1,5-2,5)m	ML	3197231.82890456					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (2,5-3,5)m	ML	3643446.75440178					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (3,5-4,5)m	ML	4663995.02910961					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (4,5-5,5)m	ML	5229478.43203778					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (5,5-6,5)m	ML	5794961.83496594					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (6,5-7,5)m	ML	6360445.23789411					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (7,5-8,5)m	ML	6925928.64082228					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (8,5-9,5)m	ML	7491412.04375044					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVAFORT 42" Hex (9,5-10,5)m	ML	8056895.44667861					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (0-1,5)m	ML	3413682.07979392					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (1,5-2,5)m	ML	3632621.5092308					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (2,5-3,5)m	ML	4094044.78553809					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (3,5-4,5)m	ML	5129582.1488611					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (4,5-5,5)m	ML	5710054.64040445					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (5,5-6,5)m	ML	6290527.13194779					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (6,5-7,5)m	ML	6870999.62349114					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (7,5-8,5)m	ML	7451472.11503449					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (8,5-9,5)m	ML	8031944.60657784					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 45" Hex (9,5-10,5)m	ML	8612417.09812119					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (0-1,5)m	ML	3978500.94596363					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (1,5-2,5)m	ML	4185709.1931292					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (2,5-3,5)m	ML	4654846.27593895					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (3,5-4,5)m	ML	5697878.18356955					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (4,5-5,5)m	ML	6285845.21942049					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (5,5-6,5)m	ML	6873812.25527143					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (6,5-7,5)m	ML	7461779.29112237					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (7,5-8,5)m	ML	8049746.32697331					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (8,5-9,5)m	ML	8637713.36282425					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 48" Hex (9,5-10,5)m	ML	9225680.39867519					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (0-1,5)m	ML	4614555.03942522					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (1,5-2,5)m	ML	4833614.25144002					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (2,5-3,5)m	ML	5328858.77904238					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (3,5-4,5)m	ML	6409363.40821093					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (4,5-5,5)m	ML	7034803.16559983					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (5,5-6,5)m	ML	7660242.92298872					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (6,5-7,5)m	ML	8285682.68037762					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (7,5-8,5)m	ML	8911122.43776651					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (8,5-9,5)m	ML	9536562.19515541					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 51" Hex (9,5-10,5)m	ML	10162001.9525443					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (0-1,5)m	ML	4842742.31880574					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (1,5-2,5)m	ML	5064200.31811084					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (2,5-3,5)m	ML	5550470.43563261					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (3,5-4,5)m	ML	6638469.60910876					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (4,5-5,5)m	ML	7271403.91080524					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (5,5-6,5)m	ML	7904338.21250173					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (6,5-7,5)m	ML	8537272.51419821					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (7,5-8,5)m	ML	9170206.8158947					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (8,5-9,5)m	ML	9803141.11759119					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 54" Hex (9,5-10,5)m	ML	10436075.4192877					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (0-1,5)m	ML	5058626.14323046					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (1,5-2,5)m	ML	5284881.71711616					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (2,5-3,5)m	ML	5769196.75198126					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (3,5-4,5)m	ML	6872185.01407259					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (4,5-5,5)m	ML	7520108.40438426					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (5,5-6,5)m	ML	8168031.79469593					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (6,5-7,5)m	ML	8815955.18500759					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (7,5-8,5)m	ML	9463878.57531926					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (8,5-9,5)m	ML	10111801.9656309					0.29	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 57" Hex (9,5-10,5)m	ML	10759725.3559426					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (0-1,5)m	ML	5645428.21781822					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (1,5-2,5)m	ML	5874082.57899422					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (2,5-3,5)m	ML	6347563.89078979					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (3,5-4,5)m	ML	7458046.69718871					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (4,5-5,5)m	ML	8113464.63180797					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (5,5-6,5)m	ML	8768882.56642723					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (6,5-7,5)m	ML	9424300.50104648					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (7,5-8,5)m	ML	10079718.4356657					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (8,5-9,5)m	ML	10735136.370285					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO PVC	Tubería NOVALOC 60" Hex (9,5-10,5)m	ML	11390554.3049043					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CSR 8"	ML	127982					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CSR 10"	ML	114754.176010462					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CSR 12"	ML	301911					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CSR 14"	ML	194435.985029737					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CSR 16"	ML	252987.414364138					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CSR 18"	ML	315153					0.36	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CSR 20"	ML	403869					0.36	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CSR 24"	ML	817846					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CER 8"	ML	127982					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CER 10"	ML	280316					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CER 12"	ML	301911					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CER 14"	ML	435500					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CER 16"	ML	679962					0.5	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CER 18"	ML	315153					0.36	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CER 20"	ML	403869					0.36	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 24"	ML	817846					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 27"	ML	991864					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 32"	ML	1203427					0.44	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 36"	ML	1512469					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 40"	ML	1874457					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 44"	ML	2121420					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 48"	ML	2515311					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 52"	ML	2826050					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 56"	ML	3199492					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 60"	ML	3580389					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 64"	ML	4007114					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 68"	ML	4483069					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 72"	ML	5014211					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 80"	ML	6210364					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 86"	ML	6969979					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 92"	ML	7803527					0.4	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 98"	ML	8836590.46285849					0.33	sin referencia
+SUMINISTRO RED DE ALCANTARILLADO CONCRETO	Tubería CCR 110"	ML	10903664.129404					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CSR 12" Hex (0-1,5)m	ML	444526.101805857					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CSR 14" Hex (0-1,5)m	ML	504201.880007714					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CSR 14" Hex (1,5-2,5)m	ML	734010.932896524					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CSR 16" Hex (1,5-2,5)m	ML	843609.991691312					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CSR 18" Hex (1,5-2,5)m	ML	939821.906093562					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CSR 20" Hex (1,5-2,5)m	ML	1017768.3070634					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CSR 24" Hex (1,5-2,5)m	ML	1211363.69728101					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CER 12" Hex (0-1,5)m	ML	657981.516511453					0.44	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CER 18" Hex (0-1,5)m	ML	978705.464965887					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CCR 24" Hex (0-1,5)m	ML	1039466.32603461					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CCR 24" Hex (1,5-2,5)m	ML	1280041.68656757					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CCR 27" Hex (1,5-2,5)m	ML	1505351.72637951					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CCR 30" Hex (0-1,5)m	ML	1529301.90705095					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CCR 30" Hex (3,5-4,5)m	ML	3164945.93430461					0.33	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CCR 36" Hex (1,5-2,5)m	ML	2052222.18055123					0.36	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Tubería CCR 40" Hex (1,5-2,5)m	ML	2391250.96204317					0.36	sin referencia
+RED DE GAS	Excavaciones, atraque en arena, rellenos e instalación de cinta para red de gas	ML	64706.9163182937					0.29	sin referencia
+RED DE GAS	Construcción de caja para válvulas de gas	UN	924678.067425602					0.33	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación Caja de paso en mamposteria según norma CS-276	UN	5742982.28551125	CAJA METÁLICA DE PASO 30CMX30CMX10CM (INCLUYE SUMINISTRO E INSTALACIÓN)	UN	116024	49.5	0.57	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación Celda RMU 1 (Entrada: 1 - Salidas: 6). Incluye obra civil	UN	177901953.981893					0.33	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación Celda RMU 2 (Entrada: 1 - Salidas: 5). Incluye obra civil	UN	154941033.695121					0.33	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación Celda RMU 3 (Entrada: 2 - Salidas: 5). Incluye obra civil	UN	154941033.695121					0.33	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación de tubería 9Ф6" TDP (Incluye excavación, retiro de escombros y relleno)	ML	916963.345634154					0.53	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación de estructura para poste de MT LA-220	UN	9683376.77434195					0.46	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalacion de bajante galvanizada de 4"x6m	UN	2783830.12522101	BAJANTE GALVANIZADA TIPO PESADO CONDUIT L=6M, Ø=2". (SUMINISTRO E INSTALACIÓN)	UN	408803	6.81	0.67	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación de terminales premoldeados 35 kV Tipo exterior (Juegox3)	JG	2282192.48234975					0	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación de codo premoldeado de (200-600)A	UN	3121324.974765					0.55	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación de cable 3x185 XLPE Al	ML	229288	CABLE DE MEDIA TENSION XLPE 4/0 ALUMINIO. SUMINISTRO E INSTALACION.	ML	56671	4.05	0.67	caro frente a IDU
+RED DE MEDIA TENSIÓN	Ramming 51"	ML	8041534.4854638					0	sin referencia
+RED DE MEDIA TENSIÓN	Caja de lanzamiento para red de media tensión	UN	11526743.143464					0.18	sin referencia
+RED DE MEDIA TENSIÓN	Caja de llegada para red de media tensión	UN	11526743.143464					0.18	sin referencia
+RED DE MEDIA TENSIÓN	Suministro de tubería TDP 6"	ML	93174	TUBERÍA HG Ø1 1/2". (INCLUYE SUMINISTRO E INSTALACIÓN).	ML	45332	2.06	0.57	caro frente a IDU
+RED DE MEDIA TENSIÓN	Retiro de estructura de MT según norma LA-212/LA-202/LA-231/LA-206 o similar	UN	149521.4322855					0.17	sin referencia
+RED DE MEDIA TENSIÓN	Retiro de Caja de borneras para derivación de acometidas, estructuras de BT o similares	UN	146080.230123867					0.25	sin referencia
+RED DE MEDIA TENSIÓN	Retiro de red de MT 3x2ACSR	ML	15265.8184411517					0.4	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación Caja de paso en mamposteria según norma CS-274	UN	964228.37537974	CAJA METÁLICA DE PASO 30CMX30CMX10CM (INCLUYE SUMINISTRO E INSTALACIÓN)	UN	116024	8.31	0.57	caro frente a IDU
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación Caja de paso en mamposteria según norma CS-275	UN	3192945.91074047	CAJA METÁLICA DE PASO 30CMX30CMX10CM (INCLUYE SUMINISTRO E INSTALACIÓN)	UN	116024	27.52	0.57	caro frente a IDU
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación de luminaria LED DECOLED 100 W (Incluye brazo)	UN	3927668.68574674					0.47	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación poste de concreto 10 m. Tipo recto AP  (Incluye ahoyada, hincada y plomada)	UN	2071401.95859591					0.5	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación poste de concreto 12 m. Tipo recto AP  (Incluye ahoyada, hincada y plomada)	UN	2478929.41871879					0.5	sin referencia
+RED DE ALUMBRADO PÚBLICO	Transformador tipo pedestal 30 KVA 11400 / 380 / 220V (Incluye obra civil, cerramiento en malla eslabonada y todos los elementos eléctricos necesarios para su correcto funcionamiento)	UN	196438343.659188					0.31	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación de Barraje preformado de B.T. para fusibles limitadores de corriente de cable de 6 salidas según norma AP820	UN	1474887.56377866					0.27	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación de tuberia 2Ф3" TDP (incluye excavación, retiro de escombros y relleno)	ML	174404.481476632					0.53	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación de cable 4x4 THW Al	ML	34491.8758567687					0.5	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación de alambre 2x12 AWG-THW (Acometida para luminarias)	ML	11926.5770462529					0.5	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación de empalmes en resina (Juegox2)	JG	338195.731257832					0	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación de malla a tierra de iluminación exterior conformada por 1 Varilla copper de 2.4 m, soldadura exotérmica, 1 Empalme bimetálico y 1 m de Cable de Cobre 2/0 AWG	UN	436629.767988621					0.44	sin referencia
+INDICADORES RED DE ALUMBRADO PÚBLICO	Indicador de red de alumbrado público parques	M2	29726.4785848146					0.2	sin referencia
+EQUIPAMIENTOS	Cerramiento con Eugenias	ML	32026.2209997426					0.14	sin referencia
+EQUIPAMIENTOS	Suministro e instalación de valla 3x2m	UN	2759961.66366798					0.5	sin referencia
+SISTEMA URBANO DE DRENAJE	Perfilado de taludes y base del canal	M2	5273.94068602003					0.2	sin referencia
+SISTEMA URBANO DE DRENAJE	Empradización de taludes para canal	M2	20201.7047875191					0.18	sin referencia
+RED DE MEDIA TENSIÓN	Retiro y transporte de poste de 12m 510kgF	UN	495459.655164225					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN DE SEÑALIZACIÓN VIAL	Señal vertical ubicación de cruce peatonal SP-46B	UN	800633.44217323					0.4	sin referencia
+RED DE ACUEDUCTO	Suministro tubería PVC presión Ø1"	ML	9728	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	1	0.67	ok
+RED DE ACUEDUCTO	Suministro tubería PVC presión Ø2"	ML	21606	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	2.22	0.67	caro frente a IDU
+RED DE ACUEDUCTO	Suministro tubería PVC presión Ø3"	ML	31829	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	3.27	0.67	caro frente a IDU
+RED DE ACUEDUCTO	Suministro tubería PVC presión Ø4"	ML	46152	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	4.74	0.67	caro frente a IDU
+RED DE ACUEDUCTO	Suministro tubería PVC presión Ø6"	ML	93174	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	9.58	0.67	caro frente a IDU
+RED DE ACUEDUCTO	Suministro tubería PVC presión Ø8"	ML	160366	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	16.48	0.67	caro frente a IDU
+RED DE ACUEDUCTO	Suministro tubería PVC presión Ø10"	ML	242906	TUBERÍA PVC SANITARIA D=10" TIPO U.S. (Incluye suministro e instalación)	ML	242906	1	0.73	ok
+RED DE ACUEDUCTO	Suministro tubería PVC presión Ø12"	ML	533659	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	533659	1	0.67	ok
+RED DE ACUEDUCTO	Suministro tubería y piezas especiales HD Ø4"	ML	339200					0.44	sin referencia
+RED DE ACUEDUCTO	Instalación tubería PVC presión Ø1"	ML	2541.76357140814	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	0.26	0.67	BARATO frente a IDU
+RED DE ACUEDUCTO	Instalación tubería PVC presión Ø2"	ML	5083.52714281628	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	0.52	0.67	BARATO frente a IDU
+RED DE ACUEDUCTO	Instalación tubería PVC presión Ø3"	ML	7625.29071422442	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	0.78	0.67	ok
+RED DE ACUEDUCTO	Instalación tubería PVC presión Ø4"	ML	10167.0542856326	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	1.05	0.67	ok
+RED DE ACUEDUCTO	Instalación tubería PVC presión Ø6"	ML	15250.5814284488	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	1.57	0.67	ok
+RED DE ACUEDUCTO	Instalación tubería PVC presión Ø8"	ML	20334.1085712651	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	2.09	0.67	caro frente a IDU
+RED DE ACUEDUCTO	Instalación tubería PVC presión Ø10"	ML	25417.6357140814	TUBERÍA PVC SANITARIA D=10" TIPO U.S. (Incluye suministro e instalación)	ML	242906	0.1	0.73	BARATO frente a IDU
+RED DE ACUEDUCTO	Instalación tubería PVC presión Ø12"	ML	30501.1628568977	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	533659	0.06	0.67	BARATO frente a IDU
+RED DE ACUEDUCTO	Instalación tubería y piezas especiales HD Ø4"	ML	127200					0.44	sin referencia
+RED DE ACUEDUCTO	Construcción y conexión de acometida Ø1"	UN	1590000					0.33	sin referencia
+RED DE ACUEDUCTO	Construcción y conexión de acometida Ø2"	UN	2120000					0.33	sin referencia
+RED DE ACUEDUCTO	Construcción y conexión de acometida Ø3"	UN	2650000					0.33	sin referencia
+RED DE ACUEDUCTO	Construcción y conexión de acometida Ø4"	UN	3392000					0.33	sin referencia
+RED DE ACUEDUCTO	Acometida domiciliaria Ø1/2" con collar Ø4" y cajilla de medidor	UN	2332000					0.5	sin referencia
+RED DE ACUEDUCTO	Codo 11,25° según diámetro	UN	901000					0.55	sin referencia
+RED DE ACUEDUCTO	Codo 22,5° según diámetro	UN	1060000					0.44	sin referencia
+RED DE ACUEDUCTO	Codo 45° según diámetro	UN	1166000					0.5	sin referencia
+RED DE ACUEDUCTO	Codo 90° según diámetro	UN	1325000					0.5	sin referencia
+RED DE ACUEDUCTO	Tee igual o reducida según diámetros	UN	1696000					0.44	sin referencia
+RED DE ACUEDUCTO	Reducción concéntrica según diámetros	UN	1272000					0.5	sin referencia
+RED DE ACUEDUCTO	Tapón según diámetro	UN	477000					0.33	sin referencia
+RED DE ACUEDUCTO	Unión Dresser / unión de reparación	UN	3180000	UNION DRESSER D=3" (SUMINISTRO E INSTALACIÓN)	UN	239492	13.28	0.75	caro frente a IDU
+RED DE ACUEDUCTO	Niples, pasamuros, bridas y piezas especiales	UN	2120000					0.15	sin referencia
+RED DE ACUEDUCTO	Anclaje de concreto para accesorios	UN	689000					0.25	sin referencia
+RED DE ACUEDUCTO	Cárcamo o placa de protección para tubería (Red de acueducto)	UN	9010000					0.18	sin referencia
+RED DE ACUEDUCTO	Tubería de acero al carbón SCH 40 Ø4"	ML	445200	TUBERIA ACERO CARBON ASTM A=53 SCH 40 DE D=12", SUMINISTRO E INSTALACION. (INCLUYE TRANSPORTE).	ML	871759	0.51	0.62	BARATO frente a IDU
+RED DE ACUEDUCTO	Válvula de compuerta Ø4"	UN	3038072					0.5	sin referencia
+RED DE ACUEDUCTO	Válvula de compuerta Ø6"	UN	2247570					0.5	sin referencia
+RED DE ACUEDUCTO	Válvula de compuerta Ø8"	UN	3785326					0.5	sin referencia
+RED DE ACUEDUCTO	Válvula de compuerta Ø12"	UN	7593696					0.46	sin referencia
+RED DE ACUEDUCTO	Válvula ventosa	UN	7420000					0.33	sin referencia
+RED DE ACUEDUCTO	Válvula de purga	UN	5300000					0.33	sin referencia
+RED DE ACUEDUCTO	Válvula de cierre permanente VCP	UN	10619048					0.35	sin referencia
+RED DE ACUEDUCTO	Caja convencional para válvula	UN	1010000					0.4	sin referencia
+RED DE ACUEDUCTO	Caja estructural para válvula Ø12"	UN	37100000					0.38	sin referencia
+RED DE ACUEDUCTO	Hidrante de torre Ø4"	UN	7420000					0.22	sin referencia
+RED DE ACUEDUCTO	Válvula de pie y accesorios para hidrante	UN	2120000					0.36	sin referencia
+RED DE ACUEDUCTO	Kit de nivelación para hidrante de tráfico	UN	530000	HIDRANTE EXTREMO BRIDA D=4" TIPO TRÁFICO (SUMINISTRO E INSTALACIÓN. NO INCLUYE KIT DE NIVELACIÓN)	UN	6261344	0.08	0.67	BARATO frente a IDU
+RED DE ACUEDUCTO	Obra civil VRP asimétrica costado norte	UN	159000000					0.15	sin referencia
+RED DE ACUEDUCTO	Equipamiento hidromecánico VRP costado norte	UN	371000000					0.09	sin referencia
+RED DE ACUEDUCTO	Obra civil VRP simétrica costado sur	UN	159000000					0.15	sin referencia
+RED DE ACUEDUCTO	Equipamiento hidromecánico VRP costado sur	UN	371000000					0.08	sin referencia
+RED DE ACUEDUCTO	Localización y replanteo topográfico	ML	4770					0	sin referencia
+RED DE ACUEDUCTO	Excavación manual en material común	M3	58471	EXCAVACION MANUAL EN MATERIAL COMUN. INCLUYE CARGUE.	M3	58471	1	0.89	ok
+RED DE ACUEDUCTO	Excavación mecánica en material común	M3	117926	EXCAVACIÓN MECÁNICA EN MATERIAL COMÚN (INCLUYE CARGUE)	M3	5998	19.66	0.89	caro frente a IDU
+RED DE ACUEDUCTO	Excavación en conglomerado	M3	79500					0.4	sin referencia
+RED DE ACUEDUCTO	Cargue, transporte y disposición de sobrantes	M3	117926	DEMOLICION PAVIMENTO ASFALTICO (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	M3	43555	2.71	0.67	caro frente a IDU
+RED DE ACUEDUCTO	Cama y atraque en arena de peña	M3	166177					0.33	sin referencia
+RED DE ACUEDUCTO	Relleno inicial alrededor de tubería	M3	102398					0.2	sin referencia
+RED DE ACUEDUCTO	Relleno con material seleccionado de excavación	M3	48122	RELLENO EN MATERIAL SELECCIONADO PROVENIENTE DE LA EXCAVACIÓN (EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	M3	48122	1	0.62	ok
+RED DE ACUEDUCTO	Relleno y conformación con recebo	M3	102398					0.31	sin referencia
+RED DE ACUEDUCTO	Geotextil NT 1600	M2	7973.6721444924					0.15	sin referencia
+RED DE ACUEDUCTO	Entibado temporal de zanja	M2	52205					0.29	sin referencia
+RED DE ACUEDUCTO	Manejo y agotamiento de aguas	DÍA	848000					0	sin referencia
+RED DE ACUEDUCTO	Cinta preventiva para red	ML	508.013338690341					0.27	sin referencia
+RED DE ACUEDUCTO	Demolición de pavimento flexible	M2	58300	REHABILITACIÓN DE PAVIMENTO FLEXIBLE E= 0.12M	M2	351451	0.17	0.57	BARATO frente a IDU
+RED DE ACUEDUCTO	Reposición de pavimento flexible y estructura	M2	477000	FRESADO Y REPOSICIÓN DE PAVIMENTO FLEXIBLE E=0.12M	M2	188913	2.52	0.67	caro frente a IDU
+RED DE ACUEDUCTO	Demolición y reposición de andén	M2	212000					0.29	sin referencia
+RED DE ACUEDUCTO	Empate a red existente Ø4"	UN	8480000					0.29	sin referencia
+RED DE ACUEDUCTO	Empate a red existente Ø6"	UN	10600000					0.29	sin referencia
+RED DE ACUEDUCTO	Empate a red existente Ø10"	UN	15900000					0.25	sin referencia
+RED DE ACUEDUCTO	Empate a red existente Ø12"	UN	21200000					0.25	sin referencia
+RED DE ACUEDUCTO	Empate mediante tee	UN	12720000					0.29	sin referencia
+RED DE ACUEDUCTO	Conexión especial Ø6" × Ø12"	UN	9697831					0.25	sin referencia
+RED DE ACUEDUCTO	Retiro de red existente	ML	4120					0.44	sin referencia
+RED DE ACUEDUCTO	Taponamiento o abandono de red existente	UN	2120000					0.25	sin referencia
+RED DE ACUEDUCTO	Prueba hidrostática, lavado y desinfección	ML	19893.1469227118					0.08	sin referencia
+RED DE ACUEDUCTO	Pruebas de válvulas, hidrantes y ventosas	UN	159000					0.14	sin referencia
+RED DE ACUEDUCTO	Planos récord y levantamiento final (Red de acueducto)	GB	37100000					0	sin referencia
+RED DE ACUEDUCTO	Manual de operación, entrega y puesta en servicio	GB	21200000					0	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Suministro tubería PVC flexible Ø8"	UN	448151.710771605					0.5	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Suministro tubería PVC flexible Ø10"	UN	654546.724141644	UNION PVC TIPO U.M. D= 10" (SUMINISTRO E INSTALACIÓN)	UN	812081	0.81	0.6	ok
+RED DE ALCANTARILLADO SANITARIO	Suministro tubería PVC flexible Ø12"	UN	941852.756323293	UNION PVC TIPO U.M. D= 12" (SUMINISTRO E INSTALACIÓN)	UN	1249210	0.75	0.6	ok
+RED DE ALCANTARILLADO SANITARIO	Suministro tubería PVC flexible Ø14"	UN	1411491.65208809					0.44	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Suministro tubería PVC flexible Ø16"	UN	1726406.78612671					0.44	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Suministro tubería PVC flexible Ø18"	UN	2229654.29142004					0.44	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Suministro tubería PVC flexible Ø24"	UN	3983204.5312494					0.44	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Suministro tubería PVC flexible Ø30"	UN	5951739.38991858					0.44	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Instalación tubería PVC flexible Ø8"	ML	28467.7519997712	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	2.93	0.67	caro frente a IDU
+RED DE ALCANTARILLADO SANITARIO	Instalación tubería PVC flexible Ø10"	ML	35584.689999714	TUBERÍA PVC SANITARIA D=10" TIPO U.S. (Incluye suministro e instalación)	ML	242906	0.15	0.73	BARATO frente a IDU
+RED DE ALCANTARILLADO SANITARIO	Instalación tubería PVC flexible Ø12"	ML	42701.6279996568	TUBERIA PVC D=12" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	533659	0.08	0.67	BARATO frente a IDU
+RED DE ALCANTARILLADO SANITARIO	Instalación tubería PVC flexible Ø14"	ML	49818.5659995995	TUBERIA PVC D=14" TIPO U.M. RDE 21 (SUMINISTRO E INSTALACIÓN)	ML	641522	0.08	0.67	BARATO frente a IDU
+RED DE ALCANTARILLADO SANITARIO	Instalación tubería PVC flexible Ø16"	ML	56935.5039995423	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	5.85	0.6	caro frente a IDU
+RED DE ALCANTARILLADO SANITARIO	Instalación tubería PVC flexible Ø18"	ML	64052.4419994851	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	6.58	0.6	caro frente a IDU
+RED DE ALCANTARILLADO SANITARIO	Instalación tubería PVC flexible Ø24"	ML	85403.2559993135	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	8.78	0.6	caro frente a IDU
+RED DE ALCANTARILLADO SANITARIO	Instalación tubería PVC flexible Ø30"	ML	106754.069999142	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	10.97	0.6	caro frente a IDU
+RED DE ALCANTARILLADO SANITARIO	Excavación manual complementaria	M3	58471					0.5	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Cimentación de tubería modelo 4	ML	148400					0.33	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Cimentación de tubería modelo 4.1	ML	190800					0.33	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Relleno y conformación con granular/recebo B-400	M3	136342.969376722					0.43	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Entibado continuo E-1A, H≤2,00 m	M2	52205					0.33	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Entibado continuo E-1B, 2,00<H≤3,00 m	M2	95400					0.31	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Entibado E-2, H>3,00 m	M2	125356.271004673					0.33	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Manejo, bombeo y agotamiento de aguas	DÍA	1590000					0	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Cárcamo o placa de protección para tubería (Red de alcantarillado sanitario)	UN	12720000					0.19	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Base de pozo de inspección	UN	1908000					0.44	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Cañuela y acabado interior de pozo	UN	954000					0.22	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Anillo/cilindro prefabricado de pozo	ML	1916374.23154609					0.22	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Cono de reducción para pozo	UN	1272000					0.29	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Marco y tapa de pozo	UN	1590000					0.44	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Pasos o escalera de acceso	UN	106000					0.22	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Adecuación y conexión a pozo existente	UN	2120000					0.25	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Demolición de pozo existente	UN	848000.854594823	DEMOLICION SUMIDERO EXISTENTE (INCLUYE CARGUE)	UN	201905	4.2	0.57	caro frente a IDU
+RED DE ALCANTARILLADO SANITARIO	Construcción de conexión domiciliaria sanitaria Ø8"	UN	1272000					0.29	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Empate de domiciliaria a pozo o colector	UN	848000					0.29	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Accesorios de conexión domiciliaria	UN	530000					0.33	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Conexión de tramo existente a pozo nuevo	UN	1226359					0.24	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Empate a colector sanitario existente	UN	3180000					0.25	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Taponamiento de colector abandonado con mampostería	UN	2120000					0.14	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Retiro/demolición de tubería existente	ML	424000					0.55	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Abandono controlado de tubería existente	ML	106000					0.36	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Manejo provisional o bypass de aguas residuales	DÍA	1590000					0	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Limpieza interna de tubería y pozos	ML	10600					0.29	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Inspección CCTV	ML	15500					0.4	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Verificación de cotas y pendientes	ML	5300					0	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Plan de manejo de tránsito y señalización	ML	100612.152505191					0.2	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Planos récord y levantamiento final (Red de alcantarillado sanitario)	GB	42400000					0	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Manual, entrega y puesta en servicio	GB	21200000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	REPARACION VIAS Y ANDENES ETAPA 1	GB	870269344					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-1A - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-1B - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PL 1 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	REPARACION VIAS Y ANDENES ETAPA 2	GB	870269344					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-7 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-8 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	VIA PEATONAL V-PE - MANTENIMIENTO	M2	30000					0.25	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-12 - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-13 - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-14 - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	VIA PEATONAL PTN3 - MANTENIMIENTO	M2	30000					0.25	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	VIA PEATONAL PTN4 - MANTENIMIENTO	M2	30000					0.25	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-4 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-6 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-9 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-10A Y PQ-10B - MANTENIMIENTO	M2	30000					0.17	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-11 - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-5 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PL 3 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-2 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-3 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-15 - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-16 - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-17 - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-18 - MANTENIMIENTO	M2	30000					0.22	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	VIA PEATONAL PTN2 - MANTENIMIENTO	M2	30000					0.25	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	PQ-19 - MANTENIMIENTO	M2	30000					0.2	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	REFORESTACION LADERA	GB	1350000000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	CERRAMIENTO ANTIINVASION	GB	1742507650					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	OBRAS CIVILES CONEXIONES LOTE 05 (ZARZAL)	GB	412188000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	HABILITACION LOTES SOBRE COTA ACUEDUCTO 2570 (LOTE 45)	GB	977706915.6					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	ARREGLO LOTE 3 (DESMONTE CAMPAMENTO Y SALA DE VENTAS)	GB	75000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	OBRAS DE MITIGACION ETAPA 8	M2	840000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	OBRAS DE MITIGACION ETAPA 9	M2	840000					0	sin referencia
+TRONCAL Y CABEZAL MUÑA	INTERCEPTOR MUÑA	GB	22000645266					0	sin referencia
+TRONCAL Y CABEZAL MUÑA	CABEZAL DE DESCARGA	GB	2553117742.38					0	sin referencia
+PTAR	PTAR BOMBAS PARA ESTACION ELEVADORA	GB	220000000					0	sin referencia
+ALMA CAFÉ	TUBERIA PVC-RDE21 4"	ML	228893					0.5	sin referencia
+ALMA CAFÉ	TUBERIA PVC-RDE21 1"	ML	9728					0.5	sin referencia
+ALMA CAFÉ	ACCESORIOS 4"	UND	191811.75					0	sin referencia
+ALMA CAFÉ	ACCESORIOS 1"	UND	16250					0	sin referencia
+ALMA CAFÉ	MACROMEDIDOR 4	UND	42542500					0	sin referencia
+ALMA CAFÉ	VALVULA 1"	UND	67462					0	sin referencia
+ALMA CAFÉ	SUMINISTRO E INSTALACIÓN CINTA PREVENTIVA REDES	ML	6000					0.5	sin referencia
+ALMA CAFÉ	EMPATE A PUNTO DE CONEXIÓN (INCLUYE UNIONES DE REPARACION Y ACCESORIOS)	GB	50000000					0	sin referencia
+ALMA CAFÉ	EXCAVACIÓN MANUAL, INCLUYE RETIRO INTERNO DE ESCOMBROS	M3	30000					0.4	sin referencia
+ALMA CAFÉ	RELLENO EN ARENA DE PEÑA	M3	182185					0.55	sin referencia
+ALMA CAFÉ	RELLENO EN RECEBO B-200	M3	110000					0.33	sin referencia
+ALMA CAFÉ	PLAN DE MANEJO DE TRAFICO	UND	25000000					0	sin referencia
+ALMA CAFÉ	CERRAMIENTO POLISOMBRA	M2	28000	POLISOMBRA VERDE PARA CERRAMIENTO. (INCLUYE SUMINISTRO E INSTALACION).	M2	2147	13.04	0.57	caro frente a IDU
+ALMA CAFÉ	CARCAMO	ML	107400					0.25	sin referencia
+ALMA CAFÉ	REPARACIONES VIALES	M2	172000					0.1	sin referencia
+CASONA	RESTAURACION Y AMPLIACION DE LA CASONA	GB	60584426					0	sin referencia
+PIPEJACKING	PIPEJACKING	ML	18417889					0	sin referencia
+PTAR	PTAR FASE III (2025)	GB	2943808568					0	sin referencia
+PTAR	PTAR FASE IV (2027)	GB	3145544814					0	sin referencia
+PTAR	PTAR FASE V (2029)	GB	3337108493					0	sin referencia
+NO EJECUTADO COINVER	MOBILIARIO URBANO - ETAPA 03	GB	200000000					0	sin referencia
+NO EJECUTADO COINVER	MOBILIARIO URBANO - ETAPA 07	GB	200000000					0	sin referencia
+NO EJECUTADO COINVER	SEÑALIZACION HORIZONTAL Y VERTICAL - ETAPA 03	GB	115000000					0	sin referencia
+NO EJECUTADO COINVER	SEÑALIZACION HORIZONTAL Y VERTICAL - ETAPA 07	GB	115000000					0	sin referencia
+NO EJECUTADO COINVER	PEATONAL (PTN 5)	GB	165000000					0	sin referencia
+NO EJECUTADO COINVER	ARBORIZACION - ETAPA 03	UN	500000					0	sin referencia
+NO EJECUTADO COINVER	ARBORIZACION - ETAPA 04	UN	500000					0	sin referencia
+NO EJECUTADO COINVER	ARBORIZACION - ETAPA 05	UN	500000					0.09	sin referencia
+NO EJECUTADO COINVER	ARBORIZACION - ETAPA 08	UN	500000					0	sin referencia
+NO EJECUTADO COINVER	ARBORIZACION - ETAPA 09	UN	500000					0	sin referencia
+NO EJECUTADO COINVER	INTERFERENCIA AP3	GB	200000000					0	sin referencia
+PTAR	OPERACIÓN PTAR (AGOSTO 2023 - AGOSTO 2024)	AÑO	258634835					0	sin referencia
+PTAR	OPERACIÓN PTAR (AGOSTO 2024 - AGOSTO 2025)	AÑO	300000000					0	sin referencia
+PTAR	OPERACIÓN PTAR (AGOSTO 2025 - AGOSTO 2026)	AÑO	300000000					0	sin referencia
+PTAR	OPERACIÓN PTAR (AGOSTO 2026 - AGOSTO 2027)	AÑO	300000000					0	sin referencia
+PTAR	OPERACIÓN PTAR (AGOSTO 2027 - AGOSTO 2028)	AÑO	300000000					0	sin referencia
+PTAR	OPERACIÓN PTAR (AGOSTO 2028 - AGOSTO 2029)	AÑO	300000000					0	sin referencia
+HUMEDALES	LIMPIEZA PERIODICA	GL	250000000					0	sin referencia
+HUMEDALES	SEGUIMIENTO Y MONITORIEO	GL	150000000					0	sin referencia
+HUMEDALES	PROGRAMA DE EDUCACION AMBIENTAL	GL	60000000					0	sin referencia
+HUMEDALES	LIMPIEZA DE LODOS	GL	1050000000					0	sin referencia
+HUMEDALES	VALLAS INFORMATIVAS HUMEDAL	AÑO	47679333					0	sin referencia
+INDIRECTOS	PLAN DE GESTION URBANA (PGU) ETAPA 01	%	11128725492.3992					0	sin referencia
+INDIRECTOS	PLAN DE GESTION URBANA (PGU) ETAPA 02	%	1828918499					0	sin referencia
+INDIRECTOS	PLAN DE GESTION URBANA (PGU) ETAPA 03	%	13208977046.1337					0	sin referencia
+INDIRECTOS	PLAN DE GESTION URBANA (PGU) ETAPA 04	%	16487623174.3517					0	sin referencia
+INDIRECTOS	PLAN DE GESTION URBANA (PGU) ETAPA 05	%	29909045493.2993					0	sin referencia
+INDIRECTOS	PLAN DE GESTION URBANA (PGU) ETAPA 07	%	1506894081.77456					0	sin referencia
+INDIRECTOS	PLAN DE GESTION URBANA (PGU) ETAPA 08	%	24366374974.3265					0	sin referencia
+INDIRECTOS	PLAN DE GESTION URBANA (PGU) ETAPA 09	%	10226246098.4319					0	sin referencia
+INDIRECTOS	COSTOS GESTION AMBIENTAL (CAR) ETAPA 01	%	11128725492.3992					0	sin referencia
+INDIRECTOS	COSTOS GESTION AMBIENTAL (CAR) ETAPA 02	%	1828918499					0	sin referencia
+INDIRECTOS	COSTOS GESTION AMBIENTAL (CAR) ETAPA 03	%	13208977046.1337					0	sin referencia
+INDIRECTOS	COSTOS GESTION AMBIENTAL (CAR) ETAPA 04	%	16487623174.3517					0	sin referencia
+INDIRECTOS	COSTOS GESTION AMBIENTAL (CAR) ETAPA 05	%	29909045493.2993					0	sin referencia
+INDIRECTOS	COSTOS GESTION AMBIENTAL (CAR) ETAPA 07	%	1506894081.77456					0	sin referencia
+INDIRECTOS	COSTOS GESTION AMBIENTAL (CAR) ETAPA 08	%	24366374974.3265					0	sin referencia
+INDIRECTOS	COSTOS GESTION AMBIENTAL (CAR) ETAPA 09	%	10226246098.4319					0	sin referencia
+INDIRECTOS	COSTOS GESTION AMBIENTAL (CAR) GENERAL	%	37488693000.6307					0	sin referencia
+INDIRECTOS	VIGILACIA AÑO 2024	AÑO	12835000					0	sin referencia
+INDIRECTOS	VIGILACIA AÑO 2025	AÑO	12835000					0	sin referencia
+INDIRECTOS	VIGILACIA AÑO 2026	AÑO	12835000					0	sin referencia
+INDIRECTOS	VIGILACIA AÑO 2027	AÑO	12835000					0	sin referencia
+INDIRECTOS	VIGILACIA AÑO 2028	AÑO	12835000					0	sin referencia
+INDIRECTOS	VIGILACIA AÑO 2029	AÑO	12835000					0	sin referencia
+INDIRECTOS	VIGILACIA AÑO 2030	AÑO	12835000					0	sin referencia
+INDIRECTOS	VIGILACIA AÑO 2031	AÑO	12835000					0	sin referencia
+INDIRECTOS	VIGILACIA AÑO 2032	AÑO	12835000					0	sin referencia
+INDIRECTOS	PMT - ETAPA 01	%	11128725492.3992					0	sin referencia
+INDIRECTOS	PMT - ETAPA 02	%	1828918499					0	sin referencia
+INDIRECTOS	PMT - ETAPA 03	%	13208977046.1337					0	sin referencia
+INDIRECTOS	PMT - ETAPA 04	%	16487623174.3517					0	sin referencia
+INDIRECTOS	PMT - ETAPA 05	%	29909045493.2993					0	sin referencia
+INDIRECTOS	PMT - ETAPA 07	%	1506894081.77456					0	sin referencia
+INDIRECTOS	PMT - ETAPA 08	%	24366374974.3265					0	sin referencia
+INDIRECTOS	PMT - ETAPA 09	%	10226246098.4319					0	sin referencia
+INDIRECTOS	ADMIN DELEGAD + HON + REEMB ETAPA 01	%	11128725492.3992					0	sin referencia
+INDIRECTOS	ADMIN DELEGAD + HON + REEMB ETAPA 02	%	1828918499					0	sin referencia
+INDIRECTOS	ADMIN DELEGAD + HON + REEMB ETAPA 03	%	13208977046.1337					0	sin referencia
+INDIRECTOS	ADMIN DELEGAD + HON + REEMB ETAPA 04	%	16487623174.3517					0	sin referencia
+INDIRECTOS	ADMIN DELEGAD + HON + REEMB ETAPA 05	%	29909045493.2993					0	sin referencia
+INDIRECTOS	ADMIN DELEGAD + HON + REEMB ETAPA 07	%	1506894081.77456					0	sin referencia
+INDIRECTOS	ADMIN DELEGAD + HON + REEMB ETAPA 08	%	24366374974.3265					0	sin referencia
+INDIRECTOS	ADMIN DELEGAD + HON + REEMB ETAPA 09	%	10226246098.4319					0	sin referencia
+INDIRECTOS	ADMIN DELEGAD + HON + REEMB GENERAL	%	37488693000.6307					0	sin referencia
+INDIRECTOS	INTERVENTORIA + HON + REEMB ETAPA 01	%	11128725492.3992					0	sin referencia
+INDIRECTOS	INTERVENTORIA + HON + REEMB ETAPA 02	%	1828918499					0	sin referencia
+INDIRECTOS	INTERVENTORIA + HON + REEMB ETAPA 03	%	13208977046.1337					0	sin referencia
+INDIRECTOS	INTERVENTORIA + HON + REEMB ETAPA 04	%	16487623174.3517					0	sin referencia
+INDIRECTOS	INTERVENTORIA + HON + REEMB ETAPA 05	%	29909045493.2993					0	sin referencia
+INDIRECTOS	INTERVENTORIA + HON + REEMB ETAPA 07	%	1506894081.77456					0	sin referencia
+INDIRECTOS	INTERVENTORIA + HON + REEMB ETAPA 08	%	24366374974.3265					0	sin referencia
+INDIRECTOS	INTERVENTORIA + HON + REEMB ETAPA 09	%	10226246098.4319					0	sin referencia
+INDIRECTOS	INTERVENTORIA + HON + REEMB GENERAL	%	37488693000.6307					0	sin referencia
+INDIRECTOS	ESTUDIOS Y DISEÑOS ETAPA 01	%	11128725492.3992					0	sin referencia
+INDIRECTOS	ESTUDIOS Y DISEÑOS ETAPA 02	%	1828918499					0	sin referencia
+INDIRECTOS	ESTUDIOS Y DISEÑOS ETAPA 03	%	13208977046.1337					0	sin referencia
+INDIRECTOS	ESTUDIOS Y DISEÑOS ETAPA 04	%	16487623174.3517					0	sin referencia
+INDIRECTOS	ESTUDIOS Y DISEÑOS ETAPA 05	%	29909045493.2993					0	sin referencia
+INDIRECTOS	ESTUDIOS Y DISEÑOS ETAPA 07	%	1506894081.77456					0	sin referencia
+INDIRECTOS	ESTUDIOS Y DISEÑOS ETAPA 08	%	24366374974.3265					0	sin referencia
+INDIRECTOS	ESTUDIOS Y DISEÑOS ETAPA 09	%	10226246098.4319					0	sin referencia
+INDIRECTOS	ESTUDIOS Y DISEÑOS GENERAL	%	37488693000.6307					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2023 (GENERAL)	GL	163278318.859484					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 01)	GL	24314513.029477					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 02)	GL	18526047.9143745					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 03)	GL	87898908.9093637					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2023 (ETAPA 07)	GL	5083377.45597091					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2024 (GENERAL)	GL	648418128.292378					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 01)	GL	96558876.5185795					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 02)	GL	73571466.1763003					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 03)	GL	349068059.936371					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 04)	GL	315256695.092978					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 05)	GL	577733222.622701					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2024 (ETAPA 07)	GL	20187334.8429132					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2025 (GENERAL)	GL	1069320369.00771					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 01)	GL	149464998.070098					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 02)	GL	113882425.381566					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 03)	GL	575655692.481899					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 04)	GL	519896638.943086					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 05)	GL	952752361.242368					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2025 (ETAPA 07)	GL	33291370.8016695					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2026 (GENERAL)	GL	1283533093.26791					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 03)	GL	677241738.094104					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 04)	GL	624045478.32699					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 05)	GL	1143613477.10838					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 07)	GL	39960499.5683831					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 08)	GL	1319893070.09918					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2026 (ETAPA 09)	GL	555291529.369549					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2027 (GENERAL)	GL	1546351957.00337					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 03)	GL	815915142.787509					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 04)	GL	751826307.97087					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 05)	GL	1377782113.80549					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 07)	GL	48142893.2643059					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 08)	GL	1590157077.12418					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2027 (ETAPA 09)	GL	668994159.676695					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2028 (GENERAL)	GL	1765267708.43721					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 04)	GL	858261728.711775					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 05)	GL	1572833573.72044					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 07)	GL	54958442.3425239					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 08)	GL	1815274282.72534					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2028 (ETAPA 09)	GL	763703102.558162					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2029 (GENERAL)	GL	2001282698.75198					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 04)	GL	973010688.669113					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 05)	GL	1783120262.18935					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 07)	GL	62306345.5388435					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 08)	GL	2057975115.13073					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2029 (ETAPA 09)	GL	865809643.958159					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2030 (GENERAL)	GL	2260987718.88104					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 04)	GL	1099277587.71551					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 05)	GL	2014514499.43191					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 07)	GL	70391795.3018503					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 08)	GL	2325037069.46304					0	sin referencia
+INDEXACION	INDEXACION POR EJECUTAR AÑO 2030 (ETAPA 09)	GL	978165140.336714					0	sin referencia
+RED DE ACUEDUCTO	Codo 11,25° Ø4"	UN	311640	CODO G.RAD. PVC 11.25° TIPO U.M. D=2" (SUMINISTRO E INSTALACIÓN)	UN	54400	5.73	0.6	caro frente a IDU
+RED DE ACUEDUCTO	Codo 11,25° Ø6"	UN	304534	CODO G.RAD. PVC 11.25° TIPO U.M. D=2" (SUMINISTRO E INSTALACIÓN)	UN	54400	5.6	0.6	caro frente a IDU
+RED DE ACUEDUCTO	Codo 11,25° Ø8"	UN	606781	CODO G.RAD. PVC 11.25° TIPO U.M. D=2" (SUMINISTRO E INSTALACIÓN)	UN	54400	11.15	0.6	caro frente a IDU
+RED DE ACUEDUCTO	Codo 11,25° Ø12"	UN	1690591	CODO G.RAD. PVC 11.25° TIPO U.M. D=12" (SUMINISTRO E INSTALACIÓN)	UN	1690591	1	0.67	ok
+RED DE ACUEDUCTO	Codo 22,5° Ø6"	UN	338771					0.5	sin referencia
+RED DE ACUEDUCTO	Codo 22,5° Ø8"	UN	703493					0.5	sin referencia
+RED DE ACUEDUCTO	Codo 22,5° Ø12"	UN	2095131	CODO G.RAD. PVC 22.5° TIPO U.M. D=12" (SUMINISTRO E INSTALACIÓN)	UN	2095131	1	0.6	ok
+RED DE ACUEDUCTO	Codo 45° Ø6"	UN	328958	CODO PVC 45° D=1 1/2" (SUMINISTRO E INSTALACIÓN)	UN	19997	16.45	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Codo 45° Ø8"	UN	898567	CODO PVC 45° D=1 1/2" (SUMINISTRO E INSTALACIÓN)	UN	19997	44.94	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Codo 45° Ø12"	UN	2673808	CODO G.RAD. PVC 45º TIPO U.M. D=12" (SUMINISTRO E INSTALACIÓN)	UN	2673808	1	0.6	ok
+RED DE ACUEDUCTO	Codo 90° Ø6"	UN	376664	CODO 90° CPVC TIPO E.L. Ø 1/2". SUMINISTRO E INSTALACIÓN.	UN	8950	42.09	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Codo 90° Ø8"	UN	1342870	CODO 90° CPVC TIPO E.L. Ø 1/2". SUMINISTRO E INSTALACIÓN.	UN	8950	150.04	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Codo 90° Ø12"	UN	1716140	CODO G.RAD. PVC 90º TIPO U.M. D=12" (SUMINISTRO E INSTALACIÓN)	UN	3937485	0.44	0.6	BARATO frente a IDU
+RED DE ACUEDUCTO	Tee Ø6" × Ø1"	UN	754720					0.4	sin referencia
+RED DE ACUEDUCTO	Tee Ø6" × Ø2"	UN	758258					0.4	sin referencia
+RED DE ACUEDUCTO	Tee Ø6" × Ø4"	UN	1926775					0.4	sin referencia
+RED DE ACUEDUCTO	Tee Ø6" × Ø6"	UN	752605					0.4	sin referencia
+RED DE ACUEDUCTO	Tee Ø8" × Ø2"	UN	1117192					0.4	sin referencia
+RED DE ACUEDUCTO	Tee Ø8" × Ø4"	UN	1257160					0.4	sin referencia
+RED DE ACUEDUCTO	Tee Ø8" × Ø6"	UN	1380120					0.4	sin referencia
+RED DE ACUEDUCTO	Tee Ø8" × Ø8"	UN	1505200					0.4	sin referencia
+RED DE ACUEDUCTO	Tee Ø10" × Ø8"	UN	1878320					0.4	sin referencia
+RED DE ACUEDUCTO	Tee Ø12" × Ø4"	UN	1992800					0.5	sin referencia
+RED DE ACUEDUCTO	Tee Ø12" × Ø6"	UN	2129540					0.5	sin referencia
+RED DE ACUEDUCTO	Tee Ø12" × Ø8"	UN	2268400					0.5	sin referencia
+RED DE ACUEDUCTO	Tee Ø12" × Ø12"	UN	5065423	TEE PVC U.M. 12" X 12" (SUMINISTRO E INSTALACIÓN)	UN	5065423	1	0.67	ok
+RED DE ACUEDUCTO	Reducción concéntrica Ø4" × Ø2"	UN	822560	REDUCCIÓN CONCENTRICA HD EL 4" X 3". SUMINISTRO E INSTALACIÓN.	UN	282870	2.91	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Reducción concéntrica Ø4" × Ø3"	UN	1005940	REDUCCIÓN CONCENTRICA HD EL 4" X 3". SUMINISTRO E INSTALACIÓN.	UN	282870	3.56	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Reducción concéntrica Ø6" × Ø2"	UN	1195680	REDUCCIÓN CONCENTRICA HD EL 4" X 3". SUMINISTRO E INSTALACIÓN.	UN	282870	4.23	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Reducción concéntrica Ø6" × Ø4"	UN	1598480	REDUCCIÓN CONCENTRICA HD EL 4" X 3". SUMINISTRO E INSTALACIÓN.	UN	282870	5.65	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Reducción concéntrica Ø8" × Ø4"	UN	2026720	REDUCCIÓN CONCENTRICA HD EL 4" X 3". SUMINISTRO E INSTALACIÓN.	UN	282870	7.16	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Reducción concéntrica Ø8" × Ø6"	UN	2476160	REDUCCIÓN CONCENTRICA HD EL 4" X 3". SUMINISTRO E INSTALACIÓN.	UN	282870	8.75	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Reducción concéntrica Ø12" × Ø8"	UN	3936840	REDUCCION CONCENTRICA HD 12"X6" (SUMINISTRO E INSTALACIÓN)	UN	1748855	2.25	0.6	caro frente a IDU
+RED DE ACUEDUCTO	Tapón Ø1"	UN	98580					0.4	sin referencia
+RED DE ACUEDUCTO	Tapón Ø2"	UN	227900					0.4	sin referencia
+RED DE ACUEDUCTO	Tapón Ø3"	UN	369940					0.4	sin referencia
+RED DE ACUEDUCTO	Tapón Ø4"	UN	522580					0.4	sin referencia
+RED DE ACUEDUCTO	Tapón Ø6"	UN	850120					0.4	sin referencia
+RED DE ACUEDUCTO	Tapón Ø8"	UN	897197					0.4	sin referencia
+RED DE ACUEDUCTO	Tapón Ø12"	UN	1738875					0.4	sin referencia
+RED DE ACUEDUCTO	Unión Ø12"	UN	3180000	UNION GIBAULT D=12" (SUMINISTRO E INSTALACIÓN)	UN	1041325	3.05	0.57	caro frente a IDU
+RED DE ACUEDUCTO	Unión de reparación según diámetro	UN	3180000					0.5	sin referencia
+RED DE ACUEDUCTO	Empate en tee Ø6" × Ø6"	UN	13389920					0.33	sin referencia
+RED DE ACUEDUCTO	Empate en tee Ø8" × Ø2"	UN	10563960					0.33	sin referencia
+RED DE ACUEDUCTO	Empate en tee Ø8" × Ø6"	UN	16361100					0.33	sin referencia
+RED DE MEDIA TENSIÓN	Replanteo, localización y coordinación de la red de media tensión	GB	21200000					0	sin referencia
+RED DE MEDIA TENSIÓN	Señalización y plan de manejo de tránsito para frentes de red MT	GB	37100000					0	sin referencia
+RED DE MEDIA TENSIÓN	Excavación para canalización MT, incluye cargue	M3	118952					0.5	sin referencia
+RED DE MEDIA TENSIÓN	Relleno en arena limpia para protección de ductos	M3	267915					0.31	sin referencia
+RED DE MEDIA TENSIÓN	Relleno y compactación con base granular clase B	M3	255369	BASE GRANULAR CLASE A (BG_A) (SUMINISTRO, EXTENDIDO MANUAL, HUMEDECIMIENTO Y COMPACTACIÓN)	M3	255369	1	0.57	ok
+RED DE MEDIA TENSIÓN	Transporte y disposición final de sobrantes	M3	106000	DEMOLICION PAVIMENTO ASFALTICO (INCLUYE CARGUE). NO INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE SOBRANTES.	M3	43555	2.43	0.67	caro frente a IDU
+RED DE MEDIA TENSIÓN	Reposición de pavimento, andén o zona dura afectada	M2	265000					0.36	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación de banco de ductos PVC-TDP 4Ø6"	ML	276443	8 DUCTOS D=4" PVC-TDP (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	248532	1.11	0.91	ok
+RED DE MEDIA TENSIÓN	Suministro e instalación de banco de ductos PVC-TDP 6Ø6"	ML	649111	8 DUCTOS D=4" PVC-TDP (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	248532	2.61	0.91	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación de banco de ductos PVC-TDP 12Ø6"	ML	649111	12 DUCTOS D=4" PVC-TDP (INCLUYE SUMINISTRO E INSTALACIÓN. NO INCLUYE RELLENOS)	ML	360330	1.8	0.86	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación de banco de ductos PVC-TDP 9Ø6"	ML	649111	8 DUCTOS D=4" PVC-TDP (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	248532	2.61	0.91	caro frente a IDU
+RED DE MEDIA TENSIÓN	Bajante o transición en tubería conduit IMC Ø6"	UN	3445000					0.33	sin referencia
+RED DE MEDIA TENSIÓN	Cinta de señalización para red de media tensión	ML	1696					0.36	sin referencia
+RED DE MEDIA TENSIÓN	Limpieza, mandrilado y verificación de ductos MT	ML	12720					0.2	sin referencia
+RED DE MEDIA TENSIÓN	Construcción de caja de inspección doble norma CS276	UN	3981431					0.43	sin referencia
+RED DE MEDIA TENSIÓN	Construcción de cárcamo de protección para red MT en cruce	ML	596971					0.31	sin referencia
+RED DE MEDIA TENSIÓN	Suministro cable 3x120 mm² Al XLPE 15 kV	ML	229288	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	229288	1	0.71	ok
+RED DE MEDIA TENSIÓN	Tendido, conexionado e identificación cable 3x120 mm² Al XLPE 15 kV	ML	53000					0.5	sin referencia
+RED DE MEDIA TENSIÓN	Suministro cable 3x185 mm² Al XLPE 15 kV	ML	229288	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	229288	1	0.71	ok
+RED DE MEDIA TENSIÓN	Tendido, conexionado e identificación cable 3x185 mm² Al XLPE 15 kV	ML	68377					0.5	sin referencia
+RED DE MEDIA TENSIÓN	Suministro cable 3x240 mm² Al XLPE 15 kV	ML	229288	CABLE DE 3X20 XLPE-15-KV-AL (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	229288	1	0.71	ok
+RED DE MEDIA TENSIÓN	Tendido, conexionado e identificación cable 3x240 mm² Al XLPE 15 kV	ML	84800					0.5	sin referencia
+RED DE MEDIA TENSIÓN	Juego de terminales premoldeados 15 kV para cable MT	JG	8480000					0	sin referencia
+RED DE MEDIA TENSIÓN	Empalme premoldeado 15 kV	JG	10600000					0	sin referencia
+RED DE MEDIA TENSIÓN	Celda MT SF6 17,5 kV - 630 A norma CTS508	UN	28194007					0.16	sin referencia
+RED DE MEDIA TENSIÓN	Fusible limitador de corriente norma CTS507	UN	1590000					0.12	sin referencia
+RED DE MEDIA TENSIÓN	Caja de maniobra pedestal de 5 vías ET512 Fig. 4	UN	106000000					0.24	sin referencia
+RED DE MEDIA TENSIÓN	Caja de maniobra pedestal de 3 vías ET512 Fig. 1	UN	79500000					0.24	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación CDMT-7, 1 entrada, 1 salida y 2 derivaciones	UN	180200000	SALIDA PARA ILUMINACIÓN (SUMINISTRO E INSTALACIÓN)	UN	56562	3185.88	0.6	caro frente a IDU
+RED DE MEDIA TENSIÓN	Retiro controlado de barraje preformado B-2 existente	UN	5300000					0.25	sin referencia
+RED DE MEDIA TENSIÓN	Suministro e instalación transformador trifásico tipo aceite 30 kVA, 11,4 kV / 208-120 V	UN	42400000	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	6694730	6.33	0.75	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación transformador trifásico tipo aceite 45 kVA, 11,4 kV / 208-120 V	UN	46640000	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	6694730	6.97	0.83	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación transformador trifásico tipo aceite 112,5 kVA, 11,4 kV / 208-120 V	UN	58300000	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	6694730	8.71	0.75	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación transformador trifásico tipo aceite 150 kVA, 11,4 kV / 208-120 V	UN	65720000	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 150 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	14133951	4.65	0.83	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación transformador trifásico tipo aceite 225 kVA, 11,4 kV / 208-120 V	UN	61785163	TRANSFORMADOR SEMISUMERGIBLE 225 KVA 11.4 /0.208-0.120 KV DYN5. (SUMINISTRO E INSTALACIÓN)	UN	61785163	1	0.82	ok
+RED DE MEDIA TENSIÓN	Suministro e instalación transformador trifásico tipo aceite 300 kVA, 11,4 kV / 208-120 V	UN	90100000	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	6694730	13.46	0.75	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación transformador trifásico tipo aceite 400 kVA, 11,4 kV / 208-120 V	UN	106000000	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	6694730	15.83	0.75	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación transformador trifásico tipo aceite 500 kVA, 11,4 kV / 208-120 V	UN	127200000	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	6694730	19	0.75	caro frente a IDU
+RED DE MEDIA TENSIÓN	Suministro e instalación transformador trifásico tipo aceite 630 kVA, 11,4 kV / 208-120 V	UN	153700000	TRANSFORMADOR TIPO PEDESTAL PARA AP DE 45 KVA 11.4/0.208-0.120 KV EN ACEITE VEGETAL (INCLUYE SUMINISTRO E INSTALACIÓN).	UN	6694730	22.96	0.75	caro frente a IDU
+RED DE MEDIA TENSIÓN	Base, foso de aceite, cerramiento y adecuación civil del centro de transformación	UN	12720000					0.17	sin referencia
+RED DE MEDIA TENSIÓN	Sistema de puesta a tierra completo por centro de transformación	UN	8480000					0.36	sin referencia
+RED DE MEDIA TENSIÓN	Malla o puesta a tierra para CDMT y cajas de maniobra	UN	6360000					0.5	sin referencia
+RED DE MEDIA TENSIÓN	Estructura de transición aérea-subterránea MT en punto de conexión	UN	15900000					0.19	sin referencia
+RED DE MEDIA TENSIÓN	Retiro de cable existente 3x120 mm² Al entre Colegio L6 y Supermercado L12	ML	47700					0.24	sin referencia
+RED DE MEDIA TENSIÓN	Prueba VLF para circuito de media tensión	UN	3011081					0.18	sin referencia
+RED DE MEDIA TENSIÓN	Pruebas, coordinación, energización y recibo por operador de red	GB	31800000					0	sin referencia
+RED DE MEDIA TENSIÓN	Planos récord, rotulado e inventario final de red MT	GB	21200000					0	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Bloque de cemento gris 10x20x6 (adoquín, material)	UN	1168.11					0.17	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Bloque de cemento 20x20x6 alerta (material)	UN	2336.2					0.18	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Bloque de cemento 20x20x6 guía (material)	UN	2447.24					0.18	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Bordillo prefabricado A-80 (material)	UN	30774					0.2	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Sardinel prefabricado A-10 (material)	UN	38000					0.33	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Transporte de prefabricados	KG	62.66					0.13	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Arena de peña para nivelación (material)	M3	15012					0.36	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Transporte de arena de peña	M3	127489					0.55	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	M.O. localización y replanteo	M2	6201.6304					0.5	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	M.O. instalación de adoquín y tabletas	M2	41159.8216					0.31	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	M.O. nivelación con arena	M2	33265.4812					0.4	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	M.O. instalación de bordillo prefabricado	ML	77801	BORDILLO PREFABRICADO A80 (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	ML	77801	1	0.6	ok
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	M.O. instalación de sardinel prefabricado	ML	65944					0.46	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Subbase granular SBG (suministro)	M3	51170	SUBBASE GRANULAR SBG-A (SUMINISTRO, EXTENDIDO, NIVELACIÓN, HUMEDECIMIENTO Y COMPACTACIÓN CON VIBROCOMPACTADOR)	M3	221997	0.23	0.62	BARATO frente a IDU
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Subbase granular SBG (transporte)	M3	18000					0.46	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	M.O. instalación de subbase granular SBG	M3	51178.3696					0.46	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Geotextil tejido 2100 (suministro)	M2	3836.56					0.43	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	M.O. instalación de geotextil 2100	M2	3687.2388					0.31	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Suministro, extendida y compactación de Rodadura Asfáltica MDC-19	M3	1112765.68478365					0.38	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Suministro, extendida y compactación de Capa intermedia asfáltica MDC-25	M3	1058203.95485693					0.35	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Suministro y construcción de contenedor de raíces Tipo A (2,00x2,20)m	UN	2059073					0.44	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Suministro y construcción de contenedor de raíces Tipo B (1,50x2,20)m	UN	3358192.71163712					0.44	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Suministro y construcción de contenedor de raíces Tipo C (1,20x2,20)m	UN	2686554.16930969					0.44	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Suministro y construcción de contenedor de raíces Tipo D (0,84x4,20)m	UN	3590213.29898659					0.44	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Suministro y construcción de contenedor de raíces Tipo E (0,70x4,20)m	UN	2991844.41582216					0.44	sin referencia
+ANDENES Y RAMPAS (CC MONGUI 06-2026)	Suministro y construcción de contenedor de raíces Tipo F (0,70x4,20)m	UN	2991844.41582216					0.44	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Adoquín gris 10x20x6	UN	1168.11					0.1	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Loseta toperol 20x20x6	UN	2336.2					0.08	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Loseta guía 20x20x6	UN	2447.24					0.08	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Loseta lisa 20x20x6	UN	2336.2					0.08	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Bordillo prefabricado A-80	UN	30774					0.16	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Sardinel prefabricado A-10	UN	38000					0.25	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Arena de nivelación	M3	150120					0.25	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Subbase granular SBG	M3	120348.3696					0.5	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Subbase granular SBG (sello subrasante)	M3	182509					0.43	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Base granular BG	M3	255369					0.5	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Geotextil tejido 2100	M2	7523.7988					0.31	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Geotextil tejido 2400	M2	11840.4921205432					0.31	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	Piedra rajón (mejoramiento subrasante)	M3	182509					0.29	sin referencia
+MATERIALES UNIFICADOS (ESTUDIO SUELOS)	M.O. instalación de loseta guía y toperol	ML	8231.9643					0.26	sin referencia
+CIMENTACIÓN REDES (ESTUDIO SUELOS AUS-10786-22)	Cimentación de tubería en gravilla (cama y atraque)	M3	149872.75					0.25	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Construcción de cuneta en concreto fundida en sitio	ML	132627					0.35	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Construcción de captación de aguas lluvias	UN	14543853.2322303					0.2	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Alcantarilla rural con cabezales (descole)	UN	37186137.0100324					0	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Conformación de dique del reservorio con material del sitio	M3	23203.0077192135					0.29	sin referencia
+RED DE TELECOMUNICACIONES (PPTO 240917)	Canalización banco de ductos TDP PVC 8Ø3" EPM RS1-003	ML	301685.576478172					0.53	sin referencia
+RED DE TELECOMUNICACIONES (PPTO 240917)	Canalización banco de ductos TDP PVC 7Ø3" EPM RS1-003	ML	222617.0135125					0.53	sin referencia
+RED DE TELECOMUNICACIONES (PPTO 240917)	Canalización banco de ductos TDP PVC 6Ø3" EPM RS1-003	ML	226252.258027543					0.53	sin referencia
+RED DE TELECOMUNICACIONES (PPTO 240917)	Canalización banco de ductos TDP PVC 5Ø3" EPM RS1-003	ML	188537.983668445					0.53	sin referencia
+RED DE TELECOMUNICACIONES (PPTO 240917)	Cárcamo de protección de ductos ETB	ML	763157.18951					0.36	sin referencia
+RED DE TELECOMUNICACIONES (PPTO 240917)	Caja de inspección prefabricada 0,80x0,80 m (incluye base, muros, cubierta y aros)	UN	2861839.4606625					0.43	sin referencia
+RED DE TELECOMUNICACIONES (PPTO 240917)	Excavación manual para redes profundidad 0-2 m (incluye cargue)	M3	58471	EXCAVACION MANUAL PARA REDES PROFUNDIDAD 0M - 2M (INCLUYE CARGUE)	M3	58471	1	0.83	ok
+RED DE TELECOMUNICACIONES (PPTO 240917)	Relleno para redes en arena de peña	M3	182185	RELLENO PARA REDES EN ARENA DE PEÑA (SUMINISTRO, EXTENDIDO, HUMEDECIMIENTO Y COMPACTACIÓN)	M3	182185	1	0.67	ok
+RED DE TELECOMUNICACIONES (PPTO 240917)	Base granular clase B (BG38/BG25) para telecomunicaciones	M3	230570					0.47	sin referencia
+RED DE TELECOMUNICACIONES (PPTO 240917)	Sub-base granular clase C para telecomunicaciones	M3	327919.104867578					0.43	sin referencia
+RED DE TELECOMUNICACIONES (PPTO 240917)	Transporte y disposición final de escombros (21 km)	M3	69249.0166084375	DESCABECE DE PILOTES (INCLUYE COMPRESOR Y MARTILLO DEMOLEDOR, INCLUYE TRANSPORTE Y DISPOSICIÓN FINAL DE ESCOMBROS EN SITIO AUTORIZADO A 21 KM.	M3	355050	0.2	0.63	BARATO frente a IDU
+OBRAS PRELIMINARES	Obras preliminares generales	GL	1					0	sin referencia
+CICLORRUTA	Suministro de cañuela prefabricada	UN	95000					0.33	sin referencia
+CICLORRUTA	M.O. instalación de cañuela prefabricada	ML	70000					0.44	sin referencia
+CICLORRUTA	Suministro y colocación de recebo B-200	M3	110000					0.44	sin referencia
+RAMPA VEHICULAR	Suministro pieza remate A-105 para rampa	UN	102699	PIEZA REMATE A105 PARA RAMPA TIPO A (SUMINISTRO E INSTALACIÓN. NO INCLUYE MATERIAL DE BASE)	UN	102699	1	0.62	ok
+RAMPA VEHICULAR	Suministro sardinel alto A-86 para rampas	UN	60000					0.31	sin referencia
+RAMPA VEHICULAR	Suministro sardinel bajo A-85 para rampa	UN	55000					0.46	sin referencia
+RAMPA VEHICULAR	Suministro sardinel especial A-100 para rampa	UN	68170	SARDINEL ESPECIAL A100 PARA RAMPA TIPO A (SUMINISTRO E INSTALACIÓN. INCLUYE 3CM MORTERO 1:5)	UN	69768	0.98	0.62	ok
+RAMPA VEHICULAR	M.O. instalación pieza remate A-105	UN	102699					0.5	sin referencia
+SEÑALIZACIÓN Y DEMARCACIÓN	Reproceso de pintura	GL	15000000					0	sin referencia
+PL3	Localizacion y replanteo	M2	6201.6304					0.5	sin referencia
+PL3	Descapote con botadero certificado	M3	35000					0.14	sin referencia
+PL3	Subabase granular SBG-B	M3	217337					0.33	sin referencia
+PL3	Relleno Material seleccionado(montañas)	M3	48122					0.46	sin referencia
+PL3	Relleno Manual Tierra Negra X 30CM	M3	111152					0.55	sin referencia
+PL3	Arboles 80 cm	M3	60000					0.13	sin referencia
+PL3	Arboles 120 cm	M2	120000					0.17	sin referencia
+PL3	Jardineria	M2	122393					0.12	sin referencia
+PL3	Coberturas Zonas Verdes	M2	32000					0.11	sin referencia
+PL3	Excavacion y retiro a maquina con batadero certificado	M3	117926					0.25	sin referencia
+PL3	Concreto 3000 psi	M3	560000	CONCRETO 3000 PSI (HECHO EN OBRA 1:2:2 CON MATERIAL DE RÍO)	M3	572505	0.98	0.6	ok
+PL3	Malla electrosoldada	KG	7569					0.36	sin referencia
+PL3	Mano de obra losa contrapiso	M2	53000					0.33	sin referencia
+PL3	Separadores losa	UN	1000					0.12	sin referencia
+PL3	Cañuela prefabricado	ML	63000					0.29	sin referencia
+PL3	Bordillo de confinamiento	ML	63000					0.29	sin referencia
+PL3	MO Escobillado concreto	M2	33000					0.29	sin referencia
+PL3	Señalizacion zonas	GB	10000000					0	sin referencia
+PL3	Canecas tipo idu	UN	450000					0.18	sin referencia
+PL3	totem parque	UN	4000000					0	sin referencia
+PL3	Mesa rural con asientos	UN	1200000					0.15	sin referencia
+PL3	Bancas tipo idu en concreto(sin espaldar)	UN	750000					0.29	sin referencia
+PL3	Bancas tipo idu en concreto(con espaldar)	UN	750000					0.31	sin referencia
+PL3	Piso en mulch de madera inorganico	M2	115200					0.2	sin referencia
+PL3	D5-02 deslizadero recto en polimero	UN	25000000					0.13	sin referencia
+PL3	D5-03 columpio en canasta	UN	11000000					0	sin referencia
+PL3	D5-05 red piramidal pequeña	UN	47000000					0.15	sin referencia
+PL3	D5-07 arco con red y rocodromo	UN	47000000					0.15	sin referencia
+PL3	D5-10,11,12 juegos de muelle	UN	5000000					0.29	sin referencia
+PL3	D2-01 troncos de equilibrio en madera	UN	5000000					0.2	sin referencia
+PL3	D2-02 laberinto de troncos	UN	5000000					0.14	sin referencia
+PL3	superficie en caucho reciclado	M2	128000					0.17	sin referencia
+PL3	Maquinas gym	UN	1200000					0	sin referencia
+PL3	mortero de nivelacion	M3	480000					0.4	sin referencia
+PL3	Bicicletero enrollado (capacidad: 11 bicicletas)	UN	230000					0.17	sin referencia
+PL3	superficie en ecopavimento	M2	128000					0.18	sin referencia
+PL3	Mejoramiento en rajon 0,25m	M3	191937					0.18	sin referencia
+PL3	base granular 0,20m idu	M3	236515					0.31	sin referencia
+PL3	Subbase granular 0,20m idu	M3	217337					0.31	sin referencia
+PL3	Rodadura asfaltica MDC-II de 5.5cm	M2	78000					0.44	sin referencia
+PL3	Excavacion manual de vigas cerramiento y zanjas filto perimetral	M3	35000					0.33	sin referencia
+PL3	Concreto 3000psi impermeabilzado	M3	590000					0.25	sin referencia
+PL3	Hierro 60000 psi - losa y vigas	KG	7500					0.1	sin referencia
+PL3	MO Dados cerramiento	M3	360000					0.22	sin referencia
+PL3	MO Vigas corridas cimentacion cerramiento	M3	360000					0.18	sin referencia
+PL3	Sum + MO Bordillo de confinamiento	ML	63000					0.22	sin referencia
+PL3	Filtro perimetral a todo costo	ML	77000					0.44	sin referencia
+PL3	Sum + Inst malla eslabonada cerramiento de altura 5m -	M2	346500					0.38	sin referencia
+PL3	Pintura de trafico peatonal y deportivo antideslizante Demarcacion de cancha	ML	27500					0.29	sin referencia
+PL3	Arcos metalicos de microfutbol altura 1,80 x 2,5 ancho	UN	1815000					0.18	sin referencia
+PL3	Tableros para baloncesto	UN	4950000					0	sin referencia
+PL3	Acabado sintetico	M2	32000					0.13	sin referencia
+PL3	Riego de arena y caucho	M2	12000					0.29	sin referencia
+PL3	Geotextil tejido 1600	M2	17000					0.31	sin referencia
+PL3	Mejoramiento en gravilla(material de filtro)	M3	135000					0.29	sin referencia
+PL3	Geomembrana impermable HDPE 1mm	M2	49500					0.36	sin referencia
+PL3	Arcos metalicos de futbol(incluyen malla)	UN	4950000					0.2	sin referencia
+PL3	Excavacion manual de muro contencion con zarpa	M3	35000					0.4	sin referencia
+PL3	MO Muro contencion con zarpa	M3	650000					0.21	sin referencia
+PL3	MO Placa de contrapiso	M3	53000					0.11	sin referencia
+PL3	MO Pulida de concreto con helicoptero	M2	308000					0.25	sin referencia
+PL3	Sum + MO Tuberia en acero galvanizado 2"	ML	71514					0.5	sin referencia
+PL3	Sum + MO Baranda M-18 tipo idu	ML	135000					0.2	sin referencia
+PL3	Excavacion mecanica material	M3	117926	EXCAVACIÓN MECÁNICA EN MATERIAL COMÚN (INCLUYE CARGUE)	M3	5998	19.66	0.75	caro frente a IDU
+PL3	Relleno en recebo b400	M3	107000					0.31	sin referencia
+PL3	Relleno en arena peña	M3	182185					0.55	sin referencia
+PL3	Relleno con mezcla de gravilla de 3/4" y arena de rio	M3	223097	RELLENO CON MEZCLA DE GRAVILLA DE 3/4" Y ARENA DE RIO (RELACIÓN 1:1) SUMINISTRO Y COLOCACIÓN. (INCLUYE TRANSPORTE, SUMINISTRO, EXTENDIDO MANUAL Y COLOCACIÓN).	M3	223097	1	0.56	ok
+PL3	Mano de obra tuberia novafort 315 mm - 6"	ML	42702					0.4	sin referencia
+PL3	Suministro tuberia novafor 315 mm 6"- 6 mts	UN	941853					0.4	sin referencia
+PL3	Dren filtro 100 mm(filtro frances)	ML	80000					0.33	sin referencia
+PL3	Dren filtro 200 mm (filtro frances)	ML	110000					0.33	sin referencia
+PL3	Tuberia plana 12"x1"	ML	151716.4					0.44	sin referencia
+PL3	Empate a punto de conexión	UN	5000000					0.15	sin referencia
+PL3	Pozo de inspeccion en concreto hmax=2m, tapa en concreto	UN	6624000					0.5	sin referencia
+PL3	Caja de desague h=1 m, incluye marco y tapa	UN	2291728					0.55	sin referencia
+PL3	Sumidero de concreto prefabricado	UN	1548481					0.31	sin referencia
+PL3	INSTALACIONES REDES ELECTRICAS	GB	922669044.265641					0	sin referencia
+PL3	IMPREVISTOS	%	5729404832.87934					0	sin referencia
+PQ10A-PQ10B	D5-01 casa con malla y deslizadero	UN	20600000					0.18	sin referencia
+PQ10A-PQ10B	D5-04 Columpio Convencional doble estruc. Madera	UN	11000000					0.17	sin referencia
+PQ10A-PQ10B	D5-06 red de escalar hexa piramidal	UN	47000000					0.14	sin referencia
+PQ10A-PQ10B	D5-08 juego de rotacion	UN	25500000					0.05	sin referencia
+PQ10A-PQ10B	Demarcacion cicloruta	ML	27500					0.29	sin referencia
+PQ10A-PQ10B	BIORETENEDORES	GB	404707458.747129					0	sin referencia
+PQ14	excavacion mecanica	M3	117926	EXCAVACIÓN MECÁNICA EN TÚNEL.	M3	94195	1.25	0.8	ok
+PQ14	D5-09 presas infantiles de escalada	UN	2000000					0	sin referencia
+PQ14	MO escalera	M3	560000					0	sin referencia
+PQ14	Sc-bloque de concreto graderia	ML	49500					0.21	sin referencia
+PQ16	Mano de obra tuberia novafort 250 mm - 8"	ML	35978.2					0.4	sin referencia
+PQ16	Suministro tuberia novafor 250 mm 8"- 6 mts	UN	654547					0.36	sin referencia
+PQ19	Mano de obra tuberia novafort 315 mm - 4"	ML	42702					0.4	sin referencia
+PQ19	Suministro tuberia novafor 315 mm 4"- 6 mts	UN	941853					0.4	sin referencia
+RED DE ACUEDUCTO	Suministro tubería y piezas especiales HD Ø12"	UN	9200000					0.55	sin referencia
+RED DE ACUEDUCTO	Instalación tubería y piezas especiales HD Ø12"	ML	320000					0.55	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Suministro tubería PVC flexible Ø6"	UN	340000					0.5	sin referencia
+RED DE ALCANTARILLADO SANITARIO	Instalación tubería PVC flexible Ø6"	ML	30000	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	3.08	0.67	caro frente a IDU
+RED DE ALCANTARILLADO PLUVIAL	Cárcamo o placa de protección para tubería (Red de alcantarillado pluvial)	ML	800000					0.53	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Excavación manual para bioswale/bioretenedor	M3	115000					0.44	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Base de gravilla permeable para bioretenedor	M3	150000					0.29	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Suministro y colocación de gravilla 10-15 mm (capa filtrante)	M3	150000					0.38	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Suministro y colocación de gravilla 25-40 mm (capa drenante)	M3	150000					0.47	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Relleno con material orgánico para bioretenedor	M3	100000					0.31	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Tubería perforada PVC Ø6" para drenaje de bioswale	ML	98731					0.55	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Rejilla de drenaje para bioswale	UN	450000					0.18	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Cabezal de descarga en concreto para tubería Ø12"-Ø16" (incluye aletas y solado)	UN	8500000					0.29	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Cabezal de descarga en concreto para tubería Ø18"-Ø24" (incluye aletas y solado)	UN	12500000					0.29	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Cabezal de descarga en concreto para tubería Ø8"-Ø10" (incluye aletas y solado)	UN	6000000					0.31	sin referencia
+RED DE MEDIA TENSIÓN	Construccion de camara de paso MT norma CS280	UN	7500000					0.33	sin referencia
+RED DE ALUMBRADO PÚBLICO	Suministro e instalación poste de concreto 14 m. Tipo recto AP  (Incluye ahoyada, hincada y plomada)	UN	3500000					0.5	sin referencia
+TRONCAL MUÑA	Cerramiento en tela para tramos de ejecucion para la totalidad del proyecto	ML	21734.49					0.11	sin referencia
+TRONCAL MUÑA	Acondicionamiento de acopio y campamentos(incluye servicios, logistica y seguridad para totalidad del proyecto)	M2	124526.050191591					0.17	sin referencia
+TRONCAL MUÑA	Construcción lavado de llantas	GLB	61511267.05					0	sin referencia
+TRONCAL MUÑA	PMT(incluye suministro, tramite y personal de obra)	GLB	133048652.88					0	sin referencia
+TRONCAL MUÑA	Comision topografica	MES	12000000					0	sin referencia
+TRONCAL MUÑA	Stand-by	DIA	9000000					0	sin referencia
+TRONCAL MUÑA	Instalación de tubería de concreto reforzado mediante tecnología sin zanja Pipe Jacking de DI 900mm	ML	3334353					0.42	sin referencia
+TRONCAL MUÑA	Suministro de tubería de concreto reforzado DI 900mm tipo Pipe Jacking	ML	1682020					0.53	sin referencia
+TRONCAL MUÑA	Instalación de tubería de concreto reforzado mediante tecnología sin zanja Pipe Jacking de DI 30"	ML	3334353					0.5	sin referencia
+TRONCAL MUÑA	Suministro de tubería de concreto reforzado DI 30" tipo Pipe Jacking	ML	1478460	TUBERIA CONCRETO D=30" CL. IV REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	1478460	1	0.62	ok
+TRONCAL MUÑA	Construcción de pozos de lanzamiento	UN	541481565.4					0.22	sin referencia
+TRONCAL MUÑA	Construcción de pozos de salida	UN	398057499.4					0.29	sin referencia
+TRONCAL MUÑA	Construcción de pozos intermedios	UN	128990281.5					0.22	sin referencia
+TRONCAL MUÑA	Excavación mecánica en material común (Incluye cargue, transporte y disposición Final)	M3	235852	EXCAVACIÓN MANUAL EN MATERIAL COMÚN (INCL CARGUE, TRANSPORTE Y DISPOSICION FINAL)	M3	117926	2	0.82	caro frente a IDU
+TRONCAL MUÑA	Descargue y acopio de tubería en concreto	GB	12884.1232257206					0	sin referencia
+TRONCAL MUÑA	Suministro de Tubería	ML	1038889.80276727	TUBERÍA HG Ø1 1/2". (INCLUYE SUMINISTRO E INSTALACIÓN).	ML	45332	22.92	0.67	caro frente a IDU
+TRONCAL MUÑA	Campaña geotécnica	UN	30150000					0.25	sin referencia
+TRONCAL MUÑA	Identificación de interferencias	UN	28795260					0	sin referencia
+TRONCAL MUÑA	Pruebas de hermeticidad y CCTV según norma EAAB de tramos acabados	GB	50000000					0	sin referencia
+TRONCAL MUÑA	Rotura de anden	M2	65000					0.12	sin referencia
+TRONCAL MUÑA	Reparación (Andenes)	M2	311147.56275					0.12	sin referencia
+TRONCAL MUÑA	Reparación de parques	GLB	50292.414350009					0	sin referencia
+TRONCAL MUÑA	Imprevistos 3%	GLB	21475257339.6472					0	sin referencia
+TRONCAL MUÑA	Incrementos	GLB	21475257339.6472					0	sin referencia
+TRONCAL MUÑA	Pago de Servidumbres con cuantía	GLB	200000000					0	sin referencia
+TRONCAL MUÑA	Gastos notariales, beneficencia y registro de Servidumbres	GLB	15787333.3333333					0	sin referencia
+TRONCAL MUÑA	Estudio de gestión predial	GLB	31356500					0	sin referencia
+TRONCAL MUÑA	Incoporación catastral	GLB	31356500					0	sin referencia
+TRONCAL MUÑA	Actas de vecindad	GLB	1000000					0	sin referencia
+TRONCAL MUÑA	Polizas	GLB	23784362.448					0	sin referencia
+TRONCAL MUÑA	Gestión Tramites - Asesoria juridica	GLB	100000000					0	sin referencia
+TRONCAL MUÑA	Gastos de mantenimiento	GLB	2000000					0	sin referencia
+TRONCAL MUÑA	Tramite PMT y permiso de circulacion de volquetas	GLB	7592200					0	sin referencia
+TRONCAL MUÑA	Tramite Licencias de intervencion de espacio publico	GLB	5800000					0	sin referencia
+TRONCAL MUÑA	Arqueologicos	MES	15000000					0	sin referencia
+TRONCAL MUÑA	Planos record	GLB	20000000					0	sin referencia
+TRONCAL MUÑA	Honorarios Interventoría	GLB	26414566527.7661					0	sin referencia
+TRONCAL MUÑA	Honorarios Tramitador (Entrega obras Acueducto)	GLB	26414566527.7661					0	sin referencia
+TRONCAL MUÑA	Impuesto 4x1000	GLB	29312419249.2412					0	sin referencia
+TRONCAL MUÑA	Apertura Fideicomiso	GLB	5000000					0	sin referencia
+TRONCAL MUÑA	Costo Fideicomiso	MES	2900000					0	sin referencia
+CABEZAL DE DESCARGA	CERRAMIENTO PROVISIONAL EN POLISOMBRA H=2.20MTS	ML	22000					0.12	sin referencia
+CABEZAL DE DESCARGA	CAMPAMENTO DE OBRA - CONTENEDOR OFICINAS 12FT (1 UN - 6 MESES)	MES	870000					0	sin referencia
+CABEZAL DE DESCARGA	INSTALACIÓN PROVISIONAL DE ACUEDUCTO (SUMINISTRO CARROTANQUE)	MES	600000					0	sin referencia
+CABEZAL DE DESCARGA	INSTALACIÓN PROVISIONAL DE ENERGÍA (PLANTA + COMBUSTIBLE)	MES	6000000					0	sin referencia
+CABEZAL DE DESCARGA	SEÑALIZACIÓN PMT (VERTICAL Y HORIZONTAL)	GLB	2000000					0	sin referencia
+CABEZAL DE DESCARGA	ELABORACION PLAN MANEJO DE TRANSITO	UN	4000000					0.17	sin referencia
+CABEZAL DE DESCARGA	ELABORACION PLAN MANEJO AMBIENTAL	UN	4000000					0.17	sin referencia
+CABEZAL DE DESCARGA	CONSTRUCCION CARRETEABLE ACCESO Y SALIDA DEL PROYECTO - ANCHO=5.00M (INC. MEJORAMIENTO DE RAJON E=0.45M Y SELLO EN MATERIAL SELECCIONADO E=0.20M)	ML	290000					0.17	sin referencia
+CABEZAL DE DESCARGA	Demolicion cabezal existente de entrada	M3	600000					0.17	sin referencia
+CABEZAL DE DESCARGA	ENSAYOS DE CALIDAD	GLB	15000000					0	sin referencia
+CABEZAL DE DESCARGA	Descargue y acopio de tubería	KG	64160.6902494402					0.08	sin referencia
+CABEZAL DE DESCARGA	Suministro de Tubería GRP 92"	ML	8710876.02	TUBERIA GRP 300MM (INCLUYE TRANSPORTE). SUMINISTRO E INSTALACION.	ML	438466	19.87	0.6	caro frente a IDU
+CABEZAL DE DESCARGA	Suministro de Tubería GRP 48"	ML	2366186.8125	TUBERIA GRP 300MM (INCLUYE TRANSPORTE). SUMINISTRO E INSTALACION.	ML	438466	5.4	0.6	caro frente a IDU
+CABEZAL DE DESCARGA	Uniones GRP para tuberia de 48"	UN	1247108.415					0.31	sin referencia
+CABEZAL DE DESCARGA	Uniones GRP para tuberia de 92"	UN	2810416.4025					0.31	sin referencia
+CABEZAL DE DESCARGA	CAMARA GRP 2500 * 2500 * 1200 (INCLUYE TUBERIA , CHIMENEA 2.5M Y ACCESORIOS. INCLUYE TRANSPORTE, SUMINISTRO E INSTALACION.	UN	102171257	CAMARA GRP 2500 * 2500 * 1200 (INCLUYE TUBERIA , CHIMENEA 2.5M Y ACCESORIOS. INCLUYE TRANSPORTE, SUMINISTRO E INSTALACION.	UN	102171257	1	1	ok
+CABEZAL DE DESCARGA	SC - Excavación maquina, incluye retiro escombros	M3	117926					0.27	sin referencia
+CABEZAL DE DESCARGA	SC - Descapote de terreno	M2	10000					0.22	sin referencia
+CABEZAL DE DESCARGA	SC - Mejoramiento en rajon	M3	220000					0.18	sin referencia
+CABEZAL DE DESCARGA	SC-Entibado laterales taludes	M2	118821.109957036					0.25	sin referencia
+CABEZAL DE DESCARGA	SC - Relleno con material granular	M3	129235.042063244					0.36	sin referencia
+CABEZAL DE DESCARGA	SC - geotextil no tejido	M2	13091					0.31	sin referencia
+CABEZAL DE DESCARGA	SC - localizacion y replanteo	M2	6201.6304					0.4	sin referencia
+CABEZAL DE DESCARGA	MAT - Concreto pobre 1500 psi	M3	422463					0.46	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Suministro tubería PVC flexible Ø20"	UN	2900000					0.44	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Suministro tubería PVC flexible Ø27"	UN	5000000					0.44	sin referencia
+RED DE ALCANTARILLADO PLUVIAL	Instalación tubería PVC flexible Ø20"	ML	72000	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	7.4	0.6	caro frente a IDU
+RED DE ALCANTARILLADO PLUVIAL	Instalación tubería PVC flexible Ø27"	ML	97000	TUBERIA CONDUIT PVC D=1" (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	9728	9.97	0.6	caro frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CSR Ø12"	UN	1220000					0.55	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CSR Ø14"	UN	1370000					0.55	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CSR Ø18"	UN	2900000					0.55	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CSR Ø20"	UN	3120000					0.55	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CSR Ø24"	UN	3700000					0.55	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CCR Ø24"	UN	3030000					0.55	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CCR Ø27"	UN	4720000					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CCR Ø30"	UN	4960000					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CCR Ø36"	UN	6470000					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CCR Ø40"	UN	7620000					0.4	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CER Ø12"	UN	2060000					0.55	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Suministro tubería en concreto CER Ø18"	UN	3050000					0.55	sin referencia
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CSR Ø12"	ML	162873	TUBERIA CONCRETO D=12" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	162873	1	0.62	ok
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CSR Ø14"	ML	194640	TUBERIA CONCRETO D=14" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	194640	1	0.62	ok
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CSR Ø18"	ML	129000	TUBERIA CONCRETO D=18" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	315153	0.41	0.62	BARATO frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CSR Ø20"	ML	143000	TUBERIA CONCRETO D=20" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	403869	0.35	0.62	BARATO frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CSR Ø24"	ML	171000	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	817846	0.21	0.67	BARATO frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CCR Ø24"	ML	171000	TUBERIA CONCRETO D=24" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	817846	0.21	0.67	BARATO frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CCR Ø27"	ML	193000	TUBERIA CONCRETO D=27" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	991864	0.19	0.67	BARATO frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CCR Ø30"	ML	214000	TUBERIA CONCRETO D=30" CL. IV REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	1478460	0.14	0.62	BARATO frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CCR Ø36"	ML	257000	TUBERIA CONCRETO D=36" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	1512469	0.17	0.67	BARATO frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CCR Ø40"	ML	285000	TUBERIA CONCRETO D=40" CL. I REFORZADO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	1874457	0.15	0.67	BARATO frente a IDU
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CER Ø12"	ML	162873	TUBERIA CONCRETO D=12" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	162873	1	0.62	ok
+SUMINISTRO E INSTALACIÓN RED DE ALCANTARILLADO CONCRETO	Instalación tubería en concreto CER Ø18"	ML	129000	TUBERIA CONCRETO D=18" CL. I SIN REFUERZO (INCLUYE SUMINISTRO E INSTALACIÓN)	ML	315153	0.41	0.62	BARATO frente a IDU
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	MAT - Concreto industrializado 4000 psi	M3	795461					0.55	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	MAT - Concreto tremie 4000 psi	M3	780000					0.55	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	sc-Bombeo de concreto	M3	60000					0.25	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	MO - Concreto de limpieza	M2	30000					0.29	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	MO - Box Culvert(Incluye formaleta y consumible)	M3	400000					0.21	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	MO - Pilote Preexcavado ø50cm	ML	380000					0.11	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	Movilizacion equipos pilotaje hinca y prebarrena	UN	18000000					0.12	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	MAT - Hierro 60000 PSI	KG	7500					0.1	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	MAT - Alambre negro	KG	6000					0.05	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	MO - Manejo de hierro	KG	2800					0.12	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	SC-Cinta PVC	ML	65000					0.25	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	PRUEBAS HERMETICIDAD-CCTV	UN	6000000					0.2	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	HSEQ	UN	9000000					0	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	PALETEROS	MES	5500000					0	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	POLIZAS - PARA CONTRATO DE URBANISMO CON EL ADMON DELEGADO	GB	25000000					0	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	TRAMITE ENTREGA CAR	GB	25000000					0	sin referencia
+CABEZALES, CAMARAS Y BOX CULVERT (DESCOLES)	VIGILANCIA MIENTRAS SE ENTREGAN LAS OBRAS	MES	8000000					0	sin referencia
+	Suministro tubería GRP Ø45"	UN	9872052					0.44	sin referencia
+	Instalación tubería GRP Ø45"	ML	321000	TUBERIA GRP 300MM (INCLUYE TRANSPORTE). SUMINISTRO E INSTALACION.	ML	438466	0.73	0.6	ok
+REDES HIDRAULICAS	Limpieza con equipo vactor (succión-presión) - red pluvial	VIAJE	1785000					0.07	sin referencia
+REDES HIDRAULICAS	Reparaciones puntuales de red de alcantarillado etapas 1 y 2 (observaciones EAAB - inspección CCTV)	GB	75000000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	NS-046 redes locales etapas 3 a 7 (Datasig - Coinver)	GB	47498001					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Instalación válvulas extremas lira + anclajes para hidrantes + jornales (SEI - Coinver)	GB	14314458					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Iluminación campamento + PTAR (PYP - Coinver)	GB	5105371					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Puntos de soldadura cajas CS 274 todo el AP - vandalización ambulantes (PYP - Coinver)	GB	4177859					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Puesta en servicio ramal de alumbrado público AP1 con cambio de barraje 208/220 (OYP - Coinver)	GB	5442750					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Mantenimiento cajas CS 274 AP3 + AP4 por daños en cableado (OYP - Coinver)	GB	10159800					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Dormante provisional AP4 (PYP - Coinver)	GB	2805000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Cajas campamento urbanismo Maiporé (PYP - Coinver)	GB	4325000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Apoyo técnico para provisiones (Coinver)	GB	62431374					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Acompañamiento técnico y SST adicional acueducto levantamiento topográfico EAAB etapas 3 a 7 (Altuzarra - Coinver)	GB	2354300					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Prueba CCTV redes pluviales etapas 3 a 7 para entrega al municipio (Planeta - Coinver)	GB	55000000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Gestión reconocimiento futuro urbanismo (PYP - Coinver)	GB	5705235					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Cajillas de inspección tapón (PYP - Coinver)	GB	10200000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Dormante de filtro VRP anillo norte por norma americana (Helman - Coinver)	GB	9700000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Celda Mompós siguiente 50% (OYP - Mongui)	GB	28957849					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Complemento VRP oferta VT-184.057 (Electrohidráulica - Mongui)	GB	13258255					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Mantenimiento VRP anillo norte (Carrillo - Mongui)	GB	5100000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Peatonal 3 - 4 (Amarillo - Mongui)	GB	450000000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Actividades varias (Mongui)	GB	20000000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Levantamiento topográfico redes húmedas etapas 1 - 2 (Altuzarra - Macarena)	GB	22653181					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Trámite planos récord redes húmedas etapas 1 - 2 DITG NS-046 (Datasig - Macarena)	GB	43220800					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Aseo general de obra - 6 ayudantes x 1 mes (Macarena)	GB	40000000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Mantenimiento entrega parcial zonas de cesión al municipio (Macarena)	GB	200000000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Pólizas entregas zonas de cesión (Macarena)	GB	60000000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Reparación daños ocasionados a la infraestructura EAAB (Macarena)	GB	32759226					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Hundimientos andenes Patio Portal (Macarena)	GB	28000000					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Gestión para reconocimiento futuro urbanismo (Macarena)	GB	5705235					0	sin referencia
+OBRAS ADICIONALES Y MANTENIMIENTOS	Configuración del IO2 W al sistema de la EAAB (Electrohidráulica - Macarena)	GB	4000000					0	sin referencia
+REDES SECAS	Pago servicios públicos AP3 (6.000.000 por mes)	MES	6000000					0	sin referencia
+REDES SECAS	Pago servicios públicos AP4 (6.000.000 por mes)	MES	6000000					0	sin referencia
+REDES SECAS	Pago servicios públicos AP5 (6.000.000 por mes)	MES	6000000					0	sin referencia
+ZONAS VERDES Y PARQUES	Parque recreacional sin diseño PQ4 (indicador ponderado por m2)	M2	320000					0.11	sin referencia
+ZONAS VERDES Y PARQUES	Parque recreacional sin diseño PQ5 (indicador ponderado por m2)	M2	320000					0.11	sin referencia
+ZONAS VERDES Y PARQUES	Parque recreacional sin diseño PQ15 (indicador ponderado por m2)	M2	320000					0.11	sin referencia
+ZONAS VERDES Y PARQUES	Parque recreacional sin diseño PQ17 (indicador ponderado por m2)	M2	320000					0.11	sin referencia
+ZONAS VERDES Y PARQUES	Parque recreacional sin diseño PQ18 (indicador ponderado por m2)	M2	320000					0.11	sin referencia
+ZONAS VERDES Y PARQUES	Parque recreacional sin diseño PQ20 (indicador ponderado por m2)	M2	320000					0.11	sin referencia
+AJUSTES 260923	Mantenimientos correctivos PTAR (2026)	UN	225502061					0	sin referencia
+AJUSTES 260923	Mantenimientos correctivos PTAR (2027)	UN	225502061					0	sin referencia
+AJUSTES 260923	Mantenimientos correctivos PTAR (2028)	UN	225502061					0	sin referencia
+AJUSTES 260923	Mantenimientos correctivos PTAR (2029)	UN	225502061					0	sin referencia
+AJUSTES 260923	Mantenimientos correctivos PTAR (2030)	UN	225502061					0	sin referencia
+AJUSTES 260923	Mantenimientos correctivos PTAR (2031)	GB	225502061					0	sin referencia
+AJUSTES 260923	Mantenimientos correctivos PTAR (2032)	GB	225502061					0	sin referencia
+AJUSTES 260923	Requerimientos PTAR	ML	1					0	sin referencia
+AJUSTES 260923	Mantenimiento de vías y andenes (indicador por m2)	ML	46377					0.12	sin referencia
+AJUSTES 260923	PQ-20 - MANTENIMIENTO	M2	30000					0.2	sin referencia
+AJUSTES 260923	PQ-21 - MANTENIMIENTO	MES	30000					0	sin referencia
+AJUSTES 260923	Arborización (indicador por m2 de zona verde)	M2	5753					0.2	sin referencia
+AJUSTES 260923	OBRAS DE MITIGACION SUBETAPA 8A	M2	840000					0	sin referencia
+AJUSTES 260923	OBRAS DE MITIGACION SUBETAPA 8B	M2	840000					0	sin referencia
+AJUSTES 260923	OBRAS DE MITIGACION SUBETAPA 8C	ML	840000					0.12	sin referencia
+AJUSTES 260923	OBRAS DE MITIGACION SUBETAPA 8D	M3	840000					0.17	sin referencia
+AJUSTES 260923	OBRAS DE MITIGACION SUBETAPA 9A	ML	840000					0.12	sin referencia
+AJUSTES 260923	OBRAS DE MITIGACION SUBETAPA 9B	UN	840000					0.09	sin referencia
+AJUSTES 260923	OBRAS DE MITIGACION SUBETAPA 9C	ML	840000					0.12	sin referencia
+AJUSTES 260923	OBRAS DE MITIGACION SUBETAPA 9D	UN	840000					0.09	sin referencia
+AJUSTES 260923	POR PROYECTAR (COINVER)	ML	128801472					0	sin referencia
+AJUSTES 260923	PTAR FASE III (2028)	UN	3407826394					0.06	sin referencia
+AJUSTES 260923	PTAR FASE IV (2030)	ML	3641361315					0.17	sin referencia
+AJUSTES 260923	PTAR FASE V (2032)		3863120219					0	sin referencia
+AJUSTES 260923	OPERACIÓN PTAR (2026)		350000000					0	sin referencia
+AJUSTES 260923	OPERACIÓN PTAR (2027)		367500000					0	sin referencia
+AJUSTES 260923	OPERACIÓN PTAR (2028)		385875000					0	sin referencia
+AJUSTES 260923	OPERACIÓN PTAR (2029)		405168750					0	sin referencia
+AJUSTES 260923	OPERACIÓN PTAR (2030)		425427188					0	sin referencia
+AJUSTES 260923	OPERACIÓN PTAR (2031)		446698547					0	sin referencia
+AJUSTES 260923	OPERACIÓN PTAR (2032)		469033474					0	sin referencia
+AJUSTES 260923	LIMPIEZA PERIODICA (2026)		96000000					0	sin referencia
+AJUSTES 260923	SEGUIMIENTO Y MONITOREO (2026)		144000000					0	sin referencia
+AJUSTES 260923	INDIVIDUOS ARBOREOS (2026)		60000000					0	sin referencia
+AJUSTES 260923	LIMPIEZA PERIODICA (2027)		96000000					0	sin referencia
+AJUSTES 260923	SEGUIMIENTO Y MONITOREO (2027)		144000000					0	sin referencia
+AJUSTES 260923	INDIVIDUOS ARBOREOS (2027)		60000000					0	sin referencia
+AJUSTES 260923	LIMPIEZA PERIODICA (2028)		96000000					0	sin referencia
+AJUSTES 260923	SEGUIMIENTO Y MONITOREO (2028)		144000000					0	sin referencia
+AJUSTES 260923	INDIVIDUOS ARBOREOS (2028)		60000000					0	sin referencia
+AJUSTES 260923	LIMPIEZA DE LODOS (2028)		1050000000					0	sin referencia
+AJUSTES 260923	LIMPIEZA PERIODICA (2029)		96000000					0	sin referencia
+AJUSTES 260923	SEGUIMIENTO Y MONITOREO (2029)		144000000					0	sin referencia
+AJUSTES 260923	INDIVIDUOS ARBOREOS (2029)		60000000					0	sin referencia
+AJUSTES 260923	LIMPIEZA PERIODICA (2030)		96000000					0	sin referencia
+AJUSTES 260923	SEGUIMIENTO Y MONITOREO (2030)		144000000					0	sin referencia
+AJUSTES 260923	INDIVIDUOS ARBOREOS (2030)		60000000					0	sin referencia
+AJUSTES 260923	LIMPIEZA PERIODICA (2031)		96000000					0	sin referencia
+AJUSTES 260923	SEGUIMIENTO Y MONITOREO (2031)		144000000					0	sin referencia
+AJUSTES 260923	INDIVIDUOS ARBOREOS (2031)		60000000					0	sin referencia
+AJUSTES 260923	LIMPIEZA PERIODICA (2032)		96000000					0	sin referencia
+AJUSTES 260923	SEGUIMIENTO Y MONITOREO (2032)		144000000					0	sin referencia
+AJUSTES 260923	INDIVIDUOS ARBOREOS (2032)		60000000					0	sin referencia
+AJUSTES 260923	LIMPIEZA DE LODOS (2032)		1050000000					0	sin referencia
+AJUSTES 260923	Señalización horizontal (indicador por m2)		700					0	sin referencia
+AJUSTES 260923	Señalización vertical (indicador por m2)		380					0	sin referencia
+AJUSTES 260923	Red de telecomunicaciones (indicador por m2)		2950					0	sin referencia
+AJUSTES 260923	Comisión topográfica		12000000					0	sin referencia
+AJUSTES 260923	Cañuela prefabricada (suministro e instalación)		133000					0	sin referencia
+AJUSTES 260923	Instalación tubería PVC flexible Ø39"		138776					0	sin referencia
+AJUSTES 260923	Subestación completa AP5 a todo costo (transformador, celdas, obra civil y puesta a tierra)		1000000000					0	sin referencia
+AJUSTES 260923	Suministro cable 3x70 mm² Al XLPE 15 kV		229288					0	sin referencia
+AJUSTES 260923	Suministro e instalación de tuberia 2Ф3" TDP		79000					0	sin referencia
+AJUSTES 260923	Suministro tubería PVC flexible Ø39"		14780640					0	sin referencia
+AJUSTES 260923	Tendido, conexionado e identificación cable 3x70 mm² Al XLPE 15 kV		53000					0	sin referencia
+AJUSTES 260923	Suministro tubería PVC flexible Ø15"		1568950					0	sin referencia
+AJUSTES 260923	Instalación tubería GRP Ø51"		363800					0	sin referencia
+AJUSTES 260923	Suministro tubería GRP Ø51"		13868000					0	sin referencia
+AJUSTES 260923	Instalación tubería PVC flexible Ø15"		53378					0	sin referencia
+AJUSTES 260923	Cinta de señalización para red de alumbrado público		1696					0	sin referencia
+AJUSTES 260923	Excavación para canalización MT, incluye cargue, transporte y disposición final		224952					0	sin referencia
+AJUSTES 260923	Excavación para canalización AP, incluye cargue, transporte y disposición final		224952					0	sin referencia
