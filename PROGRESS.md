@@ -1,5 +1,22 @@
 # Progress — urbanismo_cantidades.lsp
 
+## 2026-09-23 21:52 America/Bogota — v5.7.27 rasantes de vías para tierras
+
+Agente: Codex. Equipo: BOG085CD119BDQN. Base 4c7efe9; commit de esta entrega.
+Copia del maestro: 27 objetos de vía, 26 con rasante, VIA-25/1E4E4C sin
+cotas ni MT (modo Pendiente). La detección automática omite vías incompletas
+sin pedir cotas dentro del barrido; clic manual informa vía por nombre.
+La recuperación antigua lee la capa en campo 8 (antes leía modo del 7).
+Empaquetar/EDITAR conserva LDATA de rasante completa y fuentes, con fallo
+seguro si no se transfiere. Civil3D2023 final: 9PASS/0FAIL, 40.22s, copia fresca;
+Core: campo 8 PASS, 16.16s; ruta automática de sendero/zona detectó VIA-24
+y devolvió z=2558.0360, PASS/12.11s. Maestro/copia hash idéntico; Excel intacto.
+Error literal `Unknown exception` no reproducido; no se certificaron nuevos
+volúmenes contra SUP_TN ni clics en Civil2026. Detalle:
+diagnosticos/roadgrade5727/RESULTADO.md.
+Instalado5.7.27 en este equipo; fuente=instalación SHA256
+F5759D4153CC4202CF36EEBA8BFA90308E6C2C2563F90B9CD291496C55B67566.
+
 ## 2026-09-23 18:00 America/Bogota — v5.7.24 cuneta prefabricada, sardineles a vía y reposición de superficie en tramos
 
 Agente: Claude. Equipo: BOG085CD119BDQN. Base 0f328d9; commit de esta entrega.

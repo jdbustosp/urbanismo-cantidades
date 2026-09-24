@@ -1,0 +1,12 @@
+STARTED
+PASS version
+PASS baseline real: VIA-25 no tiene rasante
+PASS via sin rasante se omite sin pedir clic durante busqueda automatica
+PASS via incompleta no puntua para anden sendero ni zona verde
+PASS empaquetar via con rasante completa
+PASS bloque conserva las tres estaciones
+PASS bloque conserva fuente de cotas
+PASS anden y areas leen perfil completo del bloque
+PASS editar via conserva perfil al desempacar
+SUMMARY pass=9 fail=0
+FINISHED

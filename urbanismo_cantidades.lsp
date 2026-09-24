@@ -70,7 +70,8 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.26")
+(setq *urb-version* "5.7.27")
+(setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -7690,7 +7691,9 @@
 ;; su calibracion al recargar el LSP, solicita un solo texto de referencia.
 (defun urb:road-grade-records-from-layer
   (axis data / layer texts axis-start span station-start interval direction records info)
-  (setq layer (urb:safe-string (nth 7 data) ""))
+  ;; URB_VIA[7] guarda el MODO (Pendiente/Textos por capa);
+  ;; la capa de cotas real esta en [8].
+  (setq layer (urb:safe-string (nth 8 data) ""))
   (setq axis-start (atof (urb:safe-string (nth 21 data) "0")))
   (setq span (atof (urb:safe-string (nth 18 data) "0")))
   (setq station-start (urb:station-number (urb:safe-string (nth 10 data) "0")))
@@ -7709,7 +7712,9 @@
         (urb:cota-snap-to-project-grid records axis-start span
           station-start interval direction))
       (setq records (urb:cota-deduplicate-stations records 0.05))))
-  (if (< (length records) 2)
+  ;; La busqueda automatica recorre TODAS las vias candidatas. Una via
+  ;; antigua sin rasante no debe abrir nentsel a mitad de ese barrido.
+  (if (and (< (length records) 2) (not *urb-road-grade-silent*))
     (progn
       (prompt
         "\nLa via es anterior a la rasante guardada. Seleccione una cota de su capa para reconstruirla: ")
@@ -7773,7 +7778,9 @@
                    (not (member road seen)))
             (progn
               (setq seen (cons road seen))
-              (setq d (urb:anden-road-score road points))
+              (setq d (vl-catch-all-apply
+                        'urb:anden-road-score (list road points)))
+              (if (vl-catch-all-error-p d) (setq d nil))
               (if (and d (or (null bestd) (< d bestd)))
                 (setq bestd d best road))))
           (setq i (1+ i))))
@@ -7783,8 +7790,12 @@
 ;; Puntaje de una via como referencia de un anden: |distancia al eje -
 ;; media calzada|. nil si la via no sirve (sin eje/rasante, lejos, o el
 ;; anden cae fuera del tramo y habria que extrapolar la rasante).
+(defun urb:anden-road-grade-for-quiet (road / *urb-road-grade-silent*)
+  (setq *urb-road-grade-silent* T)
+  (urb:anden-road-grade-for road))
+
 (defun urb:anden-road-score (road points / ref axis mov half dmin dmax dists med p c d est span start modo)
-  (setq ref (vl-catch-all-apply 'urb:anden-road-grade-for (list road)))
+  (setq ref (vl-catch-all-apply 'urb:anden-road-grade-for-quiet (list road)))
   (if (or (vl-catch-all-error-p ref) (null ref)) (setq ref nil))
   (setq axis (if ref (nth 0 ref)))
   (if (and axis (urb:curve-entity-p axis))
@@ -7848,12 +7859,21 @@
 
 (defun urb:select-anden-road-grade (/ road)
   (setq road (urb:anden-road-autodetect *urb-anden-grade-points*))
-  (if road
-    (prompt "\nVia creada detectada junto al anden: se usa su rasante en todo el alineamiento.")
+  (if (null road)
     (progn
       (setq road (entsel "\nSeleccione la via creada que controla este anden: "))
       (if road (setq road (urb:road-parent-from-entity (car road))))))
-  (urb:anden-road-grade-for road))
+  (if road (urb:anden-road-grade-for-safe road) nil))
+
+(defun urb:anden-road-grade-for-safe (road / ref)
+  (setq ref (vl-catch-all-apply 'urb:anden-road-grade-for (list road)))
+  (if (vl-catch-all-error-p ref)
+    (progn
+      (prompt (strcat "\nNo se pudo leer la rasante de la via: "
+        (vl-catch-all-error-message ref)
+        ". El movimiento queda pendiente; revise esa via con EDITAR."))
+      nil)
+    ref))
 
 ;; referencia de rasante de UNA via creada: (eje records inicio longitud
 ;; sentido modo metodo via-id nombre). nil si la via no tiene rasante.
@@ -7905,10 +7925,13 @@
           (urb:safe-string via-id "")
           (urb:safe-string (if (> (length data) 1) (nth 1 data) nil) ""))
         (progn
-          (prompt
-            (if axis
-              "\nLa via seleccionada no tiene rasante calculada."
-              "\nLa via no conserva un eje vinculado. Edite esa via una vez; no se creara ni se pedira un eje duplicado."))
+          (if (not *urb-road-grade-silent*)
+            (prompt
+              (if axis
+                (strcat "\nLa via " (urb:safe-string (nth 1 data) "seleccionada")
+                  " no tiene rasante guardada. Use EDITAR para asignarle cotas"
+                  " y pendiente antes de usarla como referencia.")
+                "\nLa via no conserva un eje vinculado. Edite esa via una vez; no se creara ni se pedira un eje duplicado.")))
           nil)))
     (progn (prompt "\nEl objeto seleccionado no es una via cuantificable.") nil))
 )
@@ -7976,8 +7999,7 @@
     ;; creada al lado. Si la hay, manda su rasante completa; si no, sigue
     ;; el modo guardado como antes.
     ((setq road (urb:anden-road-autodetect *urb-anden-grade-points*))
-      (prompt "\nVia creada detectada junto al anden: se usa su rasante en todo el alineamiento.")
-      (urb:anden-road-grade-for road))
+      (urb:anden-road-grade-for-safe road))
     ((urb:string-equal-p source "Cotas seleccionadas")
       (urb:select-anden-picked-grade))
     (T (urb:select-anden-alignment-grade)))
@@ -9518,7 +9540,7 @@
   (if (and pts (> (length pts) 2))
     (progn
       (setq road (urb:anden-road-autodetect pts))
-      (if road (setq ref (urb:anden-road-grade-for road)))
+      (if road (setq ref (urb:anden-road-grade-for-safe road)))
       (if ref
         (prompt (strcat "\nTierras: VIA " (urb:safe-string (nth 8 ref) "")
           " [" (cdr (assoc 5 (entget road))) "] detectada; rasante completa por estaciones."))
@@ -18894,12 +18916,15 @@
   (ename / boundary data mov handle objects point block-name blocks
    block-definition copy-result block-ref obj insert-result block-ename
    xdata-result road-length left right overwidth-area footprint-info
-   footprint-area base-area)
+   footprint-area base-area grade-full grade-src grade-check)
+  (setq *urb-package-road-stage* "lectura del contorno")
   (setq boundary (vlax-ename->vla-object ename))
   (urb:ensure-layer "URB-VIA" 8 T)
   (setq data (urb:get-xdata-strings ename "URB_VIA"))
   (setq mov (urb:road-movement-data ename))
   (setq footprint-info (vlax-ldata-get ename "URB_VIA_HUELLA"))
+  (setq grade-full (urb:road-ldata-stored ename "URB_VIA_RASANTE_FULL")
+        grade-src (urb:road-ldata-stored ename "URB_VIA_RASANTE_SRC"))
   (setq handle (vla-get-Handle boundary))
   (setq objects (cons boundary (urb:road-generated-objects handle)))
   (setq point
@@ -18909,12 +18934,15 @@
   (setq block-name
     (strcat "URB_VIA_" handle "_" (itoa (getvar "MILLISECS"))))
   (setq blocks (vla-get-Blocks (urb:doc)))
+  (setq *urb-package-road-stage* "crear definicion")
   (setq block-definition
     (vla-Add blocks (vlax-3d-point '(0.0 0.0 0.0)) block-name))
   (setq copy-result
+    (progn
+      (setq *urb-package-road-stage* "copiar geometria")
     (vl-catch-all-apply
       'vla-CopyObjects
-      (list (urb:doc) (urb:object-array-variant objects) block-definition)))
+      (list (urb:doc) (urb:object-array-variant objects) block-definition))))
   (if (vl-catch-all-error-p copy-result)
     (progn
       (urb:safe-delete block-definition)
@@ -18923,6 +18951,7 @@
           (vl-catch-all-error-message copy-result)))
       nil)
     (progn
+      (setq *urb-package-road-stage* "atributos")
       (urb:add-invisible-attribute block-definition point
         "VIA_NOMBRE" "Nombre" (urb:safe-string (nth 1 data) ""))
       (urb:add-invisible-attribute block-definition point
@@ -18967,10 +18996,12 @@
       (urb:add-invisible-attribute block-definition point
         "PERFIL" "Perfil longitudinal - MOSTRAR u OCULTAR" "OCULTAR")
       (setq insert-result
+        (progn
+          (setq *urb-package-road-stage* "insertar bloque")
         (vl-catch-all-apply
           'vla-InsertBlock
           (list (urb:space) (vlax-3d-point '(0.0 0.0 0.0))
-            block-name 1.0 1.0 1.0 0.0)))
+            block-name 1.0 1.0 1.0 0.0))))
       (if (vl-catch-all-error-p insert-result)
         (progn
           (urb:safe-delete block-definition)
@@ -18989,14 +19020,32 @@
               nil)
             (progn
               (vla-put-Layer block-ref "URB-VIA")
+              (setq *urb-package-road-stage* "transferir perfil")
               ;; CopyObjects no conserva de forma fiable el diccionario
               ;; LDATA del contorno. Transferir explicitamente la huella
               ;; que respalda atributos, memorias y movimiento de tierras.
               (if footprint-info
                 (vlax-ldata-put block-ename "URB_VIA_HUELLA" footprint-info))
+              ;; CopyObjects no garantiza el diccionario LDATA. La rasante
+              ;; completa gobierna andenes, senderos y zonas verdes; el
+              ;; XDATA compacto queda como respaldo, no como unico origen.
+              (if grade-full
+                (vl-catch-all-apply 'vlax-ldata-put
+                  (list block-ename "URB_VIA_RASANTE_FULL" grade-full)))
+              (if grade-src
+                (vl-catch-all-apply 'vlax-ldata-put
+                  (list block-ename "URB_VIA_RASANTE_SRC" grade-src)))
+              (setq grade-check
+                (and (or (null grade-full)
+                         (equal grade-full
+                           (urb:road-ldata-stored block-ename "URB_VIA_RASANTE_FULL")))
+                     (or (null grade-src)
+                         (equal grade-src
+                           (urb:road-ldata-stored block-ename "URB_VIA_RASANTE_SRC")))))
               (setq xdata-result
                 (urb:set-xdata-strings block-ename "URB_VIA" data))
-              (if xdata-result
+              (setq *urb-package-road-stage* "validar y cerrar")
+              (if (and xdata-result grade-check)
                 (progn
                   (foreach obj objects (urb:safe-delete obj))
                   (vl-catch-all-apply
@@ -19006,7 +19055,7 @@
                   (urb:safe-delete block-ref)
                   (urb:safe-delete block-definition)
                   (prompt
-                    "\nERROR: no fue posible guardar los datos del bloque de via.")
+                    "\nERROR: no fue posible conservar los datos y la rasante del bloque de via.")
                   nil))))))))
 )
 
@@ -19040,9 +19089,11 @@
 ;; reconstruye fresco despues); mismo patron que
 ;; urb:explode-anden-block-boundary.
 (defun urb:explode-road-block-boundary
-  (ename / obj data mov exploded objects item boundary)
+  (ename / obj data mov exploded objects item boundary grade-full grade-src)
   (setq data (urb:get-xdata-strings ename "URB_VIA"))
   (setq mov (urb:road-movement-data ename))
+  (setq grade-full (urb:road-ldata-stored ename "URB_VIA_RASANTE_FULL")
+        grade-src (urb:road-ldata-stored ename "URB_VIA_RASANTE_SRC"))
   (setq obj (vlax-ename->vla-object ename))
   (setq exploded (vl-catch-all-apply 'vla-Explode (list obj)))
   (if (vl-catch-all-error-p exploded)
@@ -19070,6 +19121,12 @@
         (progn
           (setq boundary (vlax-vla-object->ename boundary))
           (if data (urb:set-xdata-strings boundary "URB_VIA" data))
+          (if grade-full
+            (vl-catch-all-apply 'vlax-ldata-put
+              (list boundary "URB_VIA_RASANTE_FULL" grade-full)))
+          (if grade-src
+            (vl-catch-all-apply 'vlax-ldata-put
+              (list boundary "URB_VIA_RASANTE_SRC" grade-src)))
           ;; Migra una via antigua que aun conserve URB_VIA_MOV al registro
           ;; principal. Las nuevas vias ya llevan el movimiento embebido.
           (if (and mov (< (length data) 32))
@@ -19273,7 +19330,10 @@
   ;; Lee TEXT/MTEXT, etiquetas Civil y proxies seleccionados con NENTSEL,
   ;; incluidos los que viven dentro de un XREF. Se prueban tanto ActiveX
   ;; como DXF porque cada tipo de etiqueta expone el contenido distinto.
-  (setq ename (if selected (car selected) nil)
+  ;; Una etiqueta numerica anidada en una VIA sin rasante no es una cota
+  ;; alternativa: leerla inventaria la rasante de esa via.
+  (setq ename (if (and selected (null (urb:pick-road-name selected)))
+                (car selected) nil)
         edata (if ename (entget ename) nil)
         obj
           (if ename
@@ -19407,10 +19467,17 @@
           ;; usuario: "no puede leer la cota cuando selecciono la via")
           (if (null records)
             (prompt
-              (strcat "\nLa via seleccionada NO tiene rasante calculada"
-                      " (el movimiento de tierras se omitio al crearla);"
-                      " no se puede tomar su cota. Editela y asignele"
-                      " cotas, o seleccione un texto de cota.")))
+              (strcat "\nLa via "
+                (urb:safe-string (nth 1 data) "seleccionada")
+                " no tiene rasante guardada; no se puede tomar su cota."
+                " Use EDITAR y asignele cotas con pendiente, o seleccione"
+                " otra via/texto de cota.")))
+          (if (and records (null axis))
+            (prompt
+              (strcat "\nLa via "
+                (urb:safe-string (nth 1 data) "seleccionada")
+                " tiene rasante, pero no se recupero su eje."
+                " Use EDITAR para volver a vincularlo.")))
           nil)))
     nil))
 
@@ -20039,7 +20106,7 @@
       (progn
         (setq road (vl-catch-all-apply 'urb:road-parent-from-entity (list item)))
         (if (and road (not (vl-catch-all-error-p road)))
-          (setq out (urb:anden-road-grade-for road))))))
+          (setq out (urb:anden-road-grade-for-safe road))))))
   out)
 
 ;; cota de DISENO en (x y) sobre la rasante de una via: estacion del punto
@@ -20118,7 +20185,7 @@
 )
 
 (defun urb:road-cota-reference
-  (mode / selected ename edata layer texts count obj txt via-cota picks)
+  (mode / selected ename edata layer texts count obj txt via-cota picks road-name)
   (cond
     ((urb:string-equal-p mode "Textos por capa")
       ;; nentsel (no entsel) para poder tomar un texto anidado en un xref.
@@ -20127,10 +20194,23 @@
           (strcat
             "\nSeleccione un texto de cota (cualquier capa/XREF)"
             " o una VIA ya creada como cota inicial: ")))
+      ;; nentsel puede devolver un TEXT/MTEXT ANIDADO en la via. El
+      ;; contenedor URB_VIA manda sobre el tipo grafico del subobjeto.
+      (setq road-name (if selected (urb:pick-road-name selected)))
+      (setq via-cota (if road-name (urb:cota-from-pick selected)))
+      (while (and selected road-name (null via-cota))
+        (prompt (strcat "\n" road-name
+          " no tiene rasante guardada. Seleccione otra via o un texto de cota;"
+          " para arreglarla use EDITAR y asigne cotas con pendiente."))
+        (setq selected
+          (nentsel "\nOtra via o texto de cota (Enter cancela): "))
+        (setq road-name (if selected (urb:pick-road-name selected)))
+        (setq via-cota (if road-name (urb:cota-from-pick selected))))
       (if selected
         (progn
           (setq ename (car selected) edata (entget ename))
-          (if (member (cdr (assoc 0 edata)) '("TEXT" "MTEXT"))
+          (if (and (null road-name)
+                   (member (cdr (assoc 0 edata)) '("TEXT" "MTEXT")))
             (progn
               (setq layer (cdr (assoc 8 edata)))
               ;; urb:collect-cota-texts ya sabe leer capas de xref (no
@@ -20154,7 +20234,8 @@
             (progn
               ;; Una via puede contener atributos numericos; su rasante
               ;; tiene prioridad sobre cualquier texto anidado.
-              (setq via-cota (urb:cota-from-pick selected))
+              (if (null via-cota)
+                (setq via-cota (urb:cota-from-pick selected)))
               (if via-cota
                 (prompt
                   (strcat
