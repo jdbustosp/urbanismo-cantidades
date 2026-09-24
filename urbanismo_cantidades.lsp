@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.27")
+(setq *urb-version* "5.7.28")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -1424,15 +1424,7 @@
   ;; Repite la misma eleccion de eje usada por create-composite-loseta.
   ;; Antes las cantidades ignoraban URB_ANDEN_AXIS y podian repartir las
   ;; bandas con otra orientacion distinta a la que se veia en planta.
-  (setq forced-angle
-    (urb:parse-real
-      (urb:safe-string
-        (car (urb:get-xdata-strings ename "URB_ANDEN_AXIS")) "")))
-  (if (and (null forced-angle) (urb:lwpoly-has-arcs-p ename))
-    (progn
-      (setq forced-angle (urb:anden-straight-edges-angle ename))
-      (if forced-angle
-        (setq forced-angle (+ forced-angle (* 0.5 pi))))))
+  (setq forced-angle (urb:anden-forced-axis ename))
   (setq clusters (urb:dominant-anden-axis-clusters points))
   (setq result
     (cond
@@ -1891,19 +1883,22 @@
             suffix-length)))
 )
 
+;; 5.7.28 (reporte del usuario 2026-09-24: "intente cambiarle el color a la
+;; capa del sendero de trote pero no me deja"): el color y el estado de
+;; impresion se ponen SOLO al CREAR la capa. Antes se reponian en cada
+;; llamada y cualquier comando le devolvia a la capa el color del catalogo,
+;; pisando lo que el usuario habia escogido. Mismo criterio que mp:layer en
+;; 5.7.20: una capa que ya existe es del usuario.
 (defun urb:ensure-layer (name color plottable / layers layer)
   (setq layers (vla-get-Layers (urb:doc)))
-  (setq layer
-    (if (tblsearch "LAYER" name)
-      (vla-Item layers name)
-      (vla-Add layers name)
-    )
-  )
-  (vla-put-Color layer color)
-  (if (vlax-property-available-p layer 'Plottable T)
-    (vla-put-Plottable layer
-      (if plottable :vlax-true :vlax-false))
-  )
+  (if (tblsearch "LAYER" name)
+    (setq layer (vla-Item layers name))
+    (progn
+      (setq layer (vla-Add layers name))
+      (vla-put-Color layer color)
+      (if (vlax-property-available-p layer 'Plottable T)
+        (vla-put-Plottable layer
+          (if plottable :vlax-true :vlax-false)))))
   layer
 )
 
@@ -4341,6 +4336,59 @@
     (angle p1 p2)
     (if auto-angle (+ auto-angle (* 0.5 pi)) nil)))
 
+;; 5.7.28 (pedido del usuario 2026-09-24, con fotos de un retorno): los dos
+;; puntos marcan la DIRECCION DE LAS BANDAS, que quedan PARALELAS a esa
+;; linea. Lo guardado en URB_ANDEN_AXIS sigue siendo el eje longitudinal
+;; (bandas + 90), asi los andenes ya creados no giran al reconstruirse.
+(defun urb:anden-axis-from-band-points (p1 p2)
+  (if (and p1 p2 (> (distance p1 p2) 1e-6))
+    (+ (angle p1 p2) (* 0.5 pi))
+    nil))
+
+;; 5.7.28: cuanto GIRA el anden, medido sobre la misma cadena del costado que
+;; usa la modulacion por tramos. Se distingue la curva SUAVE (corredor largo
+;; del parque, ~23 grados en el master) de la PRONUNCIADA (retorno o
+;; cul-de-sac, que llega al tope de 90 de la distancia entre ejes).
+(setq *urb-anden-curva-pronunciada* (* pi (/ 60.0 180.0)))
+
+(defun urb:anden-curva-chain (ename / r)
+  (setq r (vl-catch-all-apply
+            '(lambda ()
+               (urb:anden-tactile-chain (urb:lwpoly-points-with-arcs-fine ename)))))
+  (if (vl-catch-all-error-p r) nil r))
+
+(defun urb:anden-curva-pronunciada-p (ename / chain)
+  (setq chain (urb:anden-curva-chain ename))
+  ;; sin cadena no se sabe: se pregunta, como antes
+  (or (null chain)
+      (>= (urb:chain-direction-drift chain) *urb-anden-curva-pronunciada*)))
+
+;; curva suave y larga: la modula sola la logica por tramos (asi salian los
+;; andenes largos curvos antes de 5.7.18). Forzarle un eje la apaga.
+(defun urb:anden-curva-suave-larga-p (ename / chain)
+  (setq chain (urb:anden-curva-chain ename))
+  (and chain
+       (urb:anden-needs-segmented-p chain)
+       (< (urb:chain-direction-drift chain) *urb-anden-curva-pronunciada*)))
+
+;; Eje forzado de modulacion: UNA sola regla para el dibujo y las cantidades.
+;; Si el usuario marco la direccion, manda. Si no y el contorno tiene arcos,
+;; se asume bandas paralelas al lado recto mas largo (la tapa compartida con
+;; el modulo vecino) -- salvo en una curva suave y larga, que se deja libre
+;; para que la modulacion por tramos siga la curva.
+(defun urb:anden-forced-axis (ename / forced)
+  (setq forced
+    (urb:parse-real
+      (urb:safe-string
+        (car (urb:get-xdata-strings ename "URB_ANDEN_AXIS")) "")))
+  (if (and (null forced)
+           (urb:lwpoly-has-arcs-p ename)
+           (not (urb:anden-curva-suave-larga-p ename)))
+    (progn
+      (setq forced (urb:anden-straight-edges-angle ename))
+      (if forced (setq forced (+ forced (* 0.5 pi))))))
+  forced)
+
 (defun urb:create-composite-loseta
   (ename format / obj copy base-region points fine-points parent-handle clusters
    split-data zones zone success angle-value pattern-mode reverse-pattern
@@ -4359,20 +4407,9 @@
   (vla-put-Closed copy :vlax-true)
   (setq
          base-region (urb:anden-region-from-object copy))
-  ;; Eje FORZADO de modulacion (URB_ANDEN_AXIS). Desde 5.7.18 los dos
-  ;; puntos siguen el eje LONGITUDINAL y las bandas quedan perpendiculares.
-  ;; Si no hay eje guardado pero el contorno tiene
-  ;; arcos, se asume bandas paralelas al lado recto mas largo (la tapa
-  ;; compartida con el modulo vecino): eje = ese lado + 90.
-  (setq forced-angle
-    (urb:parse-real
-      (urb:safe-string
-        (car (urb:get-xdata-strings ename "URB_ANDEN_AXIS")) "")))
-  (if (and (null forced-angle) (urb:lwpoly-has-arcs-p ename))
-    (progn
-      (setq forced-angle (urb:anden-straight-edges-angle ename))
-      (if forced-angle
-        (setq forced-angle (+ forced-angle (* 0.5 pi))))))
+  ;; Eje FORZADO de modulacion (URB_ANDEN_AXIS o el lado recto): regla unica
+  ;; compartida con las cantidades, ver urb:anden-forced-axis.
+  (setq forced-angle (urb:anden-forced-axis ename))
   (urb:safe-delete copy)
   (if (not (vl-catch-all-error-p base-region))
     (setq base-region (urb:apply-anden-cutouts base-region)))
@@ -8578,23 +8615,27 @@
       (setq *urb-current-tactile-side-point* nil
             *urb-current-tactile-side-anchor* nil
             *urb-current-tactile-side-choice* nil)
-      ;; 5.7.18: los dos puntos marcan el EJE LONGITUDINAL (direccion del
-      ;; recorrido); las bandas quedan perpendiculares. Antes se pedia la
-      ;; direccion de las bandas y se sumaban 90 grados: si el usuario
-      ;; marcaba el eje visual, el patron quedaba girado. Enter conserva
-      ;; la deteccion automatica historica.
-      (if (urb:lwpoly-has-arcs-p ename)
+      ;; 5.7.28 (pedido del usuario 2026-09-24, dos cambios):
+      ;; - solo pregunta en una curva PRONUNCIADA (retorno, cul-de-sac). La
+      ;;   curva suave se resuelve sola: en 5.7.18 cualquier arco preguntaba
+      ;;   y hasta el Enter guardaba un eje forzado que apagaba la
+      ;;   modulacion por tramos de los andenes largos curvos.
+      ;; - los dos puntos son la DIRECCION DE LAS BANDAS (quedan paralelas a
+      ;;   esa linea). En 5.7.18 eran el eje longitudinal y las bandas
+      ;;   salian perpendiculares a lo que el usuario marcaba.
+      ;; Enter no guarda nada: decide la regla automatica al construir.
+      (if (and (urb:lwpoly-has-arcs-p ename)
+               (urb:anden-curva-pronunciada-p ename))
         (progn
           (setq mod-p1
             (getpoint
-              (strcat "\nContorno con curva -- marque 2 puntos sobre el EJE"
-                      " LONGITUDINAL del anden (Enter = automatico): ")))
+              (strcat "\nCurva pronunciada -- marque 2 puntos en la DIRECCION"
+                      " DE LAS BANDAS; quedaran paralelas a esa linea"
+                      " (Enter = automatico): ")))
           (if mod-p1
             (setq mod-p2
-              (getpoint mod-p1 "\nSegundo punto sobre el eje longitudinal: ")))
-          (setq mod-angle
-            (urb:anden-axis-from-user-points mod-p1 mod-p2
-              (urb:anden-straight-edges-angle ename)))
+              (getpoint mod-p1 "\nSegundo punto de la direccion de las bandas: ")))
+          (setq mod-angle (urb:anden-axis-from-band-points mod-p1 mod-p2))
           (if mod-angle
             (urb:set-xdata-strings ename "URB_ANDEN_AXIS"
               (list (rtos mod-angle 2 8))))))
@@ -11774,7 +11815,38 @@
 ;; 5.7.14: "CAMBIO (retiro y reinstalacion)" marca una luminaria EXISTENTE
 ;; que solo se cambia: se exporta a "Retiro y reinstalacion de luminarias
 ;; nuevas" en su etapa/subetapa, no como suministro nuevo.
-(setq *mp-lum-list* '("DECOLED 100 W" "RALED II" "AREALED II" "OTRA" "CAMBIO (retiro y reinstalacion)"))
+;; 5.7.28 (pedido del usuario 2026-09-24): el cambio deja de ir escondido al
+;; final de la lista de luminarias y pasa a su propio selector TRABAJO. En
+;; el bloque se sigue guardando dentro de TIPO_LUMINARIA ("CAMBIO - <tipo>")
+;; para que la exportacion y los bloques viejos ("CAMBIO (retiro y
+;; reinstalacion)") sigan funcionando sin migrar nada.
+(setq *mp-lum-list* '("DECOLED 100 W" "RALED II" "AREALED II" "OTRA"))
+(setq *mp-lum-trabajo-list* '("Luminaria nueva" "Cambio de luminaria (retiro y reinstalacion)"))
+;; alturas del libro (postes de 10, 12 y 14 m); solo aplica al poste
+(setq *mp-altura-poste-list* '("12" "10" "14"))
+
+(defun mp:lum-es-cambio-p (tipo)
+  (wcmatch (strcase (urb:safe-string tipo "")) "CAMBIO*"))
+
+;; luminaria de un TIPO_LUMINARIA guardado, sin el prefijo del cambio
+(defun mp:lum-tipo-base (tipo / s)
+  (setq s (urb:safe-string tipo ""))
+  (cond
+    ((wcmatch (strcase s) "CAMBIO - *") (substr s 10))
+    ((mp:lum-es-cambio-p s) "")
+    (T s)))
+
+(defun mp:lum-tipo-compuesto (trabajo-idx lum)
+  (if (= trabajo-idx 1) (strcat "CAMBIO - " lum) lum))
+
+;; la ventana de elemento electrico solo habilita lo que aplica al tipo
+(defun mp:elem-elec-modes (/ blk lum-p)
+  (setq blk (nth (atoi (get_tile "blk")) *mp-elem-elec-list*)
+        lum-p (member blk '("LUMINARIA_AP" "POSTE_ELEC")))
+  (mode_tile "trabajo" (if (= blk "LUMINARIA_AP") 0 1))
+  (mode_tile "lum" (if lum-p 0 1))
+  (mode_tile "led" (if lum-p 0 1))
+  (mode_tile "altposte" (if (= blk "POSTE_ELEC") 0 1)))
 (setq *mp-led-list* '("32 LED" "48 LED" "64 LED" "160 LED" "OTRO"))
 
 (defun mp:layer (name color / doc layers lay)
@@ -11932,7 +12004,7 @@
       "serie" "circuito" "desde" "hasta" "cond" "ductos"
       "diamducto" "matducto" "libres" "prof" "id" "lote"
       "anchoz" "cama" "repos"
-      "cd" "pf" "lum" "led" "altura" "brazo" "avance"
+      "cd" "pf" "lum" "led" "altura" "brazo" "avance" "trabajo" "altposte"
       ;; 5.6.0: "ctapa" FALTABA -- mp:dialog-punto-hidro la leia despues de
       ;; done_dialog, cuando get_tile ya no responde, y la cota de tapa
       ;; digitada se perdia (caia al terreno automatico). "tipo_plu" es el
@@ -12343,7 +12415,7 @@
 (defun mp:write-dcl (/ fn f)
   (mp:reset-dialog-capture)
   (setq *mp-dialog-edit-mode* nil)
-  (setq fn (urb:temp-file "maipore_listas_v13" ".dcl"))
+  (setq fn (urb:temp-file "maipore_listas_v14" ".dcl"))
   (if (and *mp-dcl-listas-ok* (findfile fn))
     fn
     (progn
@@ -12394,7 +12466,11 @@
   (write-line ": popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : text { label = \"Excavacion y relleno automaticos (norma CODENSA CS203).\"; } } ok_cancel; }" f)
 
   ;; Se mantienen los formularios de puntos/accesorios para compatibilidad con los comandos existentes.
-  (write-line (strcat "maipore_elem_elec : dialog { label = \"Maipore - Elemento electrico\"; : boxed_column { : popup_list { label = \"Tipo elemento\"; key = \"blk\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 26; } : edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } " (mp:dcl-etapa-str) " : edit_box { label = \"Lote / circuito\"; key = \"lote\"; edit_width = 26; } : edit_box { label = \"CD\"; key = \"cd\"; edit_width = 20; } : edit_box { label = \"PF\"; key = \"pf\"; edit_width = 20; } : popup_list { label = \"Luminaria\"; key = \"lum\"; } : popup_list { label = \"Fuente LED\"; key = \"led\"; } : edit_box { label = \"Altura montaje m\"; key = \"altura\"; edit_width = 12; } : edit_box { label = \"Brazo m\"; key = \"brazo\"; edit_width = 12; } : edit_box { label = \"Avance m\"; key = \"avance\"; edit_width = 12; } } ok_cancel; }") f)
+  ;; 5.7.28 (pedido del usuario 2026-09-24): fuera Lote/circuito, CD, PF,
+  ;; altura de montaje, brazo y avance (no se usaban). Entra TRABAJO
+  ;; (luminaria nueva o cambio) y la altura queda solo para el poste, como
+  ;; lista con las alturas que tiene el libro.
+  (write-line (strcat "maipore_elem_elec : dialog { label = \"Maipore - Elemento electrico\"; : boxed_column { : popup_list { label = \"Tipo elemento\"; key = \"blk\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 26; } : edit_box { label = \"Serie\"; key = \"serie\"; edit_width = 8; } " (mp:dcl-etapa-str) " : popup_list { label = \"Trabajo\"; key = \"trabajo\"; width = 44; } : popup_list { label = \"Luminaria\"; key = \"lum\"; } : popup_list { label = \"Fuente LED\"; key = \"led\"; } : popup_list { label = \"Altura de poste m\"; key = \"altposte\"; } } ok_cancel; }") f)
   ;; 2026-09-02 (pedido del usuario): fuera Lote/Sector (no servia);
   ;; entra la NUMERACION del accesorio (asi vienen todos en el plano:
   ;; AC-461...) que ademas arma la etiqueta "numero + nombre".
@@ -13204,7 +13280,7 @@
   ;; dialogos de EDICION: los tiles etapa/subetapa se conservan siempre
   ;; (grises si las etapas estan deshabilitadas)
   (setq *mp-dialog-edit-mode* T)
-  (setq fn (urb:temp-file "maipore_editar_v14" ".dcl"))
+  (setq fn (urb:temp-file "maipore_editar_v15" ".dcl"))
   (if (and *mp-dcl-editar-ok* (findfile fn))
     fn
     (progn
@@ -13226,7 +13302,7 @@
 
   (write-line "edit_caja_elec : dialog { label = \"Editar PPTO - Caja / camara electrica\"; : boxed_column { : popup_list { label = \"Tipo\"; key = \"tipo\"; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : edit_box { label = \"Ductos\"; key = \"ductos\"; edit_width = 12; } : edit_box { label = \"Libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad\"; key = \"prof\"; edit_width = 12; } : edit_box { label = \"CD\"; key = \"cd\"; edit_width = 14; } : edit_box { label = \"PF\"; key = \"pf\"; edit_width = 14; } } ok_cancel; }" f)
 
-  (write-line "edit_luminaria : dialog { label = \"Editar PPTO - Luminaria / equipo\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Codigo / ID\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Tipo luminaria\"; key = \"lum\"; } : popup_list { label = \"Fuente LED\"; key = \"led\"; } : edit_box { label = \"Altura montaje m\"; key = \"altura\"; edit_width = 12; } : edit_box { label = \"Brazo m\"; key = \"brazo\"; edit_width = 12; } : edit_box { label = \"Avance m\"; key = \"avance\"; edit_width = 12; } : edit_box { label = \"Circuito AP\"; key = \"circuito\"; edit_width = 24; } } ok_cancel; }" f)
+  (write-line "edit_luminaria : dialog { label = \"Editar PPTO - Luminaria / equipo\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Codigo / ID\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Trabajo\"; key = \"trabajo\"; width = 44; } : popup_list { label = \"Tipo luminaria\"; key = \"lum\"; } : popup_list { label = \"Fuente LED\"; key = \"led\"; } } ok_cancel; }" f)
   (close f)
   (setq *mp-dcl-editar-ok* T)
   fn)))
@@ -13405,25 +13481,28 @@
                     (cons "PROFUNDIDAD" (mp:gettile "prof")) (cons "CD" (mp:gettile "cd")) (cons "PF" (mp:gettile "pf"))))))
   (unload_dialog dcl) res)
 
-(defun mp:edit-dialog-luminaria (atts / dcl ok etapa res)
+(defun mp:edit-dialog-luminaria (atts / dcl ok etapa res tipo)
   (setq dcl (load_dialog (mp:write-dcl-editar)))
   (if (not (new_dialog "edit_luminaria" dcl)) (exit))
   (setq *mp-edit-subetapa-current* (mp:attval atts "SUBETAPA" ""))
   (mp:fill-popup-val "etapa" *mp-etapa-list* (mp:attval atts "ETAPA" "1")) (mp:subetapa-fill-current)
   (set_tile "id" (mp:attval atts "CODIGO" (mp:attval atts "ID" "")))
-  (mp:fill-popup-val "lum" *mp-lum-list* (mp:attval atts "TIPO_LUMINARIA" ""))
+  ;; 5.7.28: el cambio se lee del prefijo de TIPO_LUMINARIA y se muestra en
+  ;; su propio selector; sin esto, editar un cambio lo volvia luminaria nueva
+  (setq tipo (mp:attval atts "TIPO_LUMINARIA" ""))
+  (mp:fill-popup "trabajo" *mp-lum-trabajo-list* (if (mp:lum-es-cambio-p tipo) 1 0))
+  (mp:fill-popup-val "lum" *mp-lum-list* (mp:lum-tipo-base tipo))
   (mp:fill-popup-val "led" *mp-led-list* (mp:attval atts "FUENTE_LED" ""))
-  (set_tile "altura" (mp:attval atts "ALTURA_M" "")) (set_tile "brazo" (mp:attval atts "BRAZO_M" "")) (set_tile "avance" (mp:attval atts "AVANCE_M" ""))
-  (set_tile "circuito" (mp:attval atts "CIRCUITO_AP" ""))
   (action_tile "etapa" "(setq *mp-edit-subetapa-current* \"\")(mp:subetapa-fill-current)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)") (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
   (start_dialog)
   (if ok (progn (setq etapa (mp:item *mp-etapa-list* "etapa"))
     (setq res (list (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
                     (cons "CODIGO" (mp:gettile "id")) (cons "ID" (mp:gettile "id"))
-                    (cons "TIPO_LUMINARIA" (mp:item *mp-lum-list* "lum")) (cons "FUENTE_LED" (mp:item *mp-led-list* "led"))
-                    (cons "ALTURA_M" (mp:gettile "altura")) (cons "BRAZO_M" (mp:gettile "brazo")) (cons "AVANCE_M" (mp:gettile "avance"))
-                    (cons "CIRCUITO_AP" (mp:gettile "circuito"))))))
+                    (cons "TIPO_LUMINARIA"
+                      (mp:lum-tipo-compuesto (atoi (mp:gettile "trabajo"))
+                        (mp:item *mp-lum-list* "lum")))
+                    (cons "FUENTE_LED" (mp:item *mp-led-list* "led"))))))
   (unload_dialog dcl) res)
 
 
@@ -15026,47 +15105,49 @@
       (mp:getval "ESTADO_COTA_TN" vals2 "PENDIENTE") "."))
   en)
 
-(defun mp:dialog-elem-elec (/ dcl ok res etapa)
+(defun mp:dialog-elem-elec (/ dcl ok res etapa blk)
   (setq dcl (load_dialog (mp:write-dcl)))
   (if (and dcl (new_dialog "maipore_elem_elec" dcl))
     (progn
       (mp:fill-popup "blk" *mp-elem-elec-list* 2)
       (set_tile "id" (mp:next-elec-id (nth 2 *mp-elem-elec-list*)))
-      (action_tile "blk"
-        "(set_tile \"id\" (mp:next-elec-id (nth (atoi (get_tile \"blk\")) *mp-elem-elec-list*)))")
       (mp:fill-popup "etapa" *mp-etapa-list* 0)
       (mp:update-subetapa)
+      (mp:fill-popup "trabajo" *mp-lum-trabajo-list* 0)
       (mp:fill-popup "lum" *mp-lum-list* 0)
       (mp:fill-popup "led" *mp-led-list* 0)
+      (mp:fill-popup "altposte" *mp-altura-poste-list* 0)
       (set_tile "serie" "1")
-      (set_tile "altura" "8.4")
-      (set_tile "brazo" "0.5")
-      (set_tile "avance" "0.3")
+      (mp:elem-elec-modes)
+      ;; el tipo de elemento decide que selectores aplican
+      (action_tile "blk"
+        (strcat
+          "(set_tile \"id\" (mp:next-elec-id (nth (atoi (get_tile \"blk\")) *mp-elem-elec-list*)))"
+          "(mp:elem-elec-modes)"))
       (action_tile "etapa" "(mp:update-subetapa)")
       (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
       (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
       (start_dialog)
       (if ok
         (progn
-          (setq etapa (mp:item *mp-etapa-list* "etapa"))
+          (setq etapa (mp:item *mp-etapa-list* "etapa")
+                blk (mp:item *mp-elem-elec-list* "blk"))
           (setq res
             (list
-              (cons "BLK" (mp:item *mp-elem-elec-list* "blk"))
+              (cons "BLK" blk)
               (cons "ID" (mp:gettile "id"))
               (cons "CODIGO" (mp:gettile "id"))
               (cons "SERIE" (mp:gettile "serie"))
               (cons "ETAPA" etapa)
               (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
-              (cons "LOTE" (mp:gettile "lote"))
-              (cons "CIRCUITO_AP" (mp:gettile "lote"))
-              (cons "CIRCUITO" (mp:gettile "lote"))
-              (cons "CD" (mp:gettile "cd"))
-              (cons "PF" (mp:gettile "pf"))
-              (cons "TIPO_LUMINARIA" (mp:item *mp-lum-list* "lum"))
+              (cons "TIPO_LUMINARIA"
+                (if (= blk "LUMINARIA_AP")
+                  (mp:lum-tipo-compuesto (atoi (mp:gettile "trabajo"))
+                    (mp:item *mp-lum-list* "lum"))
+                  (mp:item *mp-lum-list* "lum")))
               (cons "FUENTE_LED" (mp:item *mp-led-list* "led"))
-              (cons "ALTURA_M" (mp:gettile "altura"))
-              (cons "BRAZO_M" (mp:gettile "brazo"))
-              (cons "AVANCE_M" (mp:gettile "avance"))))))))
+              (cons "ALTURA_M"
+                (if (= blk "POSTE_ELEC") (mp:item *mp-altura-poste-list* "altposte") ""))))))))
   (if dcl (unload_dialog dcl))
   res)
 
@@ -32943,7 +33024,10 @@
           (setq hatch (vla-AddHatch (urb:space) 1 "SOLID" (if finish-region :vlax-false :vlax-true)))
           (vla-AppendOuterLoop hatch (urb:make-loop-array (if finish-region finish-region obj)))
           (vla-put-Layer hatch capa)
-          (vla-put-Color hatch (nth 3 entry))
+          ;; 5.7.28: PorCapa. El color del material vive en la capa (se le
+          ;; pone al crearla), asi el usuario lo cambia desde la capa y el
+          ;; sendero lo sigue. Antes llevaba el color fijo y no obedecia.
+          (vla-put-Color hatch acByLayer)
           (vl-catch-all-apply 'vlax-put-property
             (list hatch 'EntityTransparency "60"))
           (urb:evaluate-render-hatch hatch)
@@ -40231,7 +40315,61 @@
               " tramo(s) ajustados hasta la cara de sus cajas.")))
         (prompt
           "\nMigracion v4.75.0 pendiente: use AJUSTES > Apariencia de tramos en Civil 3D completo."))))
+  ;; 7) v5.7.28, una sola vez por dibujo: los rellenos de senderos y demas
+  ;; areas del catalogo creados antes llevaban el color FIJO del material;
+  ;; pasan a PorCapa para que obedezcan cuando el usuario cambia la capa.
+  (if (/= (urb:safe-string
+            (urb:config-read "URB_MIGRATE_5728_SEND_BYLAYER") "") "OK")
+    (progn
+      (setq pruned (vl-catch-all-apply 'urb:send-hatches-bylayer nil))
+      (if (not (vl-catch-all-error-p pruned))
+        (progn
+          (urb:config-write "URB_MIGRATE_5728_SEND_BYLAYER" "OK")
+          (if (> pruned 0)
+            (progn
+              (vl-catch-all-apply '(lambda () (vla-Regen (urb:doc) 1)))
+              (prompt
+                (strcat "\nMigracion automatica: " (itoa pruned)
+                  " relleno(s) de sendero pasado(s) a color PorCapa."))))))))
   (princ))
+
+;; Rellenos de las areas del catalogo (*urb-send-tipos*: senderos, pistas,
+;; andenes en concreto...) que tienen color fijo -> PorCapa. Recorre SOLO
+;; las definiciones de los bloques de sendero (marcados con URB_SEND_BLOCK)
+;; y los rellenos sueltos de esas capas; no barre todo el dibujo.
+(defun urb:send-hatch-to-bylayer (en capas / ed c)
+  ;; T si el relleno estaba en una capa del catalogo con color fijo y se paso
+  (setq ed (entget en) c (cdr (assoc 62 ed)))
+  (and (= (cdr (assoc 0 ed)) "HATCH")
+       (member (strcase (cdr (assoc 8 ed))) capas)
+       c (> c 0) (< c 256)
+       (entmod (subst (cons 62 256) (assoc 62 ed) ed))))
+
+(defun urb:send-hatches-bylayer (/ capas ss i nm nombres bl en n)
+  (setq capas nil n 0 nombres nil)
+  (foreach tipo *urb-send-tipos*
+    (if (= (type (nth 6 tipo)) 'STR)
+      (setq capas (cons (strcase (nth 6 tipo)) capas))))
+  (if (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_SEND_BLOCK")))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq nm (cdr (assoc 2 (entget (ssname ss i)))) i (1+ i))
+        (if (not (member nm nombres)) (setq nombres (cons nm nombres))))))
+  (foreach nm nombres
+    (if (setq bl (tblsearch "BLOCK" nm))
+      (progn
+        (setq en (cdr (assoc -2 bl)))
+        (while en
+          (if (urb:send-hatch-to-bylayer en capas) (setq n (1+ n)))
+          (setq en (entnext en))))))
+  (if (setq ss (ssget "_X" '((0 . "HATCH"))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (if (urb:send-hatch-to-bylayer (ssname ss i) capas) (setq n (1+ n)))
+        (setq i (1+ i)))))
+  n)
 
 (defun urb:remove-legacy-commands (/ command-symbol)
   ;; Al recargar el LSP, AutoCAD conserva en memoria las funciones C: que

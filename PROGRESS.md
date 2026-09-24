@@ -4637,3 +4637,43 @@ dentro del pozo. El pluvial fusiona OBRAS COMPLEMENTARIAS DE DRENAJE dentro
 de PRUEBAS, INSPECCION, REPARACIONES Y ENTREGA.
 
 POR EJECUTAR: 177.670.966.716 -> 179.966.031.063.
+
+### v5.7.28 - andenes curvos, color de capas, luminarias (2026-09-24)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+**Andenes curvos (dos reportes del usuario con fotos).**
+1. Los dos puntos que se piden en una curva ahora son la DIRECCION DE LAS
+   BANDAS, que quedan paralelas a esa linea. Desde 5.7.18 se tomaban como
+   eje longitudinal y las bandas salian perpendiculares a lo marcado. Lo
+   guardado en URB_ANDEN_AXIS sigue siendo el eje longitudinal (bandas + 90)
+   para que los andenes ya creados no giren al reconstruirse.
+2. Solo se pregunta en una curva PRONUNCIADA (el anden gira 60 grados o mas,
+   medido sobre la cadena del costado: un retorno da 87). La curva suave no
+   pregunta: en 5.7.18 cualquier arco preguntaba y hasta el Enter guardaba un
+   eje forzado que apagaba la modulacion por tramos de los andenes largos
+   curvos. La regla del eje (urb:anden-forced-axis) quedo unica para el dibujo
+   y las cantidades.
+
+**Color de capas.** urb:ensure-layer reponia el color y el estado de
+impresion en CADA llamada, asi que cualquier comando le devolvia a la capa el
+color del catalogo (reporte: "no me deja cambiar el color de la capa del
+sendero de trote"). Ahora solo los pone al crear la capa, mismo criterio que
+mp:layer en 5.7.20. El relleno de senderos y demas areas del catalogo se crea
+PorCapa; la migracion 7 (una sola vez por dibujo, marca
+URB_MIGRATE_5728_SEND_BYLAYER) pasa a PorCapa los ya dibujados.
+
+**Luminarias.** La ventana de elemento electrico pierde Lote/circuito, CD, PF,
+altura de montaje, brazo y avance. Entra el selector TRABAJO (luminaria nueva
+o cambio); el cambio existia desde 5.7.14 pero escondido al final de la lista
+de luminarias. Se guarda como "CAMBIO - <tipo>" dentro de TIPO_LUMINARIA, asi
+la exportacion y los bloques viejos siguen funcionando. La altura queda solo
+para el poste, como lista de las alturas del libro (10, 12 y 14 m). La
+ventana de editar luminaria lee y conserva el cambio. DCL maipore_listas_v14 y
+maipore_editar_v15.
+
+Verificacion headless sobre copia del maestro: 25 PASS, 0 FAIL (bandas
+paralelas, retorno pregunta con deriva 87,2, curva suave de 34,9 m y 19,4
+grados no pregunta y queda sin eje forzado, capa conserva el color del
+usuario, 3 bloques de sendero migrados a PorCapa e idempotente, ventanas
+compilan sin los campos retirados).
