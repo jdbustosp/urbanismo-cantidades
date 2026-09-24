@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.29")
+(setq *urb-version* "5.7.30")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -10350,7 +10350,7 @@
 )
 
 (defun c:EDITAR
-  (/ selection parents prefabs greens senderos first metadata material format etapa subetapa
+  (/ tramo-opcion selection parents prefabs greens senderos first metadata material format etapa subetapa
    guia toperol calculate surface grade-source data
    ename obj result deleted updated failed old-material boundary block-ref
    cleaned old-guia old-toperol old-format old-calculate old-surface
@@ -10728,20 +10728,27 @@
               ;; 5.6.0: con tramos en la seleccion EDITAR ofrece tambien
               ;; voltear su texto (integrado aqui a pedido del usuario:
               ;; nada de comandos sueltos). Enter = Propiedades, como antes.
-              (if (and (vl-some
-                         '(lambda (e)
-                            (mp:base-is-tramo
-                              (mp:infer-base
-                                (vla-get-EffectiveName (vlax-ename->vla-object e))
-                                (mp:att-alist e))))
-                         mp-entities)
-                       (progn
-                         (initget "Propiedades Voltear")
-                         (= "Voltear"
-                            (getkword
-                              "\nTramos: [Propiedades/Voltear texto] <Propiedades>: "))))
-                (mp:flip-tramo-texts mp-entities)
-                (foreach ename mp-entities (mp:edit-entity ename)))
+              ;; 5.7.30 (pedido del usuario 2026-09-24): tercera opcion
+              ;; "Movimiento de tierras" para completar cotas clave (hay
+              ;; tramos sin ellas) digitandolas o tomandolas del plano.
+              (progn
+                (setq tramo-opcion
+                  (if (vl-some
+                        '(lambda (e)
+                           (mp:base-is-tramo
+                             (mp:infer-base
+                               (vla-get-EffectiveName (vlax-ename->vla-object e))
+                               (mp:att-alist e))))
+                        mp-entities)
+                    (progn
+                      (initget "Propiedades Voltear Movimiento")
+                      (getkword
+                        "\nTramos: [Propiedades/Voltear texto/Movimiento de tierras] <Propiedades>: "))
+                    nil))
+                (cond
+                  ((= tramo-opcion "Voltear") (mp:flip-tramo-texts mp-entities))
+                  ((= tramo-opcion "Movimiento") (mp:edit-tramos-movimiento mp-entities))
+                  (T (foreach ename mp-entities (mp:edit-entity ename)))))
               (if senderos
                 ;; 5.6.2: senderos -> recalcular su movimiento de tierras
                 (urb:edit-senderos-movimiento senderos)
@@ -12069,7 +12076,14 @@
       ;; done_dialog, cuando get_tile ya no responde, y la cota de tapa
       ;; digitada se perdia (caia al terreno automatico). "tipo_plu" es el
       ;; selector Pozo/Sumidero/Cabezal de la ventana pluvial unificada.
-      "ctapa" "tipo_plu"))
+      "ctapa" "tipo_plu"
+      ;; 5.7.30 (reporte del usuario 2026-09-24: "no me deja asignar si
+      ;; lleva carcamo" y la reposicion no llegaba al presupuesto). Estas
+      ;; cuatro se leian DESPUES de cerrar la ventana y se perdian siempre:
+      ;; carcamo quedaba vacio, repotipo en NINGUNA, ubic (calzada o anden
+      ;; de la ducteria electrica, decide el recubrimiento 0,80/0,60 m) en
+      ;; el primer valor, y accid (numero del accesorio) vacio.
+      "carcamo" "repotipo" "ubic" "accid"))
   (setq result nil)
   (foreach key keys
     (setq value (vl-catch-all-apply 'get_tile (list key)))
@@ -13340,7 +13354,7 @@
   ;; dialogos de EDICION: los tiles etapa/subetapa se conservan siempre
   ;; (grises si las etapas estan deshabilitadas)
   (setq *mp-dialog-edit-mode* T)
-  (setq fn (urb:temp-file "maipore_editar_v15" ".dcl"))
+  (setq fn (urb:temp-file "maipore_editar_v16" ".dcl"))
   (if (and *mp-dcl-editar-ok* (findfile fn))
     fn
     (progn
@@ -13350,7 +13364,7 @@
   (write-line ": boxed_column { label = \"Clasificacion\"; : text { key = \"redtxt\"; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } }" f)
   (write-line ": boxed_column { label = \"Datos\"; : edit_box { label = \"Nodo/pozo inicial\"; key = \"pini\"; edit_width = 22; } : edit_box { label = \"Nodo/pozo final\"; key = \"pfin\"; edit_width = 22; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Diametro\"; key = \"diam\"; } : popup_list { label = \"Material\"; key = \"mat\"; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : edit_box { label = \"Pendiente %\"; key = \"pend\"; edit_width = 12; } }" f)
   (write-line ": boxed_column { label = \"Cotas\"; : edit_box { label = \"Cota terreno inicial (automatica SUP_TN)\"; key = \"ctni\"; edit_width = 12; } : edit_box { label = \"Cota terreno final (automatica SUP_TN)\"; key = \"ctnf\"; edit_width = 12; } : edit_box { label = \"Cota clave inicial\"; key = \"ccini\"; edit_width = 12; } : edit_box { label = \"Cota clave final\"; key = \"ccfin\"; edit_width = 12; } }" f)
-  (write-line ": boxed_column { label = \"Cantidades de construccion\"; : edit_box { label = \"Ancho de zanja m\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama m\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion m\"; key = \"repos\"; edit_width = 12; } : popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; } } ok_cancel; }" f)
+  (write-line ": boxed_column { label = \"Cantidades de construccion\"; : edit_box { label = \"Ancho de zanja m\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama m\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion m\"; key = \"repos\"; edit_width = 12; } : popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; } : toggle { label = \"Lleva carcamo o placa de proteccion\"; key = \"carcamo\"; } } ok_cancel; }" f)
 
   (write-line "edit_tramo_mt : dialog { label = \"Editar PPTO - Media tension\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : text { label = \"Profundidad y excavacion: automaticas por norma CODENSA.\"; } } ok_cancel; }" f)
 
@@ -13362,6 +13376,8 @@
 
   (write-line "edit_caja_elec : dialog { label = \"Editar PPTO - Caja / camara electrica\"; : boxed_column { : popup_list { label = \"Tipo\"; key = \"tipo\"; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : edit_box { label = \"Ductos\"; key = \"ductos\"; edit_width = 12; } : edit_box { label = \"Libres\"; key = \"libres\"; edit_width = 12; } : edit_box { label = \"Profundidad\"; key = \"prof\"; edit_width = 12; } : edit_box { label = \"CD\"; key = \"cd\"; edit_width = 14; } : edit_box { label = \"PF\"; key = \"pf\"; edit_width = 14; } } ok_cancel; }" f)
 
+  ;; 5.7.30: EDITAR > Movimiento de tierras (tramos de red humeda)
+  (write-line "tramo_mov : dialog { label = \"Movimiento de tierras - cotas clave\"; : boxed_column { : text { key = \"info\"; width = 56; } : text { key = \"info2\"; width = 56; } : row { : edit_box { label = \"Cota clave inicial\"; key = \"ccini\"; edit_width = 14; } : button { label = \"Tomar del plano\"; key = \"pick_ini\"; } } : row { : edit_box { label = \"Cota clave final\"; key = \"ccfin\"; edit_width = 14; } : button { label = \"Tomar del plano\"; key = \"pick_fin\"; } } : text { label = \"Vacio = sin dato. Al aceptar se recalcula excavacion, rellenos y entibado.\"; } } : row { : button { label = \"Aceptar\"; key = \"accept\"; is_default = true; } : button { label = \"Omitir tramo\"; key = \"skip\"; } : button { label = \"Cancelar todo\"; key = \"cancel\"; is_cancel = true; } } }" f)
   (write-line "edit_luminaria : dialog { label = \"Editar PPTO - Luminaria / equipo\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Codigo / ID\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Trabajo\"; key = \"trabajo\"; width = 44; } : popup_list { label = \"Tipo luminaria\"; key = \"lum\"; } : popup_list { label = \"Fuente LED\"; key = \"led\"; } } ok_cancel; }" f)
   (close f)
   (setq *mp-dcl-editar-ok* T)
@@ -13389,6 +13405,10 @@
   (set_tile "cama" (mp:attval atts "ESPESOR_CAMA" "0.10"))
   (set_tile "repos" (mp:attval atts "ANCHO_REPOSICION" ""))
   (mp:fill-popup-val "repotipo" *mp-reposicion-list* (mp:attval atts "TIPO_REPOSICION" "NINGUNA"))
+  ;; 5.7.30: el carcamo se asigna tambien al editar (antes solo al crear, y
+  ;; ahi se perdia al cerrar la ventana)
+  (set_tile "carcamo"
+    (if (urb:string-equal-p (mp:attval atts "CARCAMO" "") "SI") "1" "0"))
   (action_tile "etapa" "(setq *mp-edit-subetapa-current* \"\")(mp:subetapa-fill-current)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
   (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
@@ -13398,6 +13418,7 @@
       (setq etapa (mp:item *mp-etapa-list* "etapa"))
       (setq res (list (cons "RED" red) (cons "ETAPA" etapa) (cons "SUBETAPA" (mp:item (mp:subetapas-for etapa) "subetapa"))
                       (cons "TIPO_REPOSICION" (mp:item *mp-reposicion-list* "repotipo"))
+                      (cons "CARCAMO" (if (= (mp:gettile "carcamo") "1") "SI" ""))
                       (cons "POZO_INI" (mp:gettile "pini")) (cons "POZO_FIN" (mp:gettile "pfin"))
                       (cons "TIPO_EXTREMO_INI" (mp:item *mp-extremo-hidro-list* "tipo_ini"))
                       (cons "TIPO_EXTREMO_FIN" (mp:item *mp-extremo-hidro-list* "tipo_fin"))
@@ -14269,6 +14290,74 @@
                       (mp:safe-str txt) "\")."))
                   nil))))))))
 )
+
+;; 5.7.30 (pedido del usuario 2026-09-24, foto con tramos sin cota clave):
+;; EDITAR > Movimiento de tierras. Una ventana por tramo de red humeda con
+;; las cotas clave que ya tenga; se digitan o se toman de una etiqueta del
+;; plano ("Tomar del plano"). Al aceptar se recalcula el tramo igual que al
+;; editar por Propiedades (mp:update-block-after-edit).
+(defun mp:tramo-mov-dialog (en atts / dcl accion v-ini v-fin v res)
+  (setq v-ini (mp:attval atts "COTA_CLAVE_INI" "")
+        v-fin (mp:attval atts "COTA_CLAVE_FIN" "")
+        accion 2)
+  (while (member accion '(2 3))
+    (setq dcl (load_dialog (mp:write-dcl-editar)))
+    (if (not (new_dialog "tramo_mov" dcl)) (exit))
+    (set_tile "info"
+      (strcat "Tramo " (mp:attval atts "POZO_INI" "?") " - " (mp:attval atts "POZO_FIN" "?")
+              "   red " (mp:attval atts "RED" "") "   L = " (mp:attval atts "LONGITUD" "") " m"))
+    (set_tile "info2"
+      (strcat "Terreno: inicial " (mp:attval atts "COTA_TN_INI" "-")
+              "   final " (mp:attval atts "COTA_TN_FIN" "-")))
+    (set_tile "ccini" v-ini)
+    (set_tile "ccfin" v-fin)
+    (action_tile "pick_ini" "(setq v-ini (get_tile \"ccini\") v-fin (get_tile \"ccfin\"))(done_dialog 2)")
+    (action_tile "pick_fin" "(setq v-ini (get_tile \"ccini\") v-fin (get_tile \"ccfin\"))(done_dialog 3)")
+    (action_tile "accept" "(setq v-ini (get_tile \"ccini\") v-fin (get_tile \"ccfin\"))(done_dialog 1)")
+    (action_tile "skip" "(done_dialog 4)")
+    (action_tile "cancel" "(done_dialog 0)")
+    (setq accion (start_dialog))
+    (unload_dialog dcl)
+    (cond
+      ((= accion 2)
+        (vla-Highlight (vlax-ename->vla-object en) :vlax-true)
+        (if (setq v (mp:prompt-clave-from-label "\nSeleccione la etiqueta de cota clave INICIAL: "))
+          (setq v-ini (rtos v 2 4)))
+        (vla-Highlight (vlax-ename->vla-object en) :vlax-false))
+      ((= accion 3)
+        (vla-Highlight (vlax-ename->vla-object en) :vlax-true)
+        (if (setq v (mp:prompt-clave-from-label "\nSeleccione la etiqueta de cota clave FINAL: "))
+          (setq v-fin (rtos v 2 4)))
+        (vla-Highlight (vlax-ename->vla-object en) :vlax-false))))
+  (cond
+    ((= accion 1)
+      (list (cons "COTA_CLAVE_INI" (vl-string-trim " " v-ini))
+            (cons "COTA_CLAVE_FIN" (vl-string-trim " " v-fin))))
+    ((= accion 4) "OMITIR")
+    (T nil)))
+
+(defun mp:edit-tramos-movimiento (enames / atts base res n cancelado)
+  (setq n 0)
+  (foreach en enames
+    (if (not cancelado)
+      (progn
+        (setq atts (mp:att-alist en)
+              base (mp:infer-base
+                     (vla-get-EffectiveName (vlax-ename->vla-object en)) atts))
+        (if (mp:hydro-tramo-p base)
+          (progn
+            (setq res (mp:tramo-mov-dialog en atts))
+            (cond
+              ((null res) (setq cancelado T))
+              ((listp res)
+                (mp:update-block-after-edit en res)
+                (setq n (1+ n))
+                (prompt
+                  (strcat "\nTramo " (mp:attval atts "POZO_INI" "?") " - "
+                          (mp:attval atts "POZO_FIN" "?") ": excavacion "
+                          (mp:attval (mp:att-alist en) "EXCAVACION_M3" "?") " m3.")))))))))
+  (prompt (strcat "\nMovimiento de tierras recalculado en " (itoa n) " tramo(s)."))
+  (princ))
 
 (defun mp:tramo-depth-profile
   (surface p1 p2 key-ini key-fin diameter-m bedding n road-ref
@@ -31940,8 +32029,11 @@
 ;; de la cartilla). Actividades EXACTAS del capitulo 2.5.3.7 del ppto.
 (setq *urb-bioswale-tipo*
   '("BIOSWALE" "Bioswale / biorretenedor" "ALC-PLUVIAL" 140 "BIORETENEDORES"
+     ;; 5.7.30: sale la fila de sobrantes, que desde 5.7.22 va dentro del
+     ;; unitario de la excavacion (se cobraba dos veces). El nombre de la
+     ;; excavacion se unifica cuando el usuario apruebe la lista de nombres
+     ;; (el libro y este catalogo deben cambiar juntos).
      (("Excavación manual para bioswale/bioretenedor" "M3" "AREA" 0.60)
-      ("Cargue, transporte y disposición de sobrantes" "M3" "AREA" 0.60)
       ("Base de gravilla permeable para bioretenedor" "M3" "AREA" 0.20)
       ("Suministro y colocación de gravilla 25-40 mm (capa drenante)" "M3" "AREA" 0.12)
       ("Suministro y colocación de gravilla 10-15 mm (capa filtrante)" "M3" "AREA" 0.15)
@@ -34376,9 +34468,9 @@
     ("SARDINEL" "VIA" ("LONGITUD" "UNIDAD"))
     ("BORDILLO" "ANDEN" ("LONGITUD" "UNIDAD"))
     ("TRAMO SANITARIO" "ALC-SANITARIO"
-      ("LONGITUD" "EXCAVACION" "UNIDAD"))
-    ("TRAMO PLUVIAL" "ALC-PLUVIAL" ("LONGITUD" "EXCAVACION" "UNIDAD"))
-    ("TRAMO ACUEDUCTO" "ACUEDUCTO" ("LONGITUD" "EXCAVACION" "UNIDAD"))
+      ("LONGITUD" "EXCAVACION" "FRACCION_RED" "UNIDAD"))
+    ("TRAMO PLUVIAL" "ALC-PLUVIAL" ("LONGITUD" "EXCAVACION" "FRACCION_RED" "UNIDAD"))
+    ("TRAMO ACUEDUCTO" "ACUEDUCTO" ("LONGITUD" "EXCAVACION" "FRACCION_RED" "UNIDAD"))
     ("POZO SANITARIO" "ALC-SANITARIO" ("PROFUNDIDAD" "UNIDAD"))
     ("POZO PLUVIAL" "ALC-PLUVIAL" ("PROFUNDIDAD" "UNIDAD"))
     ("SUMIDERO" "ALC-PLUVIAL" ("UNIDAD"))
@@ -34419,6 +34511,8 @@
     ;; 2026-09-14: la zona verde expone VOLUMEN (tierra negra) y sin
     ;; etiqueta el desplegable de parametros lo mostraba en clave interna
     ("VOLUMEN" "Volumen de tierra negra (m3)")
+    ;; 5.7.30: reparto de actividades globales por subetapa (tramos de red)
+    ("FRACCION_RED" "Fraccion de la red (largo tramo / largo red)")
     ("UNIDAD" "Unidad (1 por elemento)")))
 
 (defun urb:ppto-mag-label (code / entry)
@@ -35362,12 +35456,14 @@
 (defun urb:ppto-row (red concepto id desde hasta etapa subetapa um qty handle)
   ;; devuelve UNA fila (lista plana de 10) o nil -- OJO: una envoltura
   ;; doble aqui rompia el match de TODAS las filas (2026-08-17)
-  (if (> qty 0.0005)
+  ;; 5.7.30: 4 decimales (antes 3). Los globales repartidos por FRACCION_RED
+  ;; son fracciones de 1 GB por tramo; con 3 decimales el total se desviaba.
+  (if (> qty 0.00005)
     (list red concepto id desde hasta
       (urb:safe-string etapa "")
       (if (= (urb:safe-string subetapa "") "") "GEN"
         (urb:safe-string subetapa ""))
-      um (atof (rtos qty 2 3)) handle)
+      um (atof (rtos qty 2 4)) handle)
     nil))
 
 (defun urb:ppto-rows-vias (/ ss i be d atts nombre etapa sub perfil handle
@@ -36245,9 +36341,27 @@
                              pini pfin id ent rows out r ductos-n diam-d
                              mat-d ctok exc prof anchoz vol-ductos recub
                              env-banco arena base-gran circ mat-libro
-                             trit rec profm dnum cama colchon envv tiporep cpar)
+                             trit rec profm dnum cama colchon envv tiporep cpar
+                             totales-red tot)
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "TRAMO_*,MP_TRAMO_*")))
         out nil i 0)
+  ;; 5.7.30 (pedido del usuario 2026-09-24: "no puede quedar todo en etapa
+  ;; general, las pruebas y el resto tiene que ir para cada subetapa"): largo
+  ;; total de cada red, para la magnitud FRACCION_RED (largo del tramo / largo
+  ;; de su red). Una actividad global (planos record, profesional, gestor,
+  ;; manual) parametrizada con FRACCION_RED x 1 suma exactamente 1 GB y cae
+  ;; en la subetapa de cada tramo en proporcion a su longitud.
+  (setq totales-red nil)
+  (if ss
+    (repeat (sslength ss)
+      (setq atts (mp:att-alist (ssname ss i))
+            red (urb:ppto-tramo-red atts)
+            lng (atof (urb:safe-string (cdr (assoc "LONGITUD" atts)) "0"))
+            tot (assoc red totales-red)
+            totales-red (if tot (subst (cons red (+ (cdr tot) lng)) tot totales-red)
+                          (cons (cons red lng) totales-red))
+            i (1+ i))))
+  (setq i 0)
   (if ss
     (repeat (sslength ss)
       (setq be (ssname ss i)
@@ -36424,6 +36538,9 @@
                   (cons "EXCAVACION"
                     (atof (urb:safe-string
                       (cdr (assoc "EXCAVACION_M3" atts)) "0")))
+                  (cons "FRACCION_RED"
+                    (if (and (setq tot (cdr (assoc red totales-red))) (> tot 0.0))
+                      (/ lng tot) 0.0))
                   (cons "UNIDAD" 1.0))
                 id pini pfin etapa sub handle)))
           (foreach r rows (if r (setq out (cons r out))))))
@@ -36830,6 +36947,19 @@
                     "Suministro e instalación de alambre 2x12 AWG-THW (Acometida para luminarias)"
                     id "" "" etapa sub "ML"
                     (* prof (+ (atof r) 3.0)) handle))))))
+        ;; 5.7.30 (pedido del usuario 2026-09-24: los N4 de media tension en
+        ;; cero que si van deben salir del plano): cada CDMT dibujado lleva el
+        ;; equipo CDMT-7 y su malla de puesta a tierra. Antes el punto CDMT_E
+        ;; no exportaba nada.
+        ((= base "CDMT_E")
+          (setq rows
+            (list
+              (urb:ppto-row "ELECTRICA-MT"
+                "Suministro e instalación CDMT-7, 1 entrada, 1 salida y 2 derivaciones"
+                id "" "" etapa sub "UN" 1.0 handle)
+              (urb:ppto-row "ELECTRICA-MT"
+                "Malla o puesta a tierra para CDMT y cajas de maniobra"
+                id "" "" etapa sub "UN" 1.0 handle))))
         ((= base "TRANSFORMADOR_AP")
           ;; fila 1084 del libro (pedestal 30 KVA para AP)
           (setq rows
@@ -37176,7 +37306,9 @@
                             (if (= (nth 1 item) (cdr pair))
                               (setq q (+ q (nth 2 item)))))
                           (setq vec (cons
-                            (if (> q 0.0005) (atof (rtos q 2 2)) "")
+                            ;; 5.7.30: 4 decimales; con 2 un global de 1 GB
+                            ;; repartido en ~25 subetapas se desviaba hasta 12 %
+                            (if (> q 0.00005) (atof (rtos q 2 4)) "")
                             vec)))
                         (vlax-put-property rng 'Value2
                           (urb:excel-matrix-variant (list (reverse vec))))

@@ -4722,3 +4722,45 @@ Verificacion headless sobre copia del maestro: 20 PASS, 0 FAIL, incluido
 `*urb-load-count*` = 1 con el cargador nuevo, 49 de 49 andenes con via y la
 seleccion de via por pieza anidada. Primera corrida 15 de 17: los 2 fallos
 eran de la prueba (comparar enames con =).
+
+### v5.7.30 - datos que se perdian al cerrar ventanas, carcamo, cotas clave, reparto por subetapa (2026-09-24)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+**Bug de fondo.** `mp:capture-dialog-values` no capturaba `carcamo`,
+`repotipo`, `ubic` ni `accid`; se leian despues de cerrar la ventana y se
+perdian siempre. Medido en el maestro: 0 tramos con CARCAMO=SI, 0 con
+reposicion y 0 con ducteria en calzada, aunque el usuario los marco. Los
+tramos ya dibujados deben volver a marcarse con EDITAR.
+
+**Editar tramo.** Casilla de carcamo en la ventana de edicion (antes solo al
+crear). EDITAR de tramos ofrece `[Propiedades/Voltear texto/Movimiento de
+tierras]`: la ventana `tramo_mov` muestra las cotas clave existentes, deja
+digitarlas o tomarlas de una etiqueta ("Tomar del plano") y recalcula el
+tramo con `mp:update-block-after-edit`.
+
+**FRACCION_RED.** Nueva magnitud de parametricas en tramos de red: largo del
+tramo / largo total de su red. Un global parametrizado con FRACCION_RED x 1
+suma 1 GB repartido en las subetapas segun la red (verificado: 0,9994,
+1,0003 y 0,9999 en acueducto, sanitario y pluvial). Para que el reparto no
+se desvie se subio la precision de la fila exportada y de la escritura al
+libro a 4 decimales (antes 3 y 2). Las parametricas de reparto NO se han
+creado en el libro: esperan visto bueno del usuario.
+
+**Otros.** CDMT_E exporta CDMT-7 y su malla de puesta a tierra. El bioswale
+deja de exportar sobrantes aparte (van dentro de la excavacion desde
+5.7.22); su nombre de excavacion se unifica cuando el usuario apruebe la
+lista de nombres. DCL editar v16.
+
+**Libro (mismo dia, sin nombres ni reparto):** OTROS a REQUERIMIENTOS
+AMBIENTALES, fases PTAR a 3.641.361.315, imprevistos 6,5 %, red de gas
+limpia, fuera ACOMETIDAS, ESTACIONES REGULADORAS, TRANSICIONES y lo de
+maniobra salvo CDMT-7 (la malla tenia cantidad por formula que apuntaba a las
+filas borradas y rompia el libro con #REF!; se retiro antes de borrar), subetapa
+6 agregada en administracion delegada e interventoria y su base con
+imprevistos, POR PROYECTAR Coinver 245.525.067, filtro frances = longitud de
+via x 2, transporte de equipos = 1 por via, BD con N5 sin numeracion,
+CLASIFICADOR 2 y 3 y tabla CLASIF_MANUAL (sobrevive a actualizar), colores de
+DINAMICA por tabla y nivel 1 azul, V/U y Cant. ocultos en niveles 1-4.
+Verificado: Coinver 67.290.081.336, acueducto ejecutado 18.097.982.298,
+sin errores ni circulares. POR EJECUTAR 181.673.237.717 -> 184.410.211.594.
