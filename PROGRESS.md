@@ -4562,3 +4562,28 @@ El registro real de las 20:52 confirmó que la edición mostrada por el usuario 
 El límite fijo de tierras cambia de 10 a **20 m por defecto** y queda editable por dibujo en `Configuración → Movimiento de tierras → Profundidad máxima de control`; admite 0–100 m y `0` lo desactiva. Pruebas: corte localizado de 15 m aceptado, diferencia incoherente de 25 m rechazada y 0 desactiva el guardarraíl. La vía real problemática sigue rechazada con máximo 25,5915 m y media 21,8621 m. Informe reproducible: `diagnosticos/anden579/RESULTADO.md`.
 
 Instalación local: motor y manifiesto 5.7.10 copiados al bundle; SHA-256 del LSP instalado idéntico al repositorio. El instalador avisó que AutoCAD estaba abierto y no pudo volver a copiar la DLL de la cinta, pero esa DLL no cambió en esta entrega. La nueva lógica entra al reiniciar AutoCAD/Civil 3D (o al cargar explícitamente el LSP 5.7.10 en otro dibujo).
+
+### v5.7.25 - una sola actividad de cabezal de descarga (2026-09-23)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+El 2026-09-07 los cabezales se habian desagregado por rango de diametro
+(8-10, 12-16, 18-24). La verificacion de hoy mostro que en el maestro los
+**45 cabezales caen todos en la banda 12-16**, que las otras dos filas del
+libro quedaban en cero y que el cabezal sin diametro se volvia huerfana
+(era la unica de 9.459 filas exportadas). Por pedido del usuario se vuelve a
+**una sola actividad**: `urb:ppto-rows-puntos` emite siempre
+"Cabezal de descarga en concreto" y el diametro deja de decidir el precio,
+aunque se conserva porque alimenta el simbolo, los cuadros y el perfil.
+
+En el libro, 2.4.3.7 CABEZALES DE DESCARGA queda con una sola fila,
+"Cabezal de descarga en concreto (incluye aletas, solado y enrocado)", UN,
+45 unidades a 12.500.000 = 562.500.000. Se borraron las filas de 18-24, de
+8-10 y "Cabezal de entrega" (las tres en cero). El unitario sube de 8.500.000
+a 12.500.000 sustentado en APU con insumos IDU 2026-I: concreto estructural
+1.073.769 por M3, acero 5.794 por KG, excavacion manual 58.471, relleno
+48.122 y enrocado 109.359 por M3; el caso mayor (O27") da 13.065.005 y el
+medio (O12-16) 5.849.178. Al ser actividad unica se toma el caso mayor para
+no quedar corto, igual que el criterio acordado para los pozos.
+
+POR EJECUTAR: 177.475.351.716 -> 177.670.966.716.

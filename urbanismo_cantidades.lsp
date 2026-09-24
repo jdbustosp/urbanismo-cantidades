@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.24")
+(setq *urb-version* "5.7.25")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -15676,7 +15676,9 @@
 
 ;; Diametro del tramo PLUVIAL que llega al punto (extremo a <= 2.5 m: los
 ;; tramos arrancan en el borde del simbolo, no en su centro). Lo usa el
-;; cabezal, cuyo presupuesto va por rango de diametro (8-10/12-16/18-24).
+;; cabezal. Desde 2026-09-23 el presupuesto del cabezal NO depende del
+;; diametro (una sola actividad a todo costo); el dato se conserva porque
+;; alimenta el simbolo, los cuadros y el perfil.
 (defun mp:pluvial-diam-near (p / ss i en obj nm ed ip rot sx span end d bestd diam spans hit blk)
   (setq ss (ssget "_X" '((0 . "INSERT"))) i 0 bestd 2.5 diam nil spans nil)
   (if ss
@@ -15735,7 +15737,7 @@
                   (progn
                     (setq vals (mp:alist-set vals "DIAMETRO" diam))
                     (prompt (strcat "\nDiametro tomado del tramo que llega: " diam "\"")))
-                  (prompt "\nNo hay tramo pluvial llegando a este punto: el cabezal queda sin diametro (asignelo con EDITAR)."))
+                  (prompt "\nNo hay tramo pluvial llegando a este punto: el cabezal queda sin diametro (asignelo con EDITAR). El presupuesto no se afecta."))
                 (setq dir (getangle p "\nDireccion de descarga <sin girar>: "))
                 (if dir
                   (setq vals (mp:alist-set vals "__ROT"
@@ -36304,28 +36306,17 @@
               (urb:ppto-row red "Anillo cilindro prefabricado de pozo"
                 id "" "" etapa sub "ML" prof handle))))
         ;; cabezal de descole pluvial (elemento nuevo 2026-08-28)
-        ;; 2026-09-07 (pedido del usuario: DESAGREGAR los cabezales, que
-        ;; venian a la actividad GLOBAL "Cabezal de entrega" con VU de
-        ;; paquete $37,2M): ahora el concepto lleva el DIAMETRO y cruza
-        ;; con los items POR RANGO del libro ("Cabezal de descarga en
-        ;; concreto para tuberia OX-OY"); sin diametro cae al generico.
+        ;; 2026-09-07 se DESAGREGO por rango de diametro (8-10 / 12-16 /
+        ;; 18-24). 2026-09-23 el usuario pide volver a UNA SOLA actividad:
+        ;; en el maestro los 45 cabezales caen todos en la banda 12-16 y
+        ;; las otras dos filas del libro quedaban en cero, ademas de que
+        ;; el cabezal sin diametro se volvia huerfana. Ahora el concepto
+        ;; es unico y el libro lo cobra a todo costo (aletas, solado y
+        ;; enrocado), asi que el diametro ya no decide el precio.
         ((= base "CABEZAL_PLUVIAL")
-          (setq r (urb:safe-string (cdr (assoc "DIAMETRO" atts)) ""))
-          ;; el concepto se emite con los DOS numeros del RANGO del item
-          ;; del libro (8-10 / 12-16 / 18-24): un O intermedio (14) no
-          ;; aparece literal en ninguna fila y empataba las tres (visto
-          ;; 2026-09-07, 71 huerfanas). El O real vive en el punto y en
-          ;; los cuadros; sin diametro queda huerfana VISIBLE a proposito.
-          (setq prof (distof r))
           (setq rows
             (list (urb:ppto-row "ALC-PLUVIAL"
-              (cond
-                ((null prof) "Cabezal de descarga en concreto")
-                ((<= prof 10.0)
-                  "Cabezal de descarga en concreto para tuberia 8 10")
-                ((<= prof 16.0)
-                  "Cabezal de descarga en concreto para tuberia 12 16")
-                (T "Cabezal de descarga en concreto para tuberia 18 24"))
+              "Cabezal de descarga en concreto"
               id "" "" etapa sub "UN" 1.0 handle))))
         ((= base "SUMIDERO")
           (setq rows
