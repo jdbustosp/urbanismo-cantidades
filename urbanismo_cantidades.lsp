@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.28")
+(setq *urb-version* "5.7.29")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -7924,7 +7924,10 @@
       ;; cache o vinculo via-id. Nunca se reconstruye uno nuevo del bloque.
       (setq axis (urb:road-axis-recover road data via-id))
       (if axis
-        (urb:remember-road-axis road data via-id axis))
+        (progn
+          (urb:remember-road-axis road data via-id axis)
+          ;; 5.7.29: remember puede haber corregido el inicio del tramo
+          (setq data (urb:get-xdata-strings road "URB_VIA"))))
       (setq mov (urb:road-movement-data road))
       (setq records (urb:road-design-grade-records road data))
       (if (not (urb:grade-records-valid-p records)) (setq records nil))
@@ -7973,9 +7976,56 @@
     (progn (prompt "\nEl objeto seleccionado no es una via cuantificable.") nil))
 )
 
+;; 5.7.29 (reporte del usuario 2026-09-24, con foto): al pedir el eje el
+;; usuario hace clic sobre la VIA creada. La seleccion perfora el bloque y
+;; devolvia una pieza interna (un sombreado): "El eje seleccionado no es
+;; una curva valida" y el anden quedaba sin rasante. Si el clic cae en una
+;; via creada (la pieza o cualquier bloque que la contenga), se usa su
+;; rasante guardada. Devuelve ("VIA" via) | ("EJE" curva) | nil.
+;; via creada a la que pertenece una seleccion de nentsel (la pieza o
+;; cualquiera de los bloques que la contienen, del mas externo al interno)
+(defun urb:road-from-nentsel (sel / ename parents)
+  (if sel
+    (progn
+      (setq ename (car sel)
+            parents (if (> (length sel) 3) (nth 3 sel) nil))
+      (vl-some
+        '(lambda (e / r)
+           (setq r (vl-catch-all-apply 'urb:road-parent-from-entity (list e)))
+           (if (vl-catch-all-error-p r) nil r))
+        (append (reverse parents) (list ename))))
+    nil))
+
+(defun urb:anden-pick-axis-or-road (/ sel ename road)
+  (setq sel
+    (nentsel
+      (strcat "\nSeleccione la VIA creada o la polilinea del eje"
+              " (dentro o fuera del XREF): ")))
+  (if sel
+    (progn
+      (setq ename (car sel)
+            road (urb:road-from-nentsel sel))
+      (cond
+        (road
+          (prompt (strcat "\nVia creada seleccionada: "
+            (urb:safe-string (nth 1 (urb:get-xdata-strings road "URB_VIA")) "")
+            ". Se usa su rasante guardada."))
+          (list "VIA" road))
+        ((urb:curve-entity-p ename) (list "EJE" ename))
+        (T
+          (prompt "\nLo seleccionado no es una via creada ni una polilinea de eje.")
+          nil)))
+    nil))
+
 (defun urb:select-anden-alignment-grade
-  (/ axis info layer texts axis-length records)
-  (setq axis (urb:select-or-draw-road-axis "Existente"))
+  (/ axis info layer texts axis-length records pick)
+  (setq pick (urb:anden-pick-axis-or-road))
+  (if (and pick (= (car pick) "VIA"))
+    (urb:anden-road-grade-for-safe (cadr pick))
+    (urb:select-anden-alignment-grade-axis (if pick (cadr pick) nil))))
+
+(defun urb:select-anden-alignment-grade-axis
+  (axis / info layer texts axis-length records)
   (if axis
     (progn
       (setq info (urb:road-cota-reference "Textos por capa"))
@@ -8006,8 +8056,13 @@
 ;; una a una con el mismo picker auto-detect de las vias (texto/etiqueta
 ;; en CUALQUIER capa o xref, o una via ya creada, o digitada). Cada cota
 ;; se proyecta al eje en el punto del click -> rasante por tramos.
-(defun urb:select-anden-picked-grade (/ axis picks records axis-length)
-  (setq axis (urb:select-or-draw-road-axis "Existente"))
+(defun urb:select-anden-picked-grade (/ axis picks records axis-length pick)
+  (setq pick (urb:anden-pick-axis-or-road))
+  (if (and pick (= (car pick) "VIA"))
+    (urb:anden-road-grade-for-safe (cadr pick))
+    (urb:select-anden-picked-grade-axis (if pick (cadr pick) nil))))
+
+(defun urb:select-anden-picked-grade-axis (axis / picks records axis-length)
   (if axis
     (progn
       (prompt
@@ -11810,7 +11865,12 @@
 (setq *mp-ductos-list* '("1" "2" "3" "4" "5" "6" "9" "12"))
 (setq *mp-diam-ducto-list* '("2\"" "3\"" "4\"" "6\""))
 (setq *mp-mat-ducto-list* '("PVC" "IMC" "RMC" "EMT" "OTRO"))
-(setq *mp-cond-bt-list* '("3x4+4 THW" "3x6+6 THW" "3x8+8 THW" "2x4 THW" "2x6 THW" "1x4 THW" "1x6 THW" "OTRO"))
+;; 5.7.29 (pedido del usuario 2026-09-24, acometidas "2(3x4+4) THW 2O3"" del
+;; plano): los circuitos dobles se escriben igual que en el plano y la
+;; exportacion multiplica el cable (ver urb:elec-cond-circuitos).
+(setq *mp-cond-bt-list* '("3x4+4 THW" "3x6+6 THW" "3x8+8 THW"
+                          "2(3x4+4) THW" "2(3x6+6) THW" "2(3x8+8) THW"
+                          "2x4 THW" "2x6 THW" "1x4 THW" "1x6 THW" "OTRO"))
 (setq *mp-elem-elec-list* '("CAMARA_CS274" "CAMARA_CS275" "CAMARA_CS276" "CAMARA_CS280" "CAJA_BARRAJE_CS281" "POSTE_ELEC" "SUBESTACION_E" "CDMT_E" "LUMINARIA_AP" "TRANSFORMADOR_AP" "PUNTO_CONEXION_E"))
 ;; 5.7.14: "CAMBIO (retiro y reinstalacion)" marca una luminaria EXISTENTE
 ;; que solo se cambia: se exporta a "Retiro y reinstalacion de luminarias
@@ -17721,20 +17781,116 @@
         (T (prompt "\nNo se cambio la visibilidad del dibujo.")))))
   (princ))
 
-(defun urb:purge-command (/ b0 r0 b1 r1)
+(defun urb:purge-command (/ b0 r0 b1 r1 sobrantes n answer)
   (setq b0 (urb:count-blocks) r0 (urb:count-table "APPID"))
+  ;; 5.7.29 (pedido del usuario 2026-09-24): antes de depurar, los objetos
+  ;; que el plugin dejo sueltos y ya no sirven (ver urb:leftover-entities).
+  (setq sobrantes (vl-catch-all-apply 'urb:leftover-entities nil))
+  (if (vl-catch-all-error-p sobrantes) (setq sobrantes nil))
+  (if sobrantes
+    (progn
+      (prompt "\nObjetos sobrantes del plugin encontrados:")
+      (foreach grupo sobrantes
+        (prompt (strcat "\n  " (itoa (length (cdr grupo))) "  " (car grupo))))
+      (initget "Si No")
+      (setq answer (getkword "\nBorrarlos? [Si/No] <No>: "))
+      (if (= answer "Si")
+        (progn
+          (setq n 0)
+          (foreach grupo sobrantes
+            (foreach e (cdr grupo)
+              (if (not (vl-catch-all-error-p (vl-catch-all-apply 'entdel (list e))))
+                (setq n (1+ n)))))
+          (prompt (strcat "\n" (itoa n) " objeto(s) sobrante(s) borrado(s)."))))))
   (prompt "\nDepurando definiciones sin uso (3 pasadas)...")
   (repeat 3
     (vl-catch-all-apply
       '(lambda () (command "_.-PURGE" "_A" "*" "_N"))))
   (vl-catch-all-apply
     '(lambda () (command "_.-PURGE" "_R" "*" "_N")))
+  ;; 5.7.29: lo que en el maestro si peso (2026-09-24): 202 escalas de
+  ;; anotacion -> 18, 9.099 lineas/polilineas de longitud cero dentro de
+  ;; bloques, textos vacios y datos huerfanos. Ninguna toca geometria util.
+  (vl-catch-all-apply '(lambda () (command "_.-SCALELISTEDIT" "_R" "_Y" "_E")))
+  (vl-catch-all-apply '(lambda () (command "_.-PURGE" "_Z")))
+  (vl-catch-all-apply '(lambda () (command "_.-PURGE" "_E")))
+  (vl-catch-all-apply '(lambda () (command "_.-PURGE" "_O")))
   (setq b1 (urb:count-blocks) r1 (urb:count-table "APPID"))
   (prompt (strcat "\nDepuracion: definiciones de bloque " (itoa b0) " -> " (itoa b1)
                   " | regapps " (itoa r0) " -> " (itoa r1) "."))
   (prompt
     "\nGuarde el dibujo para que el archivo baje de peso. PURGE no oculto ni borro guia o toperol.")
   (princ))
+
+;; 5.7.29: objetos sueltos que el plugin dejo y ya no pertenecen a nada.
+;; Criterios ESTRICTOS (medidos en el maestro 2026-09-24, 47 sueltos):
+;;  - contorno de via SIN empaquetar (polilinea con URB_VIA) cuando ya
+;;    existe el BLOQUE de esa misma via: VIA-03 tenia 4 copias identicas,
+;;    VIA-05 y VIA-25 una cada una. La exportacion no los lee, pero la
+;;    deteccion de via de los andenes si, y confundian la rasante.
+;;  - eje de via (URB_VIA_EJE) cuya via ya no existe.
+;;  - pieza generada (xdata *_GEN) cuyo elemento padre ya no existe.
+;; Lo que no tiene datos del plugin NO se toca: puede ser del usuario.
+;; Devuelve ((descripcion e1 e2 ...) ...), solo grupos con algo.
+(defun urb:leftover-entities (/ ss i e ed data nombres-bloque vias ejes gens
+                              padre app h out refs xd)
+  (setq nombres-bloque nil vias nil ejes nil gens nil refs nil)
+  ;; seguro: nada cuyo handle aparezca en los datos de algun bloque
+  (if (setq ss (ssget "_X" '((0 . "INSERT"))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq xd (assoc -3 (entget (ssname ss i) '("*"))) i (1+ i))
+        (if xd
+          (foreach a (cdr xd)
+            (foreach pr (cdr a)
+              (if (and (= (car pr) 1000) (<= 2 (strlen (cdr pr)) 8))
+                (setq refs (cons (strcase (cdr pr)) refs)))))))))
+  (if (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA")))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq data (urb:get-xdata-strings (ssname ss i) "URB_VIA") i (1+ i))
+        (if (> (length data) 1)
+          (setq nombres-bloque (cons (strcase (urb:safe-string (nth 1 data) "")) nombres-bloque))))))
+  (if (setq ss (ssget "_X" '((0 . "LWPOLYLINE") (-3 ("URB_VIA")))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq e (ssname ss i) i (1+ i) data (urb:get-xdata-strings e "URB_VIA"))
+        (if (and (urb:string-equal-p (car data) "VIA")
+                 (> (length data) 1)
+                 (/= (urb:safe-string (nth 1 data) "") "")
+                 (member (strcase (nth 1 data)) nombres-bloque))
+          (setq vias (cons e vias))))))
+  (if (setq ss (ssget "_X" '((-3 ("URB_VIA_EJE")))))
+    (progn
+      (setq i 0)
+      (repeat (sslength ss)
+        (setq e (ssname ss i) i (1+ i)
+              data (urb:get-xdata-strings e "URB_VIA_EJE")
+              h (urb:safe-string (car data) "")
+              padre (if (/= h "") (handent h)))
+        (if (and (/= h "") (or (null padre) (null (entget padre))))
+          (setq ejes (cons e ejes))))))
+  (foreach app '("URB_ANDEN_GEN" "URB_VIA_GEN" "URB_SENDERO_GEN" "URB_BIOSWALE_GEN")
+    (if (and (tblsearch "APPID" app) (setq ss (ssget "_X" (list (list -3 (list app))))))
+      (progn
+        (setq i 0)
+        (repeat (sslength ss)
+          (setq e (ssname ss i) i (1+ i)
+                h (urb:safe-string (car (urb:get-xdata-strings e app)) "")
+                padre (if (/= h "") (handent h)))
+          (if (and (/= h "") (or (null padre) (null (entget padre))))
+            (setq gens (cons e gens)))))))
+  (setq vias (vl-remove-if '(lambda (x) (member (strcase (cdr (assoc 5 (entget x)))) refs)) vias)
+        ejes (vl-remove-if '(lambda (x) (member (strcase (cdr (assoc 5 (entget x)))) refs)) ejes)
+        gens (vl-remove-if '(lambda (x) (member (strcase (cdr (assoc 5 (entget x)))) refs)) gens))
+  (setq out nil)
+  (if gens (setq out (cons (cons "pieza(s) generada(s) cuyo elemento ya no existe" gens) out)))
+  (if ejes (setq out (cons (cons "eje(s) de via cuya via ya no existe" ejes) out)))
+  (if vias (setq out (cons (cons "contorno(s) de via sin empaquetar duplicado(s) de un bloque de via" vias) out)))
+  out)
 
 (defun mp:configured-tramo-value (canonical legacy default lo hi / value)
   (setq value
@@ -19620,8 +19776,85 @@
       (setq updated (urb:list-set-extended data 5 axis-handle))
       (vl-catch-all-apply
         'urb:set-xdata-strings (list road "URB_VIA" updated))))
+  ;; 5.7.29: con el eje ya fijado, el inicio del tramo debe caer dentro de el
+  (if (and road axis)
+    (vl-catch-all-apply 'urb:road-repair-axis-start (list road axis)))
   axis
 )
+
+;; 5.7.29 (reporte del usuario 2026-09-24: "no me reconoce la rasante de la
+;; via automaticamente"). URB_VIA[21] es la estacion donde empieza el tramo
+;; sobre su eje. Cuando el eje se recupera desde otra polilinea (5.7.27) el
+;; inicio puede quedar MAS ALLA del largo del eje. Medido en el maestro:
+;; VIA-12 con eje de 175,10 m guardaba inicio 657,36; todo anden a su lado
+;; caia 652 m "fuera del tramo" y se descartaba (igual VIA-03, VIA-15 y
+;; VIA-16). El sentido del eje se comprobo contra SUP_TN, solo el inicio
+;; estaba corrido. Se recalcula proyectando el contorno de la via sobre el
+;; eje y se guarda, asi lo leen igual los andenes, el movimiento de tierras
+;; de la via, la subrasante de redes y la toma de cotas desde la via.
+(defun urb:road-contour-points (road / ed ins ang esc bl en e2 pts x y)
+  (setq ed (entget road))
+  (cond
+    ((= (cdr (assoc 0 ed)) "LWPOLYLINE") (urb:lwpoly-points road))
+    ((= (cdr (assoc 0 ed)) "INSERT")
+      (setq ins (cdr (assoc 10 ed))
+            ang (if (assoc 50 ed) (cdr (assoc 50 ed)) 0.0)
+            esc (if (assoc 41 ed) (cdr (assoc 41 ed)) 1.0)
+            bl (tblsearch "BLOCK" (cdr (assoc 2 ed)))
+            en (if bl (cdr (assoc -2 bl))))
+      (while en
+        (setq e2 (entget en))
+        (if (= (cdr (assoc 0 e2)) "LWPOLYLINE")
+          (foreach pr e2
+            (if (= (car pr) 10)
+              (setq x (* esc (cadr pr)) y (* esc (caddr pr))
+                    pts (cons (list (+ (car ins) (- (* x (cos ang)) (* y (sin ang))))
+                                    (+ (cadr ins) (+ (* x (sin ang)) (* y (cos ang))))
+                                    0.0)
+                              pts)))))
+        (setq en (entnext en)))
+      pts)
+    (T nil)))
+
+;; (estacion-minima estacion-maxima) del contorno de la via sobre el eje
+(defun urb:road-station-range (road axis / lo hi q s)
+  (foreach p (urb:road-contour-points road)
+    (setq q (vl-catch-all-apply 'vlax-curve-getClosestPointTo
+              (list axis (list (car p) (cadr p) 0.0))))
+    (if (not (vl-catch-all-error-p q))
+      (progn
+        (setq s (vlax-curve-getDistAtPoint axis q))
+        (if (or (null lo) (< s lo)) (setq lo s))
+        (if (or (null hi) (> s hi)) (setq hi s)))))
+  (if lo (list lo hi) nil))
+
+;; Devuelve el inicio corregido si lo tuvo que corregir, nil si estaba bien.
+(defun urb:road-repair-axis-start (road axis / data largo start span rango nuevo)
+  (setq data (urb:get-xdata-strings road "URB_VIA"))
+  (if (and data (urb:curve-entity-p axis))
+    (progn
+      (setq largo (vlax-curve-getDistAtParam axis (vlax-curve-getEndParam axis))
+            start (atof (urb:safe-string (if (> (length data) 21) (nth 21 data) nil) "0"))
+            span (atof (urb:safe-string (if (> (length data) 18) (nth 18 data) nil) "0")))
+      (if (and (> span 0.0) (> (+ start span) (+ largo 0.5)))
+        (progn
+          (setq rango (urb:road-station-range road axis))
+          (setq nuevo
+            (if rango
+              (max 0.0 (min (car rango) (- largo span)))
+              (max 0.0 (- largo span))))
+          (if (> (abs (- nuevo start)) 0.01)
+            (progn
+              (urb:set-xdata-strings road "URB_VIA"
+                (urb:list-set-extended data 21 (rtos nuevo 2 4)))
+              (prompt
+                (strcat "\nVia " (urb:safe-string (nth 1 data) "") ": inicio del tramo sobre el eje corregido "
+                        (rtos start 2 2) " -> " (rtos nuevo 2 2) " m (el eje mide "
+                        (rtos largo 2 2) " m)."))
+              nuevo)
+            nil))
+        nil))
+    nil))
 
 (defun urb:find-axis-in-road-block
   (road via-id / obj blocks bdef result fallback item candidate link)
@@ -35989,11 +36222,30 @@
     (setq cond (vl-string-subst " kV" "kV" cond)))
   cond)
 
+;; 5.7.29: circuitos escritos en el conductor, como en los planos:
+;; "2(3x4+4) THW" -> (2 "3x4+4 THW"); "3x4+4 THW" -> (1 "3x4+4 THW").
+;; Solo la forma simple N(cable) resto; una notacion compuesta como
+;; "2(3x185)(C1)+3x185(C2)" se deja igual (en MT manda el atributo
+;; CIRCUITOS).
+(defun urb:elec-cond-circuitos (cond / s p q n resto)
+  (setq s (vl-string-trim " " (urb:safe-string cond "")))
+  (setq p (vl-string-search "(" s))
+  (if (and p (> p 0)
+           (setq n (atoi (substr s 1 p)))
+           (> n 0)
+           (= (itoa n) (vl-string-trim " " (substr s 1 p)))
+           (setq q (vl-string-search ")" s (1+ p)))
+           (setq resto (substr s (+ q 2)))
+           (not (vl-string-search "(" resto))
+           (not (vl-string-search "+" resto)))
+    (list n (vl-string-trim " " (strcat (substr s (+ p 2) (- q p 1)) resto)))
+    (list 1 s)))
+
 (defun urb:ppto-rows-tramos (/ ss i be atts red lng diam mat etapa sub handle
                              pini pfin id ent rows out r ductos-n diam-d
                              mat-d ctok exc prof anchoz vol-ductos recub
                              env-banco arena base-gran circ mat-libro
-                             trit rec profm dnum cama colchon envv tiporep)
+                             trit rec profm dnum cama colchon envv tiporep cpar)
   (setq ss (ssget "_X" '((0 . "INSERT") (2 . "TRAMO_*,MP_TRAMO_*")))
         out nil i 0)
   (if ss
@@ -36182,8 +36434,10 @@
                 diam-d (urb:safe-string (cdr (assoc "DIAM_DUCTO" atts)) "")
                 mat-d (urb:safe-string
                   (cdr (assoc "MATERIAL_DUCTO" atts)) "PVC")
-                ctok (urb:elec-cond-tokens
+                ;; 5.7.29: "2(3x4+4) THW" = 2 circuitos del mismo cable
+                cpar (urb:elec-cond-circuitos
                   (urb:safe-string (cdr (assoc "CONDUCTOR" atts)) ""))
+                ctok (urb:elec-cond-tokens (cadr cpar))
                 exc (atof (urb:safe-string
                   (cdr (assoc "EXCAVACION_M3" atts)) "0"))
                 prof (atof (urb:safe-string
@@ -36218,8 +36472,9 @@
               ;; de suministro y tendido (2026-08-26, 46 tramos del plano
               ;; llevan doble/triple circuito)
               (setq circ
-                (max 1 (atoi (urb:safe-string
-                  (cdr (assoc "CIRCUITOS" atts)) "1"))))
+                (max 1 (car cpar)
+                  (atoi (urb:safe-string
+                    (cdr (assoc "CIRCUITOS" atts)) "1"))))
               (setq rows
                 (list
                   (urb:ppto-row red
@@ -36262,9 +36517,10 @@
                   (strcat "Suministro e instalación de tuberia "
                     ductos-n " " diam-d " TDP")
                   id "" "" etapa sub "ML" lng handle)
+                ;; 5.7.29: acometida doble "2(3x4+4) THW" -> 2 x longitud
                 (urb:ppto-row red
                   (strcat "Suministro e instalación de cable " ctok)
-                  id "" "" etapa sub "ML" lng handle)
+                  id "" "" etapa sub "ML" (* lng (car cpar)) handle)
                 (urb:ppto-row red
                   "Excavación en material común (incluye cargue, transporte y disposición final)"
                   id "" "" etapa sub "M3" exc handle)
@@ -40331,7 +40587,30 @@
               (prompt
                 (strcat "\nMigracion automatica: " (itoa pruned)
                   " relleno(s) de sendero pasado(s) a color PorCapa."))))))))
+  ;; 8) v5.7.29, una sola vez por dibujo: vias cuyo inicio de tramo quedo
+  ;; mas alla del largo de su eje (ver urb:road-repair-axis-start).
+  (if (/= (urb:safe-string
+            (urb:config-read "URB_MIGRATE_5729_VIA_INICIO") "") "OK")
+    (progn
+      (setq pruned (vl-catch-all-apply 'urb:repair-all-road-starts nil))
+      (if (not (vl-catch-all-error-p pruned))
+        (urb:config-write "URB_MIGRATE_5729_VIA_INICIO" "OK"))))
   (princ))
+
+(defun urb:repair-all-road-starts (/ ss i r roads data axis n)
+  (setq ss (ssget "_X" '((-3 ("URB_VIA")))) i 0 roads nil n 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq r (vl-catch-all-apply 'urb:road-parent-from-entity (list (ssname ss i))) i (1+ i))
+      (if (and r (not (vl-catch-all-error-p r)) (not (member r roads)))
+        (setq roads (cons r roads)))))
+  (foreach road roads
+    (setq data (urb:get-xdata-strings road "URB_VIA")
+          axis (vl-catch-all-apply 'urb:road-axis-recover
+                 (list road data (if (> (length data) 22) (nth 22 data) ""))))
+    (if (and axis (not (vl-catch-all-error-p axis)))
+      (if (urb:road-repair-axis-start road axis) (setq n (1+ n)))))
+  n)
 
 ;; Rellenos de las areas del catalogo (*urb-send-tipos*: senderos, pistas,
 ;; andenes en concreto...) que tienen color fijo -> PorCapa. Recorre SOLO
@@ -40567,6 +40846,65 @@
     (if (vl-catch-all-error-p *mp-electrical-display-migration-result*)
       (prompt "\nActualizacion electrica pendiente: no se pudo completar; se reintentara al abrir."))))
 (vl-catch-all-apply 'urb:install-memory-property-reactors nil)
+
+;; 5.7.29 (reporte del usuario 2026-09-24: "al abrir cualquier archivo me
+;; carga primero una version y despues la mas reciente"). El cargador del
+;; bundle corre ANTES que el acaddoc.lsp; como el arranque del acaddoc aun no
+;; existia, cargaba la copia local del bundle (vieja) y luego el acaddoc la
+;; del repo: dos cargas del motor por apertura. El cargador nuevo
+;; (bundle/urbcant_cargador.lsp, marca urbcant-cargador-v2) deja la carga al
+;; acaddoc. Para no depender de correr INSTALAR.bat, el motor reescribe el
+;; cargador instalado si no trae la marca; rige desde la siguiente apertura.
+(setq *urbcant-cargador-lineas*
+  '(";;; Cargador del bundle UrbanismoCantidades (5.7.29, urbcant-cargador-v2)."
+    ";;; Lo reescribe el motor. No carga el motor al entrar: lo hace el acaddoc"
+    ";;; (repo en Drive con respaldo local). Solo si al final del arranque aun no"
+    ";;; hay motor, carga la copia local del bundle."
+    "(vl-load-com)"
+    "(defun urbcant:respaldo-bundle ()"
+    "  (if (not (member \"C:URBANISMO\" (atoms-family 1)))"
+    "    (if (and (boundp 'urbcant:bootstrap) urbcant:bootstrap)"
+    "      (urbcant:bootstrap)"
+    "      (load (strcat (getenv \"APPDATA\")"
+    "        \"/Autodesk/ApplicationPlugins/UrbanismoCantidades.bundle/Contents/urbanismo_cantidades.lsp\"))))"
+    "  (princ))"
+    "(if (not (member \"C:URBANISMO\" (atoms-family 1)))"
+    "  (if (and (boundp 'urbcant:bootstrap) urbcant:bootstrap)"
+    "    (urbcant:bootstrap)"
+    "    (cond"
+    "      ((= (type s::startup) 'LIST)"
+    "        (setq s::startup (append s::startup '((urbcant:respaldo-bundle)))))"
+    "      ((null s::startup)"
+    "        (defun-q s::startup () (urbcant:respaldo-bundle)))"
+    "      (T"
+    "        (setq urbcant:startup-previo-bundle s::startup)"
+    "        (defun s::startup ()"
+    "          (vl-catch-all-apply urbcant:startup-previo-bundle nil)"
+    "          (urbcant:respaldo-bundle))))))"
+    "(princ)"))
+
+(defun urb:sync-bundle-cargador (/ path f line marcado)
+  (setq path (strcat (getenv "APPDATA")
+               "\\Autodesk\\ApplicationPlugins\\UrbanismoCantidades.bundle\\Contents\\urbcant_cargador.lsp"))
+  (if (findfile path)
+    (progn
+      (setq f (open path "r") marcado nil)
+      (if f
+        (progn
+          (while (setq line (read-line f))
+            (if (vl-string-search "urbcant-cargador-v2" line) (setq marcado T)))
+          (close f)))
+      (if (not marcado)
+        (progn
+          (setq f (open path "w"))
+          (if f
+            (progn
+              (foreach line *urbcant-cargador-lineas* (write-line line f))
+              (close f)
+              (prompt "\nCargador del bundle actualizado: desde la proxima apertura el motor carga una sola vez.")
+              T)))))))
+(vl-catch-all-apply 'urb:sync-bundle-cargador nil)
+
 ;; OJO (2026-08-11 v3): urb:ensure-ribbon YA NO se llama automaticamente.
 ;; Si el lsp carga el cuix por COM ANTES que el Autoloader, el Autoloader
 ;; encuentra el menugroup ya cargado, no lo procesa, y la pestana queda

@@ -4677,3 +4677,48 @@ paralelas, retorno pregunta con deriva 87,2, curva suave de 34,9 m y 19,4
 grados no pregunta y queda sin eje forzado, capa conserva el color del
 usuario, 3 bloques de sendero migrados a PorCapa e idempotente, ventanas
 compilan sin los campos retirados).
+### v5.7.29 - rasante de vias, acometidas dobles, sobrantes y carga unica (2026-09-24)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+**Rasante que no se reconocia (foto del usuario).** Diagnostico sobre el
+maestro: 27 vias, 48 de 49 andenes detectaban via. El anden 1FEF4F esta a
+7,7 m del eje de VIA-12 pero se descartaba por "salir 652 m del tramo": el
+eje de VIA-12 mide 175,10 m y URB_VIA[21] (inicio del tramo sobre el eje)
+decia 657,36, un inicio heredado de un eje anterior mas largo que 5.7.27
+recupero como otra polilinea. Igual VIA-03 (y sus 4 contornos sueltos),
+VIA-15 y VIA-16. El sentido del eje se comprobo contra SUP_TN (rasante y
+terreno difieren -0,17 a +0,80 m en el tramo; invertido serian ~10 m).
+Nuevo `urb:road-repair-axis-start`: si inicio + tramo supera el largo del
+eje, se recalcula proyectando el contorno de la via sobre el eje y se
+guarda; corre en `urb:remember-road-axis` y como migracion 8 (una vez por
+dibujo). Asi lo leen igual andenes, movimiento de la via, subrasante de
+redes y cotas desde via. Ademas, al pedir el eje del anden se acepta el clic
+sobre la VIA creada (`urb:anden-pick-axis-or-road` con
+`urb:road-from-nentsel`): antes nentsel devolvia una pieza interna
+(sombreado) y fallaba "no es una curva valida".
+
+**Acometidas dobles.** "2(3x4+4) THW" en la lista de conductores BT y
+`urb:elec-cond-circuitos`: la exportacion multiplica el cable por los
+circuitos (antes solo MT usaba CIRCUITOS; BT cobraba un solo cable).
+
+**Sobrantes (AJUSTES, Depurar dibujo).** Antes de depurar lista y, con
+confirmacion, borra: contornos de via sin empaquetar cuando existe el bloque
+de la misma via (6 en el maestro), ejes de via cuya via no existe (1) y
+piezas *_GEN cuyo padre no existe (1). Nada referenciado por un bloque ni
+nada sin datos del plugin. Se agregaron -SCALELISTEDIT y -PURGE de longitud
+cero, texto vacio y datos huerfanos, que en el maestro dieron 202 a 18
+escalas y 9.099 geometrias de longitud cero. Los contornos que se ven con
+"todo apagado" son el borde de cada anden en capa 0 DENTRO de su bloque:
+heredan URB-ANDEN; no son sobrantes.
+
+**Carga doble del motor.** El cargador del bundle corre antes que el
+acaddoc.lsp y cargaba la copia local vieja (5.7.27) antes que la del repo.
+El cargador v2 del bundle deja la carga al acaddoc y solo usa la copia local
+como respaldo al final del arranque. El motor reescribe el cargador
+instalado si no trae la marca urbcant-cargador-v2 (sin correr INSTALAR).
+
+Verificacion headless sobre copia del maestro: 20 PASS, 0 FAIL, incluido
+`*urb-load-count*` = 1 con el cargador nuevo, 49 de 49 andenes con via y la
+seleccion de via por pieza anidada. Primera corrida 15 de 17: los 2 fallos
+eran de la prueba (comparar enames con =).
