@@ -4764,3 +4764,29 @@ CLASIFICADOR 2 y 3 y tabla CLASIF_MANUAL (sobrevive a actualizar), colores de
 DINAMICA por tabla y nivel 1 azul, V/U y Cant. ocultos en niveles 1-4.
 Verificado: Coinver 67.290.081.336, acueducto ejecutado 18.097.982.298,
 sin errores ni circulares. POR EJECUTAR 181.673.237.717 -> 184.410.211.594.
+
+### v5.7.31 - nombres unificados en los catalogos del plugin (2026-09-24)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+El usuario aprobo la lista de nombres a unificar y el libro se renombro
+(51 filas, +157,6 M por tomar el unitario del nombre comun). Para que la
+exportacion siga cayendo en esas filas, el catalogo del bioswale y los 7
+renglones de equipamientos de parque (cancha sintetica y demas) exportan
+ahora "Excavación en material común (incluye cargue, transporte y
+disposición final)" en lugar de "Excavación manual para bioswale/bioretenedor"
+y "Excavacion y retiro a maquina con batadero certificado". Las etiquetas de
+la tabla de cantidades (andenes/vias) no se cruzan con el libro y no
+cambian.
+
+**Libro (mismo dia):** nombres unificados (excavaciones; arena de peña;
+recebo B-200; material seleccionado; B-400 y material granular de Muña se
+dejaron con su nombre porque no son el mismo material), precio de "Retiro y
+reinstalación de luminarias nuevas" = 4.013.870. POR EJECUTAR
+184.583.911.444; Coinver 67.290.081.336; CLASIFICADOR 2 ACUEDUCTO =
+100.913.000.420 (redes humedas sin gas, troncal Muña, cabezal, PTAR,
+operacion PTAR y el ejecutado de acueducto). Respaldo
+work\ppto_20260922\urbanismo maipore.ANTES_AJUSTES2_151647.xlsx.
+
+Verificado headless (verif5731): carga unica, version 5.7.31, 19 filas del
+catalogo con el nombre unificado y 0 con el viejo.

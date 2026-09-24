@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.30")
+(setq *urb-version* "5.7.31")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -31898,7 +31898,7 @@
     ("CANCHA-SINT" "Cancha sintetica" "CANCHA-SINTETICA" 92 "CANCHA SINTETICA"
       (("Localizacion y replanteo" "M2" "AREA" 1.0)
        ("Descapote con botadero certificado" "M2" "AREA" 1.0)
-       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.45)
+       ("Excavación en material común (incluye cargue, transporte y disposición final)" "M3" "AREA" 0.45)
        ("Geotextil tejido 1600" "M2" "AREA" 1.0)
        ("Geomembrana impermable HDPE 1mm" "M2" "AREA" 1.0)
        ("Mejoramiento en gravilla(material de filtro)" "M3" "AREA" 0.15)
@@ -31918,7 +31918,7 @@
     ("CANCHA-MULT" "Cancha multiple" "CANCHA-MULTIPLE" 32 "CANCHA MULTIPLE"
       (("Localizacion y replanteo" "M2" "AREA" 1.0)
        ("Descapote con botadero certificado" "M2" "AREA" 1.0)
-       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.70)
+       ("Excavación en material común (incluye cargue, transporte y disposición final)" "M3" "AREA" 0.70)
        ("Geotextil tejido 2400" "M2" "AREA" 1.0)
        ("Mejoramiento en rajon 0,25m" "M3" "AREA" 0.25)
        ("base granular 0,20m idu" "M3" "AREA" 0.20)
@@ -31954,7 +31954,7 @@
     ("ESCALERA" "Escaleras en concreto" "ESCALERAS" 40 "ESCALERAS"
       (("Localizacion y replanteo" "M2" "AREA" 1.0)
        ("Descapote con botadero certificado" "M2" "AREA" 1.0)
-       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.30)
+       ("Excavación en material común (incluye cargue, transporte y disposición final)" "M3" "AREA" 0.30)
        ("Geotextil tejido 2400" "M2" "AREA" 1.0)
        ("base granular 0,20m idu" "M3" "AREA" 0.20)
        ("Concreto 3000psi impermeabilzado" "M3" "AREA" 0.20)
@@ -31976,7 +31976,7 @@
       "URB-GRADERIA" 0.25)
     ("PISTA-CAUCHO" "Pista de trote (caucho)" "PISTA-TROTE" 12 "PISTA DE TROTE"
       (("Localizacion y replanteo" "M2" "AREA" 1.0)
-       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.35)
+       ("Excavación en material común (incluye cargue, transporte y disposición final)" "M3" "AREA" 0.35)
        ("Subabase granular SBG-B" "M3" "AREA" 0.20)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("mortero de nivelacion" "M3" "AREA" 0.04)
@@ -31984,7 +31984,7 @@
       "URB-PISTA-CAUCHO" 0.35)
     ("PARQUE-NINOS" "Parque de niños (piso)" "PARQUE-NINOS" 41 "PARQUE DE NI"
       (("Localizacion y replanteo" "M2" "AREA" 1.0)
-       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.40)
+       ("Excavación en material común (incluye cargue, transporte y disposición final)" "M3" "AREA" 0.40)
        ("Subabase granular SBG-B" "M3" "AREA" 0.20)
        ("base granular BG" "M3" "AREA" 0.15)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
@@ -31996,7 +31996,7 @@
       "URB-PARQUE-NINOS" 0.40)
     ("ZONA-GYM" "Zona gym biosaludable (piso)" "ZONA-GYM" 96 "GYM"
       (("Localizacion y replanteo" "M2" "AREA" 1.0)
-       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.40)
+       ("Excavación en material común (incluye cargue, transporte y disposición final)" "M3" "AREA" 0.40)
        ("Subabase granular SBG-B" "M3" "AREA" 0.20)
        ("base granular BG" "M3" "AREA" 0.15)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
@@ -32008,7 +32008,7 @@
       "URB-ZONA-GYM" 0.40)
     ("BICIPARQUEO" "Biciparqueo (piso)" "BICIPARQUEO" 150 "BICIPARQUEO"
       (("Localizacion y replanteo" "M2" "AREA" 1.0)
-       ("Excavacion y retiro a maquina con batadero certificado" "M3" "AREA" 0.30)
+       ("Excavación en material común (incluye cargue, transporte y disposición final)" "M3" "AREA" 0.30)
        ("Subabase granular SBG-B" "M3" "AREA" 0.20)
        ("Geotextil tejido 2100" "M2" "AREA" 1.0)
        ("mortero de nivelacion" "M3" "AREA" 0.04)
@@ -32030,10 +32030,10 @@
 (setq *urb-bioswale-tipo*
   '("BIOSWALE" "Bioswale / biorretenedor" "ALC-PLUVIAL" 140 "BIORETENEDORES"
      ;; 5.7.30: sale la fila de sobrantes, que desde 5.7.22 va dentro del
-     ;; unitario de la excavacion (se cobraba dos veces). El nombre de la
-     ;; excavacion se unifica cuando el usuario apruebe la lista de nombres
-     ;; (el libro y este catalogo deben cambiar juntos).
-     (("Excavación manual para bioswale/bioretenedor" "M3" "AREA" 0.60)
+     ;; unitario de la excavacion (se cobraba dos veces).
+     ;; 5.7.31 (nombres aprobados por el usuario 2026-09-24): la excavacion
+     ;; usa el nombre unico del presupuesto, igual que el libro.
+     (("Excavación en material común (incluye cargue, transporte y disposición final)" "M3" "AREA" 0.60)
       ("Base de gravilla permeable para bioretenedor" "M3" "AREA" 0.20)
       ("Suministro y colocación de gravilla 25-40 mm (capa drenante)" "M3" "AREA" 0.12)
       ("Suministro y colocación de gravilla 10-15 mm (capa filtrante)" "M3" "AREA" 0.15)
