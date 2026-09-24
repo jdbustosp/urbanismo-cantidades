@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.25")
+(setq *urb-version* "5.7.26")
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
 (setq *urb-memory-reactor-busy* nil)
@@ -36283,28 +36283,26 @@
         ;; el pozo como UNA actividad combinada ("base, cono y tapa") +
         ;; anillo por ML; el desglose de 4 piezas es del capitulo
         ;; SANITARIO. Cada red genera lo que su capitulo espera.
+        ;; 2026-09-23 (pedido del usuario): el pozo deja de desglosarse en
+        ;; piezas (base, canuela, cono, tapa y anillo por ML) y pasa a UNA
+        ;; actividad A TODO COSTO, igual para cualquier altura. El precio
+        ;; del libro incluye la excavacion del foso, el retiro y el relleno
+        ;; --que antes no estaban en ninguna parte-- y absorbe la camara de
+        ;; caida de los pozos profundos. La profundidad ya no multiplica
+        ;; nada, pero se sigue leyendo porque alimenta los cuadros, el
+        ;; perfil y la auditoria de cotas.
         ((= base "POZO_PLUVIAL")
           (setq rows
             (list
               (urb:ppto-row "ALC-PLUVIAL"
-                "Base cono y tapa para pozo de inspeccion"
-                id "" "" etapa sub "UN" 1.0 handle)
-              (urb:ppto-row "ALC-PLUVIAL" "Anillo en concreto prefabricado"
-                id "" "" etapa sub "ML" prof handle))))
+                "Pozo de inspeccion a todo costo"
+                id "" "" etapa sub "UN" 1.0 handle))))
         ((= base "POZO_SANITARIO")
-          (setq red "ALC-SANITARIO")
           (setq rows
             (list
-              (urb:ppto-row red "Base de pozo de inspeccion"
-                id "" "" etapa sub "UN" 1.0 handle)
-              (urb:ppto-row red "Canuela y acabado interior de pozo"
-                id "" "" etapa sub "UN" 1.0 handle)
-              (urb:ppto-row red "Cono de reduccion para pozo"
-                id "" "" etapa sub "UN" 1.0 handle)
-              (urb:ppto-row red "Marco y tapa de pozo"
-                id "" "" etapa sub "UN" 1.0 handle)
-              (urb:ppto-row red "Anillo cilindro prefabricado de pozo"
-                id "" "" etapa sub "ML" prof handle))))
+              (urb:ppto-row "ALC-SANITARIO"
+                "Pozo de inspeccion a todo costo"
+                id "" "" etapa sub "UN" 1.0 handle))))
         ;; cabezal de descole pluvial (elemento nuevo 2026-08-28)
         ;; 2026-09-07 se DESAGREGO por rango de diametro (8-10 / 12-16 /
         ;; 18-24). 2026-09-23 el usuario pide volver a UNA SOLA actividad:
@@ -36335,7 +36333,25 @@
                 (if (/= (urb:safe-string (cdr (assoc "DIAMETRO_SALIDA" atts)) "") "")
                   (strcat " " (urb:safe-string (cdr (assoc "DIAMETRO_SALIDA" atts)) ""))
                   ""))
-              id "" "" etapa sub "UN" 1.0 handle))))
+              id "" "" etapa sub "UN" 1.0 handle)))
+          ;; 2026-09-23: el kit de nivelacion va UNO POR HIDRANTE y la
+          ;; prueba va una por cada valvula, hidrante o ventosa. Las dos
+          ;; estaban en cero en el libro por no tener de donde salir la
+          ;; cantidad; ahora las emite el propio accesorio.
+          (setq r (strcase (urb:safe-string (cdr (assoc "TIPO_ACCESORIO" atts)) "")))
+          (if (= r "HIDRANTE_TORRE")
+            (setq rows
+              (cons (urb:ppto-row "ACUEDUCTO"
+                      "Kit de nivelacion para hidrante de trafico"
+                      id "" "" etapa sub "UN" 1.0 handle)
+                    rows)))
+          (if (or (wcmatch r "VALVULA*") (wcmatch r "*HIDRANTE*")
+                  (wcmatch r "*VENTOSA*"))
+            (setq rows
+              (cons (urb:ppto-row "ACUEDUCTO"
+                      "Pruebas de valvulas, hidrantes y ventosas"
+                      id "" "" etapa sub "UN" 1.0 handle)
+                    rows))))
         ;; cajas y camaras electricas: 1 UN a su actividad de norma.
         ;; CS276/CS280 pertenecen a MT; CS274/CS275/CS281 a alumbrado/BT.
         ((member base *mp-caja-elec-list*)

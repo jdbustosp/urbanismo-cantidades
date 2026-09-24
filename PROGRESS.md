@@ -4587,3 +4587,36 @@ medio (O12-16) 5.849.178. Al ser actividad unica se toma el caso mayor para
 no quedar corto, igual que el criterio acordado para los pozos.
 
 POR EJECUTAR: 177.475.351.716 -> 177.670.966.716.
+### v5.7.26 - pozo a todo costo, kit de hidrante y pruebas por accesorio (2026-09-23)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+**Pozos.** El pozo deja de desglosarse en piezas (base, canuela, cono, tapa,
+pasos, camara de caida y anillo por ML) y pasa a UNA actividad a todo costo,
+igual para cualquier altura. El precio incluye la excavacion del foso, el
+retiro y el relleno, que antes no estaban en ninguna parte porque la zanja
+del tramo descuenta 0,60 m en cada extremo con pozo. Valor: 12.914.500, que
+es el promedio ponderado de las 89 alturas reales calculadas (11.230.000) mas
+el 15 por ciento que pidio el usuario. En el libro quedan 81 pozos sanitarios
+y 147 pluviales.
+
+**Acueducto.** Cada accesorio emite ahora lo que le corresponde: el hidrante
+agrega "Kit de nivelacion para hidrante de trafico" y toda valvula, hidrante
+o ventosa agrega "Pruebas de valvulas, hidrantes y ventosas". Las dos filas
+llevaban meses en cantidad cero por no tener origen.
+
+**Pruebas por ML.** Se agregaron 10 parametricas en URB_PARAMETRICAS sobre
+los ambitos TRAMO SANITARIO, TRAMO PLUVIAL y TRAMO ACUEDUCTO con magnitud
+LONGITUD: hermeticidad, limpieza interna, CCTV, verificacion de cotas, plan
+de manejo de transito, prueba hidrostatica y CCTV de acueducto. No hubo que
+tocar el motor: el mecanismo parametrico ya existia.
+
+**Libro.** Cabezal al escenario acido 30.550.000 (13.065.005 de estructura,
+5.550.000 de disipador prorrateado del item IDU de 1,20 m y 11.938.344 de
+pilotaje, 4 pilotes D=40 de 6 m a 497.431 el ML). Profesional de planos
+record 22.650.000 por red, gestor de tramites EAAB 21.200.000 por red, CCTV
+de acueducto 15.000 el ML. Conexiones domiciliarias eliminadas porque van
+dentro del pozo. El pluvial fusiona OBRAS COMPLEMENTARIAS DE DRENAJE dentro
+de PRUEBAS, INSPECCION, REPARACIONES Y ENTREGA.
+
+POR EJECUTAR: 177.670.966.716 -> 179.966.031.063.
