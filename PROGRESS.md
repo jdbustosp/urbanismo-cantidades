@@ -4854,3 +4854,23 @@ columnas nuevas) + reglas para niveles mas profundos.
 
 Verificado headless: carga unica 5.7.33, reparto de areas cuadra
 (acabado + guia + toperol = area total), andenes al fondo sin error.
+
+### v5.7.34 - ducteria BT con el nombre exacto del libro (2026-09-25)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+Barrido de exportacion SIN escribir (headless: filas del maestro + cruce
+contra una copia del libro; 11.113 filas, 278 conceptos): todo vinculaba
+salvo tuberia GRP 48" pluvial, canuela prefabricada de andenes y la
+tuberia TDP de 1 y 3 ductos (caian en la de 2). El concepto BT salia como
+"tuberia 2 3 TDP" o "3 3\" TDP" segun la version del tramo; ahora sale con
+el nombre exacto del libro ("2Ф3\" TDP") y el diametro sin comillas (MT
+daba "4Ø6\"\""). Libro: filas nuevas GRP Ø48" (promedio de 45" y 51"),
+canuela en 2.2.1 (precio del catalogo por nombre) y TDP 1Ф3"/3Ф3"
+(proporcional a 2Ф3"). Re-ensayo: 0 huerfanas.
+
+**Maestro (mismo dia).** Tramos electricos: 305 sin conductor/diametro/
+ubicacion completados (estandar + Calzada si el tramo va dentro de una via)
+y luego 69 corregidos con las etiquetas del diseno (SERIE 1/6): acometidas
+dobles 2(3x4+4), 5(3x4+4), 2x4+4, 2(3x185)/3(3x185), 3x240, ductos 4/6/9.
+Borrados 12 elementos dibujados lejos del proyecto.

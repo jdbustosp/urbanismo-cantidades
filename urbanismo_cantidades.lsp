@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.33")
+(setq *urb-version* "5.7.34")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -36681,7 +36681,9 @@
         (progn
           ;; datos comunes del banco de ductos
           (setq ductos-n (urb:safe-string (cdr (assoc "DUCTOS" atts)) "0")
-                diam-d (urb:safe-string (cdr (assoc "DIAM_DUCTO" atts)) "")
+                ;; 5.7.34: sin comillas (los tramos traen 3 o 3" segun la
+                ;; version con que se crearon; el concepto salia distinto)
+                diam-d (vl-string-trim " \"" (urb:safe-string (cdr (assoc "DIAM_DUCTO" atts)) ""))
                 mat-d (urb:safe-string
                   (cdr (assoc "MATERIAL_DUCTO" atts)) "PVC")
                 ;; 5.7.29: "2(3x4+4) THW" = 2 circuitos del mismo cable
@@ -36764,8 +36766,11 @@
             (setq rows
               (list
                 (urb:ppto-row red
+                  ;; 5.7.34: el nombre EXACTO del libro (2Ф3" TDP); con "2 3"
+                  ;; el cruce empataba entre 1, 2 y 3 ductos y el de 3 quedaba
+                  ;; huerfano
                   (strcat "Suministro e instalación de tuberia "
-                    ductos-n " " diam-d " TDP")
+                    ductos-n "Ф" diam-d "\" TDP")
                   id "" "" etapa sub "ML" lng handle)
                 ;; 5.7.29: acometida doble "2(3x4+4) THW" -> 2 x longitud
                 (urb:ppto-row red
