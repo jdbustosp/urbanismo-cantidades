@@ -4821,3 +4821,36 @@ rasante de VIA-21 en el maestro va al nivel del terreno (2576-2582) y el
 colector del diseno pasa en 2569; los disenos no coinciden.
 Verificado headless: carga unica 5.7.32, 69/69 cotas y 46/46 marcas tras
 reabrir, 0 temporales.
+
+### v5.7.33 - M.O. de andenes sin duplicar franjas tactiles y andenes siempre al fondo (2026-09-25)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+**M.O. de andenes (reporte del usuario).** La "M.O. instalacion de adoquin
+y tabletas" se cobraba sobre el area total del anden, incluidas las franjas
+guia y toperol que ya tienen su M.O. por ML. Ahora va sobre el area de
+acabado = area - franjas (m2 de franja del atributo o modulo x ML); el
+respaldo de suministro por area de bloques viejos tambien. Descapote,
+subrasante, granulares, llenos, localizacion y nivelacion siguen con el
+area total. Nueva magnitud TACTIL_ML = max(guia, toperol): las dos franjas
+van lado a lado y la actividad "M.O. instalacion de loseta guia y toperol"
+es una sola para ambas. En el libro la parametrica pasa de TOPEROL_ML S
+GUIA_ML a TACTIL_ML x 1, y se borro una copia EXACTA de esa fila que la
+cobraba dos veces. Medido en el maestro: M.O. adoquin 14.914,9 -> 13.292,4
+m2; M.O. guia y toperol 8.112,9 (y el doble con la fila repetida) ->
+4.170,3 ML. Nueva magnitud AREA_ACABADO.
+
+**Andenes al fondo.** urb:enviar-al-fondo (SortentsTable del modelo) al
+crear o regenerar un anden, y migracion 9 (una vez por dibujo) que manda
+todos los andenes al fondo y los prefabricados al frente.
+
+**Libro (mismo dia).** ACUEDUCTO sin operacion anual, mantenimientos
+correctivos ni requerimientos ambientales de la PTAR, y sin partir
+administracion/interventoria; delta de la carta = acueducto - carta
+inicial (76.228 M; 9 % = 6.861 M). Subbase SBG, base BG, SBG sello y piedra
+rajon a CLASIFICADOR 3. Operacion PTAR sin indexar (350 M/ano). Colores de
+las dinamicas por ESTILO (URB_NIVELES_DER/IZQ, 3 niveles se heredan en
+columnas nuevas) + reglas para niveles mas profundos.
+
+Verificado headless: carga unica 5.7.33, reparto de areas cuadra
+(acabado + guia + toperol = area total), andenes al fondo sin error.

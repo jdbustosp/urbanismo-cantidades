@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.32")
+(setq *urb-version* "5.7.33")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -7451,6 +7451,8 @@
                   (urb:set-anden-pattern-mode block-ename pattern-mode)
                   (if side-data
                     (urb:set-tactile-side-data block-ename side-data))
+                  ;; 5.7.33: la modulacion del anden siempre detras de las redes
+                  (urb:enviar-al-fondo (list block-ref))
                   ;; con -BLOCK los originales ya fueron MOVIDOS al bloque:
                   ;; no hay nada que borrar (y recorrer decenas de miles de
                   ;; objetos muertos costaba minutos extra)
@@ -34566,7 +34568,7 @@
     ;; guarda PERIMETRO_M como atributo, asi que la magnitud siempre daba
     ;; 0 -- una opcion muerta que enganaba en el desplegable [+]
     ("ANDEN" "ANDEN"
-      ("AREA" "TOPEROL_ML" "GUIA_ML" "TOPEROL_UND" "GUIA_UND"
+      ("AREA" "TOPEROL_ML" "GUIA_ML" "TOPEROL_UND" "GUIA_UND" "TACTIL_ML" "AREA_ACABADO"
        "LOSETA_LISA_M2" "LOSETA_LISA_UND" "ADOQUIN_M2" "ADOQUIN_UND"
        "UNIDAD"))
     ("RAMPA" "RAMPA-PEATONAL"
@@ -34606,6 +34608,8 @@
     ("PROFUNDIDAD" "Profundidad (m)")
     ("TOPEROL_ML" "Franja toperol (ml)")
     ("GUIA_ML" "Franja guia (ml)")
+    ("TACTIL_ML" "Franja tactil guia+toperol, largo (ml)")
+    ("AREA_ACABADO" "Area de acabado sin franjas (m2)")
     ("TOPEROL_UND" "Losetas toperol (unidades)")
     ("GUIA_UND" "Losetas guia (unidades)")
     ("BORDILLO_ML" "Bordillo (ml)")
@@ -35920,7 +35924,8 @@
 
 (defun urb:ppto-rows-andenes (/ ss i be d atts area material etapa sub handle
                               corte relleno loseta-und adoq-und rows out r
-                              cont-usados area-cont poly area-neta-p over-area mt-estado mt-mov)
+                              cont-usados area-cont poly area-neta-p over-area mt-estado mt-mov
+                              modulo guia-ml top-ml guia-m2 top-m2 area-acabado tactil-ml)
   (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_ANDEN_BLOCK")))) out nil i 0)
   (setq cont-usados nil)
   (if ss
@@ -35972,6 +35977,24 @@
         (cdr (assoc "AREA_CON_SOBREANCHO_M2" atts)) "")))
       ;; Bloques viejos conservan su valor anterior hasta regeneracion.
       (if (not over-area) (setq over-area area))
+      ;; 5.7.33 (reporte del usuario 2026-09-25): las franjas guia y toperol
+      ;; se pagan con su propia M.O. por ML y su suministro por unidades; el
+      ;; suministro de loseta/adoquin y la M.O. de adoquin y tabletas van
+      ;; SOLO sobre el area de acabado (area - franjas). Descapote,
+      ;; subrasante, llenos, granulares, localizacion y nivelacion siguen con
+      ;; el area total. Guia y toperol corren lado a lado a lo largo del
+      ;; anden: la M.O. "de loseta guia y toperol" (una actividad para las
+      ;; dos franjas) se cobra por el largo de la franja, no la suma.
+      (setq modulo (urb:loseta-module (urb:safe-string (cdr (assoc "FORMATO_LOSETA" atts))
+                                        (urb:safe-string (nth 9 d) "20 x 20 cm")))
+            guia-ml (atof (urb:safe-string (cdr (assoc "LOSETA_GUIA_ML" atts)) "0"))
+            top-ml (atof (urb:safe-string (cdr (assoc "LOSETA_TOPEROL_ML" atts)) "0"))
+            guia-m2 (urb:parse-real (urb:safe-string (cdr (assoc "LOSETA_GUIA_M2" atts)) ""))
+            top-m2 (urb:parse-real (urb:safe-string (cdr (assoc "LOSETA_TOPEROL_M2" atts)) "")))
+      (if (not guia-m2) (setq guia-m2 (* modulo guia-ml)))
+      (if (not top-m2) (setq top-m2 (* modulo top-ml)))
+      (setq area-acabado (max 0.0 (- area guia-m2 top-m2))
+            tactil-ml (max guia-ml top-ml))
       ;; No sustituir un MT pendiente por area x espesor: no es un corte
       ;; contra SUP_TN. Se conserva como pendiente, nunca como volumen medido.
       ;; 5.7.13 (reporte del usuario: "no me esta conectando las
@@ -36019,7 +36042,7 @@
           (urb:ppto-row "ANDEN" "M.O. nivelacion con arena"
             "" "" "" etapa sub "M2" area handle)
           (urb:ppto-row "ANDEN" "M.O. instalacion de adoquin y tabletas"
-            "" "" "" etapa sub "M2" area handle)))
+            "" "" "" etapa sub "M2" area-acabado handle)))
       ;; acabados: PRIMERO los conteos reales guardados al crear el anden
       ;; (permiten andenes mixtos adoquin+loseta); factores de area solo
       ;; como respaldo de bloques viejos sin esos atributos
@@ -36035,7 +36058,7 @@
         ((wcmatch material "*LOSETA*")
           (setq rows
             (cons (urb:ppto-row "ANDEN" "Loseta lisa 20x20x6"
-              "" "" "" etapa sub "UN" (* area 25.0) handle) rows))))
+              "" "" "" etapa sub "UN" (* area-acabado 25.0) handle) rows))))
       (cond
         ((> adoq-und 0.0)
           (setq rows
@@ -36044,7 +36067,7 @@
         ((wcmatch material "*ADOQUIN*")
           (setq rows
             (cons (urb:ppto-row "ANDEN" "Adoquin gris 10x20x6"
-              "" "" "" etapa sub "UN" (* area 50.0) handle) rows))))
+              "" "" "" etapa sub "UN" (* area-acabado 50.0) handle) rows))))
       (setq rows
         (append rows
           (urb:ppto-param-rows "ANDEN" "ANDEN"
@@ -36057,6 +36080,10 @@
               (cons "GUIA_ML"
                 (atof (urb:safe-string
                   (cdr (assoc "LOSETA_GUIA_ML" atts)) "0")))
+              ;; 5.7.33: largo de la franja tactil (guia y toperol van lado
+              ;; a lado): la M.O. de las dos franjas va por este largo
+              (cons "TACTIL_ML" tactil-ml)
+              (cons "AREA_ACABADO" area-acabado)
               ;; unidades de pieza (v4.42): del atributo si existe;
               ;; respaldo = ml de franja / 0.20 (bloques viejos)
               (cons "TOPEROL_UND"
@@ -40833,7 +40860,25 @@
       (setq pruned (vl-catch-all-apply 'urb:repair-all-road-starts nil))
       (if (not (vl-catch-all-error-p pruned))
         (urb:config-write "URB_MIGRATE_5729_VIA_INICIO" "OK"))))
+  ;; 9) v5.7.33, una sola vez por dibujo (pedido del usuario 2026-09-25:
+  ;; "la modulacion de los andenes siempre atras para que las redes se vean
+  ;; por encima"): todos los andenes al fondo, prefabricados al frente.
+  (if (/= (urb:safe-string
+            (urb:config-read "URB_MIGRATE_5733_ANDEN_FONDO") "") "OK")
+    (progn
+      (setq pruned (vl-catch-all-apply 'urb:normalize-anden-prefab-draworder nil))
+      (if (not (vl-catch-all-error-p pruned))
+        (urb:config-write "URB_MIGRATE_5733_ANDEN_FONDO" "OK"))))
   (princ))
+
+;; 5.7.33: un anden nuevo o regenerado (EDITAR) queda encima de todo lo que
+;; ya estaba dibujado y tapaba las redes; se manda al fondo apenas se crea.
+(defun urb:enviar-al-fondo (objetos / tabla)
+  (setq tabla (vl-catch-all-apply 'urb:sortents-table
+                (list (vla-get-ModelSpace (urb:doc)))))
+  (if (and objetos (not (vl-catch-all-error-p tabla)))
+    (vl-catch-all-apply 'vla-MoveToBottom
+      (list tabla (urb:object-array-variant objetos)))))
 
 (defun urb:repair-all-road-starts (/ ss i r roads data axis n)
   (setq ss (ssget "_X" '((-3 ("URB_VIA")))) i 0 roads nil n 0)
