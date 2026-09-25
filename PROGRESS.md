@@ -4855,6 +4855,29 @@ columnas nuevas) + reglas para niveles mas profundos.
 Verificado headless: carga unica 5.7.33, reparto de areas cuadra
 (acabado + guia + toperol = area total), andenes al fondo sin error.
 
+### v5.7.35 - M.O. de loseta guia y toperol = guia + toperol (2026-09-25)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+Reporte del usuario: en 2.2.1 ANDENES la "M.O. instalacion de loseta guia y
+toperol" (4.756 ML) no concordaba con el suministro (23.106 UN guia + 23.301
+UN toperol, 5 UN/ML = 9.281 ML). v5.7.33 dejo TACTIL_ML = max(guia, toperol)
+suponiendo una sola actividad para las dos franjas; cada franja se instala
+aparte, asi que ahora TACTIL_ML = guia + toperol, igual que ya hacian rampas y
+pasos peatonales. Verificado headless en copia del maestro: 54 andenes, guia
+4.621,15 ML / 23.106 UN, toperol 4.654,80 ML / 23.275 UN (UN = ML x 5 en todos,
+0 andenes con diferencia > 5 %), M.O. exportada 9.275,95 ML = suma exacta. Las
+26 UN de toperol restantes del suministro de 2.2.1 son de rampas vehiculares
+y pasos, cuya M.O. va en su propio capitulo (2.2.4).
+
+**Libro (mismo dia).** Base de administracion delegada, interventoria e
+imprevistos no cuadraba con la dinamica (173.378.178): las polizas RETIE y
+RETILAB tenian "0,01" como TEXTO en GEN; la hoja no lo sumaba y Power Query
+si. Convertido a numero (unicas 2 celdas de texto en F:AM); hoja, BD_CONSOL y
+bases cuadran en 208.835.432.965. Antes: suministro de tuberia de acueducto a
+precio por tubo (x6), unitarios MT/alumbrado ajustados e indexacion solo de
+conductores y ducteria MT/BT (PRECIOS_UNITARIOS F1:G5).
+
 ### v5.7.34 - ducteria BT con el nombre exacto del libro (2026-09-25)
 
 Agente: Claude. Equipo: BOG085CD119BDQN.

@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.34")
+(setq *urb-version* "5.7.35")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -34608,7 +34608,7 @@
     ("PROFUNDIDAD" "Profundidad (m)")
     ("TOPEROL_ML" "Franja toperol (ml)")
     ("GUIA_ML" "Franja guia (ml)")
-    ("TACTIL_ML" "Franja tactil guia+toperol, largo (ml)")
+    ("TACTIL_ML" "Franjas tactiles guia + toperol (ml)")
     ("AREA_ACABADO" "Area de acabado sin franjas (m2)")
     ("TOPEROL_UND" "Losetas toperol (unidades)")
     ("GUIA_UND" "Losetas guia (unidades)")
@@ -35982,9 +35982,12 @@
       ;; suministro de loseta/adoquin y la M.O. de adoquin y tabletas van
       ;; SOLO sobre el area de acabado (area - franjas). Descapote,
       ;; subrasante, llenos, granulares, localizacion y nivelacion siguen con
-      ;; el area total. Guia y toperol corren lado a lado a lo largo del
-      ;; anden: la M.O. "de loseta guia y toperol" (una actividad para las
-      ;; dos franjas) se cobra por el largo de la franja, no la suma.
+      ;; el area total.
+      ;; 5.7.35 (reporte del usuario: la M.O. de guia y toperol no
+      ;; concordaba con el suministro, 4.756 ML contra 23.106 + 23.301 UN):
+      ;; cada franja se instala aparte, asi que la M.O. es guia + toperol,
+      ;; igual que en rampas y pasos peatonales. 5.7.33 usaba el mayor de
+      ;; los dos largos y dejaba sin pagar una de las dos franjas.
       (setq modulo (urb:loseta-module (urb:safe-string (cdr (assoc "FORMATO_LOSETA" atts))
                                         (urb:safe-string (nth 9 d) "20 x 20 cm")))
             guia-ml (atof (urb:safe-string (cdr (assoc "LOSETA_GUIA_ML" atts)) "0"))
@@ -35994,7 +35997,7 @@
       (if (not guia-m2) (setq guia-m2 (* modulo guia-ml)))
       (if (not top-m2) (setq top-m2 (* modulo top-ml)))
       (setq area-acabado (max 0.0 (- area guia-m2 top-m2))
-            tactil-ml (max guia-ml top-ml))
+            tactil-ml (+ guia-ml top-ml))
       ;; No sustituir un MT pendiente por area x espesor: no es un corte
       ;; contra SUP_TN. Se conserva como pendiente, nunca como volumen medido.
       ;; 5.7.13 (reporte del usuario: "no me esta conectando las
@@ -36080,8 +36083,8 @@
               (cons "GUIA_ML"
                 (atof (urb:safe-string
                   (cdr (assoc "LOSETA_GUIA_ML" atts)) "0")))
-              ;; 5.7.33: largo de la franja tactil (guia y toperol van lado
-              ;; a lado): la M.O. de las dos franjas va por este largo
+              ;; 5.7.35: ML de franja tactil = guia + toperol (M.O. de las
+              ;; dos franjas)
               (cons "TACTIL_ML" tactil-ml)
               (cons "AREA_ACABADO" area-acabado)
               ;; unidades de pieza (v4.42): del atributo si existe;
