@@ -4790,3 +4790,34 @@ work\ppto_20260922\urbanismo maipore.ANTES_AJUSTES2_151647.xlsx.
 
 Verificado headless (verif5731): carga unica, version 5.7.31, 19 filas del
 catalogo con el nombre unificado y 0 con el viejo.
+
+### v5.7.32 - tramos con excavacion grande miden desde la subrasante de vias y andenes (2026-09-24)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+**Plugin.** `mp:tramo-depth-profile` acepta la referencia `'AUTO`: en cada
+punto muestreado del tramo, si cae dentro del contorno de una via (o a
+menos de `*mp-subras-franja-via*` = 1.5 m de su borde: sardinel y anden no
+dibujado) mide desde la subrasante de esa via (rasante del eje - espesor
+del perfil); si cae en un anden, desde su cota terminada - 0.60; si no,
+desde el terreno. Candidatos por caja envolvente
+(`mp:auto-subrasante-candidates`); `mp:road-subrasante-reference` es la
+parte no interactiva de `mp:select-road-subrasante-reference`. La eleccion
+queda en el tramo (XDATA `MP_REF_SUBRASANTE` = AUTO) y
+`mp:sync-tramo-values` la respeta via `mp:derive-with-subrasante`, asi que
+EDITAR y la exportacion no la pierden. Solo aplica a los tramos marcados;
+el resto sigue midiendo al terreno. Las polilineas temporales de andenes se
+borran al terminar cada tramo.
+
+**Maestro (mismo dia).** Cotas clave pluviales desde el diseno
+(XREF PLUVIAL.dwg, directrices "LLUVIAS COTAS": la clave es la segunda
+linea, la primera es la cota de pozo): 78 tramos, luego 69 mas (33 de
+excavacion grande, 26 de sumidero con pendiente 2 % limitada por 0.80 m de
+tapa y minimo 0.5 %, 10 dudosos resueltos descartando la cota que ya usa
+otro tubo del pozo y exigiendo pendiente a favor). 46 tramos marcados AUTO
+(excavacion grande: los 33 y los que quedan a mas de 5 m bajo el terreno).
+Quedan 20 sin cota (lista en work\perf_20260924). Hallazgo: en 3B la
+rasante de VIA-21 en el maestro va al nivel del terreno (2576-2582) y el
+colector del diseno pasa en 2569; los disenos no coinciden.
+Verificado headless: carga unica 5.7.32, 69/69 cotas y 46/46 marcas tras
+reabrir, 0 temporales.

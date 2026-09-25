@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.31")
+(setq *urb-version* "5.7.32")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -14156,10 +14156,17 @@
 ;; rasante que ya usa el anden (urb:select-anden-road-grade), pero agrega la
 ;; PROFUNDIDAD DEL PERFIL de la via para poder restarla y llegar a la
 ;; subrasante (bajo la estructura de pavimento), no solo a la rasante.
-(defun mp:select-road-subrasante-reference
-  (/ selected road data mov axis axis-handle via-id records c0 c1 span profile depth)
+(defun mp:select-road-subrasante-reference (/ selected road)
   (setq selected (entsel "\nSeleccione la via que define la subrasante: "))
   (if selected (setq road (urb:road-parent-from-entity (car selected))))
+  (mp:road-subrasante-reference road T))
+
+;; 5.7.32: la referencia de subrasante de UNA via ya identificada. Con
+;; interactivo nil no pregunta nada (la usa la deteccion automatica bajo el
+;; tramo, mp:auto-subrasante-candidates): si la via no tiene eje, rasante o
+;; profundidad de perfil devuelve nil y el tramo sigue midiendo al terreno.
+(defun mp:road-subrasante-reference
+  (road interactivo / data mov axis axis-handle via-id records c0 c1 span profile depth axis-start)
   (if (and road (setq data (urb:get-xdata-strings road "URB_VIA")))
     (progn
       (setq profile (urb:safe-string (if (> (length data) 4) (nth 4 data) nil) ""))
@@ -14173,7 +14180,7 @@
       (if (and (null axis) (/= via-id ""))
         (setq axis (urb:cached-road-axis via-id)))
       (if (and axis (not (urb:curve-entity-p axis))) (setq axis nil))
-      (if (not axis) (setq axis (urb:select-or-draw-road-axis "Existente")))
+      (if (and (not axis) interactivo) (setq axis (urb:select-or-draw-road-axis "Existente")))
       (setq mov (urb:road-movement-data road))
       (setq records (urb:road-design-grade-records road data))
       (if (not (urb:grade-records-valid-p records)) (setq records nil))
@@ -14193,18 +14200,105 @@
             (if (> (length data) 21) (nth 21 data) nil) "0")))
       (cond
         ((not (and depth (> depth 0.0)))
-          (prompt
-            (strcat "\nEl perfil " profile " de esa via no tiene profundidad definida; no se puede calcular subrasante."))
+          (if interactivo
+            (prompt
+              (strcat "\nEl perfil " profile " de esa via no tiene profundidad definida; no se puede calcular subrasante.")))
           nil)
         ((and axis records)
           (list axis records axis-start span
             (urb:safe-string (if (> (length data) 12) (nth 12 data) nil) "Inicio")
             "LOCAL" depth))
         (T
-          (prompt "\nLa via seleccionada no tiene rasante calculada.")
+          (if interactivo (prompt "\nLa via seleccionada no tiene rasante calculada."))
           nil)))
-    (progn (prompt "\nEl objeto seleccionado no es una via cuantificable.") nil))
+    (progn (if interactivo (prompt "\nEl objeto seleccionado no es una via cuantificable.")) nil))
 )
+
+;; 5.7.32 (pedido del usuario 2026-09-24): tramos de red que pasan BAJO una
+;; via o un anden excavan solo desde la subrasante de esa via/anden (su
+;; movimiento de tierras ya se cuenta aparte); fuera de ellos, desde el
+;; terreno. Se decide PUNTO A PUNTO a lo largo del tramo, sin clics.
+;; Candidatos: vias y andenes cuya caja envolvente toca la del tramo.
+;; Cada candidato: (tipo contorno referencia). tipo VIA -> referencia de
+;; mp:road-subrasante-reference; tipo ANDEN -> referencia de
+;; urb:anden-design-reference (subrasante = terminado - *urb-anden-depth*).
+(defun mp:bbox-touch-p (ename x0 y0 x1 y1 / r lo hi)
+  (setq r (vl-catch-all-apply 'vla-GetBoundingBox (list (vlax-ename->vla-object ename) 'lo 'hi)))
+  (and (not (vl-catch-all-error-p r))
+       (setq lo (vlax-safearray->list lo) hi (vlax-safearray->list hi))
+       (<= (car lo) x1) (>= (car hi) x0) (<= (cadr lo) y1) (>= (cadr hi) y0)))
+
+(defun mp:auto-subrasante-candidates (p1 p2 / x0 y0 x1 y1 ss i e road seen pts ref out)
+  (setq x0 (- (min (car p1) (car p2)) 3.0) x1 (+ (max (car p1) (car p2)) 3.0)
+        y0 (- (min (cadr p1) (cadr p2)) 3.0) y1 (+ (max (cadr p1) (cadr p2)) 3.0))
+  (setq ss (ssget "_X" '((-3 ("URB_VIA")))) i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq e (ssname ss i) i (1+ i)
+            road (vl-catch-all-apply 'urb:road-parent-from-entity (list e)))
+      (if (and road (not (vl-catch-all-error-p road)) (not (member road seen)))
+        (progn
+          (setq seen (cons road seen))
+          (if (mp:bbox-touch-p road x0 y0 x1 y1)
+            (progn
+              (setq pts (vl-catch-all-apply 'urb:road-contour-points (list road))
+                    ref (vl-catch-all-apply 'mp:road-subrasante-reference (list road nil)))
+              (if (and pts (not (vl-catch-all-error-p pts)) (> (length pts) 2)
+                       ref (not (vl-catch-all-error-p ref)))
+                (setq out (cons (list 'VIA pts ref) out)))))))))
+  (foreach e (urb:all-anden-blocks)
+    (if (mp:bbox-touch-p e x0 y0 x1 y1)
+      (progn
+        (setq pts (urb:anden-points-cached e)
+              ref (vl-catch-all-apply 'urb:anden-design-reference (list e)))
+        (if (and pts (> (length pts) 2) ref (not (vl-catch-all-error-p ref)))
+          (setq out (cons (list 'ANDEN pts ref) out))))))
+  ;; las vias primero: si un punto cae en ambas manda la via
+  (append (vl-remove-if-not '(lambda (c) (eq (car c) 'VIA)) out)
+          (vl-remove-if-not '(lambda (c) (eq (car c) 'ANDEN)) out)))
+
+;; franja por fuera del borde de la calzada que tambien cuenta como via
+;; (sardinel y comienzo del anden cuando el anden no esta dibujado como
+;; bloque): medido en el maestro, los colectores corren a 0.1-1.4 m del
+;; contorno de la via y quedaban midiendo desde el terreno.
+(setq *mp-subras-franja-via* 1.5)
+
+(defun mp:auto-subrasante-at-point (point cands / hit z q)
+  (setq hit (vl-some '(lambda (c) (if (urb:point-in-poly-2d point (cadr c)) c)) cands))
+  (if (null hit)
+    (setq hit
+      (vl-some
+        '(lambda (c)
+           (if (and (eq (car c) 'VIA)
+                    (setq q (urb:closest-point-on-closed-pts point (cadr c)))
+                    (<= (distance (list (car point) (cadr point)) q) *mp-subras-franja-via*))
+             c))
+        cands)))
+  (cond
+    ((null hit) nil)
+    ((eq (car hit) 'VIA) (mp:subrasante-at-point point (caddr hit)))
+    (T
+      (setq z (vl-catch-all-apply 'urb:anden-reference-design-z
+                (list (caddr hit) (car point) (cadr point))))
+      (if (and (numberp z) (not (vl-catch-all-error-p z))) (- z *urb-anden-depth*)))))
+
+;; marca persistente del tramo (XDATA MP_REF_SUBRASANTE = "AUTO"): asi EDITAR,
+;; la sincronizacion y la exportacion siguen midiendo desde la subrasante.
+(defun mp:tramo-subrasante-auto-p (ename)
+  (and ename (= (car (urb:get-xdata-strings ename "MP_REF_SUBRASANTE")) "AUTO")))
+
+(defun mp:set-tramo-subrasante-auto (ename on)
+  (urb:set-xdata-strings ename "MP_REF_SUBRASANTE" (list (if on "AUTO" "TERRENO"))))
+
+(defun mp:derive-with-subrasante (ename base p1 p2 vals / prev out)
+  (setq prev *mp-tramo-road-ref*)
+  (if (and (null prev) (mp:tramo-subrasante-auto-p ename))
+    (setq *mp-tramo-road-ref* 'AUTO))
+  (setq out (vl-catch-all-apply 'mp:derive-tramo-values (list base p1 p2 vals)))
+  (setq *mp-tramo-road-ref* prev)
+  (if (vl-catch-all-error-p out)
+    (mp:derive-tramo-values base p1 p2 vals)
+    out))
 
 (defun mp:subrasante-at-point
   (point reference / axis records axis-start span direction depth
@@ -14361,7 +14455,7 @@
 
 (defun mp:tramo-depth-profile
   (surface p1 p2 key-ini key-fin diameter-m bedding n road-ref
-   / i frac x y terrain reference subrasante key depth depths max-depth samples)
+   / i frac x y terrain reference subrasante key depth depths max-depth samples cands)
   ;; Muestrea la superficie a lo largo del tramo (no solo los 2 pozos) porque
   ;; el terreno entre pozos puede no ser perfectamente lineal; con esto el
   ;; ancho de zanja y el volumen de excavacion usan la profundidad real, no
@@ -14372,6 +14466,10 @@
   ;; cortar por separado hasta su subrasante.
   (setq *mp-last-tramo-memory-samples* nil
         depths nil max-depth nil samples nil i 0)
+  ;; 5.7.32: road-ref 'AUTO = via o anden bajo cada punto (ver
+  ;; mp:auto-subrasante-candidates); fuera de ellos, el terreno.
+  (if (and (eq road-ref 'AUTO) p1 p2)
+    (setq cands (mp:auto-subrasante-candidates p1 p2)))
   (if (and surface p1 p2 key-ini key-fin (> n 1))
     (repeat (1+ n)
       (setq frac (/ (float i) (float n))
@@ -14385,7 +14483,9 @@
           (if road-ref
             (progn
               (setq subrasante
-                (vl-catch-all-apply 'mp:subrasante-at-point (list (list x y) road-ref)))
+                (if (eq road-ref 'AUTO)
+                  (vl-catch-all-apply 'mp:auto-subrasante-at-point (list (list x y) cands))
+                  (vl-catch-all-apply 'mp:subrasante-at-point (list (list x y) road-ref))))
               (if (and (not (vl-catch-all-error-p subrasante)) subrasante)
                 (setq reference (min terrain subrasante)))))
           (setq depth (+ (- reference key) diameter-m bedding)
@@ -14394,6 +14494,8 @@
                   (cons (list frac reference key depth) samples)
                 max-depth (if max-depth (max max-depth depth) depth))))
       (setq i (1+ i))))
+  ;; las cotas de anden usan polilineas temporales invisibles: se borran aqui
+  (if (vl-some '(lambda (c) (eq (car c) 'ANDEN)) cands) (urb:anden-ref-curves-clear))
   (setq *mp-last-tramo-memory-samples* (reverse samples))
   (list (reverse depths) max-depth))
 
@@ -14879,8 +14981,12 @@
             vals (mp:alist-set vals "METODO_CANTIDADES"
                    (strcat
                      (if depths "PERFIL_MUESTREADO" "PRELIMINAR_GEOMETRICO")
-                     (if (and (boundp '*mp-tramo-road-ref*) *mp-tramo-road-ref*)
-                       " (ref. subrasante via)" ""))))
+                     (cond
+                       ((and (boundp '*mp-tramo-road-ref*) (eq *mp-tramo-road-ref* 'AUTO))
+                         " (ref. subrasante vias/andenes)")
+                       ((and (boundp '*mp-tramo-road-ref*) *mp-tramo-road-ref*)
+                         " (ref. subrasante via)")
+                       (T "")))))
       ;; Electricas: desglose del relleno con los MISMOS materiales del
       ;; presupuesto (2026-08-26): arena limpia envolviendo el banco hasta
       ;; el recubrimiento normativo (0.60 anden / 0.80 calzada) y base
@@ -16310,7 +16416,7 @@
               (vla-put-XScaleFactor obj (float scale))))))
       (setq vals (mp:auto-terrain-values vals p1 p2)
             vals (mp:apply-edited-claves ename vals)
-            derived (mp:derive-tramo-values base p1 p2 vals))
+            derived (mp:derive-with-subrasante ename base p1 p2 vals))
       (mp:store-tramo-memory-samples
         ename *mp-last-tramo-memory-samples*)
       (setq *mp-last-tramo-memory-samples* nil)
