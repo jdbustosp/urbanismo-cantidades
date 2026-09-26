@@ -4855,6 +4855,29 @@ columnas nuevas) + reglas para niveles mas profundos.
 Verificado headless: carga unica 5.7.33, reparto de areas cuadra
 (acabado + guia + toperol = area total), andenes al fondo sin error.
 
+### v5.7.36 - tramos electricos sin TIPO_RED vuelven al presupuesto (2026-09-26)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+Revision de "A revisar e Lunes.docx" (barrido del maestro con todas las filas
+de exportacion, headless). 298 tramos electricos (79 MT = 2.263 m, 219 BT/AP =
+5.198 m) tenian TIPO_RED vacio y urb:ppto-tramo-red devolvia nil: no generaban
+NINGUNA fila aunque tenian conductor, ductos y subetapa. Ninguno esta encima de
+un tramo exportado (chequeo de solape < 1,5 m), son red real. Ahora, sin
+TIPO_RED, la red sale del bloque (MP_TRAMO_MT / MP_TRAMO_BTAP) o de la capa
+PPTO-ELECTRICA-*. Exportacion nueva: cable 3x4+4 THW 6.691 ml (antes 1.457),
+TDP 2Ф3" 6.020 ml (antes 1.279), cable MT 3x185 4.109 ml (antes 1.593), banco
+6Ø6" 2.585 ml (antes 531). Aparece "tuberia 5Ф3\" TDP" (7,3 ml).
+
+**Maestro (mismo dia, copia en la misma carpeta, verificado al reabrir,
+respaldo ANTES_LUNES_123358).** TIPO_RED puesto en los 298 (MT / AP); 3
+bioswales y 10 canuelas pluviales (polilineas, no las cubrio la clasificacion
+por bloques) salieron de la subetapa 1 por defecto a 8B/8C/8D/9B por mayoria
+en el mapa de subetapas, y el bioswale BCB92 de 5A a 5C; 9 vias con
+VIA_ETAPA/VIA_SUBETAPA desactualizados en atributos (Propiedades mostraba 1/1)
+sincronizados con su XDATA. Clasificacion: todo elemento en una subetapa del
+plano de etapas, etapa = prefijo de la subetapa, ninguno repartido.
+
 ### v5.7.35 - M.O. de loseta guia y toperol = guia + toperol (2026-09-25)
 
 Agente: Claude. Equipo: BOG085CD119BDQN.

@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.35")
+(setq *urb-version* "5.7.36")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -36408,15 +36408,27 @@
       (foreach r rows (if r (setq out (cons r out))))
       (setq i (1+ i))))
   out)
-(defun urb:ppto-tramo-red (atts / red tipo)
+;; 5.7.36 (revision "A revisar e Lunes", 2026-09-26): 298 tramos electricos
+;; del maestro (79 MT = 2.263 m, 219 BT/AP = 5.198 m) tenian TIPO_RED vacio
+;; y NO exportaban ninguna fila: faltaban en el presupuesto aunque tenian
+;; conductor, ductos y subetapa. Sin TIPO_RED la red sale del bloque
+;; (MP_TRAMO_MT / MP_TRAMO_BTAP) o de su capa PPTO-ELECTRICA-*.
+(defun urb:ppto-tramo-red (atts ename / red tipo bloque capa ed)
   (setq red (strcase (urb:safe-string (cdr (assoc "RED" atts)) ""))
-        tipo (strcase (urb:safe-string (cdr (assoc "TIPO_RED" atts)) "")))
+        tipo (strcase (urb:safe-string (cdr (assoc "TIPO_RED" atts)) ""))
+        ed (if ename (entget ename))
+        bloque (strcase (urb:safe-string (cdr (assoc 2 ed)) ""))
+        capa (strcase (urb:safe-string (cdr (assoc 8 ed)) "")))
   (cond
     ((wcmatch red "ARESIDUAL") "ALC-SANITARIO")
     ((wcmatch red "ALLUVIAS") "ALC-PLUVIAL")
     ((wcmatch red "ACUEDUCTO") "ACUEDUCTO")
     ((= tipo "MT") "ELECTRICA-MT")
     ((member tipo '("BT" "AP")) "ELECTRICA-BT-AP")
+    ((or (wcmatch bloque "MP_TRAMO_MT*,TRAMO_E_MT*") (= capa "PPTO-ELECTRICA-MT"))
+      "ELECTRICA-MT")
+    ((or (wcmatch bloque "MP_TRAMO_BTAP*,TRAMO_E_BT*") (= capa "PPTO-ELECTRICA-BT-AP"))
+      "ELECTRICA-BT-AP")
     (T nil)))
 
 ;; entibado en los TRES rangos del ppto (E-1A <=2, E-1B 2-3, E-2 >3),
@@ -36491,7 +36503,7 @@
   (if ss
     (repeat (sslength ss)
       (setq atts (mp:att-alist (ssname ss i))
-            red (urb:ppto-tramo-red atts)
+            red (urb:ppto-tramo-red atts (ssname ss i))
             lng (atof (urb:safe-string (cdr (assoc "LONGITUD" atts)) "0"))
             tot (assoc red totales-red)
             totales-red (if tot (subst (cons red (+ (cdr tot) lng)) tot totales-red)
@@ -36502,7 +36514,7 @@
     (repeat (sslength ss)
       (setq be (ssname ss i)
             atts (mp:att-alist be)
-            red (urb:ppto-tramo-red atts)
+            red (urb:ppto-tramo-red atts be)
             lng (atof (urb:safe-string (cdr (assoc "LONGITUD" atts)) "0"))
             diam (urb:safe-string (cdr (assoc "DIAMETRO" atts)) "")
             mat (urb:safe-string (cdr (assoc "MATERIAL" atts)) "")
