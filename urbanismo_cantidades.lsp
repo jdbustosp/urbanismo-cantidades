@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.36")
+(setq *urb-version* "5.7.37")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -36231,9 +36231,10 @@
 ;;   2.2.5 RAMPA PEATONAL: lo tiene todo en su propio capitulo.
 ;;   2.2.6 PASO PEATONAL SEGURO: tiene adoquin, A-80, transporte, arena,
 ;;     excavacion, recebo (sin "B-200" en el nombre), SBG, geotextil y sus
-;;     M.O.; NO tiene losetas ni M.O. de loseta guia y toperol -> esas van a
-;;     ANDENES, y el remate de rampa fundido en sitio va a 2.2.5, el unico
-;;     capitulo que lo tiene.
+;;     M.O.; la loseta lisa va a ANDENES y el remate de rampa fundido en
+;;     sitio va a 2.2.5, el unico capitulo que lo tiene.
+;;   5.7.37: guia, toperol y su M.O. van SIEMPRE al capitulo de la rampa
+;;     (2.2.4 / 2.2.5 / 2.2.6), nunca a ANDENES.
 ;;
 ;; Los bordillos y sardineles del acceso vehicular son PREFABRICADOS
 ;; (urb:ppto-rows-prefabs los cobra con su suministro y su M.O. en el
@@ -36327,11 +36328,13 @@
                 (rr red
                   "Suministro e instalacion de bolardo alto en hierro Tipo M-63"
                   "UN" bolardos)
-                ;; 2.2.4 no compra materiales de pavimento: van a ANDENES
+                ;; 2.2.4 no compra materiales de pavimento: van a ANDENES,
+                ;; salvo guia y toperol (5.7.37, pedido del usuario
+                ;; 2026-09-26): van al capitulo de la rampa, junto a su M.O.
                 (rr "ANDEN" "Adoquin gris 10x20x6" "UN" adoq-und)
                 (rr "ANDEN" "Loseta lisa 20x20x6" "UN" loseta-und)
-                (rr "ANDEN" "Loseta toperol 20x20x6" "UN" top-und)
-                (rr "ANDEN" "Loseta guia 20x20x6" "UN" guia-und)
+                (rr red "Loseta toperol 20x20x6" "UN" top-und)
+                (rr red "Loseta guia 20x20x6" "UN" guia-und)
                 (rr "ANDEN" "Arena de nivelacion" "M3" arena)
                 (rr "ANDEN" "Transporte de prefabricados" "KG" kg-prefab)
                 (rr "ANDEN" "M.O. localizacion y replanteo" "M2" base)
@@ -36349,11 +36352,13 @@
                 (rr red "M.O. localizacion y replanteo" "M2" base)
                 (rr red "M.O. nivelacion con arena" "M2" base)
                 (rr red "M.O. instalacion de bordillo prefabricado" "ML" bor-ml)
-                ;; 2.2.6 no tiene losetas ni su M.O.: van a ANDENES
+                ;; 2.2.6 no tiene loseta lisa: va a ANDENES. Guia, toperol
+                ;; y su M.O. van a 2.2.6 desde 5.7.37 (pedido del usuario:
+                ;; lo tactil de las rampas en su propio capitulo)
                 (rr "ANDEN" "Loseta lisa 20x20x6" "UN" loseta-und)
-                (rr "ANDEN" "Loseta toperol 20x20x6" "UN" top-und)
-                (rr "ANDEN" "Loseta guia 20x20x6" "UN" guia-und)
-                (rr "ANDEN" "M.O. instalacion de loseta guia y toperol" "ML"
+                (rr red "Loseta toperol 20x20x6" "UN" top-und)
+                (rr red "Loseta guia 20x20x6" "UN" guia-und)
+                (rr red "M.O. instalacion de loseta guia y toperol" "ML"
                   (+ guia-ml top-ml))
                 ;; el remate de rampa fundido en sitio solo existe en 2.2.5
                 (rr "RAMPA-PEATONAL"

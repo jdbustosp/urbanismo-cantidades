@@ -4855,6 +4855,27 @@ columnas nuevas) + reglas para niveles mas profundos.
 Verificado headless: carga unica 5.7.33, reparto de areas cuadra
 (acabado + guia + toperol = area total), andenes al fondo sin error.
 
+### v5.7.37 - guia y toperol de rampas y pasos en su propio capitulo (2026-09-26)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+Pedido del usuario: lo tactil de las rampas no debe caer en 2.2.1 ANDENES. La
+rampa vehicular (2.2.4) mandaba la loseta toperol/guia a ANDENES (su M.O. ya
+iba a 2.2.4) y el paso peatonal (2.2.6) mandaba losetas y M.O. a ANDENES.
+Ahora loseta toperol, loseta guia y "M.O. instalacion de loseta guia y
+toperol" van SIEMPRE al capitulo de la rampa (2.2.4 / 2.2.5 / 2.2.6); adoquin
+y loseta lisa de la rampa vehicular y la lisa del paso siguen en ANDENES.
+Verificado headless: rampa vehicular 26 UN toperol + 5,2 ML M.O. en 2.2.4.
+Libro: filas nuevas en 2.2.6 (2.2.6.2.5 loseta toperol, 2.2.6.2.6 loseta
+guia, 2.2.6.3.5 M.O.); 2.2.4 ya las tenia.
+
+**Maestro (mismo dia).** Anden C1789 (5C) tenia 0 m3 de corte y 2.182 m3 de
+relleno (~2 m) porque sus "Cotas seleccionadas" estaban ~2 m altas: corre al
+lado de la VIA-06, cuya rasante esta a +-0,25 m del terreno. Recalculado con
+urb:run-anden-earthworks (autodetecta la VIA-06): corte 533,19 m3, relleno
+124,59 m3, cobertura 100 %. Copia verificada al reabrir; respaldo
+ANTES_5C_134344.
+
 ### v5.7.36 - tramos electricos sin TIPO_RED vuelven al presupuesto (2026-09-26)
 
 Agente: Claude. Equipo: BOG085CD119BDQN.
