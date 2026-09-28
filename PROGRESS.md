@@ -4855,6 +4855,41 @@ columnas nuevas) + reglas para niveles mas profundos.
 Verificado headless: carga unica 5.7.33, reparto de areas cuadra
 (acabado + guia + toperol = area total), andenes al fondo sin error.
 
+### v5.7.38 - huella de vias en U, bioswale en bloque, desperdicio, uniones GRP, mobiliario por indicador, reposicion MT/AP (2026-09-28)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+- **Via en U / remate** (VIA-26, 224,8 m2: "huella invalida (105751 ...)"): el
+  recorte de costados cambiaba el extremo de un arco sin tocar su bulge (arcos
+  gigantes) y la prolongacion casi paralela a la tapa caia a 4-12 m. Ahora se
+  densifican los arcos y, si la prolongacion pasa de 3 m, se proyecta en
+  perpendicular. VIA-26 calcula; las otras 20 vias siguen igual.
+- **Bioswale en bloque** con atributos (area, perimetro, espesor, excavacion,
+  gravillas, relleno organico, tuberia, rejilla, jardineria) + migracion 10.
+  Sus filas llevan ID BIORETENEDORES: la excavacion va a 2.4.3.6.1 y no a
+  2.4.3.3.2 (el libro tenia 439,7/1.594 m3 manuales en 1 y 5A).
+- **Cambio de etapa en lote** reconoce bioswale y canuela pluvial; en vias
+  sincroniza VIA_ETAPA/VIA_SUBETAPA (Propiedades mostraba 1/1).
+- **Desperdicio de prefabricados** 5 % (URB_PREFAB_WASTE, campo en las ventanas
+  de sobreexcavacion) sobre suministro de piezas y transporte; no en M.O.
+- **urb:ppto-collect-rows**: una sola lista de colectores; ACTUALIZAR y la
+  regeneracion por parametricas omitian las zonas verdes.
+- **Union GRP OD"**: una por tubo de 6 m (PVC y HD traen union integrada).
+- **Mobiliario urbano** fuera de parques (bancas, canecas, paraderos,
+  protectores, senal SITP) no se exporta: va como indicador por m2 en el libro.
+- **Reposicion en MT y BT/AP**: campo "Reposicion de superficie" en las
+  ventanas de crear/editar tramo (NINGUNA / SI (reconoce pavimento o adoquin) /
+  ANDEN EN ADOQUIN / PAVIMENTO). Con SI: Calzada -> pavimento flexible, anden
+  -> adoquin. Area = REPOSICION_M2.
+
+Verificado headless: exportacion real a copia del libro (12.583 filas, 2
+huerfanas: tramo 211D92 "PVC flexible 45"" que solo existe en GRP), bioswales
+migrados (4), reposicion MT calzada 29,78 m2 pavimento / BT anden 8,74 m2
+adoquin. Libro real (mismo dia, respaldo ANTES_AJUSTES2_120353): gas N5 con
+formato/esquema N5, 113 formulas de codigo con rango viejo, "2.3.1 PL3" en la
+dinamica, uniones GRP, 27 filas MOBILIARIO URBANO SUBETAPA X ($2.013/m2, area
+neta), filas de reposicion en 2.5.1.2 y 2.5.2.6; cuadre 202.706.547.135.
+
 ### v5.7.37 - guia y toperol de rampas y pasos en su propio capitulo (2026-09-26)
 
 Agente: Claude. Equipo: BOG085CD119BDQN.

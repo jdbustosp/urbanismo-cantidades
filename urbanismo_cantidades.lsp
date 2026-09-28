@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.37")
+(setq *urb-version* "5.7.38")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -7669,6 +7669,13 @@
 (setq *urb-overexc-depth* 0.50)   ; m de material no portante bajo el TN
 (setq *urb-cut-expansion* 0.25)   ; expansion del material excavado
 (setq *urb-fill-shrinkage* 0.20)  ; sobreconsumo del relleno compactado
+;; 5.7.38 (pedido del usuario 2026-09-28: "el material tiene que llevar
+;; desperdicios y en configuracion que quede lo del tema del desperdicio"):
+;; % que se suma al SUMINISTRO de piezas prefabricadas (adoquin, losetas,
+;; bordillos, sardineles, canuela, pieza de remate) y a su transporte al
+;; exportar. La M.O. se paga por lo instalado y no lo lleva. Editable en
+;; Configuracion > Movimiento de tierras / Perfiles (URB_PREFAB_WASTE).
+(setq *urb-prefab-waste* 0.05)
 
 ;; corte y relleno de UN punto, con sobreexcavacion incluida
 (defun urb:cut-fill-at (delta / h)
@@ -11689,6 +11696,23 @@
 ;; Ubicacion del banco de ductos: define el recubrimiento normativo
 ;; (CODENSA CS203/CS207: 0.60 m bajo anden o zona verde, 0.80 m bajo calzada).
 (setq *mp-ubic-elec-list* '("Anden o zona verde" "Calzada"))
+;; 5.7.38 (pedido del usuario 2026-09-28: "quiero que en la ventana me
+;; aparezca cuando toque hacer reposicion de material ... que me reconozca
+;; cuando es pavimento o adoquin"): reposicion de superficie en tramos MT y
+;; BT/AP. "SI" la clasifica sola con la ubicacion del tramo (Calzada ->
+;; pavimento flexible; anden -> adoquin); tambien se puede forzar el tipo.
+(setq *mp-reposicion-elec-list*
+  '("NINGUNA" "SI (reconoce pavimento o adoquin)" "ANDEN EN ADOQUIN" "PAVIMENTO"))
+
+;; tipo EFECTIVO de reposicion de un tramo electrico: "ADOQUIN", "PAVIMENTO" o ""
+(defun mp:reposicion-elec-tipo (tiporep ubic / t0)
+  (setq t0 (strcase (urb:safe-string tiporep "")))
+  (cond
+    ((wcmatch t0 "SI*")
+      (if (vl-string-search "CALZADA" (strcase (urb:safe-string ubic ""))) "PAVIMENTO" "ADOQUIN"))
+    ((wcmatch t0 "*ADOQUIN*") "ADOQUIN")
+    ((wcmatch t0 "*PAVIMENTO*") "PAVIMENTO")
+    (T "")))
 ;; 2026-09-13: se agrega 45" (GRP del colector). Va DESPUES de 36" para no
 ;; correr los indices 0-13, que son los que usan los mp:fill-popup por
 ;; defecto de los dialogos de tramo.
@@ -12533,13 +12557,13 @@
   (write-line (mp:dcl-etapa-str) f)
   (write-line ": popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; }" f)
-  (write-line ": popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : text { label = \"Excavacion y relleno automaticos (norma CODENSA CS203).\"; } } ok_cancel; }" f)
+  (write-line ": popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; width = 44; } : text { label = \"Excavacion y relleno automaticos (norma CODENSA CS203).\"; } } ok_cancel; }" f)
 
   (write-line "maipore_tramo_bt : dialog { label = \"Maipore - Tramo BT/AP PPTO\"; : boxed_column {" f)
   (write-line (mp:dcl-etapa-str) f)
   (write-line ": popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; }" f)
   (write-line ": popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; }" f)
-  (write-line ": popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : text { label = \"Excavacion y relleno automaticos (norma CODENSA CS203).\"; } } ok_cancel; }" f)
+  (write-line ": popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; width = 44; } : text { label = \"Excavacion y relleno automaticos (norma CODENSA CS203).\"; } } ok_cancel; }" f)
 
   ;; Se mantienen los formularios de puntos/accesorios para compatibilidad con los comandos existentes.
   ;; 5.7.28 (pedido del usuario 2026-09-24): fuera Lote/circuito, CD, PF,
@@ -12665,6 +12689,7 @@
   (mp:fill-popup "tipo_ini" *mp-extremo-elec-list* 3)
   (mp:fill-popup "tipo_fin" *mp-extremo-elec-list* 3)
   (mp:fill-popup "ubic" *mp-ubic-elec-list* 0)
+  (mp:fill-popup "repotipo" *mp-reposicion-elec-list* 0)
   (action_tile "etapa" "(mp:update-subetapa)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
   (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
@@ -12679,6 +12704,7 @@
               (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos")) (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto"))
               (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto"))
               (cons "UBICACION" (mp:item *mp-ubic-elec-list* "ubic"))
+              (cons "TIPO_REPOSICION" (mp:item *mp-reposicion-elec-list* "repotipo"))
               (cons "TIPO_EXTREMO_INI" (mp:item *mp-extremo-elec-list* "tipo_ini"))
               (cons "TIPO_EXTREMO_FIN" (mp:item *mp-extremo-elec-list* "tipo_fin"))))))
   (unload_dialog dcl)
@@ -12696,6 +12722,7 @@
   (mp:fill-popup "tipo_ini" *mp-extremo-elec-list* 3)
   (mp:fill-popup "tipo_fin" *mp-extremo-elec-list* 3)
   (mp:fill-popup "ubic" *mp-ubic-elec-list* 0)
+  (mp:fill-popup "repotipo" *mp-reposicion-elec-list* 0)
   (action_tile "etapa" "(mp:update-subetapa)")
   (action_tile "accept" "(mp:capture-dialog-values)(setq ok T)(done_dialog 1)")
   (action_tile "cancel" "(setq ok nil)(done_dialog 0)")
@@ -12709,6 +12736,7 @@
               (cons "CONDUCTOR" (mp:item *mp-cond-bt-list* "cond")) (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos"))
               (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto")) (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto"))
               (cons "UBICACION" (mp:item *mp-ubic-elec-list* "ubic"))
+              (cons "TIPO_REPOSICION" (mp:item *mp-reposicion-elec-list* "repotipo"))
               (cons "TIPO_EXTREMO_INI" (mp:item *mp-extremo-elec-list* "tipo_ini")) (cons "TIPO_EXTREMO_FIN" (mp:item *mp-extremo-elec-list* "tipo_fin"))))))
   (unload_dialog dcl)
   res)
@@ -13368,9 +13396,9 @@
   (write-line ": boxed_column { label = \"Cotas\"; : edit_box { label = \"Cota terreno inicial (automatica SUP_TN)\"; key = \"ctni\"; edit_width = 12; } : edit_box { label = \"Cota terreno final (automatica SUP_TN)\"; key = \"ctnf\"; edit_width = 12; } : edit_box { label = \"Cota clave inicial\"; key = \"ccini\"; edit_width = 12; } : edit_box { label = \"Cota clave final\"; key = \"ccfin\"; edit_width = 12; } }" f)
   (write-line ": boxed_column { label = \"Cantidades de construccion\"; : edit_box { label = \"Ancho de zanja m\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama m\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion m\"; key = \"repos\"; edit_width = 12; } : popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; } : toggle { label = \"Lleva carcamo o placa de proteccion\"; key = \"carcamo\"; } } ok_cancel; }" f)
 
-  (write-line "edit_tramo_mt : dialog { label = \"Editar PPTO - Media tension\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : text { label = \"Profundidad y excavacion: automaticas por norma CODENSA.\"; } } ok_cancel; }" f)
+  (write-line "edit_tramo_mt : dialog { label = \"Editar PPTO - Media tension\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; width = 44; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : text { label = \"Profundidad y excavacion: automaticas por norma CODENSA.\"; } } ok_cancel; }" f)
 
-  (write-line "edit_tramo_bt : dialog { label = \"Editar PPTO - Alumbrado / BT\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : text { label = \"Profundidad y excavacion: automaticas por norma CODENSA.\"; } } ok_cancel; }" f)
+  (write-line "edit_tramo_bt : dialog { label = \"Editar PPTO - Alumbrado / BT\"; : boxed_column { : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"Desde\"; key = \"desde\"; edit_width = 26; } : edit_box { label = \"Hasta\"; key = \"hasta\"; edit_width = 26; } : popup_list { label = \"Elemento inicial\"; key = \"tipo_ini\"; } : popup_list { label = \"Elemento final\"; key = \"tipo_fin\"; } : popup_list { label = \"Conductor\"; key = \"cond\"; } : popup_list { label = \"Ductos\"; key = \"ductos\"; } : popup_list { label = \"Diametro ducto\"; key = \"diamducto\"; } : popup_list { label = \"Material ducto\"; key = \"matducto\"; } : popup_list { label = \"Ubicacion ducteria\"; key = \"ubic\"; } : popup_list { label = \"Reposicion de superficie\"; key = \"repotipo\"; width = 44; } : edit_box { label = \"Ancho de zanja\"; key = \"anchoz\"; edit_width = 12; } : edit_box { label = \"Espesor de cama\"; key = \"cama\"; edit_width = 12; } : edit_box { label = \"Ancho de reposicion\"; key = \"repos\"; edit_width = 12; } : edit_box { label = \"Longitud\"; key = \"long\"; edit_width = 12; } : text { label = \"Profundidad y excavacion: automaticas por norma CODENSA.\"; } } ok_cancel; }" f)
 
   (write-line "edit_punto_hidro : dialog { label = \"Editar PPTO - Pozo / Sumidero\"; : boxed_column { : text { key = \"redtxt\"; } : popup_list { label = \"Etapa\"; key = \"etapa\"; } : popup_list { label = \"Subetapa\"; key = \"subetapa\"; } : edit_box { label = \"ID / Codigo\"; key = \"id\"; edit_width = 24; } : popup_list { label = \"Diametro\"; key = \"diam\"; } : edit_box { label = \"Cota terreno (automatica SUP_TN)\"; key = \"ctn\"; edit_width = 12; } : edit_box { label = \"Cota clave\"; key = \"cclave\"; edit_width = 12; } : edit_box { label = \"Profundidad\"; key = \"prof\"; edit_width = 12; } } ok_cancel; }" f)
 
@@ -13448,6 +13476,7 @@
   (mp:fill-popup-val "diamducto" *mp-diam-ducto-list* (mp:attval atts "DIAM_DUCTO" "6\""))
   (mp:fill-popup-val "matducto" *mp-mat-ducto-list* (mp:attval atts "MATERIAL_DUCTO" "PVC"))
   (mp:fill-popup-val "ubic" *mp-ubic-elec-list* (mp:attval atts "UBICACION" "Anden o zona verde"))
+  (mp:fill-popup-val "repotipo" *mp-reposicion-elec-list* (mp:attval atts "TIPO_REPOSICION" "NINGUNA"))
   (set_tile "long" (mp:attval atts "LONGITUD" "")) (mode_tile "long" 1)
   (set_tile "anchoz" (mp:attval atts "ANCHO_ZANJA" ""))
   (set_tile "cama" (mp:attval atts "ESPESOR_CAMA" "0.10"))
@@ -13462,6 +13491,7 @@
                     (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos")) (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto"))
                     (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto"))
                     (cons "UBICACION" (mp:item *mp-ubic-elec-list* "ubic"))
+                    (cons "TIPO_REPOSICION" (mp:item *mp-reposicion-elec-list* "repotipo"))
                     (cons "PROFUNDIDAD" "")
                     (cons "ANCHO_ZANJA" (mp:gettile "anchoz"))
                     (cons "ESPESOR_CAMA" (mp:gettile "cama"))
@@ -13483,6 +13513,7 @@
   (mp:fill-popup-val "diamducto" *mp-diam-ducto-list* (mp:attval atts "DIAM_DUCTO" "3\""))
   (mp:fill-popup-val "matducto" *mp-mat-ducto-list* (mp:attval atts "MATERIAL_DUCTO" "PVC"))
   (mp:fill-popup-val "ubic" *mp-ubic-elec-list* (mp:attval atts "UBICACION" "Anden o zona verde"))
+  (mp:fill-popup-val "repotipo" *mp-reposicion-elec-list* (mp:attval atts "TIPO_REPOSICION" "NINGUNA"))
   (set_tile "anchoz" (mp:attval atts "ANCHO_ZANJA" ""))
   (set_tile "cama" (mp:attval atts "ESPESOR_CAMA" "0.10"))
   (set_tile "repos" (mp:attval atts "ANCHO_REPOSICION" ""))
@@ -13496,6 +13527,7 @@
                     (cons "CONDUCTOR" (mp:item *mp-cond-bt-list* "cond")) (cons "DUCTOS" (mp:item *mp-ductos-list* "ductos"))
                     (cons "DIAM_DUCTO" (mp:item *mp-diam-ducto-list* "diamducto")) (cons "MATERIAL_DUCTO" (mp:item *mp-mat-ducto-list* "matducto"))
                     (cons "UBICACION" (mp:item *mp-ubic-elec-list* "ubic"))
+                    (cons "TIPO_REPOSICION" (mp:item *mp-reposicion-elec-list* "repotipo"))
                     (cons "PROFUNDIDAD" "")
                     (cons "ANCHO_ZANJA" (mp:gettile "anchoz"))
                     (cons "ESPESOR_CAMA" (mp:gettile "cama"))
@@ -17485,7 +17517,9 @@
       ;; 5.6.5 sobreexcavacion y esponjamiento
       ("URB_OVEREXC_DEPTH" *urb-overexc-depth* 0.0 3.0)
       ("URB_CUT_EXPANSION" *urb-cut-expansion* 0.0 1.0)
-      ("URB_FILL_SHRINKAGE" *urb-fill-shrinkage* 0.0 1.0))
+      ("URB_FILL_SHRINKAGE" *urb-fill-shrinkage* 0.0 1.0)
+      ;; 5.7.38 desperdicio de prefabricados (suministro por unidades)
+      ("URB_PREFAB_WASTE" *urb-prefab-waste* 0.0 0.5))
     (setq value
       (urb:parse-real
         (urb:safe-string (urb:config-read (car pair)) "")))
@@ -17734,12 +17768,14 @@
 (defun urb:overexc-set-tiles ()
   (set_tile "over_depth" (rtos *urb-overexc-depth* 2 2))
   (set_tile "cut_exp" (rtos (* 100.0 *urb-cut-expansion*) 2 1))
-  (set_tile "fill_shrink" (rtos (* 100.0 *urb-fill-shrinkage*) 2 1)))
+  (set_tile "fill_shrink" (rtos (* 100.0 *urb-fill-shrinkage*) 2 1))
+  (set_tile "prefab_waste" (rtos (* 100.0 *urb-prefab-waste*) 2 1)))
 
-(defun urb:overexc-capture (/ h e s)
+(defun urb:overexc-capture (/ h e s w)
   (setq h (urb:parse-real (get_tile "over_depth"))
         e (urb:parse-real (get_tile "cut_exp"))
-        s (urb:parse-real (get_tile "fill_shrink")))
+        s (urb:parse-real (get_tile "fill_shrink"))
+        w (urb:parse-real (get_tile "prefab_waste")))
   (cond
     ((or (null h) (< h 0.0) (> h 3.0))
       (alert "El material no portante debe estar entre 0 y 3 m.") nil)
@@ -17747,13 +17783,17 @@
       (alert "La expansion del corte debe estar entre 0 y 100 %.") nil)
     ((or (null s) (< s 0.0) (> s 100.0))
       (alert "El sobreconsumo del relleno debe estar entre 0 y 100 %.") nil)
+    ((or (null w) (< w 0.0) (> w 50.0))
+      (alert "El desperdicio de prefabricados debe estar entre 0 y 50 %.") nil)
     (T
       (setq *urb-overexc-depth* h
             *urb-cut-expansion* (/ e 100.0)
-            *urb-fill-shrinkage* (/ s 100.0))
+            *urb-fill-shrinkage* (/ s 100.0)
+            *urb-prefab-waste* (/ w 100.0))
       (urb:config-write "URB_OVEREXC_DEPTH" (rtos h 2 4))
       (urb:config-write "URB_CUT_EXPANSION" (rtos (/ e 100.0) 2 6))
       (urb:config-write "URB_FILL_SHRINKAGE" (rtos (/ s 100.0) 2 6))
+      (urb:config-write "URB_PREFAB_WASTE" (rtos (/ w 100.0) 2 6))
       T)))
 
 (defun urb:earthworks-capture (/ left right cross max-depth adoquin arena sbg trit
@@ -18478,6 +18518,7 @@
         ": row { : text { label = \"Material no portante bajo el terreno (m)\"; width = 38; } : edit_box { key = \"over_depth\"; edit_width = 12; } }"
         ": row { : text { label = \"Expansion del material de corte (%)\"; width = 38; } : edit_box { key = \"cut_exp\"; edit_width = 12; } }"
         ": row { : text { label = \"Sobreconsumo del relleno compactado (%)\"; width = 38; } : edit_box { key = \"fill_shrink\"; edit_width = 12; } }"
+        ": row { : text { label = \"Desperdicio de prefabricados (%)\"; width = 38; } : edit_box { key = \"prefab_waste\"; edit_width = 12; } }"
         ": button { label = \"Guardar sobreexcavacion\"; key = \"save_over\"; width = 30; } }"
         "cancel_button; }"
         "urb_profile_editor : dialog { label = \"Perfil estratigrafico vial\";"
@@ -25117,20 +25158,49 @@
       (setq hit (inters p q a b nil))))
   (if hit (list (car hit) (cadr hit)) nil))
 
-(defun urb:road-clip-offset-chain (curve cap1 cap2 / vb pts bulges p0 pn first-cap last-cap hit)
+;; 5.7.38 (reporte del usuario 2026-09-28, VIA-26 en U/remate de 224,8 m2:
+;; "Tierras PENDIENTES: huella invalida (105751.0 224.848 T nil 8)"): con
+;; costados en ARCO el recorte cambiaba el extremo de un segmento curvo sin
+;; tocar su bulge -> arcos gigantes (huella de 105.751 m2 autointersectada),
+;; y en un remate el costado llega casi paralelo a la tapa, asi que su
+;; prolongacion caia a 4-12 m. Ahora los arcos se densifican (~1 punto por
+;; metro, bulge 0) y si la prolongacion pasa de *urb-road-cap-max-ext* el
+;; extremo se proyecta en perpendicular sobre la tapa.
+(setq *urb-road-cap-max-ext* 3.0)
+
+(defun urb:point-line-projection (p a b / dx dy l2 u)
+  (setq dx (- (car b) (car a)) dy (- (cadr b) (cadr a)) l2 (+ (* dx dx) (* dy dy)))
+  (if (< l2 1e-12)
+    (list (car a) (cadr a))
+    (progn
+      (setq u (/ (+ (* (- (car p) (car a)) dx) (* (- (cadr p) (cadr a)) dy)) l2))
+      (list (+ (car a) (* u dx)) (+ (cadr a) (* u dy))))))
+
+(defun urb:road-cap-end (prev p cap / hit)
+  (setq hit (if prev (inters prev p (car cap) (cadr cap) nil)))
+  (if (and hit (<= (distance (list (car hit) (cadr hit)) (list (car p) (cadr p))) *urb-road-cap-max-ext*))
+    (list (car hit) (cadr hit))
+    (urb:point-line-projection p (car cap) (cadr cap))))
+
+(defun urb:road-clip-offset-chain (curve cap1 cap2 / vb pts bulges p0 pn first-cap last-cap)
   ;; OFFSET desplaza tambien los extremos longitudinalmente cuando el
   ;; costado es oblicuo. Recortarlos contra las rectas de los bordes
   ;; inicial/final mantiene exactamente la huella dentro de sus tapas.
-  (setq vb (urb:lwpoly-vertex-bulges curve) pts (car vb) bulges (cadr vb)
-        p0 (car pts) pn (last pts))
+  (setq vb (urb:lwpoly-vertex-bulges curve) pts (car vb) bulges (cadr vb))
+  (if (vl-some '(lambda (b) (> (abs b) 1e-9)) bulges)
+    (setq pts (mapcar '(lambda (p) (list (car p) (cadr p)))
+                (urb:lwpoly-points-with-arcs-fine curve))
+          bulges (mapcar '(lambda (p) 0.0) pts)))
+  (setq p0 (car pts) pn (last pts))
   (if (<= (urb:point-line-distance p0 (car cap1) (cadr cap1))
           (urb:point-line-distance p0 (car cap2) (cadr cap2)))
     (setq first-cap cap1 last-cap cap2)
     (setq first-cap cap2 last-cap cap1))
-  (setq hit (urb:curve-end-tangent-intersection curve T (car first-cap) (cadr first-cap)))
-  (if hit (setq pts (cons hit (cdr pts))))
-  (setq hit (urb:curve-end-tangent-intersection curve nil (car last-cap) (cadr last-cap)))
-  (if hit (setq pts (reverse (cons hit (cdr (reverse pts))))))
+  (if (> (length pts) 1)
+    (progn
+      (setq pts (cons (urb:road-cap-end (cadr pts) p0 first-cap) (cdr pts)))
+      (setq pts (reverse (cons (urb:road-cap-end (cadr (reverse pts)) pn last-cap)
+                               (cdr (reverse pts)))))))
   (list pts bulges))
 
 (defun urb:road-earthwork-footprint (boundary axis left right direction / ends chains pl p near raw ang side width off pts all ring result failed gap test vb basepts cap1 cap2 result-area base-area self-cross bounded)
@@ -28045,6 +28115,17 @@
       (setq app "URB_SENDERO"
             new-data (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data))
             category "Senderos"))
+    ;; 5.7.38 (reporte del usuario: el lote ignoraba los bioswales "no son
+    ;; elementos del programa"): el bioswale y la canuela pluvial guardan
+    ;; etapa/subetapa en su propia xdata (posiciones 1 y 2).
+    ((setq data (urb:get-xdata-strings ename "URB_BIOSWALE"))
+      (setq app "URB_BIOSWALE"
+            new-data (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data))
+            category "Bioswales"))
+    ((setq data (urb:get-xdata-strings ename "URB_CANUELA_PLU"))
+      (setq app "URB_CANUELA_PLU"
+            new-data (urb:replace-nth 2 subetapa (urb:replace-nth 1 etapa data))
+            category "Canuelas pluviales"))
     ((and obj (assoc "ETAPA" (urb:block-attribute-values obj)))
       (setq category "Redes / otros bloques")))
   (if category
@@ -28056,6 +28137,11 @@
               (if (not (and (urb:set-xdata-strings ename app new-data)
                             (equal new-data (urb:get-xdata-strings ename app))))
                 (exit)))
+            ;; 5.7.38: la via muestra VIA_ETAPA/VIA_SUBETAPA en Propiedades;
+            ;; antes solo cambiaba la xdata y el atributo quedaba viejo
+            ;; (9 vias del maestro seguian en 1/1).
+            (if (and (= app "URB_VIA") (assoc "VIA_ETAPA" atts))
+              (mp:setatts ename (list (cons "VIA_ETAPA" etapa) (cons "VIA_SUBETAPA" subetapa))))
             (if has-etapa
               (progn
                 (urb:set-block-attribute obj "ETAPA" etapa)
@@ -28232,6 +28318,7 @@
         ": row { : text { label = \"Material no portante bajo el terreno (m)\"; width = 38; } : edit_box { key = \"over_depth\"; edit_width = 12; } }"
         ": row { : text { label = \"Expansion del material de corte (%)\"; width = 38; } : edit_box { key = \"cut_exp\"; edit_width = 12; } }"
         ": row { : text { label = \"Sobreconsumo del relleno compactado (%)\"; width = 38; } : edit_box { key = \"fill_shrink\"; edit_width = 12; } }"
+        ": row { : text { label = \"Desperdicio de prefabricados (%)\"; width = 38; } : edit_box { key = \"prefab_waste\"; edit_width = 12; } }"
         ": text { label = \"Si el corte es menor que esa altura, igual se excava hasta el suelo portante y el relleno crece.\"; } }"
         ": boxed_column { label = \"Redes\";"
         ": popup_list { label = \"Relleno de tramos de red hasta\"; key = \"relleno_ref\"; }"
@@ -31109,6 +31196,10 @@
 ;; La actividad de cada tipo es el TEXTO EXACTO del presupuesto real
 ;; (match directo por igualdad; si renombran la actividad cae al score).
 ;; catalogo: (codigo etiqueta actividad-ppto forma ancho largo)
+;; 5.7.38: tipos cubiertos por el indicador de mobiliario urbano por m2
+(setq *urb-mob-por-indicador*
+  '("CANECA" "BANCA-M30" "BANCA-L206" "PARADERO" "PROTECTOR-ARBOL" "SENAL-SITP"))
+
 (setq *urb-mob-tipos*
   '(("CANECA" "Caneca doble M-121"
       "Suministro e instalación de dos canecas M-121" "CIRC" 0.50 0.50)
@@ -31395,6 +31486,9 @@
     ((setq data (urb:get-xdata-strings ename "URB_BIOSWALE"))
       (list "Bioswale" (urb:safe-string (nth 1 data) "")
         (urb:safe-string (nth 2 data) "")))
+    ((setq data (urb:get-xdata-strings ename "URB_CANUELA_PLU"))
+      (list "Canuela pluvial" (urb:safe-string (nth 1 data) "")
+        (urb:safe-string (nth 2 data) "")))
     ((and (setq obj (urb:as-vla-object ename))
           (setq atts (urb:block-attribute-values obj))
           (assoc "ETAPA" atts))
@@ -31407,7 +31501,7 @@
 (defun urb:loc-collect-etapa (etapa sub / apps sets a ss i e seen out info)
   (setq apps '("URB_ANDEN_BLOCK" "URB_VIA" "URB_PREFAB_BLOCK"
                "URB_GREEN_BLOCK" "URB_RAMPA_BLOCK" "URB_SENDERO"
-               "URB_BIOSWALE"))
+               "URB_BIOSWALE" "URB_CANUELA_PLU"))
   (setq sets nil)
   (foreach a apps
     (if (and (tblsearch "APPID" a)
@@ -31569,6 +31663,47 @@
     (urb:ppto-rows-canuela-plu)
     (urb:ppto-rows-zonasverdes)
     (urb:ppto-rows-senalizacion)))
+
+;; 5.7.38: filas de suministro de piezas prefabricadas (y su transporte)
+(defun urb:ppto-prefab-waste-p (row / n um)
+  ;; urb:ppto-normalize quita tildes y deja MINUSCULAS: se pasa a mayusculas
+  (setq n (strcase (urb:ppto-normalize (urb:safe-string (nth 1 row) "")))
+        um (strcase (urb:safe-string (nth 7 row) "")))
+  (and (member um '("UN" "KG"))
+       (wcmatch n (strcat "ADOQUIN*,LOSETA *,BORDILLO PREFABRICADO*,SARDINEL PREFABRICADO*,"
+                          "SUMINISTRO SARDINEL*,SUMINISTRO PIEZA REMATE*,"
+                          "SUMINISTRO DE CA*UELA PREFABRICADA*,TRANSPORTE DE PREFABRICADOS*"))))
+
+(defun urb:ppto-apply-waste (rows)
+  (if (and (numberp *urb-prefab-waste*) (> *urb-prefab-waste* 0.0))
+    (mapcar '(lambda (r)
+               (if (and r (numberp (nth 8 r)) (urb:ppto-prefab-waste-p r))
+                 (urb:replace-nth 8 (* (nth 8 r) (+ 1.0 *urb-prefab-waste*)) r)
+                 r))
+            rows)
+    rows))
+
+;; 5.7.38: UNA sola lista de colectores para la exportacion. El boton
+;; ACTUALIZAR del dialogo y la regeneracion por parametricas usaban una
+;; copia SIN zonas verdes (la zona verde desaparecia del libro si se
+;; usaban). Tambien aplica el desperdicio de prefabricados.
+(defun urb:ppto-collect-rows (timed)
+  (urb:ppto-apply-waste
+    (if timed
+      (append
+        (urb:rows-timed "vias" 'urb:ppto-rows-vias)
+        (urb:rows-timed "andenes" 'urb:ppto-rows-andenes)
+        (urb:rows-timed "prefabs" 'urb:ppto-rows-prefabs)
+        (urb:rows-timed "rampas" 'urb:ppto-rows-rampas)
+        (urb:rows-timed "tramos" 'urb:ppto-rows-tramos)
+        (urb:rows-timed "puntos" 'urb:ppto-rows-puntos)
+        (urb:rows-timed "mobiliario" 'urb:ppto-rows-mobiliario)
+        (urb:rows-timed "senderos" 'urb:ppto-rows-senderos)
+        (urb:rows-timed "zonasverdes" 'urb:ppto-rows-zonasverdes)
+        (urb:rows-timed "bioswale" 'urb:ppto-rows-bioswale)
+        (urb:rows-timed "canuela-plu" 'urb:ppto-rows-canuela-plu)
+        (urb:rows-timed "senalizacion" 'urb:ppto-rows-senalizacion))
+      (urb:track-collect-rows))))
 
 (defun urb:track-words-match-p (termwords candwords / ok w)
   (setq ok T)
@@ -33392,6 +33527,111 @@
               (prompt "\nERROR: no fue posible guardar los datos del sendero.")
               nil)))))))
 
+;; ---------- 5.7.38 BIOSWALE EN BLOQUE ----------
+;; Pedido del usuario (2026-09-28): "los bioswale no estan quedando en
+;; bloque y por tal razon no me deja clasificarlo a ninguna subetapa; quiero
+;; que en propiedades me salga lo respecto a los calculos". Igual que el
+;; sendero de 5.6.6: contorno + relleno dentro de un bloque con atributos
+;; invisibles (area, perimetro, espesor y cada cantidad de la receta). La
+;; xdata sigue siendo URB_BIOSWALE con el mismo orden, asi el colector, el
+;; cambio de etapa en lote y la exportacion leen igual bloque o polilinea.
+(setq *urb-bioswale-tags*
+  '("EXCAVACION_M3" "BASE_GRAVILLA_M3" "GRAVILLA_25_40_M3" "GRAVILLA_10_15_M3"
+    "RELLENO_ORGANICO_M3" "TUBERIA_PERFORADA_ML" "REJILLA_UND" "JARDINERIA_M2"))
+
+;; cantidades de la receta del bioswale (mismas reglas del colector)
+(defun urb:bioswale-cantidades (entry area per / esp out receta factor)
+  (setq esp (urb:send-espesor-de entry))
+  (foreach receta (nth 5 entry)
+    (setq factor
+      (if (urb:string-equal-p (nth 0 receta)
+            "Excavación en material común (incluye cargue, transporte y disposición final)")
+        esp (nth 3 receta)))
+    (setq out (cons (* factor (cond ((= (nth 2 receta) "PER") per)
+                                    ((= (nth 2 receta) "UN") 1.0)
+                                    (T area))) out)))
+  (reverse out))
+
+(defun urb:package-bioswale
+  (ename hatch entry etapa sub datos / boundary area per point handle objects
+   block-name block-definition copy-result insert-result block-ref block-ename
+   cantidades tags grp)
+  (setq boundary (vlax-ename->vla-object ename)
+        area (vla-get-Area boundary)
+        per (vla-get-Length boundary)
+        point (if (urb:lwpoly-points ename) (car (urb:lwpoly-points ename)) '(0.0 0.0 0.0))
+        handle (vla-get-Handle boundary)
+        objects (list boundary)
+        cantidades (urb:bioswale-cantidades entry area per))
+  (if (and hatch (urb:valid-vla-object-p hatch))
+    (setq objects (append objects (list hatch))))
+  (setq block-name (strcat "URB_BIOSWALE_" handle "_" (itoa (getvar "MILLISECS")))
+        block-definition (vla-Add (vla-get-Blocks (urb:doc)) (vlax-3d-point '(0.0 0.0 0.0)) block-name)
+        copy-result
+          (vl-catch-all-apply 'vla-CopyObjects
+            (list (urb:doc) (urb:object-array-variant objects) block-definition)))
+  (if (vl-catch-all-error-p copy-result)
+    (progn
+      (urb:safe-delete block-definition)
+      (prompt (strcat "\nERROR al crear el bloque del bioswale: " (vl-catch-all-error-message copy-result)))
+      nil)
+    (progn
+      (urb:set-block-draw-order block-definition (urb:variant-object-list copy-result))
+      (foreach par
+        (list (cons "TIPO" (nth 1 entry)) (cons "ETAPA" etapa) (cons "SUBETAPA" sub)
+              (cons "AREA_M2" (rtos area 2 2)) (cons "PERIMETRO_M" (rtos per 2 2))
+              (cons "ESPESOR_M" (rtos (urb:send-espesor-de entry) 2 3)))
+        (urb:add-invisible-attribute block-definition point (car par) (car par) (cdr par)))
+      (setq tags *urb-bioswale-tags*)
+      (foreach q cantidades
+        (if tags
+          (urb:add-invisible-attribute block-definition point (car tags) (car tags) (rtos q 2 2)))
+        (setq tags (cdr tags)))
+      (setq insert-result
+        (vl-catch-all-apply 'vla-InsertBlock
+          (list (urb:space) (vlax-3d-point '(0.0 0.0 0.0)) block-name 1.0 1.0 1.0 0.0)))
+      (if (vl-catch-all-error-p insert-result)
+        (progn
+          (urb:safe-delete block-definition)
+          (prompt (strcat "\nERROR al insertar el bioswale: " (vl-catch-all-error-message insert-result)))
+          nil)
+        (progn
+          (setq block-ref insert-result block-ename (urb:as-ename block-ref))
+          (urb:ensure-layer (nth 6 entry) (nth 3 entry) T)
+          (vla-put-Layer block-ref (nth 6 entry))
+          (if (urb:set-xdata-strings block-ename "URB_BIOSWALE" datos)
+            (progn
+              ;; el grupo contorno+relleno de las versiones anteriores sobra
+              (setq grp (vl-catch-all-apply 'vla-Item
+                          (list (vla-get-Groups (urb:doc)) (strcat "URB_BIOSWALE_" handle))))
+              (if (not (vl-catch-all-error-p grp)) (vl-catch-all-apply 'vla-Delete (list grp)))
+              (foreach o objects (urb:safe-delete o))
+              block-ref)
+            (progn
+              (urb:safe-delete block-ref)
+              (urb:safe-delete block-definition)
+              (prompt "\nERROR: no fue posible guardar los datos del bioswale.")
+              nil)))))))
+
+;; migracion: bioswales dibujados como polilinea + relleno -> bloque
+(defun urb:migrate-bioswale-blocks (/ ss i e datos h hs hatch j n r)
+  (setq ss (ssget "_X" '((0 . "LWPOLYLINE") (-3 ("URB_BIOSWALE")))) i 0 n 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq e (ssname ss i) datos (urb:get-xdata-strings e "URB_BIOSWALE")
+            h (cdr (assoc 5 (entget e))) hatch nil j 0)
+      (if (setq hs (ssget "_X" '((0 . "HATCH") (-3 ("URB_BIOSWALE_GEN")))))
+        (repeat (sslength hs)
+          (if (= (urb:safe-string (car (urb:get-xdata-strings (ssname hs j) "URB_BIOSWALE_GEN")) "") h)
+            (setq hatch (vlax-ename->vla-object (ssname hs j))))
+          (setq j (1+ j))))
+      (setq r (vl-catch-all-apply 'urb:package-bioswale
+                (list e hatch *urb-bioswale-tipo*
+                      (urb:safe-string (nth 1 datos) "1") (urb:safe-string (nth 2 datos) "1") datos)))
+      (if (and r (not (vl-catch-all-error-p r))) (setq n (1+ n)))
+      (setq i (1+ i))))
+  n)
+
 ;; copia temporal del contorno de un sendero en BLOQUE, con sus arcos, para
 ;; poder medir sobreancho y tierras con las mismas funciones de siempre
 (defun urb:send-temp-contour (ename)
@@ -33517,6 +33757,18 @@
             (urb:set-xdata-strings ename appid nil)
             (prompt "\nNo se creo el bloque del sendero. Se conserva el contorno para reintentar; se retira el hatch incompleto."))
           (urb:area-created-earthworks (urb:as-ename bloque) "SENDERO" (urb:send-espesor-de entry)))))
+    ;; 5.7.38: el bioswale tambien queda en bloque con sus cantidades
+    (if (= appid "URB_BIOSWALE")
+      (progn
+        (setq bloque
+          (vl-catch-all-apply 'urb:package-bioswale
+            (list ename (if (vl-catch-all-error-p hatch) nil hatch) entry etapa sub datos)))
+        (if (or (vl-catch-all-error-p bloque) (null bloque))
+          (progn
+            (if (vl-catch-all-error-p bloque)
+              (prompt (strcat "\nError de empaquetado: " (vl-catch-all-error-message bloque))))
+            (setq bloque nil)
+            (prompt "\nEl bioswale queda como contorno + relleno (no se pudo crear el bloque).")))))
     (if (or (/= appid "URB_SENDERO") bloque)
       (progn
         (setq n (1+ n))
@@ -33996,9 +34248,14 @@
                    (T area))))
             (if (not (and con-anillo (= (nth 2 receta) "PER")))
               (progn
+                ;; 5.7.38: el ID de la fila del bioswale es su seccion del
+                ;; libro (BIORETENEDORES): la excavacion tiene el mismo
+                ;; nombre que la del movimiento de tierras de la red pluvial
+                ;; (2.4.3.3) y sin esto caia alli y no en 2.4.3.6.
                 (setq fila
                   (urb:ppto-row (nth 2 entry) (nth 0 receta)
-                    (nth 1 entry) "" "" etapa sub (nth 1 receta) qty
+                    (if (= familia "BIOSWALE") (nth 4 entry) (nth 1 entry))
+                    "" "" etapa sub (nth 1 receta) qty
                     handle))
                 (if fila (setq rows (cons fila rows))))))
           ;; parametricas de la familia: AREA, PERIMETRO y UNIDAD
@@ -36147,6 +36404,16 @@
       (setq i (1+ i))))
   (foreach g (reverse grupos)
     (setq entry (assoc (nth 1 g) *urb-mob-tipos*))
+    ;; 5.7.38 (pedido del usuario 2026-09-28: "mobiliario toca meterlo asi
+    ;; como se hizo con senalizacion ... indicador por m2 y dejamos aparte
+    ;; los contenedores de raices"): el mobiliario urbano FUERA de parques
+    ;; va en el libro como indicador por m2 de subetapa, asi que las piezas
+    ;; dibujadas (bancas, canecas, paraderos, protectores, senal SITP) no
+    ;; se exportan una por una. Contenedores de raices, arboles y bolardos
+    ;; (capitulos de rampa) siguen igual; dentro de un parque, todo sigue.
+    (if (and entry (= (urb:safe-string (nth 6 g) "") "")
+             (member (nth 0 entry) *urb-mob-por-indicador*))
+      (setq entry nil))
     (if entry
       (progn
         ;; red del tipo: campo 7 opcional del catalogo (default ANDEN;
@@ -36607,14 +36874,25 @@
                     ((member (strcase mat) '("CSR" "CCR" "CER"))
                       (strcat "en concreto " (strcase mat)))
                     (T mat)))
-                (list
-                  (urb:ppto-row red
-                    (strcat "Instalacion tuberia " mat-libro " " diam)
-                    id pini pfin etapa sub "ML" lng handle)
-                  (urb:ppto-row red
-                    (strcat "Suministro tuberia " mat-libro " " diam)
-                    id pini pfin etapa sub "UN"
-                    (float (fix (+ 0.999999 (/ lng 6.0)))) handle)))))
+                (append
+                  (list
+                    (urb:ppto-row red
+                      (strcat "Instalacion tuberia " mat-libro " " diam)
+                      id pini pfin etapa sub "ML" lng handle)
+                    (urb:ppto-row red
+                      (strcat "Suministro tuberia " mat-libro " " diam)
+                      id pini pfin etapa sub "UN"
+                      (float (fix (+ 0.999999 (/ lng 6.0)))) handle))
+                  ;; 5.7.38 (pedido del usuario: "tiene que haber uniones
+                  ;; cuando son tramos de cada 6 metros"): la GRP se une con
+                  ;; acople -- uno por tubo de 6 m. PVC flexible, PVC presion
+                  ;; (union platino) y HD traen la union integrada (campana y
+                  ;; empaque), sin pieza aparte.
+                  (if (= (strcase mat) "GRP")
+                    (list
+                      (urb:ppto-row red (strcat "Union GRP " diam)
+                        id pini pfin etapa sub "UN"
+                        (float (fix (+ 0.999999 (/ lng 6.0)))) handle)))))))
           ;; 2026-09-02: carcamo de proteccion (RAS 0330: cruces o
           ;; recubrimiento insuficiente) -- fila ML solo si el tramo lo
           ;; declara (CARCAMO=SI); actividad "CARCAMO" del libro.
@@ -36808,6 +37086,24 @@
                 (urb:ppto-row red
                   "Cinta de señalización para red de alumbrado público"
                   id "" "" etapa sub "ML" lng handle))))
+          ;; 5.7.38 (pedido del usuario): reposicion de superficie en MT y
+          ;; BT/AP cuando el tramo la declara (ventana del tramo). Con "SI" el
+          ;; tipo sale de la ubicacion: Calzada -> pavimento, anden -> adoquin.
+          ;; Area = REPOSICION_M2 (longitud x ancho de reposicion).
+          (setq tiporep
+            (mp:reposicion-elec-tipo (cdr (assoc "TIPO_REPOSICION" atts))
+                                     (cdr (assoc "UBICACION" atts))))
+          (if (/= tiporep "")
+            (setq rows
+              (append rows
+                (list
+                  (urb:ppto-row red
+                    (if (= tiporep "ADOQUIN")
+                      "Reposición de andén en adoquín (levante y reinstalación)"
+                      "Reposición de pavimento flexible y estructura")
+                    id "" "" etapa sub "M2"
+                    (atof (urb:safe-string (cdr (assoc "REPOSICION_M2" atts)) "0"))
+                    handle)))))
           (foreach r rows (if r (setq out (cons r out))))))
       (setq i (1+ i))))
   out)
@@ -38918,27 +39214,10 @@
                     *urb-ppto-wb* wb
                     *urb-ppto-param* (urb:ppto-param-read wb)
                     *urb-ppto-param-dirty* nil)
-              (setq raw
-                (append
-                  (urb:rows-timed "vias" 'urb:ppto-rows-vias)
-                  (urb:rows-timed "andenes" 'urb:ppto-rows-andenes)
-                  (urb:rows-timed "prefabs" 'urb:ppto-rows-prefabs)
-                  (urb:rows-timed "rampas" 'urb:ppto-rows-rampas)
-                  (urb:rows-timed "tramos" 'urb:ppto-rows-tramos)
-                  (urb:rows-timed "puntos" 'urb:ppto-rows-puntos)
-                  (urb:rows-timed "mobiliario" 'urb:ppto-rows-mobiliario)
-                  (urb:rows-timed "senderos" 'urb:ppto-rows-senderos)
-                  ;; 2026-09-14 (reporte del usuario: "sigue sin traerme lo
-                  ;; referente a zonas verdes"). urb:ppto-rows-zonasverdes
-                  ;; SI existia y SI emitia bien (2 bloques, 523,90 m2
-                  ;; comprobados), pero estaba en urb:track-collect-rows -el
-                  ;; colector del comando de busqueda- y NO en esta lista, que
-                  ;; es la que usa la exportacion. Por eso la zona verde nunca
-                  ;; llegaba al libro, ni siquiera como huerfana.
-                  (urb:rows-timed "zonasverdes" (quote urb:ppto-rows-zonasverdes))
-                  (urb:rows-timed "bioswale" 'urb:ppto-rows-bioswale)
-                  (urb:rows-timed "canuela-plu" 'urb:ppto-rows-canuela-plu)
-                  (urb:rows-timed "senalizacion" 'urb:ppto-rows-senalizacion)))
+              ;; 2026-09-14: zonas verdes incluidas (antes solo estaban en el
+              ;; colector del comando de busqueda). 5.7.38: una sola lista
+              ;; (urb:ppto-collect-rows) para todas las pasadas del export.
+              (setq raw (urb:ppto-collect-rows T))
               ;; 2) match contra el vocabulario vivo (equivalencias del
               ;; LIBRO primero, cascada automatica despues)
               (setq *urb-ppto-stage* "match contra vocabulario")
@@ -38967,19 +39246,7 @@
                     (prompt "\nActualizando cantidades desde el modelo...")
                     (setq *urb-ppto-param-dirty* nil)
                     (setq *urb-ppto-param* (urb:ppto-param-read wb))
-                    (setq raw
-                      (append
-                        (urb:ppto-rows-vias)
-                        (urb:ppto-rows-andenes)
-                        (urb:ppto-rows-prefabs)
-                        (urb:ppto-rows-rampas)
-                        (urb:ppto-rows-tramos)
-                        (urb:ppto-rows-puntos)
-                  (urb:ppto-rows-mobiliario)
-                  (urb:ppto-rows-senderos)
-                  (urb:ppto-rows-bioswale)
-                  (urb:ppto-rows-canuela-plu)
-    (urb:ppto-rows-senalizacion)))
+                    (setq raw (urb:ppto-collect-rows nil))
                     (setq final (urb:ppto-match-all raw vocab dwg))
                     (setq *urb-ppto-final-prev* final))
                   ;; el usuario eligio otra hoja del presupuesto (boton
@@ -39040,19 +39307,7 @@
                     (progn
                       (setq *urb-ppto-param-dirty* nil)
                       (setq *urb-ppto-param* (urb:ppto-param-read wb))
-                      (setq raw
-                        (append
-                          (urb:ppto-rows-vias)
-                          (urb:ppto-rows-andenes)
-                          (urb:ppto-rows-prefabs)
-                          (urb:ppto-rows-rampas)
-                          (urb:ppto-rows-tramos)
-                          (urb:ppto-rows-puntos)
-                  (urb:ppto-rows-mobiliario)
-                  (urb:ppto-rows-senderos)
-                  (urb:ppto-rows-bioswale)
-                  (urb:ppto-rows-canuela-plu)
-    (urb:ppto-rows-senalizacion)))
+                      (setq raw (urb:ppto-collect-rows nil))
                       (setq final (urb:ppto-match-all raw vocab dwg))))
                   (setq huerfanas *urb-ppto-huerfanas*
                         total *urb-ppto-total*
@@ -40894,6 +41149,18 @@
       (setq pruned (vl-catch-all-apply 'urb:normalize-anden-prefab-draworder nil))
       (if (not (vl-catch-all-error-p pruned))
         (urb:config-write "URB_MIGRATE_5733_ANDEN_FONDO" "OK"))))
+  ;; 10) v5.7.38, una sola vez por dibujo: bioswales en polilinea -> bloque
+  ;; con sus cantidades en Propiedades.
+  (if (/= (urb:safe-string
+            (urb:config-read "URB_MIGRATE_5738_BIOSWALE_BLOQUE") "") "OK")
+    (progn
+      (setq pruned (vl-catch-all-apply 'urb:migrate-bioswale-blocks nil))
+      (if (not (vl-catch-all-error-p pruned))
+        (progn
+          (urb:config-write "URB_MIGRATE_5738_BIOSWALE_BLOQUE" "OK")
+          (if (> pruned 0)
+            (prompt (strcat "\nMigracion automatica: " (itoa pruned)
+              " bioswale(s) pasado(s) a bloque con sus cantidades.")))))))
   (princ))
 
 ;; 5.7.33: un anden nuevo o regenerado (EDITAR) queda encima de todo lo que
