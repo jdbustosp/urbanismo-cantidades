@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.38")
+(setq *urb-version* "5.7.39")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -2035,6 +2035,40 @@
       (urb:safe-delete cp)
       (if (and attempt (not (vl-catch-all-error-p attempt)))
         (if (<= (abs (- (vla-get-Area attempt) original-area)) 1e-5)
+          (setq result attempt)
+          (urb:safe-delete attempt)))))
+  ;; 5.7.39 (reporte del usuario 2026-09-29, anden en C alrededor de un
+  ;; remate, contorno 230C86: "fallo el acabado de losetas"): los recortes de
+  ;; bordillos y sardineles dejaron 15 tramos de menos de 1 cm y ACIS
+  ;; rechaza la region ("Invalid input"). Segundo respaldo, tambien sobre una
+  ;; COPIA: quitar los vertices a menos de 1 cm del siguiente (conservando el
+  ;; bulge del que queda) y aceptar solo si el area cambia menos de
+  ;; max(0,05 m2; 0,05 %). Medido: 157,64 -> 157,66 m2 y la region sale.
+  (if (and (vl-catch-all-error-p result)
+           (= (vla-get-ObjectName obj) "AcDbPolyline")
+           (= (vla-get-Closed obj) :vlax-true))
+    (progn
+      (setq original-area (vla-get-Area obj) cp nil)
+      (setq attempt
+        (vl-catch-all-apply
+          '(lambda (/ vb pts buls n k p q out e)
+             (setq vb (urb:lwpoly-vertex-bulges (vlax-vla-object->ename obj))
+                   pts (car vb) buls (cadr vb) n (length pts) k 0)
+             (while (< k n)
+               (setq p (nth k pts) q (nth (rem (1+ k) n) pts))
+               (if (>= (distance (list (car p) (cadr p)) (list (car q) (cadr q))) 0.01)
+                 (setq out (cons (list (car p) (cadr p) (nth k buls)) out)))
+               (setq k (1+ k)))
+             (if (and (> (length out) 2) (< (length out) n))
+               (progn
+                 (setq e (urb:poly-chain-polyline (reverse out)))
+                 (vla-put-Closed (vlax-ename->vla-object e) :vlax-true)
+                 (setq cp (vlax-ename->vla-object e))
+                 (urb:add-region-from-object cp))))))
+      (if cp (urb:safe-delete cp))
+      (if (and attempt (not (vl-catch-all-error-p attempt)))
+        (if (<= (abs (- (vla-get-Area attempt) original-area))
+                (max 0.05 (* 0.0005 original-area)))
           (setq result attempt)
           (urb:safe-delete attempt)))))
   result)
@@ -25203,6 +25237,31 @@
                                (cdr (reverse pts)))))))
   (list pts bulges))
 
+;; 5.7.39 (reporte del usuario 2026-09-29, VIA-27 en remate de 665 m2 sin
+;; movimiento de tierras): el lado "hacia afuera" de cada costado se decidia
+;; con UN punto (la mitad del desplazamiento). En una via que se enrolla
+;; (remate/cul-de-sac) ese punto engana y un costado se desplazaba hacia
+;; ADENTRO: huella de 632 m2 < 665 de calzada, rechazada. Ahora se prueban
+;; los dos sentidos y gana el que deja fuera del contorno la mayoria de 11
+;; puntos repartidos a lo largo del costado.
+(defun urb:road-offset-fuera-ratio (curve ring / L k n)
+  (setq L (urb:curve-length curve) k 0 n 0)
+  (repeat 11
+    (if (not (urb:point-in-poly-p (urb:curve-pt curve (* L (/ (+ k 0.5) 11.0))) ring))
+      (setq n (1+ n)))
+    (setq k (1+ k)))
+  (/ n 11.0))
+
+(defun urb:road-offset-outside (pl width ring / a b ra rb)
+  (setq a (urb:anden-offset-safe pl width)
+        b (urb:anden-offset-safe pl (- width))
+        ra (if a (urb:road-offset-fuera-ratio a ring) -1.0)
+        rb (if b (urb:road-offset-fuera-ratio b ring) -1.0))
+  (cond
+    ((and a (>= ra rb)) (if b (entdel b)) a)
+    (b (if a (entdel a)) b)
+    (T nil)))
+
 (defun urb:road-earthwork-footprint (boundary axis left right direction / ends chains pl p near raw ang side width off pts all ring result failed gap test vb basepts cap1 cap2 result-area base-area self-cross bounded)
   ;; Huella REAL: desplazar solo los costados, nunca promediar sus anchos.
   ;; Izquierda/derecha relativas al sentido de abscisado. Tapas sin prolongar.
@@ -25231,12 +25290,7 @@
         (if (urb:string-equal-p direction "Final") (setq side (- side)))
         (setq width (if (> side 0.0) left right))
         (setq off (if (<= width 1e-9) (urb:as-ename (vla-Copy (vlax-ename->vla-object pl)))
-                    (urb:anden-offset-safe pl width)))
-        (if (and off (> width 1e-9))
-          (progn
-            (setq test (urb:curve-pt off (* 0.5 (urb:curve-length off))))
-            (if (urb:point-in-poly-p test ring)
-              (progn (entdel off) (setq off (urb:anden-offset-safe pl (- width)))))))
+                    (urb:road-offset-outside pl width ring)))
         (if off
           (progn
             (setq pts (urb:road-clip-offset-chain off cap1 cap2))
@@ -25279,7 +25333,38 @@
               (list "FALLBACK_SIMETRICO_OK"
                 (vla-get-Area (vlax-ename->vla-object result))
                 (vla-get-Area (vlax-ename->vla-object boundary)))))))
+      ;; 5.7.39 (VIA-27, via que termina en un remate con arco > 180 grados):
+      ;; ese arco se toma por "borde extremo" y los costados salen mal. Ultimo
+      ;; respaldo con sobreanchos iguales: desplazar TODO el contorno hacia
+      ;; afuera (la huella tambien se alarga el sobreancho en la tapa inicial,
+      ;; unos m2; preferible a dejar la via sin movimiento de tierras).
+      (if (and (null result) (> left 1e-9) (equal left right 1e-9))
+        (progn
+          (setq result (urb:road-offset-closed-outward boundary left))
+          (if result
+            (setq *urb-last-road-footprint-diagnostic*
+              (list "FALLBACK_CONTORNO_OK"
+                (vla-get-Area (vlax-ename->vla-object result))
+                (vla-get-Area (vlax-ename->vla-object boundary)))))))
       result)))
+
+;; contorno cerrado desplazado hacia AFUERA (el lado que agranda el area),
+;; sin autointerseccion y acotado al ancho; nil si no sirve
+(defun urb:road-offset-closed-outward (boundary width / a b base cand best)
+  (setq base (vla-get-Area (vlax-ename->vla-object boundary))
+        a (urb:anden-offset-safe boundary width)
+        b (urb:anden-offset-safe boundary (- width)))
+  (foreach cand (list a b)
+    (if cand
+      (progn
+        (vl-catch-all-apply 'vla-put-Closed (list (vlax-ename->vla-object cand) :vlax-true))
+        (if (and (null best)
+                 (> (vla-get-Area (vlax-ename->vla-object cand)) base)
+                 (not (urb:polygon-self-intersects-p (urb:lwpoly-points-with-arcs cand)))
+                 (urb:anden-overwidth-bounded-p boundary cand (+ 0.001 (* 1.5 width))))
+          (setq best cand)
+          (entdel cand)))))
+  best)
 
 (defun urb:road-plan-integral (points surface axis raw-grade axis-start span direction depth step bin-size / cells sample p w near raw st tn finish cf cut fill covered total missing bins key old row rows ds)
   (setq cells (urb:earthwork-scanline-samples points step)

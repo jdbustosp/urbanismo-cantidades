@@ -4855,6 +4855,25 @@ columnas nuevas) + reglas para niveles mas profundos.
 Verificado headless: carga unica 5.7.33, reparto de areas cuadra
 (acabado + guia + toperol = area total), andenes al fondo sin error.
 
+### v5.7.39 - anden en C sin losetas y via en remate sin movimiento de tierras (2026-09-29)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+- **Anden en C alrededor de un remate** (contorno 230C86, 157,64 m2: "fallo el
+  acabado de losetas"): los recortes de bordillos/sardineles dejaron 15 tramos
+  de menos de 1 cm y ACIS rechazaba la region ("Invalid input").
+  urb:anden-region-from-object tiene un segundo respaldo sobre copia: quita
+  vertices a < 1 cm del siguiente y acepta si el area cambia <= max(0,05 m2;
+  0,05 %). Medido: region 157,66 m2 y losetas OK.
+- **VIA-27 (9B, via que termina en remate, 665 m2)**: el arco de mas de 180
+  grados del remate se tomaba por borde extremo y la huella salia de 632 m2 <
+  calzada (rechazada), sin tierras para la via ni para los andenes que toman
+  su rasante. Dos cambios en urb:road-earthwork-footprint: (1) el lado de
+  cada costado se decide por mayoria de 11 puntos, no por 1; (2) ultimo
+  respaldo con sobreanchos iguales: contorno completo desplazado hacia afuera
+  (FALLBACK_CONTORNO_OK). VIA-27: huella 851,34 m2 y calcula; las otras 20
+  vias arman la misma huella que antes.
+
 ### v5.7.38 - huella de vias en U, bioswale en bloque, desperdicio, uniones GRP, mobiliario por indicador, reposicion MT/AP (2026-09-28)
 
 Agente: Claude. Equipo: BOG085CD119BDQN.
