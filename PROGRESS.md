@@ -4855,6 +4855,18 @@ columnas nuevas) + reglas para niveles mas profundos.
 Verificado headless: carga unica 5.7.33, reparto de areas cuadra
 (acabado + guia + toperol = area total), andenes al fondo sin error.
 
+### v5.7.41 - convergencia de tierras de vias con relleno casi nulo (2026-09-29)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+Reporte del usuario (VIA-27): "Tierras PENDIENTES: SIN_CONVERGENCIA_0.5%" con
+corte 3.627,0 / 3.627,95 / 3.627,95 m3 (pasos 2 / 1 / 0,5 m) y relleno 0,54 /
+0,59 / 0,61 m3. El relleno se comparaba contra 0,02 m3 fijos y fallaba por 0,1
+litros. urb:road-plan-converged: cada volumen converge si cambia menos de
+max(0,02 m3; 0,5 % de si mismo; 0,1 % del movimiento total de la via).
+Probado headless en el maestro 11:42: VIA-27 converge (OK a 1,0 m, corte
+3.528,99 m3 con la rasante guardada).
+
 ### v5.7.40 - la cota se toma de la via creada aunque el clic caiga en su relleno (2026-09-29)
 
 Agente: Claude. Equipo: BOG085CD119BDQN.

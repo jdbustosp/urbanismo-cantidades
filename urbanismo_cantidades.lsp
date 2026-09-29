@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.40")
+(setq *urb-version* "5.7.41")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -25497,9 +25497,18 @@
               (T "AREA_MUESTREADA_NO_COINCIDE"))
             steps nil)
       (progn
+        ;; 5.7.41 (reporte del usuario 2026-09-29, VIA-27: "SIN_CONVERGENCIA"
+        ;; con corte 3.627,0 / 3.627,95 / 3.627,95 m3 y relleno 0,54 / 0,59 /
+        ;; 0,61 m3): el relleno casi nulo se comparaba contra 0,02 m3 fijos y
+        ;; fallaba por 0,1 litros. Cada volumen converge si cambia menos de
+        ;; max(0,02 m3; 0,5 % de si mismo; 0,1 % del movimiento total).
         (if prev
-          (setq ok (and (<= (abs (- (car current) (car prev))) (max 0.02 (* 0.005 (abs (car current)))))
-                        (<= (abs (- (cadr current) (cadr prev))) (max 0.02 (* 0.005 (abs (cadr current))))))))
+          (setq ok (and (<= (abs (- (car current) (car prev)))
+                            (max 0.02 (* 0.005 (abs (car current)))
+                                 (* 0.001 (+ (abs (car current)) (abs (cadr current))))))
+                        (<= (abs (- (cadr current) (cadr prev)))
+                            (max 0.02 (* 0.005 (abs (cadr current)))
+                                 (* 0.001 (+ (abs (car current)) (abs (cadr current)))))))))
         (if (not ok) (setq prev current)))))
   (if (and (not ok) (null reason)) (setq reason "SIN_CONVERGENCIA_0.5%"))
   (setq *urb-last-road-plan-diagnostic*
