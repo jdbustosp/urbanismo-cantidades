@@ -70,7 +70,7 @@
 
 (vl-load-com)
 
-(setq *urb-version* "5.7.39")
+(setq *urb-version* "5.7.40")
 (setq *urb-road-grade-silent* nil)
 ;; 5.7.2: contador de cargas por documento (diagnostico de la doble carga)
 (setq *urb-load-count* (1+ (if (numberp *urb-load-count*) *urb-load-count* 0)))
@@ -20249,6 +20249,62 @@
 (defun urb:pick-road-cotas (/)
   (urb:pick-road-cotas-loop nil))
 
+;; 5.7.40 (reporte del usuario 2026-09-29: "intente elegir como primera cota
+;; la via creada tal cual donde deje el cursor pero no me la reconoce y me
+;; pide la cota manual"): nentsel devuelve nil si el clic cae sobre el
+;; relleno de la via sin tocar una linea, y el bucle lo tomaba como Enter
+;; (-> "Cota inicial (msnm)"). Ahora se toma el PUNTO del clic: si hay un
+;; objeto bajo el cursor se usa como antes (nentselp); si no, se busca la
+;; via creada que contiene ese punto (prefiriendo las que tienen rasante) y
+;; la cota se lee alli. Enter sigue siendo Enter.
+(defun urb:via-sel-at-point (pt / ss i e data axis q d half best bestd con-rasante mn mx)
+  (setq ss (ssget "_X" '((0 . "INSERT") (-3 ("URB_VIA")))) i 0)
+  (if ss
+    (repeat (sslength ss)
+      (setq e (ssname ss i) i (1+ i) data (urb:get-xdata-strings e "URB_VIA"))
+      (if (and data
+               (not (vl-catch-all-error-p
+                      (vl-catch-all-apply 'vla-GetBoundingBox (list (vlax-ename->vla-object e) 'mn 'mx))))
+               (setq mn (vlax-safearray->list mn) mx (vlax-safearray->list mx))
+               (<= (- (car mn) 2.0) (car pt) (+ (car mx) 2.0))
+               (<= (- (cadr mn) 2.0) (cadr pt) (+ (cadr mx) 2.0)))
+        (progn
+          (setq axis (vl-catch-all-apply 'urb:road-axis-recover
+                       (list e data (if (> (length data) 22) (nth 22 data) ""))))
+          (if (and axis (not (vl-catch-all-error-p axis)))
+            (progn
+              (setq q (vlax-curve-getClosestPointTo axis (list (car pt) (cadr pt) 0.0))
+                    d (distance (list (car pt) (cadr pt)) (list (car q) (cadr q)))
+                    ;; medio ancho de calzada + 2 m de tolerancia
+                    half (+ 2.0 (* 0.5 (/ (atof (urb:safe-string (nth 17 data) "0"))
+                                         (max 0.01 (atof (urb:safe-string (nth 18 data) "1"))))))
+                    con-rasante (if (urb:road-design-grade-records e data) T nil))
+              (if (and (<= d half)
+                       (or (null best)
+                           (and con-rasante (not (cadr best)))
+                           (and (eq con-rasante (cadr best)) (< d bestd))))
+                (setq best (list e con-rasante) bestd d))))))))
+  (if best (list (car best) pt) nil))
+
+(defun urb:pick-cota-sel (msg / pt sel)
+  (setq pt (getpoint msg))
+  (cond
+    ((null pt) nil)
+    ((setq sel (nentselp pt)) sel)
+    ((setq sel (urb:via-sel-at-point pt))
+      (prompt (strcat "\nVia reconocida en el punto del clic: "
+                (urb:safe-string (nth 1 (urb:get-xdata-strings (car sel) "URB_VIA")) "")))
+      sel)
+    (T (prompt "\nNo hay via, pozo ni etiqueta en ese punto; vuelva a hacer clic o Enter para digitar.")
+       'NADA)))
+
+;; igual, pero repite hasta obtener un objeto o Enter (para los flujos que
+;; esperan nentsel o nil)
+(defun urb:pick-cota-sel-o-enter (msg / sel)
+  (setq sel 'NADA)
+  (while (eq sel 'NADA) (setq sel (urb:pick-cota-sel msg)))
+  sel)
+
 ;; Bucle interno reutilizable (2026-08-12): seed-picks permite arrancar
 ;; con la primera cota ya capturada -- lo usa "Textos por capa" cuando el
 ;; primer clic resulta ser una VIA creada o una etiqueta con numero
@@ -20359,8 +20415,10 @@
           (strcat "\nSegunda cota (el otro extremo, misma libertad de fuente)"
                   " o Enter para seguir con una PENDIENTE: "))
         (T "\nOtra cota sobre la via (pozos, quiebres) o Enter para terminar: ")))
-    (setq sel (nentsel msg))
+    (setq sel (urb:pick-cota-sel msg))
     (cond
+      ;; 5.7.40: clic en un punto vacio -> se vuelve a pedir (no es Enter)
+      ((eq sel 'NADA) nil)
       ((null sel)
         (cond
           ((>= n 2) (setq done T))
@@ -20775,8 +20833,9 @@
   (cond
     ((urb:string-equal-p mode "Textos por capa")
       ;; nentsel (no entsel) para poder tomar un texto anidado en un xref.
+      ;; 5.7.40: por punto (reconoce la via aunque el clic caiga en su relleno)
       (setq selected
-        (nentsel
+        (urb:pick-cota-sel-o-enter
           (strcat
             "\nSeleccione un texto de cota (cualquier capa/XREF)"
             " o una VIA ya creada como cota inicial: ")))
@@ -20789,7 +20848,7 @@
           " no tiene rasante guardada. Seleccione otra via o un texto de cota;"
           " para arreglarla use EDITAR y asigne cotas con pendiente."))
         (setq selected
-          (nentsel "\nOtra via o texto de cota (Enter cancela): "))
+          (urb:pick-cota-sel-o-enter "\nOtra via o texto de cota (Enter cancela): "))
         (setq road-name (if selected (urb:pick-road-name selected)))
         (setq via-cota (if road-name (urb:cota-from-pick selected))))
       (if selected

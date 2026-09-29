@@ -4855,6 +4855,22 @@ columnas nuevas) + reglas para niveles mas profundos.
 Verificado headless: carga unica 5.7.33, reparto de areas cuadra
 (acabado + guia + toperol = area total), andenes al fondo sin error.
 
+### v5.7.40 - la cota se toma de la via creada aunque el clic caiga en su relleno (2026-09-29)
+
+Agente: Claude. Equipo: BOG085CD119BDQN.
+
+Reporte del usuario (EDITAR VIA-27, "Primera cota de referencia"): clic sobre
+la via creada y el programa pedia "Cota inicial (msnm)". nentsel devuelve nil
+cuando el clic cae en el relleno de la via sin tocar una linea y el bucle lo
+tomaba como Enter. Ahora urb:pick-cota-sel toma el PUNTO (getpoint): objeto
+bajo el cursor -> igual que antes (nentselp); si no, urb:via-sel-at-point
+busca la via creada que contiene el punto (eje a <= medio ancho + 2 m,
+prefiriendo las que tienen rasante) y lee la cota alli; punto vacio -> se
+vuelve a pedir (no salta a digitar). Aplicado al bucle de cotas
+(Pendiente/Cotas seleccionadas de vias y andenes) y a "Textos por capa".
+Probado headless sobre el maestro 11:42: VIA-27 inicio 2557,84 / 5 m 2558,02
+/ 30 m 2558,90; punto vacio -> ninguna.
+
 ### v5.7.39 - anden en C sin losetas y via en remate sin movimiento de tierras (2026-09-29)
 
 Agente: Claude. Equipo: BOG085CD119BDQN.
