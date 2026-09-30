@@ -2,3 +2,5 @@ backups/
 urbanismo_cantidades_backup_*.lsp
 ribbon-net/obj/
 ribbon-net/bin/
+# Logs temporales de Civil 3D / pruebas en la raiz
+/*.log
