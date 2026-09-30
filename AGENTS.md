@@ -1,4 +1,4 @@
-# URBANISMO EXTERNO — manual del proyecto (Claude, Codex, Gemini)
+# URBANISMO EXTERNO — manual del proyecto (Claude y Codex)
 
 Plugin de cantidades de urbanismo para Civil 3D (`urbanismo_cantidades.lsp` = motor AutoLISP;
 `bundle\` = cinta .NET, manifiesto, iconos) + presupuesto de obra en Excel (`presupuesto\`).
@@ -33,7 +33,7 @@ Repo git: `jdbustosp/urbanismo-cantidades`. Instrucciones generales: `hub\INSTRU
 - Verificación lenta o repetida → mejorar el lanzador/script, con tiempo máximo; si se pasa, parar y diagnosticar.
 
 ## Registro (trazabilidad multiagente / multi-PC)
-- Al lograr algo verificable: entrada NUEVA arriba en el handoff, máx. ~6 líneas, con `Agente` (Claude|Codex|Gemini),
+- Al lograr algo verificable: entrada NUEVA arriba en el handoff, máx. ~6 líneas, con `Agente` (Claude|Codex),
   `Equipo` (COMPUTERNAME), fecha/hora local y commit. El detalle técnico va en `PROGRESS.md`/commit.
 - No atribuir cambios ajenos ni usar `Co-authored-by` sin coautoría real.
 
